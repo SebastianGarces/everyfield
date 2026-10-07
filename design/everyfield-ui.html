@@ -643,8 +643,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 /* ---- ListRow  (<ListRow icon title subtitle trailing>) ---- */
 .list { display: flex; flex-direction: column; }
 .list-row { display: flex; align-items: center; gap: 14px; padding: 16px 0; border-top: 1px solid var(--ef-line); cursor: pointer; }
-.list-row:first-child { border-top: 0; }
-.list-row:hover .list-title { text-decoration: underline; text-decoration-color: var(--ef-line-2); text-underline-offset: 3px; }
+.list-row:first-child, .hover-indicator + .list-row { border-top: 0; }
 .list-title { font-weight: 500; font-size: 15px; }
 .list-sub { color: var(--ef-text-3); font-size: var(--ef-text-md); margin-top: 2px; }
 .list-row > i.chev { color: var(--ef-text-3); font-size: 16px; }
@@ -658,10 +657,6 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .table th { text-align: left; font-weight: 400; font-size: var(--ef-text-sm); color: var(--ef-text-3); padding: 0 14px 12px; border-bottom: 1px solid var(--ef-line); white-space: nowrap; }
 .table td { padding: 14px; border-bottom: 1px solid var(--ef-line); vertical-align: middle; }
 .table tr:last-child td { border-bottom: 0; }
-.table tbody tr { transition: background .12s; }
-.table tbody tr:hover td, .table tbody tr[data-highlight="true"] td { background: var(--ef-surface-raised); }
-.table tbody tr:hover td:first-child, .table tbody tr[data-highlight="true"] td:first-child { border-radius: 14px 0 0 14px; }
-.table tbody tr:hover td:last-child, .table tbody tr[data-highlight="true"] td:last-child { border-radius: 0 14px 14px 0; }
 .table .cell-title { font-weight: 500; }
 .table .cell-sub { color: var(--ef-text-3); font-size: var(--ef-text-sm); margin-top: 2px; }
 .table td.num-cell { font-family: var(--ef-font-display); font-variant-numeric: tabular-nums; font-size: 16px; }
@@ -685,7 +680,6 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   padding: 6px; min-width: 220px;
 }
 .menu-item { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; cursor: pointer; font-size: var(--ef-text-md); }
-.menu-item:hover, .menu-item[data-highlighted] { background: var(--ef-surface-2); }
 .menu-item i { font-size: 17px; color: var(--ef-text-2); }
 .menu-item .kbd { margin-left: auto; }
 .menu-item[data-danger] { color: var(--ef-magenta-600); }
@@ -805,9 +799,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
 /* ---- Domain: task row ---- */
 .task-row { display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 16px; }
-.task-row:hover { background: var(--ef-surface-raised); }
 .task-row + .task-row { border-top: 1px solid var(--ef-line); }
-.task-row:hover + .task-row { border-top-color: transparent; }
 .task-row .t-title { font-weight: 500; }
 .task-row[data-selected="true"] { background: var(--ef-surface-raised); box-shadow: 0 0 0 1.5px var(--ef-ink) inset; }
 .task-row[data-selected="true"] + .task-row { border-top-color: transparent; }
@@ -818,6 +810,21 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .bulk-bar { display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: #fff; padding: 8px 8px 8px 18px; border-radius: 16px; box-shadow: var(--ef-shadow-pop); }
 .bulk-bar .btn[data-variant="ghost"] { color: #fff; }
 .bulk-bar .btn[data-variant="ghost"]:hover { background: rgba(255,255,255,.08); }
+
+
+/* ---- HoverGroup  (<HoverGroup>): one shared hover background per list ----
+   The script adds .hover-indicator to each list and slides it to the item under
+   the pointer. In React use a Motion element with a shared layoutId. */
+[data-hover-group] { position: relative; }
+.hover-indicator {
+  position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 0; pointer-events: none;
+  border-radius: var(--hi-radius, 10px); background: var(--hi-bg, var(--ef-surface-2)); box-shadow: var(--hi-shadow, none);
+  opacity: 0;
+  transition: transform .26s cubic-bezier(.2,.8,.2,1), width .26s cubic-bezier(.2,.8,.2,1), height .26s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+}
+.hover-indicator[data-instant] { transition: opacity .18s ease; }
+.menu-item, .list-row, .task-row, .tree-item, .table tbody tr { position: relative; z-index: 1; }
+.task-row + .task-row, .list-row { transition: border-color .2s; }
 
 /* ---- Wiki prose (<Prose>) ---- */
 .prose { font-size: 16px; line-height: 1.7; color: var(--ef-ink-2); max-width: 700px; }
@@ -837,8 +844,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .tree-phase .ph { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--ef-surface-2); color: var(--ef-text-2); font-family: var(--ef-font-display); }
 .tree-phase[data-open] .ph { background: var(--ef-ink); color: #fff; }
 .tree-item { padding: 7px 10px 7px 44px; border-radius: 10px; color: var(--ef-text-2); font-size: var(--ef-text-md); cursor: pointer; display: flex; align-items: center; gap: 8px; }
-.tree-item:hover { background: rgba(24,29,25,.04); }
-.tree-item[aria-current] { background: var(--ef-surface-raised); color: var(--ef-ink); font-weight: 500; box-shadow: var(--ef-shadow-raised); }
+.tree-item[aria-current] { color: var(--ef-ink); font-weight: 500; }
 .tree-item .read { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
 
 /* ---- Evry companion panel (<EvryPanel>, <EvryMessage>, <ReviewCard>) ---- */
@@ -2307,7 +2313,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="titles">
       <div class="breadcrumb"><span>Design system</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Inventory</span></div>
       <h1 class="page-title xl">Component inventory</h1>
-      <p class="page-sub">61 components and how each one maps to React and Base UI.</p>
+      <p class="page-sub">62 components and how each one maps to React and Base UI.</p>
     </div>
   </header>
   <div class="grid g-3" style="margin-bottom:20px">
@@ -2368,6 +2374,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Empty state</td><td><code class="k">&lt;EmptyState&gt;</code></td><td class="muted t-sm">Art, Title, Text, Action</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Skeleton</td><td><code class="k">&lt;Skeleton&gt;</code></td><td class="muted t-sm"></td><td class="muted t-sm">shape</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Callout</td><td><code class="k">&lt;Card variant=callout&gt;</code></td><td class="muted t-sm">Label, Text, Action</td><td class="muted t-sm">tone amber/green/blue</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Hover group</td><td><code class="k">&lt;HoverGroup&gt;</code> <code class=k>&lt;HoverGroup.Item&gt;</code></td><td class="muted t-sm">Indicator, Item</td><td class="muted t-sm">indicator style per list type · rests on the current item</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (Motion layoutId)</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Person card</td><td><code class="k">&lt;PersonCard&gt;</code></td><td class="muted t-sm">Avatar, Name, Meta, Footer</td><td class="muted t-sm">selected/dragging</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Pipeline column</td><td><code class="k">&lt;PipelineColumn&gt;</code></td><td class="muted t-sm">Header, Count, Cards, DropZone</td><td class="muted t-sm">drop target</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (dnd-kit)</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Ministry card</td><td><code class="k">&lt;MinistryCard&gt;</code></td><td class="muted t-sm">Icon, Status, Leader, Roles meter, Training</td><td class="muted t-sm">status</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -2492,12 +2499,59 @@ route();
 /* Small interactions so the prototype feels alive. Not app logic. */
 document.addEventListener('click', e => {
   const seg = e.target.closest('.segmented button, .tabs button');
-  if (seg) { seg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b === seg)); const v = seg.dataset.view; if (v) document.querySelectorAll('[data-view-panel]').forEach(p => p.hidden = p.dataset.viewPanel !== v); }
+  if (seg) { seg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b === seg)); const v = seg.dataset.view; if (v) document.querySelectorAll('[data-view-panel]').forEach(p => p.hidden = p.dataset.viewPanel !== v); requestAnimationFrame(refreshHoverGroups); }
   const sw = e.target.closest('.switch');
   if (sw) sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true');
   const ck = e.target.closest('.check[data-toggle]');
   if (ck) { ck.dataset.checked = ck.dataset.checked === 'true' ? 'false' : 'true'; const row = ck.closest('.task-row'); if (row) row.dataset.done = ck.dataset.checked; }
 });
+
+/* Shared hover background. Each list gets one indicator that moves between items. */
+const HOVER_ITEMS = {
+  'menu-item': { bg: 'var(--ef-surface-2)', radius: 10, x: 0 },
+  'list-row':  { bg: 'var(--ef-surface-raised)', radius: 14, x: 12, shadow: '0 1px 2px rgba(24,29,25,.05)' },
+  'task-row':  { bg: 'var(--ef-surface-raised)', radius: 16, x: 0, shadow: '0 1px 2px rgba(24,29,25,.05)' },
+  'tree-item': { bg: 'var(--ef-surface-raised)', radius: 10, x: 0, shadow: 'var(--ef-shadow-raised)' },
+  'row':       { bg: 'var(--ef-surface-raised)', radius: 14, x: 0, shadow: '0 1px 2px rgba(24,29,25,.05)' }
+};
+const ITEM_SEL = '.menu-item, .list-row, .task-row, .tree-item, .table tbody tr';
+const REST_SEL = '[data-highlighted], .tree-item[aria-current], tr[data-highlight="true"]';
+function itemKind(el) { return el.tagName === 'TR' ? 'row' : Object.keys(HOVER_ITEMS).find(k => el.classList.contains(k)); }
+function groupOf(el) { return el.tagName === 'TR' ? el.closest('table').parentElement : el.parentElement; }
+function placeIndicator(g, el, instant) {
+  const ind = g.__ind, cfg = HOVER_ITEMS[itemKind(el)];
+  const gr = g.getBoundingClientRect(), r = el.getBoundingClientRect();
+  const x = r.left - gr.left - g.clientLeft + g.scrollLeft - cfg.x;
+  const y = r.top - gr.top - g.clientTop + g.scrollTop;
+  ind.toggleAttribute('data-instant', !!instant || ind.style.opacity !== '1');
+  ind.style.setProperty('--hi-bg', cfg.bg); ind.style.setProperty('--hi-radius', cfg.radius + 'px'); ind.style.setProperty('--hi-shadow', cfg.shadow || 'none');
+  ind.style.width = (r.width + cfg.x * 2) + 'px'; ind.style.height = r.height + 'px';
+  ind.style.transform = `translate(${x}px, ${y}px)`;
+  ind.style.opacity = '1';
+  requestAnimationFrame(() => ind.removeAttribute('data-instant'));
+}
+function restIndicator(g) {
+  const rest = [...g.querySelectorAll(REST_SEL)].find(el => groupOf(el) === g);
+  if (rest && rest.offsetParent) placeIndicator(g, rest, true); else g.__ind.style.opacity = '0';
+}
+function initHoverGroups() {
+  const groups = new Set([...document.querySelectorAll(ITEM_SEL)].map(groupOf));
+  groups.forEach(g => {
+    g.setAttribute('data-hover-group', '');
+    const ind = document.createElement('span'); ind.className = 'hover-indicator'; ind.setAttribute('aria-hidden', 'true');
+    g.prepend(ind); g.__ind = ind;
+    g.addEventListener('pointerover', e => { const it = e.target.closest(ITEM_SEL); if (it && groupOf(it) === g) placeIndicator(g, it); });
+    g.addEventListener('pointerleave', () => restIndicator(g));
+  });
+  window.__hoverGroups = groups;
+}
+function refreshHoverGroups() { (window.__hoverGroups || []).forEach(g => { if (g.offsetParent || g.closest('.evry-panel')) restIndicator(g); }); }
+initHoverGroups();
+window.addEventListener('hashchange', () => requestAnimationFrame(refreshHoverGroups));
+window.addEventListener('resize', refreshHoverGroups);
+document.fonts && document.fonts.ready.then(refreshHoverGroups);
+requestAnimationFrame(refreshHoverGroups);
+
 function setTheme(t) {
   document.querySelectorAll('.theme-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.themeOpt === t));
   if (t === 'dark') { const el = document.getElementById('toast'); el.style.display = 'flex'; clearTimeout(window.__tt); window.__tt = setTimeout(() => { el.style.display = 'none'; setTheme('light'); }, 2200); }
