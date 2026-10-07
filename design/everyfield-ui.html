@@ -103,6 +103,9 @@
   --ef-space-1: 4px; --ef-space-2: 8px; --ef-space-3: 12px; --ef-space-4: 16px;
   --ef-space-5: 20px; --ef-space-6: 24px; --ef-space-8: 32px; --ef-space-10: 40px;
 
+  /* top bar: every pill shares one height; inner controls are 44px, chips 40px */
+  --ef-topbar-h: 60px;
+
   /* elevation */
   --ef-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
   --ef-shadow-raised: 0 1px 2px rgba(24,29,25,.06), 0 4px 12px -4px rgba(24,29,25,.10);
@@ -177,18 +180,18 @@ button { font: inherit; color: inherit; }
   background: var(--ef-surface-raised); border-radius: 999px;
   box-shadow: 0 0 0 1px rgba(24,29,25,.04), 0 1px 2px rgba(24,29,25,.04), 0 10px 24px -16px rgba(24,29,25,.22);
 }
-.brand-pill { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 22px 0 10px; color: var(--ef-ink); }
+.brand-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 22px 0 10px; color: var(--ef-ink); }
 .brand-pill .logo-chip { width: 40px; height: 40px; border-radius: 50%; }
 .brand-pill .logo-chip svg { width: 22px; }
 .brand-pill svg.wordmark { height: 21px; width: auto; }
-.topnav { display: flex; align-items: center; gap: 2px; height: 60px; padding: 0 8px; margin: 0 auto; }
+.topnav { display: flex; align-items: center; gap: 2px; height: var(--ef-topbar-h); padding: 0 8px; margin: 0 auto; }
 .topnav a {
   height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
   font-size: 15px; color: var(--ef-ink-2); transition: background .15s;
 }
 .topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
 
-.top-cluster { display: flex; align-items: center; gap: 6px; height: 60px; padding: 0 8px; }
+.top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
 .phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
 .phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(90,158,118,.22); }
 .top-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
@@ -200,7 +203,8 @@ button { font: inherit; color: inherit; }
 .evry-chip:hover { background: #E6E6E9; }
 .evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-raised); box-shadow: 0 1px 2px rgba(24,29,25,.08); }
 .evry-chip .spark i { color: var(--ef-ink); font-size: 16px; }
-.user-pill { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px 0 8px; cursor: pointer; }
+.user-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 16px 0 10px; cursor: pointer; }
+.user-pill .avatar { width: 40px; height: 40px; font-size: 14px; box-shadow: none; }
 .user-pill .meta { line-height: 1.2; }
 .user-pill .meta b { font-weight: 600; display: block; font-size: 15px; }
 .user-pill .meta span { font-size: 12px; color: var(--ef-text-3); }
@@ -954,7 +958,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <span class="evry-chip" onclick="openEvry()" title="Ask Evry (⌘J)"><span class="spark"><i class="hgi-stroke hgi-ai-magic"></i></span>Ask Evry</span>
     </div>
     <div class="user-pill pill-surface">
-      <span class="avatar tone-green" data-size="lg" style="width:44px;height:44px;font-size:15px">DR</span>
+      <span class="avatar tone-green">DR</span>
       <div class="meta"><b>Daniel Reyes</b><span>Lead planter · Harvest Point</span></div>
       <i class="hgi-stroke hgi-arrow-down-01" style="font-size:16px;color:var(--ef-text-3)"></i>
     </div>
