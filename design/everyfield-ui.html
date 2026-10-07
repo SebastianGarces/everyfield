@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 657 530%22%3E%3Cpath fill=%22%231CE362%22 d=%22M0 461.6H657V529.6H0ZM363 0V276.7L567.2 68.7L615.9 117.7L412.9 324.4H657V393.6H493.3C424.8 393.6 364.4 358.9 328.5 305.9C292.7 358.9 232.3 393.6 163.8 393.6L0 393.6V324.4H244.1L39.9 118.9L88.6 69.9L294.1 276.6V0Z%22/%3E%3C/svg%3E">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("ef-theme")||"light"}catch(e){}</script>
 <title>Everyfield UI · visual identity and component kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +33,14 @@
   --ef-surface-raised: #FFFFFF;
   --ef-line: rgba(22, 30, 46, .075);
   --ef-line-2: rgba(22, 30, 46, .13);
+  --ef-on-ink: #FFFFFF;            /* text and icons on ink fills */
+  --ef-on-ink-soft: rgba(255,255,255,.12);
+  --ef-surface-3: #E6E8EC;         /* hover on grey fills */
+  --ef-hover: rgba(22, 30, 46, .05);
+  --ef-card-edge: rgba(255,255,255,.85);
+  --ef-switch-off: #DCDFE4;
+  --ef-dock-bg: rgba(24,29,25,.92);
+  color-scheme: light;
 
   /* hues: 600 text/solid, 500 solid, 300 hatch, 100 tint, 50 wash */
   /* Data hues: clean and mid-saturated, with clear light tints.
@@ -126,6 +135,51 @@
 }
 
 /* =====================================================================
+   1b. DARK THEME  (html[data-theme="dark"])
+   Same token names, dark values. Ink flips to a light tone, so ink fills
+   (primary buttons, active nav) become light with dark text (--ef-on-ink).
+   ===================================================================== */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ef-ink: #EEF0F4;
+  --ef-ink-2: #CDD2DA;
+  --ef-text: #ECEEF2;
+  --ef-text-2: #A0A7B4;
+  --ef-text-3: #707784;
+  --ef-canvas: #0B0D10;
+  --ef-frame: #0F1115;
+  --ef-surface: #161A1F;
+  --ef-surface-2: #21262D;
+  --ef-surface-3: #2A3038;
+  --ef-surface-raised: #1C2026;
+  --ef-line: rgba(255,255,255,.07);
+  --ef-line-2: rgba(255,255,255,.13);
+  --ef-on-ink: #111318;
+  --ef-on-ink-soft: rgba(17,19,24,.10);
+  --ef-hover: rgba(255,255,255,.06);
+  --ef-card-edge: rgba(255,255,255,.05);
+  --ef-switch-off: #353B44;
+  --ef-dock-bg: rgba(38,43,51,.94);
+
+  --ef-green-700: #A2E2B9; --ef-green-600: #72CF93; --ef-green-500: #4CB874; --ef-green-300: #2E6A46; --ef-green-100: #17301F; --ef-green-50: #13231A;
+  --ef-blue-600: #A3B6FF;  --ef-blue-500: #6F89F3;  --ef-blue-300: #3C4C8C;  --ef-blue-100: #1B2342;  --ef-blue-50: #161C32;
+  --ef-magenta-600: #FFA593; --ef-magenta-500: #EA725C; --ef-magenta-300: #7A3B31; --ef-magenta-100: #3A1E1A; --ef-magenta-50: #2B1815;
+  --ef-amber-600: #F4C676; --ef-amber-500: #E9A23B; --ef-amber-300: #6E5322; --ef-amber-100: #33291A; --ef-amber-50: #272016;
+  --ef-violet-600: #C3B5FF; --ef-violet-500: #9C85EE; --ef-violet-100: #26213F;
+  --ef-teal-600: #84DBD5;  --ef-teal-500: #3AB0A9;  --ef-teal-100: #142E2D;
+
+  --ef-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
+  --ef-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -4px rgba(0,0,0,.45);
+  --ef-shadow-pop: 0 2px 6px rgba(0,0,0,.4), 0 24px 48px -16px rgba(0,0,0,.75);
+  --ef-shadow-pill: 0 1px 1px rgba(0,0,0,.4), 0 6px 14px -6px rgba(0,0,0,.6);
+  --ef-shadow-nav: 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.3), 0 2px 6px -3px rgba(0,0,0,.4);
+  --ef-shadow-nav-active: 0 1px 2px rgba(0,0,0,.45), 0 2px 5px -2px rgba(0,0,0,.4);
+}
+[data-theme="dark"] .heat .h3 { color: #0B0D10; }
+/* Brief color fade when the theme changes. */
+html.theme-switching, html.theme-switching * { transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease !important; }
+
+/* =====================================================================
    2. BASE
    ===================================================================== */
 * { box-sizing: border-box; }
@@ -188,7 +242,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 14px;
   padding: 22px 24px 8px 22px;
   position: sticky; top: 0; z-index: 20;
-  background: linear-gradient(var(--ef-frame) 78%, rgba(243,243,244,0));
+  background: linear-gradient(var(--ef-frame) 78%, transparent);
 }
 .topbar > * { white-space: nowrap; flex: none; }
 .topbar .topnav { flex: 0 1 auto; }
@@ -203,7 +257,7 @@ button { font: inherit; color: inherit; }
   height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
   font-size: 15px; color: var(--ef-ink-2); transition: background .15s;
 }
-.topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active); }
+.topnav a[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
 .phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
@@ -214,7 +268,7 @@ button { font: inherit; color: inherit; }
 .top-icon .ping { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: var(--ef-amber-500); box-shadow: 0 0 0 2px #fff; }
 .evry-chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px 0 8px; border-radius: 999px; cursor: pointer; color: var(--ef-ink); font-weight: 500;
   background: var(--ef-surface-2); }
-.evry-chip:hover { background: #E6E6E9; }
+.evry-chip:hover { background: var(--ef-surface-3); }
 .evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-raised); box-shadow: 0 1px 2px rgba(24,29,25,.08); }
 .evry-chip .spark i { color: var(--ef-ink); font-size: 16px; }
 .user-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 16px 0 10px; cursor: pointer; }
@@ -241,9 +295,9 @@ button { font: inherit; color: inherit; }
 .rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
 .rail-item i { font-size: 20px; }
-.rail-item[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active); width: 52px; height: 52px; }
+.rail-item[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); width: 52px; height: 52px; }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
-  background: var(--ef-ink); color: #fff; font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 30; }
+  background: var(--ef-ink); color: var(--ef-on-ink); font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 30; }
 .rail-item:hover .rail-tip { opacity: 1; transform: translateY(-50%); }
 .rail-sep { width: 24px; height: 1px; background: var(--ef-line-2); margin: 4px 0; }
 .rail-spacer { flex: 1; }
@@ -252,11 +306,11 @@ button { font: inherit; color: inherit; }
 .theme-btn[aria-checked="true"] { background: var(--ef-surface-2); color: var(--ef-ink); }
 /* Design-system dock: not part of the app, only for this prototype */
 .doc-dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 35; display: flex; align-items: center; gap: 4px; padding: 6px; height: 50px;
-  background: rgba(24,29,25,.92); border-radius: 999px; box-shadow: 0 2px 8px -2px rgba(24,29,25,.25); backdrop-filter: blur(10px); }
+  background: var(--ef-dock-bg); border-radius: 999px; box-shadow: 0 2px 8px -2px rgba(0,0,0,.25); backdrop-filter: blur(10px); }
 .doc-dock .lbl { color: rgba(255,255,255,.5); font-size: 12px; padding: 0 10px 0 12px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
 .doc-dock a { color: rgba(255,255,255,.8); height: 38px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .doc-dock a i { font-size: 16px; }
-.doc-dock a[aria-current="page"] { background: #fff; color: var(--ef-ink); }
+.doc-dock a[aria-current="page"] { background: #fff; color: #111318; }
 
 /* ---- Sidebar (alternative shell, shown on the Components page) ---- */
 .sidebar {
@@ -290,9 +344,9 @@ button { font: inherit; color: inherit; }
 }
 .nav-item i { font-size: 20px; color: var(--ef-ink-2); }
 .nav-item[aria-current="page"] {
-  background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active);
+  background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active);
 }
-.nav-item[aria-current="page"] i { color: #fff; }
+.nav-item[aria-current="page"] i { color: var(--ef-on-ink); }
 .nav-item .count {
   margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
   background: var(--ef-amber-500); color: #fff; font-size: 12px; font-weight: 600;
@@ -316,16 +370,16 @@ button { font: inherit; color: inherit; }
 
 .evry-launch {
   display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 10px 0 12px;
-  border-radius: var(--ef-radius-md); cursor: pointer; color: #fff;
+  border-radius: var(--ef-radius-md); cursor: pointer; color: var(--ef-on-ink);
   background: var(--ef-ink);
   box-shadow: var(--ef-shadow-nav-active); margin-top: 8px;
 }
 .evry-launch .spark {
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
-  background: rgba(255,255,255,.12);
+  background: var(--ef-on-ink-soft);
 }
-.evry-launch .spark i { color: #fff; font-size: 17px; }
-.evry-launch .kbd { background: rgba(255,255,255,.14); color: rgba(255,255,255,.8); box-shadow: none; }
+.evry-launch .spark i { color: var(--ef-on-ink); font-size: 17px; }
+.evry-launch .kbd { background: var(--ef-on-ink-soft); color: var(--ef-on-ink); box-shadow: none; }
 
 .main { padding: 18px 26px 96px 10px; min-width: 0; }
 .page { display: none; }
@@ -365,7 +419,7 @@ button { font: inherit; color: inherit; }
   background: var(--ef-surface);
   border-radius: var(--ef-radius-card);
   box-shadow: var(--ef-shadow-card);
-  border: 1px solid rgba(255,255,255,.85);
+  border: 1px solid var(--ef-card-edge);
   padding: 26px 28px;
   display: flex; flex-direction: column; min-width: 0;
   position: relative;
@@ -485,15 +539,15 @@ button { font: inherit; color: inherit; }
 }
 .btn:active { transform: translateY(1px); }
 .btn i { font-size: 18px; }
-.btn[data-variant="primary"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
-.btn[data-variant="primary"]:hover { background: #262C27; }
+.btn[data-variant="primary"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pill); }
+.btn[data-variant="primary"]:hover { background: color-mix(in srgb, var(--ef-ink) 88%, var(--ef-frame)); }
 .btn[data-variant="brand"] { background: var(--ef-green-600); color: #fff; box-shadow: 0 4px 10px -6px rgba(30,122,69,.6); }
 .btn[data-variant="secondary"] { background: var(--ef-surface-2); color: var(--ef-ink); }
-.btn[data-variant="secondary"]:hover { background: #E6E6E9; }
+.btn[data-variant="secondary"]:hover { background: var(--ef-surface-3); }
 .btn[data-variant="outline"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1px var(--ef-line-2); }
 .btn[data-variant="ghost"] { background: transparent; color: var(--ef-ink); padding: 0 10px; }
-.btn[data-variant="ghost"]:hover { background: rgba(24,29,25,.05); }
-.btn[data-variant="light"] { background: #fff; color: var(--ef-ink); }
+.btn[data-variant="ghost"]:hover { background: var(--ef-hover); }
+.btn[data-variant="light"] { background: #fff; color: #111318; }
 .btn[data-variant="glass"] { background: rgba(255,255,255,.14); color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset; }
 .btn[data-variant="danger"] { background: var(--ef-magenta-100); color: var(--ef-magenta-600); }
 .btn[data-size="sm"] { height: 34px; padding: 0 12px; font-size: var(--ef-text-sm); border-radius: var(--ef-radius-sm); }
@@ -570,14 +624,14 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   display: inline-grid; place-items: center; flex: none; background: var(--ef-surface-raised); cursor: pointer;
 }
 .check[data-checked="true"] { background: var(--ef-ink); box-shadow: none; }
-.check[data-checked="true"]::after { content: ""; width: 9px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px,-1px); }
+.check[data-checked="true"]::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--ef-on-ink); border-bottom: 2px solid var(--ef-on-ink); transform: rotate(-45deg) translate(1px,-1px); }
 .check[data-checked="mixed"] { background: var(--ef-ink); box-shadow: none; }
-.check[data-checked="mixed"]::after { content: ""; width: 9px; height: 2px; background: #fff; border-radius: 2px; }
+.check[data-checked="mixed"]::after { content: ""; width: 9px; height: 2px; background: var(--ef-on-ink); border-radius: 2px; }
 .check.round { border-radius: 50%; }
 .radio { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ef-line-2) inset; display: inline-grid; place-items: center; background: #fff; }
 .radio[data-checked="true"] { box-shadow: 0 0 0 6px var(--ef-ink) inset; }
 .switch {
-  width: 48px; height: 28px; border-radius: 99px; background: #DFE0E3; position: relative; cursor: pointer; flex: none;
+  width: 48px; height: 28px; border-radius: 99px; background: var(--ef-switch-off); position: relative; cursor: pointer; flex: none;
   box-shadow: 0 1px 2px rgba(24,29,25,.08) inset; transition: background .2s; border: 0; padding: 0;
 }
 .switch::after {
@@ -651,7 +705,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .avatar-group .avatar:first-child { margin-left: 0; }
 .avatar-group .avatar[data-size="xs"] { margin-left: -5px; font-size: 10px; }
 .avatar-group .avatar[data-size="xs"]:first-child { margin-left: 0; }
-.avatar.more { background: var(--ef-ink); color: #fff; }
+.avatar.more { background: var(--ef-ink); color: var(--ef-on-ink); }
 
 /* ---- Stat  (<Stat label value delta caption size>) ---- */
 .stat-label { color: var(--ef-text-3); font-size: var(--ef-text-md); }
@@ -704,7 +758,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .table th.right, .table td.right { text-align: right; }
 .pagination { display: flex; align-items: center; gap: 6px; }
 .pagination button { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; font-weight: 500; color: var(--ef-ink-2); }
-.pagination button[aria-current="page"] { background: var(--ef-ink); color: #fff; }
+.pagination button[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); }
 .pagination button.nav { box-shadow: 0 0 0 1px var(--ef-line-2); }
 
 /* ---- Dialog / Sheet / Popover / Menu / Tooltip / Toast ---- */
@@ -732,14 +786,15 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   padding: 8px 16px; box-shadow: var(--ef-shadow-pop), 0 0 0 1px var(--ef-line); font-size: var(--ef-text-md); white-space: nowrap;
 }
 .tooltip .sep { width: 1px; height: 16px; background: var(--ef-line-2); }
-.tooltip.dark { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pop); }
+.tooltip.dark { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pop); }
 .toast {
-  display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: #fff; border-radius: 16px;
+  display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: var(--ef-on-ink); border-radius: 16px;
   padding: 12px 14px 12px 16px; box-shadow: var(--ef-shadow-pop); max-width: 440px;
 }
-.toast .t-icon { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; color: var(--ef-green-300); }
+.toast .t-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--ef-on-ink-soft); display: grid; place-items: center; color: var(--ef-green-300); }
 .toast .t-icon i { font-size: 16px; }
 .toast .btn { height: 32px; font-size: 13px; padding: 0 10px; }
+.toast .btn[data-variant="glass"] { background: var(--ef-on-ink-soft); color: var(--ef-on-ink); box-shadow: none; }
 
 /* Command palette  (<CommandPalette>) */
 .cmdk { width: 100%; max-width: 620px; background: var(--ef-surface-raised); border-radius: 24px; box-shadow: var(--ef-shadow-pop); overflow: hidden; position: relative; }
@@ -836,13 +891,13 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .pcard .foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .stage-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--tint); color: var(--tone); }
 .stage-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.st-prospect { --tint: #EDF0F4; --tone: #636A78; }
+.st-prospect { --tint: var(--ef-surface-2); --tone: var(--ef-text-2); }
 .st-attendee { --tint: var(--ef-blue-100); --tone: var(--ef-blue-600); }
 .st-following { --tint: var(--ef-amber-100); --tone: var(--ef-amber-600); }
 .st-interviewed { --tint: var(--ef-violet-100); --tone: var(--ef-violet-600); }
 .st-core { --tint: var(--ef-green-100); --tone: var(--ef-green-700); }
 .st-launch { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
-.st-leader { --tint: var(--ef-ink); --tone: #fff; }
+.st-leader { --tint: var(--ef-ink); --tone: var(--ef-on-ink); }
 
 /* ---- Domain: ministry card, role slot ---- */
 .ministry-card .m-icon { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; background: var(--tint); color: var(--tone); }
@@ -861,9 +916,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .task-row .t-meta i { font-size: 14px; }
 .task-row[data-done="true"] .t-title { text-decoration: line-through; color: var(--ef-text-3); }
 .task-group-label { display: flex; align-items: center; gap: 8px; font-size: var(--ef-text-sm); font-weight: 600; color: var(--ef-text-2); padding: 18px 12px 8px; }
-.bulk-bar { display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: #fff; padding: 8px 8px 8px 18px; border-radius: 16px; box-shadow: var(--ef-shadow-pop); }
-.bulk-bar .btn[data-variant="ghost"] { color: #fff; }
-.bulk-bar .btn[data-variant="ghost"]:hover { background: rgba(255,255,255,.08); }
+.bulk-bar { display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: var(--ef-on-ink); padding: 8px 8px 8px 18px; border-radius: 16px; box-shadow: var(--ef-shadow-pop); }
+.bulk-bar .btn[data-variant="ghost"] { color: var(--ef-on-ink); }
+.bulk-bar .btn[data-variant="ghost"]:hover { background: var(--ef-on-ink-soft); }
 
 
 /* ---- HoverGroup  (<HoverGroup>): one shared hover background per list ----
@@ -899,7 +954,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .tree { display: flex; flex-direction: column; gap: 2px; }
 .tree-phase { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; font-weight: 500; cursor: pointer; }
 .tree-phase .ph { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--ef-surface-2); color: var(--ef-text-2); font-family: var(--ef-font-display); }
-.tree-phase[data-open] .ph { background: var(--ef-ink); color: #fff; }
+.tree-phase[data-open] .ph { background: var(--ef-ink); color: var(--ef-on-ink); }
 .tree-item { padding: 7px 10px 7px 44px; border-radius: 10px; color: var(--ef-text-2); font-size: var(--ef-text-md); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .tree-item[aria-current] { color: var(--ef-ink); font-weight: 500; }
 .tree-item .read { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
@@ -907,21 +962,21 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 /* ---- Evry companion panel (<EvryPanel>, <EvryMessage>, <ReviewCard>) ---- */
 .evry-panel {
   position: fixed; top: 20px; right: 20px; bottom: 20px; width: min(560px, calc(100vw - 40px)); z-index: 50;
-  background: var(--ef-surface); border-radius: 30px; box-shadow: var(--ef-shadow-pop), 0 0 0 1px rgba(255,255,255,.9) inset;
+  background: var(--ef-surface); border-radius: 30px; box-shadow: var(--ef-shadow-pop), 0 0 0 1px var(--ef-card-edge) inset;
   display: flex; flex-direction: column; overflow: hidden;
   transform: translateX(calc(100% + 40px)); transition: transform .35s cubic-bezier(.2,.8,.2,1);
 }
 .evry-panel[data-open="true"] { transform: none; }
 .evry-head { padding: 18px 18px 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--ef-line); }
 .evry-head .orb { width: 38px; height: 38px; border-radius: 12px; background: var(--ef-ink); display: grid; place-items: center; }
-.evry-head .orb i { color: #fff; font-size: 20px; }
+.evry-head .orb i { color: var(--ef-on-ink); font-size: 20px; }
 
 .evry-context { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--ef-line); flex-wrap: wrap; }
 .evry-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
-.msg-user { align-self: flex-end; max-width: 85%; background: var(--ef-ink); color: #fff; padding: 11px 15px; border-radius: 18px 18px 6px 18px; }
+.msg-user { align-self: flex-end; max-width: 85%; background: var(--ef-ink); color: var(--ef-on-ink); padding: 11px 15px; border-radius: 18px 18px 6px 18px; }
 .msg-evry { max-width: 100%; display: flex; gap: 10px; }
 .msg-evry .who { width: 28px; height: 28px; border-radius: 9px; background: var(--ef-ink); display: grid; place-items: center; flex: none; }
-.msg-evry .who i { color: #fff; font-size: 15px; }
+.msg-evry .who i { color: var(--ef-on-ink); font-size: 15px; }
 .msg-evry .bubble { line-height: 1.55; color: var(--ef-ink-2); }
 .cite { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ef-blue-100); color: var(--ef-blue-600); font-size: 12px; font-weight: 600; vertical-align: 1px; }
 .review-card { background: var(--ef-surface-raised); border-radius: 20px; box-shadow: 0 0 0 1px var(--ef-line) inset, var(--ef-shadow-raised); overflow: hidden; }
@@ -943,7 +998,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .empty .e-art { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; background: var(--ef-surface-2); margin-bottom: 6px; position: relative; }
 .empty .e-art i { font-size: 30px; color: var(--ef-text-2); }
 .empty .e-art::after { content: ""; position: absolute; inset: -8px; border-radius: 28px; border: 1.5px dashed var(--ef-line-2); }
-.skel { background: linear-gradient(90deg, var(--ef-surface-2), #F7F7F8, var(--ef-surface-2)); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
+.skel { background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2)); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
 /* =====================================================================
@@ -1049,7 +1104,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="titles">
       <div class="breadcrumb"><span>Design system</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Foundations</span></div>
       <h1 class="page-title xl">Foundations</h1>
-      <p class="page-sub">Brand, color roles, type, shape and patterns. Everything else is built from these tokens.</p>
+      <p class="page-sub">Brand, color roles, type, shape and patterns. Everything else is built from these tokens. Dark theme uses the same token names with dark values (switch with the sun and moon in the rail).</p>
     </div>
     <div class="page-actions"><span class="badge" data-status="positive">Tokens v0.1</span></div>
   </header>
@@ -1079,17 +1134,17 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <p class="doc-note">Every hue has one job. Green means healthy or committed. Blue means measured or actual. Coral means risk or a gap. Amber means attention or waiting. Lavender and teal only label categories, like pipeline stages. Tints are light and clean, never grey. Token names stay generic (green, blue, magenta, amber) so a hue can change without renaming.</p>
     <div class="grid g-3">
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Green</span>healthy · committed · positive</div>
-        <div class="ramp"><div style="background:var(--ef-green-700);color:#fff">700</div><div style="background:var(--ef-green-500)">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-green-700);color:var(--ef-on-ink)">700</div><div style="background:var(--ef-green-500)">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Blue</span>measured · actual · info</div>
-        <div class="ramp"><div style="background:var(--ef-blue-600);color:#fff">600</div><div style="background:var(--ef-blue-500);color:#fff">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-blue-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-blue-500);color:var(--ef-on-ink)">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Coral</span>risk · gap · overdue</div>
-        <div class="ramp"><div style="background:var(--ef-magenta-600);color:#fff">600</div><div style="background:var(--ef-magenta-500);color:#fff">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-magenta-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-magenta-500);color:var(--ef-on-ink)">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Amber</span>attention · waiting · draft</div>
-        <div class="ramp"><div style="background:var(--ef-amber-600);color:#fff">600</div><div style="background:var(--ef-amber-500)">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-amber-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-amber-500)">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Lavender</span><span class="tag tone-teal">Teal</span>category only</div>
-        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:#fff">v600</div><div style="background:var(--ef-violet-500);color:#fff">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:#fff">t600</div><div style="background:var(--ef-teal-500)">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
+        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:var(--ef-on-ink)">v600</div><div style="background:var(--ef-violet-500);color:var(--ef-on-ink)">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:var(--ef-on-ink)">t600</div><div style="background:var(--ef-teal-500)">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
       <div class="specimen"><div class="specimen-label">Neutrals (app UI)</div>
-        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-text-2);color:#fff">text-2</div><div style="background:var(--ef-text-3);color:#fff">text-3</div><div style="background:var(--ef-canvas)">canvas</div><div style="background:var(--ef-frame)">frame</div><div style="background:var(--ef-surface)">surface</div><div style="background:#fff">raised</div></div></div>
+        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-text-2);color:var(--ef-on-ink)">text-2</div><div style="background:var(--ef-text-3);color:var(--ef-on-ink)">text-3</div><div style="background:var(--ef-canvas)">canvas</div><div style="background:var(--ef-frame)">frame</div><div style="background:var(--ef-surface)">surface</div><div style="background:var(--ef-surface-raised)">raised</div></div></div>
     </div>
   </div>
 
@@ -1137,7 +1192,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
           <div style="width:72px;height:72px;background:var(--ef-surface-2);border-radius:26px"></div>
         </div><div class="faint t-xs mt-3">6 · 10 · 14 · 20 · 26 card · 34 frame</div></div>
       <div class="specimen"><div class="specimen-label">Elevation</div>
-        <div class="row gap-3"><div style="flex:1;height:64px;border-radius:14px;background:var(--ef-surface);box-shadow:var(--ef-shadow-card)"></div><div style="flex:1;height:64px;border-radius:14px;background:#fff;box-shadow:var(--ef-shadow-raised)"></div><div style="flex:1;height:64px;border-radius:14px;background:#fff;box-shadow:var(--ef-shadow-pop)"></div></div>
+        <div class="row gap-3"><div style="flex:1;height:64px;border-radius:14px;background:var(--ef-surface);box-shadow:var(--ef-shadow-card)"></div><div style="flex:1;height:64px;border-radius:14px;background:var(--ef-surface-raised);box-shadow:var(--ef-shadow-raised)"></div><div style="flex:1;height:64px;border-radius:14px;background:var(--ef-surface-raised);box-shadow:var(--ef-shadow-pop)"></div></div>
         <div class="faint t-xs mt-3">card · raised · pop</div></div>
       <div class="specimen"><div class="specimen-label">Hatch = planned or estimated</div>
         <div class="stack gap-2"><div class="hatch" style="height:16px;border-radius:99px;--hatch:var(--ef-blue-300)"></div><div class="hatch" style="height:16px;border-radius:99px;--hatch:var(--ef-magenta-500);width:70%"></div><div class="hatch" style="height:16px;border-radius:99px;--hatch:var(--ef-green-500);width:50%"></div></div>
@@ -1592,7 +1647,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <div class="card">
         <div class="card-header"><div class="grow"><div class="card-title">Where people are</div><div class="card-description">214 people across 7 stages</div></div><a class="btn" data-variant="ghost" data-size="sm" href="#/people">Pipeline <i class="hgi-stroke hgi-arrow-right-01"></i></a></div>
         <div class="stack" style="gap:18px">
-          <div><div class="row between"><span class="row gap-2"><span class="stage-chip st-prospect">Prospect</span></span><span class="num t-lg">82</span></div><div class="meter-hatch mt-2"><span class="hatch" style="width:100%;--hatch:#B8BABF"></span></div></div>
+          <div><div class="row between"><span class="row gap-2"><span class="stage-chip st-prospect">Prospect</span></span><span class="num t-lg">82</span></div><div class="meter-hatch mt-2"><span class="hatch" style="width:100%;--hatch:var(--ef-text-3)"></span></div></div>
           <div><div class="row between"><span class="stage-chip st-attendee">Attendee</span><span class="num t-lg">41</span></div><div class="meter-hatch mt-2"><span class="hatch" style="width:50%;--hatch:var(--ef-blue-500)"></span></div></div>
           <div><div class="row between"><span class="stage-chip st-following">Following up</span><span class="row gap-2"><span class="faint t-sm">3 overdue</span><span class="num t-lg">23</span></span></div><div class="meter-hatch mt-2"><span class="hatch" style="width:28%;--hatch:var(--ef-amber-500)"></span></div></div>
           <div><div class="row between"><span class="stage-chip st-interviewed">Interviewed</span><span class="num t-lg">14</span></div><div class="meter-hatch mt-2"><span class="hatch" style="width:17%;--hatch:var(--ef-violet-500)"></span></div></div>
@@ -1679,9 +1734,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       </div>
       <div class="mt-6">
         <div style="display:flex;height:14px;border-radius:99px;overflow:hidden;gap:3px">
-          <span style="flex:82;background:#D6D7DA"></span><span style="flex:41;background:var(--ef-blue-500)"></span><span style="flex:23;background:var(--ef-amber-500)"></span><span style="flex:14;background:var(--ef-violet-500)"></span><span style="flex:34;background:var(--ef-green-500)"></span><span style="flex:12;background:var(--ef-teal-500)"></span><span style="flex:8;background:var(--ef-ink)"></span>
+          <span style="flex:82;background:var(--ef-surface-3)"></span><span style="flex:41;background:var(--ef-blue-500)"></span><span style="flex:23;background:var(--ef-amber-500)"></span><span style="flex:14;background:var(--ef-violet-500)"></span><span style="flex:34;background:var(--ef-green-500)"></span><span style="flex:12;background:var(--ef-teal-500)"></span><span style="flex:8;background:var(--ef-ink)"></span>
         </div>
-        <div class="legend mt-3 t-sm"><span><i class="dt" style="background:#C6C8CC"></i>Prospect 82</span><span><i class="dt" style="background:var(--ef-blue-500)"></i>Attendee 41</span><span><i class="dt" style="background:var(--ef-amber-500)"></i>Following up 23</span><span><i class="dt" style="background:var(--ef-violet-500)"></i>Interviewed 14</span><span><i class="dt" style="background:var(--ef-green-500)"></i>Core group 34</span><span><i class="dt" style="background:var(--ef-teal-500)"></i>Launch team 12</span><span><i class="dt" style="background:var(--ef-ink)"></i>Leader 8</span></div>
+        <div class="legend mt-3 t-sm"><span><i class="dt" style="background:var(--ef-text-3)"></i>Prospect 82</span><span><i class="dt" style="background:var(--ef-blue-500)"></i>Attendee 41</span><span><i class="dt" style="background:var(--ef-amber-500)"></i>Following up 23</span><span><i class="dt" style="background:var(--ef-violet-500)"></i>Interviewed 14</span><span><i class="dt" style="background:var(--ef-green-500)"></i>Core group 34</span><span><i class="dt" style="background:var(--ef-teal-500)"></i>Launch team 12</span><span><i class="dt" style="background:var(--ef-ink)"></i>Leader 8</span></div>
       </div>
     </div>
     <div class="insight" data-tone="ocean" data-size="sm" style="min-height:0">
@@ -1722,7 +1777,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
     <div data-view-panel="pipeline" class="mt-6" hidden>
       <div class="kanban">
-        <div class="kcol"><div class="kcol-head"><span class="sdot" style="--c:#B8BABF"></span>Prospect<span class="n">82</span></div>
+        <div class="kcol"><div class="kcol-head"><span class="sdot" style="--c:var(--ef-text-3)"></span>Prospect<span class="n">82</span></div>
           <div class="pcard"><div class="who"><span class="avatar tone-ink" data-size="sm">EP</span><div><div class="name">Eli Park</div><div class="meta">Added Oct 4</div></div></div></div>
           <div class="pcard"><div class="who"><span class="avatar tone-ink" data-size="sm">SN</span><div><div class="name">Sara Nunez</div><div class="meta">Invited by Tom</div></div></div></div>
         </div>
@@ -2173,7 +2228,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Interview David Kim</div><div class="t-meta"><span>Thu Oct 9</span><span><i class="hgi-stroke hgi-user-check-01"></i> Interview</span></div></div><span class="avatar tone-green" data-size="xs">DR</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Draft first-year budget</div><div class="t-meta"><span>Fri Oct 10</span><span><i class="hgi-stroke hgi-coins-01"></i> Blocked by: get giving estimate</span></div></div><span class="avatar tone-teal" data-size="xs">CP</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
 
-      <div class="bulk-bar mt-4"><span class="check" data-checked="true" style="background:rgba(255,255,255,.16)"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:#fff"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      <div class="bulk-bar mt-4"><span class="check" data-checked="true" style="background:var(--ef-on-ink-soft)"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:var(--ef-on-ink)"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
     </div>
 
     <div class="stack" style="gap:20px">
@@ -2469,7 +2524,6 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   <a href="#/components" data-nav="components"><i class="hgi-stroke hgi-grid-view"></i>Components</a>
   <a href="#/inventory" data-nav="inventory"><i class="hgi-stroke hgi-list-view"></i>Inventory</a>
 </nav>
-<div class="toast" id="toast" style="position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:60;display:none"><span class="t-icon"><i class="hgi-stroke hgi-moon-02"></i></span><span class="grow">Dark mode is planned for a later pass.</span></div>
 <div class="scrim" id="scrim" onclick="closeEvry()"></div>
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
@@ -2588,10 +2642,10 @@ const HOVER_KINDS = [
   { sel: '.table tbody tr',     bg: 'var(--ef-surface-raised)', radius: 14, shadow: '0 1px 2px rgba(24,29,25,.05)', group: el => el.closest('table').parentElement },
   { sel: '.topnav a',           bg: 'var(--ef-surface-2)', radius: 999 },
   { sel: '.rail-item',          bg: 'var(--ef-surface-2)', radius: 999 },
-  { sel: '.segmented button',   bg: 'rgba(24,29,25,.06)', radius: 10 },
+  { sel: '.segmented button',   bg: 'var(--ef-hover)', radius: 10 },
   { sel: '.tabs button',        bg: 'var(--ef-surface-2)', radius: 9, x: 10, y: -7, h: 2, restHidden: true },
   { sel: '.doc-dock a',         bg: 'rgba(255,255,255,.1)', radius: 999 },
-  { sel: '.nav-item',           bg: 'rgba(24,29,25,.05)', radius: 14 }
+  { sel: '.nav-item',           bg: 'var(--ef-hover)', radius: 14 }
 ];
 const ITEM_SEL = HOVER_KINDS.map(k => k.sel).join(', ');
 const REST_SEL = '[data-highlighted], .tree-item[aria-current], tr[data-highlight="true"], [aria-current="page"], [aria-selected="true"], .theme-btn[aria-checked="true"]';
@@ -2672,11 +2726,16 @@ window.addEventListener('resize', refreshActiveIndicators);
 document.fonts && document.fonts.ready.then(refreshActiveIndicators);
 requestAnimationFrame(refreshActiveIndicators);
 
-function setTheme(t) {
+/* Theme: light or dark, saved in localStorage. */
+function setTheme(t, silent) {
+  const root = document.documentElement;
+  if (!silent) { root.classList.add('theme-switching'); clearTimeout(window.__tt); window.__tt = setTimeout(() => root.classList.remove('theme-switching'), 350); }
+  root.dataset.theme = t;
+  try { localStorage.setItem('ef-theme', t); } catch (e) {}
   document.querySelectorAll('.theme-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.themeOpt === t));
-  requestAnimationFrame(refreshHoverGroups);
-  if (t === 'dark') { const el = document.getElementById('toast'); el.style.display = 'flex'; clearTimeout(window.__tt); window.__tt = setTimeout(() => { el.style.display = 'none'; setTheme('light'); }, 2200); }
+  requestAnimationFrame(() => { refreshHoverGroups(); refreshActiveIndicators(); });
 }
+setTheme((() => { try { return localStorage.getItem('ef-theme') || 'light'; } catch (e) { return 'light'; } })(), true);
 function openEvry() { document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; }
 function closeEvry() { document.getElementById('evry').dataset.open = 'false'; document.getElementById('scrim').dataset.open = 'false'; }
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
