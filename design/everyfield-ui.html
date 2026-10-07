@@ -186,7 +186,6 @@ button { font: inherit; color: inherit; }
   height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
   font-size: 15px; color: var(--ef-ink-2); transition: background .15s;
 }
-.topnav a:hover { background: var(--ef-surface-2); }
 .topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: 60px; padding: 0 8px; }
@@ -223,7 +222,6 @@ button { font: inherit; color: inherit; }
 .rail { padding: 18px 0 20px 22px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 92px; height: calc(100vh - 112px); z-index: 25; }
 .rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
-.rail-item:hover { background: var(--ef-surface-2); }
 .rail-item i { font-size: 20px; }
 .rail-item[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); width: 52px; height: 52px; }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
@@ -240,7 +238,6 @@ button { font: inherit; color: inherit; }
 .doc-dock .lbl { color: rgba(255,255,255,.5); font-size: 12px; padding: 0 10px 0 12px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
 .doc-dock a { color: rgba(255,255,255,.8); height: 38px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .doc-dock a i { font-size: 16px; }
-.doc-dock a:hover { background: rgba(255,255,255,.08); }
 .doc-dock a[aria-current="page"] { background: #fff; color: var(--ef-ink); }
 
 /* ---- Sidebar (alternative shell, shown on the Components page) ---- */
@@ -269,7 +266,6 @@ button { font: inherit; color: inherit; }
   color: var(--ef-ink-2); font-size: 15px; cursor: pointer; position: relative;
   transition: background .15s;
 }
-.nav-item:hover { background: rgba(24,29,25,.045); }
 .nav-item i { font-size: 20px; color: var(--ef-ink-2); }
 .nav-item[aria-current="page"] {
   background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill);
@@ -823,7 +819,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   transition: transform .26s cubic-bezier(.2,.8,.2,1), width .26s cubic-bezier(.2,.8,.2,1), height .26s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
 }
 .hover-indicator[data-instant] { transition: opacity .18s ease; }
-.menu-item, .list-row, .task-row, .tree-item, .table tbody tr { position: relative; z-index: 1; }
+.menu-item, .list-row, .task-row, .tree-item, .table tbody tr,
+.topnav a, .rail-item, .segmented button, .tabs button, .doc-dock a, .nav-item { position: relative; z-index: 1; }
+.rail-item:hover { z-index: 2; }
 .task-row + .task-row, .list-row { transition: border-color .2s; }
 
 /* ---- Wiki prose (<Prose>) ---- */
@@ -2374,7 +2372,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Empty state</td><td><code class="k">&lt;EmptyState&gt;</code></td><td class="muted t-sm">Art, Title, Text, Action</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Skeleton</td><td><code class="k">&lt;Skeleton&gt;</code></td><td class="muted t-sm"></td><td class="muted t-sm">shape</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Callout</td><td><code class="k">&lt;Card variant=callout&gt;</code></td><td class="muted t-sm">Label, Text, Action</td><td class="muted t-sm">tone amber/green/blue</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
-<tr><td class="faint t-sm">Data</td><td class="cell-title">Hover group</td><td><code class="k">&lt;HoverGroup&gt;</code> <code class=k>&lt;HoverGroup.Item&gt;</code></td><td class="muted t-sm">Indicator, Item</td><td class="muted t-sm">indicator style per list type · rests on the current item</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (Motion layoutId)</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Hover group</td><td><code class="k">&lt;HoverGroup&gt;</code> <code class=k>&lt;HoverGroup.Item&gt;</code></td><td class="muted t-sm">Indicator, Item</td><td class="muted t-sm">lists, menus, tables, top nav, rail, tabs, segmented controls · rests on the current item</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (Motion layoutId)</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Person card</td><td><code class="k">&lt;PersonCard&gt;</code></td><td class="muted t-sm">Avatar, Name, Meta, Footer</td><td class="muted t-sm">selected/dragging</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Pipeline column</td><td><code class="k">&lt;PipelineColumn&gt;</code></td><td class="muted t-sm">Header, Count, Cards, DropZone</td><td class="muted t-sm">drop target</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (dnd-kit)</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Ministry card</td><td><code class="k">&lt;MinistryCard&gt;</code></td><td class="muted t-sm">Icon, Status, Leader, Roles meter, Training</td><td class="muted t-sm">status</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -2500,39 +2498,47 @@ route();
 document.addEventListener('click', e => {
   const seg = e.target.closest('.segmented button, .tabs button');
   if (seg) { seg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b === seg)); const v = seg.dataset.view; if (v) document.querySelectorAll('[data-view-panel]').forEach(p => p.hidden = p.dataset.viewPanel !== v); requestAnimationFrame(refreshHoverGroups); }
+  if (seg) requestAnimationFrame(refreshHoverGroups);
   const sw = e.target.closest('.switch');
   if (sw) sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true');
   const ck = e.target.closest('.check[data-toggle]');
   if (ck) { ck.dataset.checked = ck.dataset.checked === 'true' ? 'false' : 'true'; const row = ck.closest('.task-row'); if (row) row.dataset.done = ck.dataset.checked; }
 });
 
-/* Shared hover background. Each list gets one indicator that moves between items. */
-const HOVER_ITEMS = {
-  'menu-item': { bg: 'var(--ef-surface-2)', radius: 10, x: 0 },
-  'list-row':  { bg: 'var(--ef-surface-raised)', radius: 14, x: 12, shadow: '0 1px 2px rgba(24,29,25,.05)' },
-  'task-row':  { bg: 'var(--ef-surface-raised)', radius: 16, x: 0, shadow: '0 1px 2px rgba(24,29,25,.05)' },
-  'tree-item': { bg: 'var(--ef-surface-raised)', radius: 10, x: 0, shadow: 'var(--ef-shadow-raised)' },
-  'row':       { bg: 'var(--ef-surface-raised)', radius: 14, x: 0, shadow: '0 1px 2px rgba(24,29,25,.05)' }
-};
-const ITEM_SEL = '.menu-item, .list-row, .task-row, .tree-item, .table tbody tr';
-const REST_SEL = '[data-highlighted], .tree-item[aria-current], tr[data-highlight="true"]';
-function itemKind(el) { return el.tagName === 'TR' ? 'row' : Object.keys(HOVER_ITEMS).find(k => el.classList.contains(k)); }
-function groupOf(el) { return el.tagName === 'TR' ? el.closest('table').parentElement : el.parentElement; }
+/* Shared hover background. Each list, nav or tab bar gets one indicator that
+   slides to the hovered item and rests on the current one. */
+const HOVER_KINDS = [
+  { sel: '.menu-item',          bg: 'var(--ef-surface-2)', radius: 10 },
+  { sel: '.list-row',           bg: 'var(--ef-surface-raised)', radius: 14, x: 12, shadow: '0 1px 2px rgba(24,29,25,.05)' },
+  { sel: '.task-row',           bg: 'var(--ef-surface-raised)', radius: 16, shadow: '0 1px 2px rgba(24,29,25,.05)' },
+  { sel: '.tree-item',          bg: 'var(--ef-surface-raised)', radius: 10, shadow: 'var(--ef-shadow-raised)' },
+  { sel: '.table tbody tr',     bg: 'var(--ef-surface-raised)', radius: 14, shadow: '0 1px 2px rgba(24,29,25,.05)', group: el => el.closest('table').parentElement },
+  { sel: '.topnav a',           bg: 'var(--ef-surface-2)', radius: 999 },
+  { sel: '.rail-item',          bg: 'var(--ef-surface-2)', radius: 999 },
+  { sel: '.segmented button',   bg: 'rgba(24,29,25,.06)', radius: 10 },
+  { sel: '.tabs button',        bg: 'var(--ef-surface-2)', radius: 9, x: 10, y: -7, h: 2 },
+  { sel: '.doc-dock a',         bg: 'rgba(255,255,255,.1)', radius: 999 },
+  { sel: '.nav-item',           bg: 'rgba(24,29,25,.05)', radius: 14 }
+];
+const ITEM_SEL = HOVER_KINDS.map(k => k.sel).join(', ');
+const REST_SEL = '[data-highlighted], .tree-item[aria-current], tr[data-highlight="true"], [aria-current="page"], [aria-selected="true"], .theme-btn[aria-checked="true"]';
+function kindOf(el) { return HOVER_KINDS.find(k => el.matches(k.sel)); }
+function groupOf(el) { const k = kindOf(el); return k && k.group ? k.group(el) : el.parentElement; }
 function placeIndicator(g, el, instant) {
-  const ind = g.__ind, cfg = HOVER_ITEMS[itemKind(el)];
+  const ind = g.__ind, k = kindOf(el), x = k.x || 0, y = k.y || 0, h = k.h || 0;
   const gr = g.getBoundingClientRect(), r = el.getBoundingClientRect();
-  const x = r.left - gr.left - g.clientLeft + g.scrollLeft - cfg.x;
-  const y = r.top - gr.top - g.clientTop + g.scrollTop;
+  const left = r.left - gr.left - g.clientLeft + g.scrollLeft - x;
+  const top = r.top - gr.top - g.clientTop + g.scrollTop + y;
   ind.toggleAttribute('data-instant', !!instant || ind.style.opacity !== '1');
-  ind.style.setProperty('--hi-bg', cfg.bg); ind.style.setProperty('--hi-radius', cfg.radius + 'px'); ind.style.setProperty('--hi-shadow', cfg.shadow || 'none');
-  ind.style.width = (r.width + cfg.x * 2) + 'px'; ind.style.height = r.height + 'px';
-  ind.style.transform = `translate(${x}px, ${y}px)`;
+  ind.style.setProperty('--hi-bg', k.bg); ind.style.setProperty('--hi-radius', k.radius + 'px'); ind.style.setProperty('--hi-shadow', k.shadow || 'none');
+  ind.style.width = (r.width + x * 2) + 'px'; ind.style.height = (r.height + h) + 'px';
+  ind.style.transform = `translate(${left}px, ${top}px)`;
   ind.style.opacity = '1';
   requestAnimationFrame(() => ind.removeAttribute('data-instant'));
 }
 function restIndicator(g) {
-  const rest = [...g.querySelectorAll(REST_SEL)].find(el => groupOf(el) === g);
-  if (rest && rest.offsetParent) placeIndicator(g, rest, true); else g.__ind.style.opacity = '0';
+  const rest = [...g.querySelectorAll(REST_SEL)].find(el => el.matches(ITEM_SEL) && groupOf(el) === g);
+  if (rest && rest.offsetParent) placeIndicator(g, rest, g.__ind.style.opacity !== '1'); else g.__ind.style.opacity = '0';
 }
 function initHoverGroups() {
   const groups = new Set([...document.querySelectorAll(ITEM_SEL)].map(groupOf));
@@ -2545,7 +2551,7 @@ function initHoverGroups() {
   });
   window.__hoverGroups = groups;
 }
-function refreshHoverGroups() { (window.__hoverGroups || []).forEach(g => { if (g.offsetParent || g.closest('.evry-panel')) restIndicator(g); }); }
+function refreshHoverGroups() { (window.__hoverGroups || []).forEach(g => { if (g.offsetParent || getComputedStyle(g).position === 'fixed' || g.closest('.evry-panel')) restIndicator(g); }); }
 initHoverGroups();
 window.addEventListener('hashchange', () => requestAnimationFrame(refreshHoverGroups));
 window.addEventListener('resize', refreshHoverGroups);
@@ -2554,6 +2560,7 @@ requestAnimationFrame(refreshHoverGroups);
 
 function setTheme(t) {
   document.querySelectorAll('.theme-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.themeOpt === t));
+  requestAnimationFrame(refreshHoverGroups);
   if (t === 'dark') { const el = document.getElementById('toast'); el.style.display = 'flex'; clearTimeout(window.__tt); window.__tt = setTimeout(() => { el.style.display = 'none'; setTheme('light'); }, 2200); }
 }
 function openEvry() { document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; }
