@@ -321,8 +321,12 @@ button { font: inherit; color: inherit; }
 
 .main { padding: 18px 26px 96px 10px; min-width: 0; }
 .page { display: none; }
-.page[data-active="true"] { display: block; animation: pageIn .25s ease; }
-@keyframes pageIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.page[data-active="true"] { display: block; }
+/* Staggered reveal: the script tags the page's main blocks with .reveal and a
+   --reveal-delay, ordered top to bottom, then left to right. */
+.reveal { animation: revealUp .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--reveal-delay, 0ms); }
+@keyframes revealUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
 
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
 .page-header .titles { min-width: 0; }
@@ -2529,6 +2533,20 @@ function route() {
   document.querySelectorAll('.page').forEach(p => p.dataset.active = p === el ? 'true' : 'false');
   document.querySelectorAll('[data-nav]').forEach(n => { if (n.dataset.nav === nav) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current'); });
   window.scrollTo(0, 0);
+  staggerReveal(el);
+}
+
+/* Staggered page reveal, top to bottom. */
+const REVEAL_SEL = '.breadcrumb, .page-header, .page > .tabs, .card, .insight, .lens, .doc-h, .doc-note, .specimen, .swatch, .brand-tile, .page > .row, .page > .grid > .stack > *, article';
+function staggerReveal(page) {
+  const all = [...page.querySelectorAll(REVEAL_SEL)];
+  const set = new Set(all);
+  const blocks = all.filter(el => { for (let p = el.parentElement; p && p !== page; p = p.parentElement) if (set.has(p)) return false; return true; });
+  const rects = new Map(blocks.map(el => [el, el.getBoundingClientRect()]));
+  blocks.sort((a, b) => (Math.round(rects.get(a).top / 24) - Math.round(rects.get(b).top / 24)) || (rects.get(a).left - rects.get(b).left));
+  page.querySelectorAll('.reveal').forEach(el => el.classList.remove('reveal'));
+  void page.offsetWidth;
+  blocks.forEach((el, i) => { el.style.setProperty('--reveal-delay', Math.min(i * 55, 900) + 'ms'); el.classList.add('reveal'); });
 }
 window.addEventListener('hashchange', route);
 route();
