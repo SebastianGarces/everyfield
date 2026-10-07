@@ -111,6 +111,9 @@
   --ef-shadow-raised: 0 1px 2px rgba(24,29,25,.06), 0 4px 12px -4px rgba(24,29,25,.10);
   --ef-shadow-pop: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28);
   --ef-shadow-pill: 0 1px 1px rgba(24,29,25,.08), 0 6px 14px -6px rgba(24,29,25,.45);
+  /* navigation: tight and soft */
+  --ef-shadow-nav: 0 0 0 1px rgba(24,29,25,.04), 0 1px 2px rgba(24,29,25,.04), 0 2px 6px -3px rgba(24,29,25,.07);
+  --ef-shadow-nav-active: 0 1px 2px rgba(24,29,25,.14), 0 2px 5px -2px rgba(24,29,25,.16);
 
   /* hatch patterns: planned / estimated values */
   --ef-hatch-w: 2px;
@@ -178,7 +181,7 @@ button { font: inherit; color: inherit; }
 .topbar .topnav { flex: 0 1 auto; }
 .pill-surface {
   background: var(--ef-surface-raised); border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(24,29,25,.04), 0 1px 2px rgba(24,29,25,.04), 0 10px 24px -16px rgba(24,29,25,.22);
+  box-shadow: var(--ef-shadow-nav);
 }
 .brand-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 22px 0 10px; color: var(--ef-ink); }
 .brand-pill .logo-chip { width: 40px; height: 40px; border-radius: 50%; }
@@ -189,7 +192,7 @@ button { font: inherit; color: inherit; }
   height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
   font-size: 15px; color: var(--ef-ink-2); transition: background .15s;
 }
-.topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
+.topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active); }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
 .phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
@@ -227,7 +230,7 @@ button { font: inherit; color: inherit; }
 .rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
 .rail-item i { font-size: 20px; }
-.rail-item[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); width: 52px; height: 52px; }
+.rail-item[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active); width: 52px; height: 52px; }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
   background: var(--ef-ink); color: #fff; font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 30; }
 .rail-item:hover .rail-tip { opacity: 1; transform: translateY(-50%); }
@@ -238,7 +241,7 @@ button { font: inherit; color: inherit; }
 .theme-btn[aria-checked="true"] { background: var(--ef-surface-2); color: var(--ef-ink); }
 /* Design-system dock: not part of the app, only for this prototype */
 .doc-dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 35; display: flex; align-items: center; gap: 4px; padding: 6px; height: 50px;
-  background: rgba(24,29,25,.92); border-radius: 999px; box-shadow: var(--ef-shadow-pop); backdrop-filter: blur(10px); }
+  background: rgba(24,29,25,.92); border-radius: 999px; box-shadow: 0 2px 8px -2px rgba(24,29,25,.25); backdrop-filter: blur(10px); }
 .doc-dock .lbl { color: rgba(255,255,255,.5); font-size: 12px; padding: 0 10px 0 12px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
 .doc-dock a { color: rgba(255,255,255,.8); height: 38px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .doc-dock a i { font-size: 16px; }
@@ -272,7 +275,7 @@ button { font: inherit; color: inherit; }
 }
 .nav-item i { font-size: 20px; color: var(--ef-ink-2); }
 .nav-item[aria-current="page"] {
-  background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill);
+  background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-nav-active);
 }
 .nav-item[aria-current="page"] i { color: #fff; }
 .nav-item .count {
@@ -300,7 +303,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 10px 0 12px;
   border-radius: var(--ef-radius-md); cursor: pointer; color: #fff;
   background: var(--ef-ink);
-  box-shadow: var(--ef-shadow-pill); margin-top: 8px;
+  box-shadow: var(--ef-shadow-nav-active); margin-top: 8px;
 }
 .evry-launch .spark {
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
