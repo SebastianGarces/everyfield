@@ -197,8 +197,6 @@ button { font: inherit; color: inherit; }
   box-shadow: var(--ef-shadow-nav);
 }
 .brand-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 22px 0 10px; color: var(--ef-ink); }
-.brand-pill .logo-chip { width: 40px; height: 40px; border-radius: 50%; }
-.brand-pill .logo-chip svg { width: 22px; }
 .brand-pill svg.wordmark { height: 21px; width: auto; }
 .topnav { display: flex; align-items: center; gap: 2px; height: var(--ef-topbar-h); padding: 0 8px; margin: 0 auto; }
 .topnav a {
@@ -267,6 +265,10 @@ button { font: inherit; color: inherit; }
 }
 .sidebar-brand { display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 12px; }
 .sidebar-brand svg.wordmark { height: 22px; width: auto; }
+.logo-mark { display: grid; place-items: center; width: 40px; height: 40px; flex: none; color: var(--ef-ink); }
+.logo-mark svg { width: 26px; height: auto; }
+.sidebar-brand .logo-mark { width: 34px; height: 34px; }
+.sidebar-brand .logo-mark svg { width: 24px; }
 .logo-chip {
   width: 34px; height: 34px; border-radius: 10px; background: var(--ef-ink);
   display: grid; place-items: center; flex: none;
@@ -993,7 +995,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   <!-- ================= TOPBAR  <Topbar> ================= -->
   <header class="topbar">
     <a href="#/overview" class="brand-pill pill-surface">
-      <span class="logo-chip"><svg viewBox="0 0 657 530" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span>
+      <span class="logo-mark"><svg viewBox="0 0 657 530"><use href="#ef-mark"/></svg></span>
       <svg class="wordmark" viewBox="0 0 890 186"><use href="#ef-wordmark"/></svg>
     </a>
     <nav class="topnav pill-surface" aria-label="Main">
@@ -1059,7 +1061,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <div class="brand-tile" style="background:var(--ef-green);color:var(--ef-ink)"><div class="row gap-4"><svg viewBox="0 0 657 530" width="64"><use href="#ef-mark"/></svg><svg viewBox="0 0 890 186" width="220"><use href="#ef-wordmark"/></svg></div></div>
       <div class="brand-tile" style="background:var(--ef-cream);color:var(--ef-ink);box-shadow:var(--ef-shadow-card)"><div class="row gap-4"><svg viewBox="0 0 657 530" width="64"><use href="#ef-mark"/></svg><svg viewBox="0 0 890 186" width="220"><use href="#ef-wordmark"/></svg></div></div>
     </div>
-    <div class="row gap-6 mt-4 muted t-sm"><span>App chip: green mark on ink, 34px, 10px radius.</span><span class="row gap-2"><span class="logo-chip"><svg viewBox="0 0 657 530" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-green)"><svg viewBox="0 0 657 530" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-cream)"><svg viewBox="0 0 657 530" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span></span></div>
+    <div class="row gap-6 mt-4 muted t-sm"><span>In the app: ink mark, no background (top bar). Chips below are for avatars, favicons and social images.</span><span class="row gap-2"><span class="logo-chip"><svg viewBox="0 0 657 530" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-green)"><svg viewBox="0 0 657 530" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-cream)"><svg viewBox="0 0 657 530" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span></span></div>
   </div>
 
   <div class="doc-section">
@@ -1506,7 +1508,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   <aside class="sidebar">
     <div class="sidebar-brand">
       <a class="row gap-3" style="color:var(--ef-ink)">
-        <span class="logo-chip"><svg viewBox="0 0 657 530" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span>
+        <span class="logo-mark"><svg viewBox="0 0 657 530"><use href="#ef-mark"/></svg></span>
         <svg class="wordmark" viewBox="0 0 890 186"><use href="#ef-wordmark"/></svg>
       </a>
       <button class="icon-btn" data-size="sm" title="Collapse sidebar" ><i class="hgi-stroke hgi-sidebar-left"></i></button>
