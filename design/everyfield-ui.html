@@ -360,12 +360,20 @@ button { font: inherit; color: inherit; }
 }
 .card[data-variant="flat"] { background: transparent; box-shadow: none; border: 1px dashed var(--ef-line-2); }
 .card[data-variant="raised"] { background: var(--ef-surface-raised); }
+/* Callout: a white card. Color lives only in the small label and its icon circle. */
 .card[data-variant="callout"] {
-  --c-bg: var(--ef-amber-50); --c-line: color-mix(in srgb, var(--ef-amber-500) 22%, transparent);
-  background: var(--c-bg); border: 1px solid var(--c-line); box-shadow: none; border-radius: var(--ef-radius-lg); padding: 20px 22px;
+  --c-tone: var(--ef-amber-600); --c-tint: var(--ef-amber-100);
+  background: var(--ef-surface-raised); border: 1px solid var(--ef-line); box-shadow: var(--ef-shadow-card);
+  border-radius: var(--ef-radius-lg); padding: 18px 20px;
 }
-.card[data-variant="callout"][data-tone="green"] { --c-bg: var(--ef-green-50); --c-line: color-mix(in srgb, var(--ef-green-500) 22%, transparent); }
-.card[data-variant="callout"][data-tone="blue"]  { --c-bg: var(--ef-blue-50);  --c-line: color-mix(in srgb, var(--ef-blue-500) 20%, transparent); }
+.card[data-variant="callout"][data-tone="green"] { --c-tone: var(--ef-green-700); --c-tint: var(--ef-green-100); }
+.card[data-variant="callout"][data-tone="blue"]  { --c-tone: var(--ef-blue-600);  --c-tint: var(--ef-blue-100); }
+.card[data-variant="callout"][data-tone="ink"]   { --c-tone: var(--ef-ink-2);     --c-tint: var(--ef-surface-2); }
+.callout-label { display: flex; align-items: center; gap: 10px; font-size: var(--ef-text-sm); font-weight: 600; color: var(--c-tone); }
+.callout-label .ci { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--c-tint); flex: none; }
+.callout-label .ci i { font-size: 15px; }
+.callout-title { font-weight: 600; color: var(--ef-ink); margin-top: 12px; }
+.callout-text { color: var(--ef-ink-2); margin-top: 6px; font-size: 15px; }
 .card[data-size="sm"] { padding: 20px 22px; border-radius: var(--ef-radius-lg); }
 .card[data-pad="none"] { padding: 0; }
 .card-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
@@ -773,15 +781,28 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .heat .h4 { background: var(--ef-green-700); color: #fff; }
 
 /* ---- Lens tile (<LensTile state>) ---- */
-.lens { border-radius: 20px; padding: 18px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; display: flex; flex-direction: column; gap: 10px; min-height: 168px; }
-.lens .lens-head { display: flex; align-items: center; justify-content: space-between; }
-.lens .lens-name { font-weight: 600; font-size: 15px; }
-.lens .lens-note { color: var(--ef-text-2); font-size: var(--ef-text-sm); line-height: 1.45; }
-.lens .lens-meter { margin-top: auto; }
-.lens[data-state="positive"] { background: var(--ef-green-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-green-500) 18%, transparent) inset; }
-.lens[data-state="watch"] { background: var(--ef-amber-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-amber-500) 20%, transparent) inset; }
-.lens[data-state="concern"] { background: var(--ef-magenta-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-magenta-500) 18%, transparent) inset; }
-.lens[data-state="unknown"] { background: repeating-linear-gradient(-55deg, rgba(24,29,25,.035) 0 2px, transparent 2px 7px), #fff; }
+/* Lens tile: white like every other card. Color appears only in the icon circle,
+   the badge and the strength meter. Unknown uses a dashed outline. */
+.lens { border-radius: 20px; padding: 18px; background: var(--ef-surface-raised); border: 1px solid var(--ef-line); box-shadow: var(--ef-shadow-card); display: flex; flex-direction: column; gap: 12px; min-height: 176px; }
+.lens .lens-head { display: flex; align-items: center; gap: 10px; }
+.lens .lens-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-2); color: var(--ef-ink-2); flex: none; }
+.lens .lens-icon i { font-size: 17px; }
+.lens .lens-name { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
+.lens .lens-note { color: var(--ef-text-2); font-size: var(--ef-text-sm); line-height: 1.5; }
+.lens .lens-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lens .lens-meter { display: flex; gap: 4px; }
+.lens .lens-meter span { width: 22px; height: 6px; border-radius: 99px; background: var(--ef-surface-2); }
+.lens[data-state="positive"] { --lv: var(--ef-green-500); }
+.lens[data-state="watch"]    { --lv: var(--ef-amber-500); }
+.lens[data-state="concern"]  { --lv: var(--ef-magenta-500); }
+.lens .lens-meter span[data-on] { background: var(--lv); }
+.lens[data-state="positive"] .lens-icon { background: var(--ef-green-100); color: var(--ef-green-700); }
+.lens[data-state="watch"] .lens-icon    { background: var(--ef-amber-100); color: var(--ef-amber-600); }
+.lens[data-state="concern"] .lens-icon  { background: var(--ef-magenta-100); color: var(--ef-magenta-600); }
+.lens[data-state="unknown"] { background: transparent; box-shadow: none; border: 1.5px dashed var(--ef-line-2); }
+.lens[data-state="unknown"] .lens-meter span { background: transparent; box-shadow: 0 0 0 1px var(--ef-line-2) inset; }
+.evidence { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ef-text-3); font-weight: 500; }
+.evidence i { font-size: 13px; }
 
 /* ---- Domain: pipeline kanban (<PipelineColumn>, <PersonCard>) ---- */
 .kanban { display: grid; grid-template-columns: repeat(7, minmax(158px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
@@ -1162,9 +1183,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
       <div class="stack gap-4">
         <div class="card" data-variant="callout">
-          <div class="row gap-2 c-amber t-sm" style="font-weight:600"><i class="hgi-stroke hgi-ai-magic" style="font-size:16px"></i>Evry noticed</div>
-          <p class="mt-2" style="font-size:15px">Three first-time guests from Sunday have no follow-up owner yet.</p>
-          <div class="mt-3"><button class="btn" data-variant="light" data-size="sm">Assign follow-ups</button></div>
+          <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-ai-magic"></i></span>Evry noticed</div>
+          <p class="callout-text">Three first-time guests from Sunday have no follow-up owner yet.</p>
+          <div class="mt-3"><button class="btn" data-variant="secondary" data-size="sm">Assign follow-ups</button></div>
         </div>
         <div class="card" data-variant="flat" data-size="sm"><div class="row gap-3"><i class="hgi-stroke hgi-add-01 faint"></i><span class="muted">Flat card · drop zone or placeholder</span></div></div>
       </div>
@@ -1446,7 +1467,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
         </div>
       </div>
       <div class="stack gap-3">
-        <div class="lens" data-state="watch" style="min-height:0"><div class="lens-head"><span class="lens-name">Critical mass</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">34 committed adults. Growth slowed for 21 days.</div></div>
+        <div class="lens" data-state="watch" style="min-height:0"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-multiple"></i></span><span class="lens-name">Critical mass</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">34 committed adults. Growth slowed for 21 days.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
         <div class="review-card">
           <div class="rc-head"><i class="hgi-stroke hgi-edit-02" style="font-size:16px"></i>Review before saving</div>
           <div class="rc-body"><div class="rc-line"><i class="hgi-stroke hgi-task-01"></i><span>Create follow-up for <b>James Okafor</b>, due Oct 9</span></div></div>
@@ -2147,9 +2168,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
         <div class="row gap-4"><span class="ring" style="--p:58;width:84px;height:84px" data-label="7/12"></span><div class="stack gap-2 grow t-sm"><div class="row between"><span class="muted">Follow-ups</span><b>4 of 7</b></div><div class="row between"><span class="muted">Meetings</span><b>2 of 3</b></div><div class="row between"><span class="muted">Ministries</span><b>1 of 2</b></div></div></div>
       </div>
       <div class="card" data-variant="callout" data-tone="green">
-        <div class="row gap-2 t-sm" style="font-weight:600;color:var(--ef-green-700)"><i class="hgi-stroke hgi-check-list" style="font-size:16px"></i>Phase 1 checklist</div>
-        <p class="mt-2" style="font-size:15px">8 Playbook tasks for Core Group Development are not on your list yet.</p>
-        <div class="row gap-2 mt-3"><button class="btn" data-variant="light" data-size="sm">Preview and add</button><button class="btn" data-variant="ghost" data-size="sm">Not now</button></div>
+        <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-check-list"></i></span>Phase 1 checklist</div>
+        <p class="callout-text">8 Playbook tasks for Core Group Development are not on your list yet.</p>
+        <div class="row gap-2 mt-3"><button class="btn" data-variant="secondary" data-size="sm">Preview and add</button><button class="btn" data-variant="ghost" data-size="sm">Not now</button></div>
       </div>
     </div>
   </div>
@@ -2206,8 +2227,8 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
           <li>Keep the agenda to 90 minutes, food included.</li>
         </ul>
         <div class="card" data-variant="callout" data-tone="blue" style="margin:22px 0">
-          <div class="row gap-2 t-sm" style="font-weight:600;color:var(--ef-blue-600)"><i class="hgi-stroke hgi-idea-01" style="font-size:16px"></i>Playbook rhythm</div>
-          <p class="mt-2" style="font-size:15px;color:var(--ef-ink-2)">Hold a vision meeting at least every 14 days. A steady rhythm matters more than a big one.</p>
+          <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-idea-01"></i></span>Playbook rhythm</div>
+          <p class="callout-text">Hold a vision meeting at least every 14 days. A steady rhythm matters more than a big one.</p>
         </div>
         <h2 id="w-during">During the meeting</h2>
         <p>Tell the story of the place and the people you hope to reach. Be honest about what you do not know yet. Leave time for questions.</p>
@@ -2290,14 +2311,14 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="legend t-sm"><span><span class="badge" data-size="sm" data-status="positive">Strong</span></span><span><span class="badge" data-size="sm" data-status="attention">Watch</span></span><span><span class="badge" data-size="sm" data-status="risk">Concern</span></span><span><span class="badge" data-size="sm" data-status="unknown">Unknown</span></span></div>
   </div>
   <div class="grid g-4">
-    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-name">Vision casting</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Vision meetings every 12 days on average. The Playbook floor is 14.</div><div class="lens-meter"><span class="tag tone-blue" style="height:22px;font-size:11px">Measured</span></div></div>
-    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-name">Shared ownership</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">8 core members host or lead part of a meeting.</div><div class="lens-meter"><span class="tag tone-blue" style="height:22px;font-size:11px">Measured</span></div></div>
-    <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-name">Critical mass</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">34 committed adults. No new commitment in 21 days.</div><div class="lens-meter"><div class="meter-hatch"><span class="hatch" style="width:68%;--hatch:var(--ef-amber-500)"></span></div></div></div>
-    <div class="lens" data-state="concern"><div class="lens-head"><span class="lens-name">Core group cohesion</span><span class="badge" data-size="sm" data-status="risk">Concern</span></div><div class="lens-note">7 committed adults (21%) have not attended in 28 days.</div><div class="lens-meter"><span class="tag tone-blue" style="height:22px;font-size:11px">Measured</span></div></div>
-    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-name">Prayer</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Weekly prayer gathering, attested by Daniel 34 days ago.</div><div class="lens-meter row gap-2"><span class="tag tone-violet" style="height:22px;font-size:11px">Attested</span><span class="tag tone-amber" style="height:22px;font-size:11px">Reaffirm</span></div></div>
-    <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-name">Generosity and finance</span><span class="badge" data-size="sm" data-status="unknown">Unknown</span></div><div class="lens-note">No giving or budget answer recorded yet. Unknown is not the same as weak.</div><div class="lens-meter"><button class="btn" data-variant="secondary" data-size="sm">Answer 3 questions</button></div></div>
-    <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-name">Emerging leadership</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">8 leaders for 10 ministries. Kids and Students have none.</div><div class="lens-meter"><div class="meter-hatch"><span class="hatch" style="width:80%;--hatch:var(--ef-amber-500)"></span></div></div></div>
-    <div class="lens"><div class="lens-head"><span class="lens-name">Comprehensive training</span><span class="badge" data-size="sm" data-status="unknown">Not raised</span></div><div class="lens-note">Not assessed in Phase 1. It becomes a focus in Phase 3.</div><div class="lens-meter"><span class="faint t-xs">Later phase</span></div></div>
+    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-megaphone-01"></i></span><span class="lens-name">Vision casting</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Vision meetings every 12 days on average. The Playbook floor is 14.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
+    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-group"></i></span><span class="lens-name">Shared ownership</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">8 core members host or lead part of a meeting.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
+    <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-multiple"></i></span><span class="lens-name">Critical mass</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">34 committed adults. No new commitment in 21 days.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
+    <div class="lens" data-state="concern"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-link-01"></i></span><span class="lens-name">Core group cohesion</span><span class="badge" data-size="sm" data-status="risk">Concern</span></div><div class="lens-note">7 committed adults (21%) have not attended in 28 days.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
+    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-hand-prayer"></i></span><span class="lens-name">Prayer</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Weekly prayer gathering. Reaffirm soon, the answer is 34 days old.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-user-check-01"></i>Attested 34 d ago</span></div></div>
+    <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-coins-01"></i></span><span class="lens-name">Generosity and finance</span><span class="badge" data-size="sm" data-status="unknown">Unknown</span></div><div class="lens-note">No giving or budget answer yet. Unknown is not the same as weak.</div><div><button class="btn" data-variant="secondary" data-size="sm">Answer 3 questions</button></div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div><span class="evidence">No evidence yet</span></div></div>
+    <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-crown"></i></span><span class="lens-name">Emerging leadership</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">8 leaders for 10 ministries. Kids and Students have none.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
+    <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-graduation-scroll"></i></span><span class="lens-name">Comprehensive training</span><span class="badge" data-size="sm" data-status="unknown">Not raised</span></div><div class="lens-note">Not assessed in Phase 1. It becomes a focus in Phase 3.</div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div><span class="evidence">Later phase</span></div></div>
   </div>
 
   <div class="grid g-2" style="margin-top:20px">
@@ -2312,11 +2333,11 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="card">
       <div class="card-header"><div class="grow"><div class="card-title">How to read this</div></div></div>
       <div class="stack gap-4">
-        <div class="row gap-3"><span class="tag tone-blue">Measured</span><span class="muted">Counted from meetings, people and tasks in Everyfield.</span></div>
-        <div class="row gap-3"><span class="tag tone-violet">Attested</span><span class="muted">Answered by a leader. Shows its age after 30 days.</span></div>
-        <div class="row gap-3"><span class="badge" data-status="unknown">Unknown</span><span class="muted">No evidence yet. It does not count against you.</span></div>
+        <div class="row gap-3"><span class="evidence" style="width:110px"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span><span class="muted">Counted from meetings, people and tasks in Everyfield.</span></div>
+        <div class="row gap-3"><span class="evidence" style="width:110px"><i class="hgi-stroke hgi-user-check-01"></i>Attested</span><span class="muted">Answered by a leader. Shows its age after 30 days.</span></div>
+        <div class="row gap-3"><span style="width:110px"><span class="badge" data-size="sm" data-status="unknown">Unknown</span></span><span class="muted">No evidence yet. It does not count against you.</span></div>
       </div>
-      <div class="card" data-variant="callout" style="margin-top:20px"><p class="t-sm" style="color:var(--ef-ink-2)">These are the Playbook's benchmarks for this method of planting. They do not measure spiritual health. Interviews and the 4 C's stay human judgments.</p></div>
+      <div class="card" data-variant="callout" data-tone="ink" style="margin-top:20px"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-alert-circle"></i></span>Benchmarks, not judgments</div><p class="callout-text t-sm">These are the Playbook's benchmarks for this method of planting. They do not measure spiritual health. Interviews and the 4 C's stay human judgments.</p></div>
     </div>
   </div>
 </section>
@@ -2333,9 +2354,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     </div>
   </header>
   <div class="grid g-3" style="margin-bottom:20px">
-    <div class="card" data-variant="callout" data-tone="blue"><b style="font-weight:600">Class names become components.</b><p class="muted t-sm mt-2">.card-header becomes &lt;Card.Header&gt;. data-variant becomes a variant prop. Keep the slot names.</p></div>
-    <div class="card" data-variant="callout" data-tone="green"><b style="font-weight:600">Tokens become theme values.</b><p class="muted t-sm mt-2">Copy the --ef-* variables into the Tailwind theme or a tokens.css file. Components use only tokens.</p></div>
-    <div class="card" data-variant="callout"><b style="font-weight:600">Base UI gives behavior, not looks.</b><p class="muted t-sm mt-2">Use it for focus, keyboard and ARIA in overlays and inputs. Style it with these classes.</p></div>
+    <div class="card" data-variant="callout" data-tone="blue"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-grid-view"></i></span>Components</div><div class="callout-title">Class names become components.</div><p class="muted t-sm mt-2">.card-header becomes &lt;Card.Header&gt;. data-variant becomes a variant prop. Keep the slot names.</p></div>
+    <div class="card" data-variant="callout" data-tone="green"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-star"></i></span>Tokens</div><div class="callout-title">Tokens become theme values.</div><p class="muted t-sm mt-2">Copy the --ef-* variables into the Tailwind theme or a tokens.css file. Components use only tokens.</p></div>
+    <div class="card" data-variant="callout"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-command"></i></span>Base UI</div><div class="callout-title">Base UI gives behavior, not looks.</div><p class="muted t-sm mt-2">Use it for focus, keyboard and ARIA in overlays and inputs. Style it with these classes.</p></div>
   </div>
   <div class="card inventory">
     <table class="table">
