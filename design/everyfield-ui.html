@@ -126,6 +126,8 @@
    ===================================================================== */
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* Always reserve the scrollbar's space so pages with and without a scrollbar line up. */
+html { scrollbar-gutter: stable; }
 body {
   font-family: var(--ef-font-body);
   font-size: var(--ef-text-md);
@@ -324,7 +326,7 @@ button { font: inherit; color: inherit; }
 .page[data-active="true"] { display: block; }
 /* Staggered reveal: the script tags the page's main blocks with .reveal and a
    --reveal-delay, ordered top to bottom, then left to right. */
-.reveal { animation: revealUp .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--reveal-delay, 0ms); }
+.reveal { animation: revealUp .4s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--reveal-delay, 0ms); }
 @keyframes revealUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
 
@@ -854,7 +856,8 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 /* ---- HoverGroup  (<HoverGroup>): one shared hover background per list ----
    The script adds .hover-indicator to each list and slides it to the item under
    the pointer. In React use a Motion element with a shared layoutId. */
-[data-hover-group] { position: relative; }
+/* Zero specificity, so a component's own position (fixed, sticky) always wins. */
+:where([data-hover-group]) { position: relative; }
 .hover-indicator {
   position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 0; pointer-events: none;
   border-radius: var(--hi-radius, 10px); background: var(--hi-bg, var(--ef-surface-2)); box-shadow: var(--hi-shadow, none);
@@ -2546,7 +2549,7 @@ function staggerReveal(page) {
   blocks.sort((a, b) => (Math.round(rects.get(a).top / 24) - Math.round(rects.get(b).top / 24)) || (rects.get(a).left - rects.get(b).left));
   page.querySelectorAll('.reveal').forEach(el => el.classList.remove('reveal'));
   void page.offsetWidth;
-  blocks.forEach((el, i) => { el.style.setProperty('--reveal-delay', Math.min(i * 55, 900) + 'ms'); el.classList.add('reveal'); });
+  blocks.forEach((el, i) => { el.style.setProperty('--reveal-delay', Math.min(i * 30, 400) + 'ms'); el.classList.add('reveal'); });
 }
 window.addEventListener('hashchange', route);
 route();
