@@ -361,11 +361,11 @@ button { font: inherit; color: inherit; }
 .card[data-variant="flat"] { background: transparent; box-shadow: none; border: 1px dashed var(--ef-line-2); }
 .card[data-variant="raised"] { background: var(--ef-surface-raised); }
 .card[data-variant="callout"] {
-  background: linear-gradient(180deg, var(--ef-amber-50), var(--ef-amber-100));
-  border-color: rgba(238,139,44,.18); box-shadow: none; border-radius: var(--ef-radius-lg); padding: 20px 22px;
+  --c-bg: var(--ef-amber-50); --c-line: color-mix(in srgb, var(--ef-amber-500) 22%, transparent);
+  background: var(--c-bg); border: 1px solid var(--c-line); box-shadow: none; border-radius: var(--ef-radius-lg); padding: 20px 22px;
 }
-.card[data-variant="callout"][data-tone="green"] { background: linear-gradient(180deg, var(--ef-green-50), var(--ef-green-100)); border-color: rgba(68,180,110,.2); }
-.card[data-variant="callout"][data-tone="blue"] { background: linear-gradient(180deg, var(--ef-blue-50), var(--ef-blue-100)); border-color: rgba(47,85,228,.14); }
+.card[data-variant="callout"][data-tone="green"] { --c-bg: var(--ef-green-50); --c-line: color-mix(in srgb, var(--ef-green-500) 22%, transparent); }
+.card[data-variant="callout"][data-tone="blue"]  { --c-bg: var(--ef-blue-50);  --c-line: color-mix(in srgb, var(--ef-blue-500) 20%, transparent); }
 .card[data-size="sm"] { padding: 20px 22px; border-radius: var(--ef-radius-lg); }
 .card[data-pad="none"] { padding: 0; }
 .card-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
@@ -405,27 +405,31 @@ button { font: inherit; color: inherit; }
   box-shadow: 0 18px 36px -24px rgba(24,29,25,.45);
 }
 .insight::before {
-  content: ""; position: absolute; inset: -30%; z-index: -2; pointer-events: none;
+  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  /* Analogous colors mixed in OKLCH so the blends stay bright, never grey. g5 is a small highlight. */
   background:
-    radial-gradient(34% 38% at 26% 28%, var(--g1) 0%, transparent 72%),
-    radial-gradient(36% 40% at 66% 34%, var(--g2) 0%, transparent 72%),
-    radial-gradient(40% 40% at 70% 72%, var(--g3) 0%, transparent 72%),
-    radial-gradient(34% 34% at 34% 74%, var(--g4) 0%, transparent 72%);
-  filter: blur(56px) saturate(.95);
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px) saturate(1.1);
 }
 .insight::after {
+  /* Grain: grey fractal noise blended with overlay, strong on purpose. */
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: .38; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+  opacity: .62; mix-blend-mode: overlay;
 }
-/* field: forest, sage, sand */
-.insight[data-tone="field"] { --g-base: #15281D; --g1: #12231A; --g2: #2E8F55; --g3: #EBD7A4; --g4: #6CC48E; }
-/* dusk: navy, slate blue, peach */
-.insight[data-tone="dusk"]  { --g-base: #182352; --g1: #141E4A; --g2: #3D5BD9; --g3: #F4B48A; --g4: #9DB2F5; }
-/* ember: plum, rose, apricot */
-.insight[data-tone="ember"] { --g-base: #36151E; --g1: #301219; --g2: #C9493A; --g3: #F5B47E; --g4: #E2839A; }
-/* ocean: deep teal, sea, mint */
-.insight[data-tone="ocean"] { --g-base: #0F2A30; --g1: #0C242A; --g2: #1E8C86; --g3: #A6E3C9; --g4: #5BB9D1; }
+/* field: emerald, green, teal */
+.insight[data-tone="field"] { --g-base: #0B2A1D; --g1: #0A2B1E; --g2: #0E8A50; --g3: #12A07D; --g4: #1E6E45; --g5: #5BE39A; }
+/* dusk: indigo, blue, violet, sky */
+.insight[data-tone="dusk"]  { --g-base: #13175A; --g1: #141A5E; --g2: #3550E6; --g3: #6B4DEA; --g4: #2C6BE8; --g5: #8FC2FF; }
+/* ember: crimson, coral, magenta */
+.insight[data-tone="ember"] { --g-base: #2C0A1C; --g1: #2E0B1E; --g2: #D2344A; --g3: #A82470; --g4: #E0543C; --g5: #FF8F6B; }
+/* ocean: teal, cyan, green */
+.insight[data-tone="ocean"] { --g-base: #06262D; --g1: #072A31; --g2: #0E9C93; --g3: #1A9FCB; --g4: #1F9B63; --g5: #7EEBD6; }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
@@ -774,9 +778,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .lens .lens-name { font-weight: 600; font-size: 15px; }
 .lens .lens-note { color: var(--ef-text-2); font-size: var(--ef-text-sm); line-height: 1.45; }
 .lens .lens-meter { margin-top: auto; }
-.lens[data-state="positive"] { background: linear-gradient(180deg, #fff, var(--ef-green-50)); }
-.lens[data-state="watch"] { background: linear-gradient(180deg, #fff, var(--ef-amber-50)); }
-.lens[data-state="concern"] { background: linear-gradient(180deg, #fff, var(--ef-magenta-50)); }
+.lens[data-state="positive"] { background: var(--ef-green-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-green-500) 18%, transparent) inset; }
+.lens[data-state="watch"] { background: var(--ef-amber-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-amber-500) 20%, transparent) inset; }
+.lens[data-state="concern"] { background: var(--ef-magenta-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ef-magenta-500) 18%, transparent) inset; }
 .lens[data-state="unknown"] { background: repeating-linear-gradient(-55deg, rgba(24,29,25,.035) 0 2px, transparent 2px 7px), #fff; }
 
 /* ---- Domain: pipeline kanban (<PipelineColumn>, <PersonCard>) ---- */
@@ -1050,7 +1054,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
   <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
-    <p class="doc-note">The gradient card is the signature surface. Four color blobs are blurred together and covered with film grain. Use at most two per page, and only for one finding the person should act on. Field is the default. Dusk is for neutral findings, Ember for risk, Ocean for growth.</p>
+    <p class="doc-note">The gradient card is the signature surface. Neighboring colors (never opposites, so no grey middle) are mixed in OKLCH, blurred, lit by one small highlight and covered with strong film grain. Use at most two per page, and only for one finding the person should act on. Field is the default. Dusk is for neutral findings, Ember for risk, Ocean for growth.</p>
     <div class="grid g-4">
       <div class="insight" data-tone="field" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default · brand</div></div>
       <div class="insight" data-tone="dusk" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>dusk</div><div class="insight-title">Neutral finding</div></div>
