@@ -107,6 +107,10 @@
   /* top bar: every pill shares one height; inner controls are 44px, chips 40px */
   --ef-topbar-h: 60px;
 
+  /* motion: hover backgrounds and active indicators share one slide */
+  --ef-slide-dur: .26s;
+  --ef-slide-ease: cubic-bezier(.2,.8,.2,1);
+
   /* elevation */
   --ef-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
   --ef-shadow-raised: 0 1px 2px rgba(24,29,25,.06), 0 4px 12px -4px rgba(24,29,25,.10);
@@ -519,7 +523,7 @@ button { font: inherit; color: inherit; }
   color: var(--ef-text-2); cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
 }
 .segmented button i { font-size: 16px; }
-.segmented button[aria-selected="true"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: var(--ef-shadow-raised); }
+.segmented button[aria-selected="true"] { color: var(--ef-ink); }
 .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--ef-line); }
 .tabs button {
   border: 0; background: none; padding: 0 0 12px; cursor: pointer; color: var(--ef-text-3);
@@ -527,7 +531,14 @@ button { font: inherit; color: inherit; }
 }
 .tabs button .count-chip { font-size: 12px; background: var(--ef-surface-2); color: var(--ef-text-2); padding: 1px 7px; border-radius: 99px; }
 .tabs button[aria-selected="true"] { color: var(--ef-ink); }
-.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ef-ink); border-radius: 2px; }
+/* Active indicators: one element per tab bar or segmented control, slid by the script. */
+.tab-active, .seg-active {
+  position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0;
+  transition: transform var(--ef-slide-dur) var(--ef-slide-ease), width var(--ef-slide-dur) var(--ef-slide-ease), height var(--ef-slide-dur) var(--ef-slide-ease), opacity .18s ease;
+}
+.tab-active[data-instant], .seg-active[data-instant] { transition: none; }
+.tab-active { height: 2px; background: var(--ef-ink); border-radius: 2px; z-index: 2; }
+.seg-active { background: var(--ef-surface-raised); border-radius: 10px; box-shadow: var(--ef-shadow-raised); z-index: 0; }
 
 /* ---- Field inputs  (<Input>, <SearchInput>, <Textarea>, <Select.Trigger>, <Field.Label>) ---- */
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -862,7 +873,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 0; pointer-events: none;
   border-radius: var(--hi-radius, 10px); background: var(--hi-bg, var(--ef-surface-2)); box-shadow: var(--hi-shadow, none);
   opacity: 0;
-  transition: transform .26s cubic-bezier(.2,.8,.2,1), width .26s cubic-bezier(.2,.8,.2,1), height .26s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+  transition: transform var(--ef-slide-dur) var(--ef-slide-ease), width var(--ef-slide-dur) var(--ef-slide-ease), height var(--ef-slide-dur) var(--ef-slide-ease), opacity .18s ease;
 }
 .hover-indicator[data-instant] { transition: opacity .18s ease; }
 .menu-item, .list-row, .task-row, .tree-item, .table tbody tr,
@@ -2558,7 +2569,7 @@ route();
 document.addEventListener('click', e => {
   const seg = e.target.closest('.segmented button, .tabs button');
   if (seg) { seg.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b === seg)); const v = seg.dataset.view; if (v) document.querySelectorAll('[data-view-panel]').forEach(p => p.hidden = p.dataset.viewPanel !== v); requestAnimationFrame(refreshHoverGroups); }
-  if (seg) requestAnimationFrame(refreshHoverGroups);
+  if (seg) { placeActive(seg.parentElement, false); requestAnimationFrame(refreshHoverGroups); }
   const sw = e.target.closest('.switch');
   if (sw) sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true');
   const ck = e.target.closest('.check[data-toggle]');
@@ -2576,7 +2587,7 @@ const HOVER_KINDS = [
   { sel: '.topnav a',           bg: 'var(--ef-surface-2)', radius: 999 },
   { sel: '.rail-item',          bg: 'var(--ef-surface-2)', radius: 999 },
   { sel: '.segmented button',   bg: 'rgba(24,29,25,.06)', radius: 10 },
-  { sel: '.tabs button',        bg: 'var(--ef-surface-2)', radius: 9, x: 10, y: -7, h: 2 },
+  { sel: '.tabs button',        bg: 'var(--ef-surface-2)', radius: 9, x: 10, y: -7, h: 2, restHidden: true },
   { sel: '.doc-dock a',         bg: 'rgba(255,255,255,.1)', radius: 999 },
   { sel: '.nav-item',           bg: 'rgba(24,29,25,.05)', radius: 14 }
 ];
@@ -2589,7 +2600,8 @@ function placeIndicator(g, el, instant) {
   const gr = g.getBoundingClientRect(), r = el.getBoundingClientRect();
   const left = r.left - gr.left - g.clientLeft + g.scrollLeft - x;
   const top = r.top - gr.top - g.clientTop + g.scrollTop + y;
-  ind.toggleAttribute('data-instant', !!instant || ind.style.opacity !== '1');
+  ind.toggleAttribute('data-instant', !!instant || (ind.style.opacity !== '1' && !ind.__parked));
+  ind.__parked = false;
   ind.style.setProperty('--hi-bg', k.bg); ind.style.setProperty('--hi-radius', k.radius + 'px'); ind.style.setProperty('--hi-shadow', k.shadow || 'none');
   ind.style.width = (r.width + x * 2) + 'px'; ind.style.height = (r.height + h) + 'px';
   ind.style.transform = `translate(${left}px, ${top}px)`;
@@ -2598,7 +2610,11 @@ function placeIndicator(g, el, instant) {
 }
 function restIndicator(g) {
   const rest = [...g.querySelectorAll(REST_SEL)].find(el => el.matches(ITEM_SEL) && groupOf(el) === g);
-  if (rest && rest.offsetParent) placeIndicator(g, rest, g.__ind.style.opacity !== '1'); else g.__ind.style.opacity = '0';
+  if (rest && rest.offsetParent) {
+    placeIndicator(g, rest, g.__ind.style.opacity !== '1');
+    /* underline tabs: park under the selected tab but stay invisible, so the next hover slides from there */
+    if (kindOf(rest).restHidden) { g.__ind.style.opacity = '0'; g.__ind.__parked = true; }
+  } else g.__ind.style.opacity = '0';
 }
 function initHoverGroups() {
   const groups = new Set([...document.querySelectorAll(ITEM_SEL)].map(groupOf));
@@ -2617,6 +2633,42 @@ window.addEventListener('hashchange', () => requestAnimationFrame(refreshHoverGr
 window.addEventListener('resize', refreshHoverGroups);
 document.fonts && document.fonts.ready.then(refreshHoverGroups);
 requestAnimationFrame(refreshHoverGroups);
+
+/* Active indicator for tabs (underline) and segmented controls (pill). It slides to
+   the selected item with the same timing as the hover background. */
+const ACTIVE_HOSTS = '.tabs, .segmented';
+function placeActive(host, instant) {
+  const ind = host.__act; if (!ind) return;
+  const sel = [...host.children].find(c => c.getAttribute('aria-selected') === 'true');
+  if (!sel || !host.offsetParent) { ind.style.opacity = '0'; return; }
+  const hr = host.getBoundingClientRect(), r = sel.getBoundingClientRect();
+  const x = r.left - hr.left - host.clientLeft + host.scrollLeft;
+  const isTab = host.classList.contains('tabs');
+  /* tabs: a 2px line centered on the bar's 1px bottom border; segments: the full button box */
+  const y = isTab ? host.clientHeight - 1 : r.top - hr.top - host.clientTop + host.scrollTop;
+  ind.toggleAttribute('data-instant', !!instant);
+  ind.style.width = r.width + 'px';
+  if (!isTab) ind.style.height = r.height + 'px';
+  ind.style.transform = `translate(${x}px, ${y}px)`;
+  ind.style.opacity = '1';
+  if (instant) requestAnimationFrame(() => requestAnimationFrame(() => ind.removeAttribute('data-instant')));
+}
+function initActiveIndicators() {
+  document.querySelectorAll(ACTIVE_HOSTS).forEach(host => {
+    const ind = document.createElement('span');
+    ind.className = host.classList.contains('tabs') ? 'tab-active' : 'seg-active';
+    ind.setAttribute('aria-hidden', 'true');
+    const after = host.querySelector(':scope > .hover-indicator');
+    after ? after.after(ind) : host.prepend(ind);
+    host.__act = ind;
+  });
+}
+function refreshActiveIndicators() { document.querySelectorAll(ACTIVE_HOSTS).forEach(h => placeActive(h, true)); }
+initActiveIndicators();
+window.addEventListener('hashchange', () => requestAnimationFrame(refreshActiveIndicators));
+window.addEventListener('resize', refreshActiveIndicators);
+document.fonts && document.fonts.ready.then(refreshActiveIndicators);
+requestAnimationFrame(refreshActiveIndicators);
 
 function setTheme(t) {
   document.querySelectorAll('.theme-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.themeOpt === t));
