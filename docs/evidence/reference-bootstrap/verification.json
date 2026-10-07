@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-10-03",
+  "source_directory": "/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run",
+  "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
+  "manifest_sha256": "b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b",
+  "payload_sha256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+  "articles": 96,
+  "sections": 21,
+  "templates": 7,
+  "playbook_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+  "checked": "payload hash, all article content/record hashes, section record hashes/ancestry, template hashes/global scope, exact Playbook bytes against alpha",
+  "errors": [],
+  "mdx_syntax_prior_evidence": {
+    "checked": 96,
+    "failures": [],
+    "executedMDX": false,
+    "semanticReview": false
+  },
+  "editorial_currentness": "requires reference owner approval; not individually certified by this task",
+  "embeddings": {
+    "expected": 547,
+    "stored": 572,
+    "matched": 431,
+    "mismatched": 114,
+    "missing": 2,
+    "obsolete": 27,
+    "model_provenance": "absent",
+    "disposition": "do not copy vectors; regenerate from pinned manifest/model/version in future bootstrap"
+  },
+  "template_digest_note": "Manifest hashes original SYSTEM_TEMPLATES object fields in source order; seed payload adds churchId/isSystem/sourceTemplateId and serializes keys differently. Verified original source-field hashes after removing only those scope additions and restoring source order."
+}

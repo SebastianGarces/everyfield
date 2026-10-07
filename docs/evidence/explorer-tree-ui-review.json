@@ -1,0 +1,689 @@
+{
+  "review_scope": "Offline explorer presentation and maintenance only; no v3 application implementation or architecture/methodology changes.",
+  "captured_at": "2026-10-04T23:28:29.816242+00:00",
+  "primary_html": "everyfield-build-explorer.html",
+  "primary_html_sha256": "a1f38d8d63ea9a3669c4aeeb06b8b9738cd4e364d45d32212cf0eead60ce2781",
+  "source_fingerprint": "4fde2956bd434920c54545c516f43134d62ade411b8aa0d1b9eac05eef4162b8",
+  "browser_checks": {
+    "passed": 95,
+    "failed": 0,
+    "full_suite": {
+      "html": "/Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+      "checks": [
+        {
+          "name": "three views and complete embedded registries",
+          "result": "pass"
+        },
+        {
+          "name": "initial controls stay quiet and details closed",
+          "result": "pass"
+        },
+        {
+          "name": "canonical remains unbuilt with 86 records",
+          "result": "pass"
+        },
+        {
+          "name": "plan organization contains every source record once",
+          "result": "pass",
+          "detail": {
+            "leaves": 86,
+            "groups": 44
+          }
+        },
+        {
+          "name": "plan organization has one valid parent per non-root",
+          "result": "pass"
+        },
+        {
+          "name": "features organization contains every source record once",
+          "result": "pass",
+          "detail": {
+            "leaves": 496,
+            "groups": 85
+          }
+        },
+        {
+          "name": "features organization has one valid parent per non-root",
+          "result": "pass"
+        },
+        {
+          "name": "schema organization contains every source record once",
+          "result": "pass",
+          "detail": {
+            "leaves": 88,
+            "groups": 25
+          }
+        },
+        {
+          "name": "schema organization has one valid parent per non-root",
+          "result": "pass"
+        },
+        {
+          "name": "native Space expansion 0",
+          "result": "pass"
+        },
+        {
+          "name": "expanded branch layout 0",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "collapse restores deterministic geometry 0",
+          "result": "pass"
+        },
+        {
+          "name": "native Space expansion 1",
+          "result": "pass"
+        },
+        {
+          "name": "expanded branch layout 1",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "collapse restores deterministic geometry 1",
+          "result": "pass"
+        },
+        {
+          "name": "native Space expansion 2",
+          "result": "pass"
+        },
+        {
+          "name": "expanded branch layout 2",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "collapse restores deterministic geometry 2",
+          "result": "pass"
+        },
+        {
+          "name": "native Space expansion 3",
+          "result": "pass"
+        },
+        {
+          "name": "expanded branch layout 3",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "collapse restores deterministic geometry 3",
+          "result": "pass"
+        },
+        {
+          "name": "multiple expanded siblings allocate separate subtrees",
+          "result": "pass",
+          "detail": {
+            "width": 4214,
+            "failures": []
+          }
+        },
+        {
+          "name": "containment edges correspond exactly to visible parent-child pairs",
+          "result": "pass"
+        },
+        {
+          "name": "branch name selects a plain-language explanation",
+          "result": "pass"
+        },
+        {
+          "name": "focus gives branch its own view",
+          "result": "pass"
+        },
+        {
+          "name": "Back returns one branch level",
+          "result": "pass"
+        },
+        {
+          "name": "root breadcrumb clears focus history",
+          "result": "pass"
+        },
+        {
+          "name": "dismiss details keeps focused branch and expanded children",
+          "result": "pass"
+        },
+        {
+          "name": "roving tabs work with ArrowRight",
+          "result": "pass"
+        },
+        {
+          "name": "roving tabs support End",
+          "result": "pass"
+        },
+        {
+          "name": "roving tabs support Home",
+          "result": "pass"
+        },
+        {
+          "name": "slash focuses search",
+          "result": "pass"
+        },
+        {
+          "name": "search navigates to feature in its branch",
+          "result": "pass"
+        },
+        {
+          "name": "Escape dismisses selected panel",
+          "result": "pass"
+        },
+        {
+          "name": "plan fully expanded geometry has no overlapping cards",
+          "result": "pass",
+          "detail": {
+            "nodes": 130,
+            "width": 21050,
+            "failures": []
+          }
+        },
+        {
+          "name": "plan fully expanded lines remain containment only",
+          "result": "pass"
+        },
+        {
+          "name": "schema fully expanded geometry has no overlapping cards",
+          "result": "pass",
+          "detail": {
+            "nodes": 113,
+            "width": 21538,
+            "failures": []
+          }
+        },
+        {
+          "name": "schema fully expanded lines remain containment only",
+          "result": "pass"
+        },
+        {
+          "name": "features fully expanded geometry has no overlapping cards",
+          "result": "pass",
+          "detail": {
+            "nodes": 581,
+            "width": 121090,
+            "failures": []
+          }
+        },
+        {
+          "name": "features fully expanded lines remain containment only",
+          "result": "pass"
+        },
+        {
+          "name": "all 670 leaf panels and 882 attributes render without loss",
+          "result": "pass",
+          "detail": {
+            "package": 86,
+            "feature": 496,
+            "table": 88,
+            "attributes": 882,
+            "failures": []
+          }
+        },
+        {
+          "name": "selected work item exposes its actual direct prerequisites",
+          "result": "pass",
+          "detail": {
+            "package": "WP-008",
+            "needs": [
+              "WP-006",
+              "WP-007",
+              "WP-011"
+            ]
+          }
+        },
+        {
+          "name": "schema inspector has selected attributes and real relations",
+          "result": "pass"
+        },
+        {
+          "name": "private-care ruling is retained in plain target explanation",
+          "result": "pass"
+        },
+        {
+          "name": "all accepted rulings and unresolved decisions retained",
+          "result": "pass"
+        },
+        {
+          "name": "keyboard canvas pan works",
+          "result": "pass"
+        },
+        {
+          "name": "background mouse drag pans without selecting a card",
+          "result": "pass"
+        },
+        {
+          "name": "keyboard canvas zoom works",
+          "result": "pass"
+        },
+        {
+          "name": "Fit keeps card text readable with contained overflow",
+          "result": "pass"
+        },
+        {
+          "name": "narrow 390 keeps horizontal scrolling inside canvas",
+          "result": "pass"
+        },
+        {
+          "name": "narrow 390 keeps details and attributes accessible",
+          "result": "pass"
+        },
+        {
+          "name": "narrow 320 keeps horizontal scrolling inside canvas",
+          "result": "pass"
+        },
+        {
+          "name": "narrow 320 keeps details and attributes accessible",
+          "result": "pass"
+        },
+        {
+          "name": "existing storage key restores old evidence and saved view",
+          "result": "pass"
+        },
+        {
+          "name": "editing retains secondary evidence and harmless literal notes",
+          "result": "pass"
+        },
+        {
+          "name": "local edit survives reload without canonical promotion",
+          "result": "pass"
+        },
+        {
+          "name": "Done remains gated by actual prerequisites",
+          "result": "pass"
+        },
+        {
+          "name": "cancel second import confirmation is atomic",
+          "result": "pass"
+        },
+        {
+          "name": "legacy JSON merge retains existing package records",
+          "result": "pass"
+        },
+        {
+          "name": "legacy JSON Replace only replaces local records",
+          "result": "pass"
+        },
+        {
+          "name": "reject wrong snapshot without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: This progress belongs to a different source snapshot. Reconcile it before import."
+        },
+        {
+          "name": "reject unknown package without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Unknown work package: WP-999"
+        },
+        {
+          "name": "reject unknown field without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Progress document has missing or unknown fields."
+        },
+        {
+          "name": "reject invalid date without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Export time has an invalid calendar date."
+        },
+        {
+          "name": "reject invalid enum without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Invalid status."
+        },
+        {
+          "name": "reject missing evidence without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Add an evidence reference and a note or test result for this status."
+        },
+        {
+          "name": "reject duplicate JSON keys without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Duplicate JSON key: schema_version"
+        },
+        {
+          "name": "reject oversize JSON without changing progress",
+          "result": "pass",
+          "detail": "Import rejected: Progress JSON exceeds the 2 MB limit."
+        },
+        {
+          "name": "JSON export keeps the original portable schema and all evidence",
+          "result": "pass"
+        },
+        {
+          "name": "portable HTML reopens offline with local evidence and current design",
+          "result": "pass"
+        },
+        {
+          "name": "reset cancellation preserves local evidence",
+          "result": "pass"
+        },
+        {
+          "name": "confirmed reset leaves canonical untouched",
+          "result": "pass"
+        },
+        {
+          "name": "corrupt saved data survives startup and navigation",
+          "result": "pass"
+        },
+        {
+          "name": "unavailable storage displays portable recovery guidance",
+          "result": "pass"
+        },
+        {
+          "name": "no browser runtime errors",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "no console errors",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "no outbound request",
+          "result": "pass",
+          "detail": []
+        }
+      ],
+      "pageErrors": [],
+      "consoleErrors": [],
+      "requests": [
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/Documents/Codex/2026-10-02/task/explorer-tree-portable.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html"
+      ],
+      "panelCounts": {
+        "package": 86,
+        "feature": 496,
+        "table": 88,
+        "attributes": 882,
+        "failures": []
+      },
+      "screenshots": [
+        "explorer-tree-after-overview.png",
+        "explorer-tree-after-siblings.png",
+        "explorer-tree-after-focus.png",
+        "explorer-tree-after-schema.png",
+        "explorer-tree-after-narrow.png"
+      ],
+      "passed": 77,
+      "failed": 0
+    },
+    "final_file_checks": {
+      "html": "/Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+      "checks": [
+        {
+          "name": "exact saved primary loads current tree with quiet zero completion",
+          "result": "pass"
+        },
+        {
+          "name": "native tabs identify their shared labelled panel",
+          "result": "pass"
+        },
+        {
+          "name": "keyboard skip link reaches main explorer landmark",
+          "result": "pass"
+        },
+        {
+          "name": "expand buttons retain at least 24px targets at minimum zoom",
+          "result": "pass"
+        },
+        {
+          "name": "focused branch expands directly downward to work items",
+          "result": "pass"
+        },
+        {
+          "name": "two expanded siblings retained and non-overlapping after Back",
+          "result": "pass"
+        },
+        {
+          "name": "multiple sibling subtrees have separate leaf intervals",
+          "result": "pass"
+        },
+        {
+          "name": "primary schema panel puts account meaning and attributes before technical evidence",
+          "result": "pass"
+        },
+        {
+          "name": "feature module explains behavior while preserving separate build links",
+          "result": "pass"
+        },
+        {
+          "name": "primary narrow layout stays within document width",
+          "result": "pass"
+        },
+        {
+          "name": "narrow expand targets remain at least 24px",
+          "result": "pass"
+        },
+        {
+          "name": "Done filter cannot imply full completion",
+          "result": "pass"
+        },
+        {
+          "name": "mandatory maintenance workflow remains available as disclosure",
+          "result": "pass"
+        },
+        {
+          "name": "stale local override defers to canonical revision",
+          "result": "pass",
+          "detail": {
+            "missing": [],
+            "status": "in_progress",
+            "conflict": true
+          }
+        },
+        {
+          "name": "explicit review and rebase preserves revised local evidence without canonical promotion",
+          "result": "pass"
+        },
+        {
+          "name": "portable HTML recovers edits when browser storage was unavailable",
+          "result": "pass"
+        },
+        {
+          "name": "primary checks and recovery fixtures have zero runtime errors",
+          "result": "pass",
+          "detail": []
+        },
+        {
+          "name": "primary checks and recovery fixtures have zero outbound requests",
+          "result": "pass"
+        }
+      ],
+      "pageErrors": [],
+      "requests": [
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/Documents/Codex/2026-10-02/task/explorer-tree-conflict-fixture.html",
+        "file:///Users/sebastian/dev/everyfield_v3/everyfield-build-explorer.html",
+        "file:///Users/sebastian/Documents/Codex/2026-10-02/task/explorer-tree-storage-recovery.html"
+      ],
+      "screenshots": [
+        "explorer-tree-final-overview.png",
+        "explorer-tree-final-branch.png",
+        "explorer-tree-final-siblings.png",
+        "explorer-tree-final-schema.png",
+        "explorer-tree-final-features.png",
+        "explorer-tree-final-narrow.png"
+      ],
+      "passed": 18,
+      "failed": 0
+    }
+  },
+  "maintenance_fixtures": {
+    "checks": [
+      {
+        "name": "design renderer replaces old frame successfully",
+        "result": "pass",
+        "detail": "Rendered explorer design; embedded source snapshot and local changes preserved; canonical progress retained.\n"
+      },
+      {
+        "name": "design rendering preserves all source records, fingerprint, and original progress",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "new frame equals staged tree design",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "rendered design passes template consistency",
+        "result": "pass",
+        "detail": "Valid: current design template; source snapshot/local state preserved; canonical progress matches.\n"
+      },
+      {
+        "name": "old mandatory updater accepts new tree frame",
+        "result": "pass",
+        "detail": "Valid: 86 packages; canonical/HTML revision 0; 0 pending, 0 previously applied patches.\n"
+      },
+      {
+        "name": "progress refresh preserves tree CSS/JS/source graph exactly",
+        "result": "pass",
+        "detail": "Refreshed everyfield-build-explorer.html from canonical revision 0; embedded local state cleared.\n"
+      },
+      {
+        "name": "template check tolerates progress updater serialization",
+        "result": "pass",
+        "detail": "Valid: current design template; source snapshot/local state preserved; canonical progress matches.\n"
+      },
+      {
+        "name": "renderer embeds current nonzero canonical revision without inferring completion",
+        "result": "pass",
+        "detail": "Rendered explorer design; embedded source snapshot and local changes preserved; canonical progress retained.\n"
+      },
+      {
+        "name": "updated canonical fixture passes evidence and DAG validation",
+        "result": "pass",
+        "detail": "Valid: 86 packages; canonical/HTML revision 1; 0 pending, 0 previously applied patches.\n"
+      },
+      {
+        "name": "UI renderer retains portable embedded records and all secondary evidence",
+        "result": "pass",
+        "detail": "Rendered explorer design; embedded source snapshot and local changes preserved; canonical progress retained.\n"
+      },
+      {
+        "name": "source progress refresh explicitly clears only embedded local payload",
+        "result": "pass",
+        "detail": "Refreshed everyfield-build-explorer.html from canonical revision 1; embedded local state cleared.\n"
+      },
+      {
+        "name": "canonical update remains valid after portable-source refresh",
+        "result": "pass",
+        "detail": "Valid: 86 packages; canonical/HTML revision 1; 0 pending, 0 previously applied patches.\n"
+      },
+      {
+        "name": "UI renderer honors shared progress lock without writes",
+        "result": "pass",
+        "detail": "ERROR: Explorer/progress integration is already running; retry after its owner finishes\n"
+      },
+      {
+        "name": "duplicate design token fails before writes",
+        "result": "pass",
+        "detail": "ERROR: Expected one __CANONICAL_PROGRESS__ template token\n"
+      },
+      {
+        "name": "symlinked source file is rejected",
+        "result": "pass",
+        "detail": "ERROR: Unsafe path: everyfield-build-explorer.html\n"
+      }
+    ],
+    "passed": 15,
+    "failed": 0,
+    "scope": "Disposable fixtures only; canonical primary progress unchanged."
+  },
+  "integrity": {
+    "existing_primary_files": 73,
+    "modified_existing_primary_files": [
+      "README.md",
+      "docs/build-agent-workflow.md",
+      "everyfield-build-explorer.html"
+    ],
+    "missing_existing_primary_files": [],
+    "unexpected_modified_primary_files": [],
+    "protected_data_payloads_equal": true,
+    "source_fingerprint": "4fde2956bd434920c54545c516f43134d62ade411b8aa0d1b9eac05eef4162b8",
+    "canonical_revision": 0,
+    "canonical_done": 0,
+    "canonical_html_matches_progress_file": true,
+    "source_embedded_local_state": {},
+    "all_five_astra_reports_preserved": true,
+    "v2_and_alpha_tracked_hashes_checked": 3960,
+    "v2_and_alpha_hash_mismatches": [],
+    "actual_source_heads": {
+      "main": "18fc1a505c64615fe9ef197dba0e2cd037063d31",
+      "alpha": "2107df58885c883960422ce7e60719f0adbac0e4"
+    },
+    "primary_html_sha256": "a1f38d8d63ea9a3669c4aeeb06b8b9738cd4e364d45d32212cf0eead60ce2781",
+    "primary_html_bytes": 5994131,
+    "new_primary_files": [
+      "docs/evidence/explorer-tree-ui-review.json",
+      "docs/explorer-ui.template.html",
+      "docs/render-build-explorer.py",
+      "docs/reviews/explorer-screenshots/tree-before-expanded.png",
+      "docs/reviews/explorer-screenshots/tree-focused-branch.png",
+      "docs/reviews/explorer-screenshots/tree-modules.png",
+      "docs/reviews/explorer-screenshots/tree-narrow.png",
+      "docs/reviews/explorer-screenshots/tree-overview.png",
+      "docs/reviews/explorer-screenshots/tree-schema-attributes.png",
+      "docs/reviews/explorer-screenshots/tree-sibling-branches.png",
+      "docs/reviews/explorer-tree-ui-review.md"
+    ]
+  },
+  "coverage": {
+    "packages": 86,
+    "tables": 88,
+    "features": 496,
+    "all_leaf_panels_rendered": 670,
+    "all_attributes_selected": 882,
+    "physical_relations_retained": 209,
+    "package_dependencies_retained": 272,
+    "future_acceptance_obligations_retained": 720,
+    "accepted_product_rulings": 5,
+    "unresolved_register_or_review_entries": 20
+  },
+  "screenshots": [
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-before-expanded.png",
+      "workspace_source": "explorer-tree-before-expanded.png",
+      "sha256": "5f653a822ad8f7c159a60a21e80f18bbbb05a4c6f8d9b7d03935be49c4b0c87b"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-overview.png",
+      "workspace_source": "explorer-tree-final-overview.png",
+      "sha256": "64ec3dd5d406600e383ad0bde0c1b2cf142ee0f0ee4b9f28fc7a5e90cc06c365"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-focused-branch.png",
+      "workspace_source": "explorer-tree-final-branch.png",
+      "sha256": "afe22c2a5be129c3ab031b5e1993584fd6b4ab0a8a738da31607eba59d3276b5"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-sibling-branches.png",
+      "workspace_source": "explorer-tree-final-siblings.png",
+      "sha256": "0afc17338918acd4ec8a20e678564c313f1cb3b3ec01bc6a9166dd70d28feaaf"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-schema-attributes.png",
+      "workspace_source": "explorer-tree-final-schema.png",
+      "sha256": "8bd3a5f159a1b996acc8a24c3ec520df5d1828a32ba6a8f3d7054e410bebbd13"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-modules.png",
+      "workspace_source": "explorer-tree-final-features.png",
+      "sha256": "2cba9475a6d6921c7c7356d24fd499a45a6f175dc3969473493bca22d7883876"
+    },
+    {
+      "path": "docs/reviews/explorer-screenshots/tree-narrow.png",
+      "workspace_source": "explorer-tree-final-narrow.png",
+      "sha256": "7c0e7efac78ef01343d4252c336f0f66cebd90f60e635654ec93d3c3aa3c4cdd"
+    }
+  ],
+  "limitations": [
+    "Organizational lines are containment, never prerequisite or foreign-key edges. Wide expanded trees use canvas scrolling or branch focus.",
+    "Completion evidence is declared and reviewed; the UI does not watch the filesystem or execute the 720 future v3 acceptance obligations.",
+    "Native optional source-document links require the adjacent documentation; the core HTML needs no runtime companion assets."
+  ],
+  "remaining_ui_blockers": []
+}

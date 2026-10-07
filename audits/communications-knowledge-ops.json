@@ -1,0 +1,4308 @@
+[
+  {
+    "id": "COM-001",
+    "title": "Communication hub, filtered history and delivery overview",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(dashboard)/communication/page.tsx",
+      "src/app/(dashboard)/communication/history/page.tsx",
+      "src/lib/communication/service.ts#getCommunications/countCommunications/countSentSince/resolveSubjects/getChurchDeliveryTotals",
+      "src/lib/communication/filters.ts",
+      "src/lib/communication/queries.ts",
+      "src/lib/communication/filters.ts#buildCommunicationsWhere",
+      "src/lib/communication/filters.ts#escapeLikePattern",
+      "src/lib/communication/history-options.ts#historyFilterOptions",
+      "src/lib/communication/presentation.ts#communicationEmptyStateLine",
+      "src/lib/communication/presentation.ts#communicationHubSubtitle",
+      "src/lib/communication/service.ts#countCommunications",
+      "src/lib/communication/service.ts#countSentSince",
+      "src/lib/communication/service.ts#getChurchDeliveryTotals",
+      "src/lib/communication/service.ts#getCommunication",
+      "src/lib/communication/service.ts#getCommunicationRecipients",
+      "src/lib/communication/service.ts#getCommunications",
+      "src/lib/communication/service.ts#getHistoryFilterAvailability",
+      "src/lib/communication/service.ts#getMeetingCommunications",
+      "src/lib/communication/service.ts#getMeetingTrackingByPerson",
+      "src/lib/communication/service.ts#getPersonCommunications",
+      "src/lib/communication/service.ts#resolveSubjects"
+    ],
+    "routes": [
+      "/communication",
+      "/communication/history"
+    ],
+    "operations": [
+      "getCommunications",
+      "getHistoryFilterAvailability",
+      "countCommunications",
+      "countSentSince",
+      "resolveSubjects",
+      "getChurchDeliveryTotals",
+      "buildCommunicationsWhere",
+      "escapeLikePattern",
+      "historyFilterOptions",
+      "communicationEmptyStateLine",
+      "communicationHubSubtitle",
+      "getCommunication",
+      "getCommunicationRecipients",
+      "getMeetingCommunications",
+      "getMeetingTrackingByPerson",
+      "getPersonCommunications"
+    ],
+    "tests": [
+      "src/lib/communication/filters.test.ts",
+      "src/lib/communication/queries.test.ts",
+      "src/lib/communication/history-options.test.ts",
+      "src/components/communication/delivery-stats-presentation.test.ts",
+      "src/components/communication/history-filters-presentation.test.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients",
+      "churches",
+      "church_meetings"
+    ],
+    "permissions": "read capability; current church from session; SQL scoped to church.",
+    "states": "History supports email/sms/both and draft/scheduled/sending/sent/failed/logged stored values; aggregate includes sent messages, attempted/delivered/opened/clicked/bounced/failed recipient counts.",
+    "validation": "URL page/limit positive; limit max100; invalid enum/search falls back; search is subject/body case-insensitive substring; distinct available filters reflect all history.",
+    "integrations": [],
+    "failures": "Rates must distinguish attempted versus all selected people; zero denominator yields safe display. Runtime read failure is page error, not a fake empty history. Subject display re-merges current linked meeting facts, unlike delivery-time frozen church fields.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.list",
+      "communication.historyFilters",
+      "communication.deliveryTotals",
+      "communication.resolveDisplaySubjects"
+    ],
+    "acceptance_ids": [
+      "AC-COM-001"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-002",
+    "title": "Message detail, recipient and person/meeting communication histories",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(dashboard)/communication/[id]/page.tsx",
+      "src/app/(dashboard)/people/[id]/communication/page.tsx",
+      "src/lib/communication/service.ts#getCommunication/getCommunicationRecipients/getPersonCommunications/getMeetingCommunications/getMeetingTrackingByPerson",
+      "src/lib/communication/queries.ts#churchDeliveryScope",
+      "src/lib/communication/queries.ts#countAttempted",
+      "src/lib/communication/queries.ts#countOfStatus",
+      "src/lib/communication/queries.ts#countOfStatuses",
+      "src/lib/communication/queries.ts#isTeamGroup",
+      "src/lib/communication/queries.ts#isUnreachableStatus",
+      "src/lib/communication/queries.ts#meetingTrackingScope",
+      "src/lib/communication/queries.ts#messageRecipientScope",
+      "src/lib/communication/queries.ts#nonOpenerScope",
+      "src/lib/communication/queries.ts#parseTeamGroup",
+      "src/lib/communication/queries.ts#selectableTeamsScope",
+      "src/lib/communication/queries.ts#sentMessagesScope",
+      "src/lib/communication/queries.ts#sentSinceScope",
+      "src/lib/communication/queries.ts#summarizeRecipients",
+      "src/lib/communication/queries.ts#teamGroup",
+      "src/lib/communication/queries.ts#teamMemberScope",
+      "src/lib/communication/status-display.ts#communicationStatusBadgeClass",
+      "src/lib/communication/status-display.ts#communicationStatusLabel",
+      "src/lib/communication/status-display.ts#recipientStatusBadgeClass",
+      "src/lib/communication/status-display.ts#recipientStatusLabel"
+    ],
+    "routes": [
+      "/communication/[id]",
+      "/people/[id]/communication",
+      "/meetings/[id]/invitations"
+    ],
+    "operations": [
+      "getCommunication",
+      "getCommunicationRecipients",
+      "getPersonCommunications",
+      "getMeetingCommunications",
+      "getMeetingTrackingByPerson",
+      "churchDeliveryScope",
+      "countAttempted",
+      "countOfStatus",
+      "countOfStatuses",
+      "isTeamGroup",
+      "isUnreachableStatus",
+      "meetingTrackingScope",
+      "messageRecipientScope",
+      "nonOpenerScope",
+      "parseTeamGroup",
+      "selectableTeamsScope",
+      "sentMessagesScope",
+      "sentSinceScope",
+      "summarizeRecipients",
+      "teamGroup",
+      "teamMemberScope",
+      "communicationStatusBadgeClass",
+      "communicationStatusLabel",
+      "recipientStatusBadgeClass",
+      "recipientStatusLabel"
+    ],
+    "tests": [
+      "src/lib/communication/queries.test.ts",
+      "src/lib/communication/status-display.test.ts",
+      "src/app/(dashboard)/people/[id]/communication/page.test.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients",
+      "persons",
+      "church_meetings"
+    ],
+    "permissions": "read; recipient detail SQL church-scoped, subject parent is church-scoped.",
+    "states": "Per-message stats and per-person status timestamps; across messages the best outcome display wins, distinct from lifecycle precedence.",
+    "validation": "Message/person/meeting identifiers must belong to caller church; gone parent is not found.",
+    "integrations": [],
+    "failures": "Historical email snapshot versus current person email must be clearly labelled. getMeetingCommunications child query trusts the previously church-scoped communication-id set; v3 should enforce tenant predicates consistently.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.get",
+      "communication.listRecipients",
+      "communication.forPerson",
+      "communication.forMeeting",
+      "communication.meetingRecipientTracking"
+    ],
+    "acceptance_ids": [
+      "AC-COM-002"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-003",
+    "title": "Compose and preview sanitized rich-text email with merge fields",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(dashboard)/communication/compose/compose-form.tsx",
+      "src/app/(dashboard)/communication/actions.ts#sendMessageAction",
+      "src/lib/communication/send.ts#sendCommunication",
+      "src/lib/communication/merge.ts",
+      "src/lib/rich-text/email-segments.ts",
+      "src/lib/validations/communication.ts#composeMessageSchema",
+      "src/lib/communication/church-merge.ts#churchMergeFactsQuery",
+      "src/lib/communication/church-merge.ts#getChurchMergeData",
+      "src/lib/communication/merge.ts#buildChurchMergeData",
+      "src/lib/communication/merge.ts#buildMeetingMergeData",
+      "src/lib/communication/merge.ts#buildPersonMergeData",
+      "src/lib/communication/merge.ts#buildResolvedChurchMergeData",
+      "src/lib/communication/merge.ts#extractMergeFields",
+      "src/lib/communication/merge.ts#formatAgendaForEmail",
+      "src/lib/communication/merge.ts#formatLocationForEmail",
+      "src/lib/communication/merge.ts#freezeChurchMergeFields",
+      "src/lib/communication/merge.ts#getSampleData",
+      "src/lib/communication/merge.ts#renderEmailBodyHtml",
+      "src/lib/communication/merge.ts#renderEmailBodyText",
+      "src/lib/communication/merge.ts#renderSubject",
+      "src/lib/communication/merge.ts#renderTemplate",
+      "src/lib/communication/merge.ts#validateMergeFields"
+    ],
+    "routes": [
+      "/communication/compose"
+    ],
+    "operations": [
+      "sendMessageAction",
+      "sendCommunication",
+      "renderEmailBodyHtml",
+      "renderEmailBodyText",
+      "renderSubject",
+      "extractMergeFields",
+      "validateMergeFields",
+      "freezeChurchMergeFields",
+      "churchMergeFactsQuery",
+      "getChurchMergeData",
+      "buildChurchMergeData",
+      "buildMeetingMergeData",
+      "buildPersonMergeData",
+      "buildResolvedChurchMergeData",
+      "formatAgendaForEmail",
+      "formatLocationForEmail",
+      "getSampleData",
+      "renderTemplate"
+    ],
+    "tests": [
+      "src/app/(dashboard)/communication/compose/compose-form.test.ts",
+      "src/components/communication/email-preview.test.ts",
+      "src/components/communication/merge-field-inserter.test.ts",
+      "src/lib/communication/merge.test.ts",
+      "src/lib/communication/church-merge-send.test.ts",
+      "src/lib/validations/communication.test.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients",
+      "persons",
+      "churches",
+      "church_meetings",
+      "message_templates"
+    ],
+    "permissions": "communication.send; session actor/church; no recipient outside church is loaded.",
+    "states": "Creates sending then sent or failed; recipient pending then provider outcome. UI forces email; protocol schema still admits sms/both.",
+    "validation": "Subject1..500 chars, nonempty body, optional UUID template/meeting, >=1 UUID recipient; HTML sanitized before storing; plain text derives from same safe HTML; person/church/meeting merge contexts; preview uses same rendering functions.",
+    "integrations": [
+      "Resend",
+      "React Email"
+    ],
+    "failures": "JSON.parse of recipientIds happens before schema/try and can throw; schema accepts arbitrary nonempty body and sms/both despite email-only implementation; cross-church meeting lookup can leave unresolved fields while original meetingId is inserted. No idempotency guard for repeated send. Missing emails skip delivery but recipientCount counts selected persons.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.preview",
+      "communication.resolveMergeFields",
+      "communication.sendReviewed"
+    ],
+    "acceptance_ids": [
+      "AC-COM-003"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve email compose/preview/merge semantics. Freeze delivered content and explicit resolved metadata. SMS/both is an open capability decision, not assumed supported or approved for removal."
+  },
+  {
+    "id": "COM-004",
+    "title": "Recipient search and closed quick-select groups",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/recipient-groups.ts#getGroupRecipients/listRecipientTeams",
+      "src/app/(dashboard)/communication/actions.ts#resolveGroupAction/searchPeopleAction",
+      "src/lib/communication/queries.ts#teamMemberScope",
+      "src/lib/communication/recipient-groups.ts#getGroupRecipients",
+      "src/lib/communication/recipient-groups.ts#isRecipientGroupSelector",
+      "src/lib/communication/recipient-groups.ts#listRecipientTeams",
+      "src/lib/communication/recipient-payload.ts#recipientIdsPayload"
+    ],
+    "routes": [
+      "/communication/compose"
+    ],
+    "operations": [
+      "resolveGroupAction",
+      "searchPeopleAction",
+      "getGroupRecipients",
+      "listRecipientTeams",
+      "isRecipientGroupSelector",
+      "recipientIdsPayload"
+    ],
+    "tests": [
+      "src/components/communication/recipient-picker.test.ts",
+      "src/lib/communication/queries.test.ts"
+    ],
+    "tables": [
+      "persons",
+      "ministry_teams",
+      "team_memberships"
+    ],
+    "permissions": "read; same church; deleted people excluded from groups; active team memberships only.",
+    "states": "core_group/launch_team/leaders/prospects/all and team:<UUID>; forming/active teams offered, paused omitted; one person with multiple team roles deduplicated.",
+    "validation": "Unknown selector resolves nobody, never all. Recruitment cohorts omit account-seat person rows; all is full people list. Search first20; group resolution whole list avoids pagination truncation.",
+    "integrations": [],
+    "failures": "Search result includes people without email; group empty is explicit zero recipients. Submission must re-resolve recipients and reachability, preventing stale audience or undeleted assumptions.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.searchRecipients",
+      "communication.resolveAudience",
+      "communication.listAudienceTeams"
+    ],
+    "acceptance_ids": [
+      "AC-COM-004"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-005",
+    "title": "Bulk provider dispatch and per-recipient outcome correlation",
+    "module": "communication",
+    "status": "partial",
+    "source_refs": [
+      "src/lib/communication/send.ts#sendCommunication",
+      "src/lib/email/components/communication-email.tsx",
+      "src/lib/communication/queries.ts#RECIPIENT_STATUS_RANK",
+      "src/lib/communication/send.ts#getNonOpenerSummary",
+      "src/lib/communication/send.ts#resendToNonOpeners"
+    ],
+    "routes": [
+      "/communication/compose"
+    ],
+    "operations": [
+      "Resend single send",
+      "Resend batch send",
+      "updateRecipientStatus",
+      "getNonOpenerSummary",
+      "resendToNonOpeners",
+      "sendCommunication"
+    ],
+    "tests": [
+      "src/lib/communication/church-merge-send.test.ts",
+      "alpha:scripts/proofs/communication-send-failure-audit.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients"
+    ],
+    "permissions": "communication.send; minted recipient UUID ties each payload to storage.",
+    "states": "Main finishes sent after provider error/exception in several cases; alpha final status sent only if acceptedCount>0, else failed. Partially accepted batch becomes sent; per-recipient failures remain visible.",
+    "validation": "Render independent payloads in parallel, batch max100, provider results matched to request chunk positions rather than INSERT RETURNING order.",
+    "integrations": [
+      "Resend"
+    ],
+    "failures": "Bulk path calls raw Resend and omits shared sendEmail suppression, reply-to, unsubscribe, provider idempotency and retry policy. Render/token failures before provider try may leave sending row. Short provider-result array can leave pending recipients. Unknown send outcome needs reconciliation, not unconditional resend.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.dispatchAttempt",
+      "communication.reconcileProviderOutcome"
+    ],
+    "acceptance_ids": [
+      "AC-COM-005"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve main bulk flow plus alpha truthful failure behavior. Replace private send loop with common transport plus durable per-send/per-recipient attempt records, while distinguishing subscription preferences from transactional/bulk consent."
+  },
+  {
+    "id": "COM-006",
+    "title": "Alpha provider rejection is surfaced to composer",
+    "module": "communication",
+    "status": "implemented-local-only",
+    "source_refs": [
+      "alpha:src/lib/communication/send.ts#acceptedCount",
+      "alpha:src/app/(dashboard)/communication/actions.ts#sendMessageAction",
+      "alpha:scripts/proofs/communication-send-failure-audit.ts"
+    ],
+    "routes": [
+      "/communication/compose",
+      "/communication/history"
+    ],
+    "operations": [
+      "acceptedCount-based failed settlement",
+      "sendMessageAction failed result"
+    ],
+    "tests": [
+      "alpha:scripts/proofs/communication-send-failure-audit.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients"
+    ],
+    "permissions": "Same communication.send boundary as main.",
+    "states": "Zero accepted => failed, sentAt null; provider exceptions fail still-pending recipients; normal composer returns error with communicationId for details.",
+    "validation": "No valid recipients rejects; no reachable emails becomes failed.",
+    "integrations": [],
+    "failures": "resendToNonOpenersAction still returns success even when new communication result is failed. Need acceptance for both send and resend, mixed success, missing ID, partial batch and network exception.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.sendReviewed.result",
+      "communication.resendReviewed.result"
+    ],
+    "acceptance_ids": [
+      "AC-COM-006"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Carry alpha correction into full v3 parity; status of unmerged source is local-only, not main."
+  },
+  {
+    "id": "COM-007",
+    "title": "System and church message-template CRUD and copy-on-write forks",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/templates.ts#getTemplates/getTemplate/getSystemTemplates/createTemplate/forkTemplate/updateTemplate/deleteTemplate",
+      "src/app/(dashboard)/communication/actions.ts",
+      "src/db/schema/communication.ts#messageTemplates",
+      "src/lib/communication/templates.ts#createTemplate",
+      "src/lib/communication/templates.ts#deleteTemplate",
+      "src/lib/communication/templates.ts#forkTemplate",
+      "src/lib/communication/templates.ts#getSystemTemplates",
+      "src/lib/communication/templates.ts#getTemplate",
+      "src/lib/communication/templates.ts#getTemplates",
+      "src/lib/communication/templates.ts#storedTemplateContent",
+      "src/lib/communication/templates.ts#updateTemplate"
+    ],
+    "routes": [
+      "/communication/templates",
+      "/communication/templates/new",
+      "/communication/templates/[id]/edit"
+    ],
+    "operations": [
+      "getTemplates",
+      "getTemplate",
+      "getSystemTemplates",
+      "createTemplate",
+      "forkTemplate",
+      "updateTemplate",
+      "deleteTemplate",
+      "storedTemplateContent"
+    ],
+    "tests": [
+      "src/lib/communication/fork-and-token-race.test.ts",
+      "src/lib/communication/system-templates.test.ts",
+      "src/lib/validations/communication.test.ts"
+    ],
+    "tables": [
+      "message_templates",
+      "communications"
+    ],
+    "permissions": "read for browse; communication.send for create/update/delete/fork. Global system rows plus current church; foreign custom edit/delete refused; system delete refused.",
+    "states": "One fork per(church,source_template) enforced partial unique index; fork hides original; delete fork re-exposes original.",
+    "validation": "Name trimmed1..255; description<=1000; subject<=500; rich body nonempty; create action email-only, update accepts other channels; content stored sanitized HTML and flat text.",
+    "integrations": [],
+    "failures": "Nullable church+source gap and absent FK sourceTemplateId deserve stronger v3 checks; main getSystemTemplates only isSystem without global predicate, unlike getTemplates. Deleting a template referenced by communications can FK-fail; no archive surface. Concurrent fork safe via upsert, concurrent patches last-writer wins.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.templates.list",
+      "communication.templates.get",
+      "communication.templates.create",
+      "communication.templates.fork",
+      "communication.templates.update",
+      "communication.templates.archiveOrDelete"
+    ],
+    "acceptance_ids": [
+      "AC-COM-007"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-008",
+    "title": "Canonical message-template bootstrap and meeting invitation selection",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/system-templates.ts#SYSTEM_TEMPLATES/meetingInvitationTemplate",
+      "scripts/seed-system-templates.ts",
+      "src/lib/communication/meeting-compose.ts",
+      "src/lib/communication/meeting-compose.ts#emailableGuests",
+      "src/lib/communication/meeting-compose.ts#meetingComposeUrl"
+    ],
+    "routes": [
+      "/communication/compose?meetingId="
+    ],
+    "operations": [
+      "SYSTEM_TEMPLATES",
+      "meetingInvitationTemplate",
+      "emailableGuests",
+      "meetingComposeUrl",
+      "seed-system-templates"
+    ],
+    "tests": [
+      "src/lib/communication/system-templates.test.ts",
+      "src/lib/communication/meeting-compose.test.ts"
+    ],
+    "tables": [
+      "message_templates",
+      "church_meetings",
+      "ministry_teams"
+    ],
+    "permissions": "Reference-content operator bootstrap, not arbitrary customer writer; meeting selection scoped.",
+    "states": "Template categories meeting_invitation/meeting_reminder/follow_up/core_group/team/announcement/launch/other; selection prefers church fork by source identity.",
+    "validation": "Merge field catalog and canonical snippets; templates seeded by name/system identity, updates overwrite reference content; script runs immediately on invocation. Main repository catalog has seven entries including one invitation per current meeting type; canonical snapshot has seven system template rows.",
+    "integrations": [],
+    "failures": "Current seed read-then-update/insert is not concurrent-safe and uses names as identity; no explicit content version/source approval stamp. v3 content bootstrap must be immutable/versioned and idempotent using stable IDs, respecting church customizations.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "reference.installMessageTemplates",
+      "communication.templates.forMeeting"
+    ],
+    "acceptance_ids": [
+      "AC-COM-008"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-009",
+    "title": "Reviewed resend to delivered non-openers",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/send.ts#getNonOpenerSummary/resendToNonOpeners",
+      "src/lib/communication/resend-policy.ts",
+      "src/components/communication/resend-non-openers.tsx",
+      "src/lib/communication/resend-policy.ts#evaluateResendEligibility",
+      "src/lib/communication/resend-policy.ts#resendBlockedHint",
+      "src/lib/communication/resend-policy.ts#resendBlockedMessage",
+      "src/app/(dashboard)/communication/actions.ts#resendToNonOpenersAction"
+    ],
+    "routes": [
+      "/communication/[id]"
+    ],
+    "operations": [
+      "getNonOpenerSummary",
+      "evaluateResendEligibility",
+      "resendToNonOpeners",
+      "resendToNonOpenersAction",
+      "resendBlockedHint",
+      "resendBlockedMessage"
+    ],
+    "tests": [
+      "src/lib/communication/resend-policy.test.ts",
+      "src/lib/communication/church-merge-send.test.ts",
+      "src/lib/communication/queries.test.ts"
+    ],
+    "tables": [
+      "communications",
+      "communication_recipients",
+      "persons"
+    ],
+    "permissions": "communication.send, current church, server repeats gate.",
+    "states": "Only sent original, >=24h elapsed, >=1 confirmed delivery and remaining deliverable person IDs; new communication/history entry, original unchanged.",
+    "validation": "Provider open or click excludes; missing/deleted email audience is excluded; resolved audience count is shown before confirm; legacy plant tokens cleared rather than falsely acquiring current pastor/date.",
+    "integrations": [
+      "Resend tracking"
+    ],
+    "failures": "Open tracking is not reliable evidence of attention; gate reduces repeat storm but repeated approved request lacks dedupe; on retries body meeting/person facts can change. Preserve delivered content snapshot and batch membership for review.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.resendCandidates",
+      "communication.proposeResend",
+      "communication.executeResend"
+    ],
+    "acceptance_ids": [
+      "AC-COM-009"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved.",
+    "source_wrapper_aliases": [
+      {
+        "source_path": "src/app/(dashboard)/communication/actions.ts",
+        "source_symbol": "resendToNonOpenersAction",
+        "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+      }
+    ]
+  },
+  {
+    "id": "COM-010",
+    "title": "Public token RSVP and email engagement linkage",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/confirmation.ts#createConfirmationToken/getConfirmationDetails/resolveConfirmation/getConfirmationStatus",
+      "src/app/rsvp/[token]/page.tsx",
+      "src/app/api/rsvp/[token]/route.ts",
+      "src/app/rsvp/[token]/rsvp-actions.tsx",
+      "src/lib/communication/confirmation.ts#createConfirmationToken",
+      "src/lib/communication/confirmation.ts#getConfirmationDetails",
+      "src/lib/communication/confirmation.ts#getConfirmationStatus",
+      "src/lib/communication/confirmation.ts#resolveConfirmation"
+    ],
+    "routes": [
+      "/rsvp/[token]",
+      "/api/rsvp/[token]"
+    ],
+    "operations": [
+      "createConfirmationToken",
+      "getConfirmationDetails",
+      "resolveConfirmation",
+      "getConfirmationStatus",
+      "POST RSVP"
+    ],
+    "tests": [
+      "src/lib/communication/fork-and-token-race.test.ts",
+      "src/app/rsvp/[token]/page.test.ts"
+    ],
+    "tables": [
+      "meeting_confirmation_tokens",
+      "meeting_responses",
+      "communications",
+      "communication_recipients",
+      "church_meetings",
+      "persons",
+      "churches"
+    ],
+    "permissions": "Possession of random expiring token authorizes its exact meeting/person, no session required; own authenticated RSVP separate in meeting module.",
+    "states": "pending=>confirmed/declined; one pending pair via partial unique; expired pending renewed in place; answered token history remains; resolved recipient engagement elevated to clicked.",
+    "validation": "Default7 days; bounded race reread; CAS token answer and canonical meeting_response transaction/statement; expiry checked atomically.",
+    "integrations": [],
+    "failures": "GET never silently records answer; scanner-safe explicit confirm/decline action; tokens are sensitive. Native deletion expiry/bad token yields clear refusal. Distinguish RSVP response from attendance or commitment and record explicit source.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "meeting.createRsvpToken",
+      "meeting.describeRsvpToken",
+      "meeting.answerRsvpToken",
+      "meeting.rsvpStatus"
+    ],
+    "acceptance_ids": [
+      "AC-COM-010"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-011",
+    "title": "Person contact log derived from completed person-linked task",
+    "module": "communication",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/communication/log.ts#handleTaskCompletedForCommunicationLog/taskEntryReference",
+      "src/lib/events/subscriptions.ts#task.completed",
+      "src/lib/tasks/service.ts#completeTask",
+      "src/lib/communication/log.ts#contactedPersonId",
+      "src/lib/communication/log.ts#contactedPersonQuery",
+      "src/lib/communication/log.ts#existingTaskEntryQuery",
+      "src/lib/communication/log.ts#handleTaskCompletedForCommunicationLog",
+      "src/lib/communication/log.ts#logCompletedTaskContact",
+      "src/lib/communication/log.ts#taskEntryBody",
+      "src/lib/communication/log.ts#taskEntryReference",
+      "src/lib/communication/log.ts#taskLogEntryStatements",
+      "src/lib/communication/log.ts#taskQuery"
+    ],
+    "routes": [
+      "/people/[id]/communication",
+      "/communication/history"
+    ],
+    "operations": [
+      "handleTaskCompletedForCommunicationLog",
+      "taskEntryReference",
+      "loggablePersonId",
+      "contactedPersonId",
+      "contactedPersonQuery",
+      "existingTaskEntryQuery",
+      "logCompletedTaskContact",
+      "taskEntryBody",
+      "taskLogEntryStatements",
+      "taskQuery"
+    ],
+    "tests": [
+      "src/lib/communication/log.test.ts",
+      "src/lib/communication/log-live.test.ts"
+    ],
+    "tables": [
+      "tasks",
+      "persons",
+      "communications",
+      "communication_recipients"
+    ],
+    "permissions": "Uses task event actor/church; verifies related person in same church and not deleted.",
+    "states": "Terminal logged, recipient logical record, sentAt means contact occurrence; externalId task:<taskId>; never provider send.",
+    "validation": "Only person-linked completed task; repeated event normally ignored by read guard.",
+    "integrations": [],
+    "failures": "Replay read guard is not concurrent uniqueness; main single-task completion race can duplicate entries. Completion does not prove outreach actually occurred. V3 should preserve record as completed follow-up assertion with explicit provenance/undo correction, not infer email sent.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.recordContactFromTask",
+      "communication.correctContactLog"
+    ],
+    "acceptance_ids": [
+      "AC-COM-011"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "COM-012",
+    "title": "Declared drafts, scheduled sends, SMS and inbound capabilities",
+    "module": "communication",
+    "status": "partial",
+    "source_refs": [
+      "src/db/schema/communication.ts#communicationStatuses/communicationChannels",
+      "src/lib/validations/communication.ts",
+      "src/app/(dashboard)/communication/compose/compose-form.tsx",
+      "src/lib/notifications/categories.ts"
+    ],
+    "routes": [
+      "/communication/history"
+    ],
+    "operations": [
+      "draft/scheduled enum storage",
+      "sms/both enum storage"
+    ],
+    "tests": [],
+    "tables": [
+      "communications",
+      "message_templates"
+    ],
+    "permissions": "No current draft/schedule/SMS/inbound mutation or scheduler located in current source.",
+    "states": "Enums permit draft/scheduled/sms/both; UI sends email immediately.",
+    "validation": "Stored values shown in history; direct schema input can incorrectly label email dispatch as SMS.",
+    "integrations": [],
+    "failures": "Do not invent shipped scheduler or Twilio integration from FRD labels, enum values or installed skills.",
+    "v3_module": "communication",
+    "v3_operations": [
+      "communication.draft (decision)",
+      "communication.schedule (decision)",
+      "communication.sms (decision)",
+      "communication.inbound (decision)"
+    ],
+    "acceptance_ids": [
+      "AC-COM-012"
+    ],
+    "work_packages": [
+      "WP-communication"
+    ],
+    "decision": "Explicit product decision on historical intended scope; preserve current read compatibility in inventory. No feature removal assumed approved."
+  },
+  {
+    "id": "NTF-001",
+    "title": "Tenant/organization anchored enqueue and deduplicated delivery intent",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/enqueue.ts#enqueue/runEnqueue/cancelByEntity",
+      "src/lib/notifications/anchor.ts",
+      "src/db/schema/notifications.ts",
+      "src/lib/notifications/anchor.ts#anchorId",
+      "src/lib/notifications/anchor.ts#anchorOfRow",
+      "src/lib/notifications/anchor.ts#anchorType",
+      "src/lib/notifications/anchor.ts#churchAnchor",
+      "src/lib/notifications/anchor.ts#orgAnchor",
+      "src/lib/notifications/anchor.ts#toAnchorColumns",
+      "src/lib/notifications/enqueue.ts#cancelByEntity",
+      "src/lib/notifications/enqueue.ts#clampNotificationTitle",
+      "src/lib/notifications/enqueue.ts#enqueue",
+      "src/lib/notifications/enqueue.ts#recipientAdministersOrg",
+      "src/lib/notifications/enqueue.ts#runCancelByEntity",
+      "src/lib/notifications/enqueue.ts#runEnqueue"
+    ],
+    "routes": [],
+    "operations": [
+      "enqueue",
+      "runEnqueue",
+      "cancelByEntity",
+      "runCancelByEntity",
+      "clampNotificationTitle",
+      "anchorId",
+      "anchorOfRow",
+      "anchorType",
+      "churchAnchor",
+      "orgAnchor",
+      "toAnchorColumns",
+      "recipientAdministersOrg"
+    ],
+    "tests": [
+      "src/lib/notifications/enqueue.test.ts",
+      "src/lib/notifications/anchor.test.ts",
+      "src/lib/notifications/oversight-audience.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "users",
+      "churches",
+      "church_privacy_settings",
+      "coach_assignments",
+      "sending_churches",
+      "sending_networks"
+    ],
+    "permissions": "Recipient relationship rechecked; only eligible audience/category/anchor combinations admitted; oversight disallows granular categories.",
+    "states": "pending/claimed/delivered/cancelled/failed; cancelled rows release dedupe slot; church versus sending_church/network anchor exclusive.",
+    "validation": "Strict schema UUIDs, title clamp255, type/dedupe lengths, paired entity discriminator/id; partial unique church+recipient+key and org+recipient+key for live rows.",
+    "integrations": [],
+    "failures": "Org anchor UUID is generalized without FK; coherent anchor constraints retained, opaque organization union needs typed service contract. Refusal outside-church/privacy creates no row and must be measurable.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.enqueue",
+      "notifications.cancelForEntity"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-001"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-002",
+    "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/dispatch.ts#runDispatch/dbDispatchDeps/dispatchNotifications",
+      "src/lib/notifications/register-consumers.ts",
+      "src/app/api/notifications/dispatch/route.ts",
+      "src/lib/notifications/dispatch.ts#channelEligibility",
+      "src/lib/notifications/dispatch.ts#clearStillLivePredicates",
+      "src/lib/notifications/dispatch.ts#dispatchNotifications",
+      "src/lib/notifications/dispatch.ts#emailComposerForGroup",
+      "src/lib/notifications/dispatch.ts#groupForDispatch",
+      "src/lib/notifications/dispatch.ts#groupIdempotencyKey",
+      "src/lib/notifications/dispatch.ts#isPermanentEmailError",
+      "src/lib/notifications/dispatch.ts#isPermanentlyFailed",
+      "src/lib/notifications/dispatch.ts#registerStillLivePredicate",
+      "src/lib/notifications/dispatch.ts#registerStillLivePredicates",
+      "src/lib/notifications/dispatch.ts#resolveLiveness",
+      "src/lib/notifications/dispatch.ts#retryDelayMs",
+      "src/lib/notifications/dispatch.ts#runDispatch",
+      "src/lib/notifications/dispatch.ts#statusFromChannelResults",
+      "src/lib/notifications/dispatch.ts#stillLivePredicateFor",
+      "src/lib/notifications/dispatch.ts#unregisterStillLivePredicate",
+      "src/lib/notifications/register-consumers.ts#registerNotificationConsumers"
+    ],
+    "routes": [
+      "/api/notifications/dispatch"
+    ],
+    "operations": [
+      "dispatchNotifications",
+      "runDispatch",
+      "claimDue",
+      "claimDelivery",
+      "releaseClaims",
+      "channelEligibility",
+      "resolveLiveness",
+      "registerStillLivePredicate",
+      "groupForDispatch",
+      "emailComposerForGroup",
+      "clearStillLivePredicates",
+      "groupIdempotencyKey",
+      "isPermanentEmailError",
+      "isPermanentlyFailed",
+      "registerStillLivePredicates",
+      "retryDelayMs",
+      "statusFromChannelResults",
+      "stillLivePredicateFor",
+      "unregisterStillLivePredicate",
+      "registerNotificationConsumers"
+    ],
+    "tests": [
+      "src/lib/notifications/dispatch.test.ts",
+      "src/app/api/notifications/dispatch/route.test.ts",
+      "src/lib/notifications/channels/email.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "notification_deliveries",
+      "notification_preferences",
+      "users",
+      "email_suppressions"
+    ],
+    "permissions": "CRON_SECRET constant-time bearer; delivery rechecks recipient relationship, prefs, liveness and sharing; registered task/meeting predicates in cron runtime.",
+    "states": "Atomic pending claim SKIP LOCKED; one delivery per(notification,channel); 3 attempts,5m exponential max1h; permanent failure never retried; unresolved live check releases claim; group(anchor,recipient,category).",
+    "validation": "Max100 rows,45s budget; unprocessed claims returned pending; provider idempotency key based on owned notification/attempt set; HTML/text composer errors settle retryable failures.",
+    "integrations": [
+      "Resend",
+      "React Email",
+      "GitHub Actions cron"
+    ],
+    "failures": "Crash leaves queued channel/claimed notification without automatic reclaim to avoid duplicate mail; DB unique delivery does not prove external at-most-once across crash. v3 requires lease recovery plus provider key/outcome reconciliation and operator uncertain-state flow.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.claimDue",
+      "notifications.dispatchBatch",
+      "notifications.recoverLease",
+      "notifications.reconcileUnknownOutcome"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-002"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-003",
+    "title": "In-app notification feed, unread filters, pagination and bell",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/feed.ts",
+      "src/lib/notifications/queries.ts",
+      "src/lib/notifications/mark-read.ts",
+      "src/lib/notifications/feed-view.ts",
+      "src/app/(dashboard)/notifications/actions.ts",
+      "src/app/(dashboard)/notification-badge.ts",
+      "src/lib/notifications/entity-links.ts#notificationEntityHref",
+      "src/lib/notifications/feed-view.ts#serializeFeedCursor",
+      "src/lib/notifications/feed-view.ts#toFeedRow",
+      "src/lib/notifications/feed.ts#loadNotificationFeedScreen",
+      "src/lib/notifications/feed.ts#loadOlderNotifications",
+      "src/lib/notifications/feed.ts#loadUnreadBadgeCount",
+      "src/lib/notifications/feed.ts#markAllVisibleNotificationsRead",
+      "src/lib/notifications/feed.ts#markVisibleNotificationRead",
+      "src/lib/notifications/feed.ts#notificationViewer",
+      "src/lib/notifications/mark-read.ts#markAllNotificationsRead",
+      "src/lib/notifications/mark-read.ts#markAllNotificationsReadQuery",
+      "src/lib/notifications/mark-read.ts#markNotificationRead",
+      "src/lib/notifications/mark-read.ts#markNotificationReadQuery",
+      "src/lib/notifications/queries.ts#dispatchQueueQuery",
+      "src/lib/notifications/queries.ts#dispatcherWhere",
+      "src/lib/notifications/queries.ts#feedCursorFrom",
+      "src/lib/notifications/queries.ts#feedPageFrom",
+      "src/lib/notifications/queries.ts#feedPageLimit",
+      "src/lib/notifications/queries.ts#feedScopedWhere",
+      "src/lib/notifications/queries.ts#feedVisibility",
+      "src/lib/notifications/queries.ts#getNotificationById",
+      "src/lib/notifications/queries.ts#getUnreadCount",
+      "src/lib/notifications/queries.ts#hasAnyNotifications",
+      "src/lib/notifications/queries.ts#hasAnyNotificationsQuery",
+      "src/lib/notifications/queries.ts#isOversightScope",
+      "src/lib/notifications/queries.ts#listForDispatch",
+      "src/lib/notifications/queries.ts#listNotificationPage",
+      "src/lib/notifications/queries.ts#listNotifications",
+      "src/lib/notifications/queries.ts#notificationByIdQuery",
+      "src/lib/notifications/queries.ts#notificationFeedQuery",
+      "src/lib/notifications/queries.ts#oversightScopedWhere",
+      "src/lib/notifications/queries.ts#unreadCountQuery"
+    ],
+    "routes": [
+      "/notifications",
+      "header notification bell"
+    ],
+    "operations": [
+      "notificationViewer",
+      "loadNotificationFeedScreen",
+      "loadOlderNotifications",
+      "loadUnreadBadgeCount",
+      "markVisibleNotificationRead",
+      "markAllVisibleNotificationsRead",
+      "markNotificationReadAction",
+      "markAllNotificationsReadAction",
+      "loadMoreNotificationsAction",
+      "notificationEntityHref",
+      "serializeFeedCursor",
+      "toFeedRow",
+      "markAllNotificationsRead",
+      "markAllNotificationsReadQuery",
+      "markNotificationRead",
+      "markNotificationReadQuery",
+      "dispatchQueueQuery",
+      "dispatcherWhere",
+      "feedCursorFrom",
+      "feedPageFrom",
+      "feedPageLimit",
+      "feedScopedWhere",
+      "feedVisibility",
+      "getNotificationById",
+      "getUnreadCount",
+      "hasAnyNotifications",
+      "hasAnyNotificationsQuery",
+      "isOversightScope",
+      "listForDispatch",
+      "listNotificationPage",
+      "listNotifications",
+      "notificationByIdQuery",
+      "notificationFeedQuery",
+      "oversightScopedWhere",
+      "unreadCountQuery"
+    ],
+    "tests": [
+      "src/lib/notifications/feed.test.ts",
+      "src/lib/notifications/mark-read.test.ts",
+      "src/lib/notifications/queries.test.ts",
+      "src/components/notifications/notification-feed.test.ts",
+      "src/components/notifications/notification-bell.test.ts",
+      "src/app/(dashboard)/notification-badge.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "notification_deliveries",
+      "notification_preferences"
+    ],
+    "permissions": "Viewer scope derived from session; self.write to mark own rows; read to load; oversight/current coach relationship filters.",
+    "states": "Pending due and delivered rows visible under eligibility predicates; future/cancelled/denied rows omitted; readAt independent of delivery status; keyset cursor(createdAt,id).",
+    "validation": "UUID mark ID; valid datetime/UUID cursor; unreadOnly boolean; stable cursor and current preference/category restrictions; mark-all uses same visibility boundary as displayed feed.",
+    "integrations": [],
+    "failures": "Stale relationships/sharing removed from read feeds, already emailed messages cannot be recalled. Hidden count must not reveal unauthorized rows. Empty result and failed load are distinct UI outcomes.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.feed",
+      "notifications.unreadCount",
+      "notifications.markRead",
+      "notifications.markAllVisibleRead"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-003"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-004",
+    "title": "User category/channel preferences with explicit-choice intent",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/preferences.ts",
+      "src/lib/notifications/categories.ts",
+      "src/components/notifications/preference-matrix.tsx",
+      "src/app/(dashboard)/settings/actions.ts#setNotificationPreferenceAction/setDigestCadenceAction",
+      "src/lib/notifications/categories.ts#audienceMayReceiveCategory",
+      "src/lib/notifications/categories.ts#defaultChannelEnabled",
+      "src/lib/notifications/categories.ts#ineligibleCategoriesForAudience",
+      "src/lib/notifications/categories.ts#isDigestCadence",
+      "src/lib/notifications/categories.ts#isNotificationCategory",
+      "src/lib/notifications/categories.ts#isNotificationChannel",
+      "src/lib/notifications/categories.ts#isOversightEligibleCategory",
+      "src/lib/notifications/categories.ts#isOwnRelationshipType",
+      "src/lib/notifications/categories.ts#notificationPreferenceMatrixKeys",
+      "src/lib/notifications/categories.ts#oversightGateFor",
+      "src/lib/notifications/preferences.ts#audienceForTenancy",
+      "src/lib/notifications/preferences.ts#buildPreferenceMap",
+      "src/lib/notifications/preferences.ts#buildPreferenceMatrixView",
+      "src/lib/notifications/preferences.ts#digestCadenceWriteIsNoop",
+      "src/lib/notifications/preferences.ts#getInAppCategories",
+      "src/lib/notifications/preferences.ts#getPreferenceMatrix",
+      "src/lib/notifications/preferences.ts#isChannelEnabled",
+      "src/lib/notifications/preferences.ts#isUnauthenticatedPreferenceError",
+      "src/lib/notifications/preferences.ts#loadUserPreferences",
+      "src/lib/notifications/preferences.ts#preferenceKey",
+      "src/lib/notifications/preferences.ts#preferenceOwnerFromSession",
+      "src/lib/notifications/preferences.ts#preferenceOwnerFromUnsubscribeToken",
+      "src/lib/notifications/preferences.ts#preferenceSaveFailure",
+      "src/lib/notifications/preferences.ts#preferenceValueIsInheritable",
+      "src/lib/notifications/preferences.ts#preferenceWriteIsNoop",
+      "src/lib/notifications/preferences.ts#resolveDigestCadence",
+      "src/lib/notifications/preferences.ts#resolveInAppCategories",
+      "src/lib/notifications/preferences.ts#resolvePreference",
+      "src/lib/notifications/preferences.ts#resolvePreferenceMatrix",
+      "src/lib/notifications/preferences.ts#setDigestCadence",
+      "src/lib/notifications/preferences.ts#setDigestCadenceQuery",
+      "src/lib/notifications/preferences.ts#setPreference",
+      "src/lib/notifications/preferences.ts#setPreferenceQuery"
+    ],
+    "routes": [
+      "/settings/notifications"
+    ],
+    "operations": [
+      "loadUserPreferences",
+      "resolvePreference",
+      "setPreferenceQuery",
+      "setDigestCadenceQuery",
+      "setNotificationPreferenceAction",
+      "setDigestCadenceAction",
+      "getPreferenceMatrix",
+      "getInAppCategories",
+      "setPreference",
+      "setDigestCadence",
+      "buildPreferenceMatrixView",
+      "resolveDigestCadence",
+      "preferenceWriteIsNoop",
+      "digestCadenceWriteIsNoop",
+      "audienceMayReceiveCategory",
+      "defaultChannelEnabled",
+      "ineligibleCategoriesForAudience",
+      "isDigestCadence",
+      "isNotificationCategory",
+      "isNotificationChannel",
+      "isOversightEligibleCategory",
+      "isOwnRelationshipType",
+      "notificationPreferenceMatrixKeys",
+      "oversightGateFor",
+      "audienceForTenancy",
+      "buildPreferenceMap",
+      "isChannelEnabled",
+      "isUnauthenticatedPreferenceError",
+      "preferenceKey",
+      "preferenceOwnerFromSession",
+      "preferenceOwnerFromUnsubscribeToken",
+      "preferenceSaveFailure",
+      "preferenceValueIsInheritable",
+      "resolveInAppCategories",
+      "resolvePreferenceMatrix"
+    ],
+    "tests": [
+      "src/lib/notifications/preferences.test.ts",
+      "src/lib/notifications/categories.test.ts",
+      "src/components/notifications/preference-matrix.test.ts",
+      "src/app/(dashboard)/settings/actions.test.ts"
+    ],
+    "tables": [
+      "notification_preferences",
+      "users"
+    ],
+    "permissions": "self.write; owner from session, never request; oversight categories limited to milestones/digest; oversight daily cadence not user-editable.",
+    "states": "Absence inherits coded default; chosen persists human consent even at default value; incidental cadence-save value inherits if equal default; planter daily/weekly digest defaultweekly.",
+    "validation": "Closed7 categories and2 channels; code defaults mostly true, digest in_app false for church and true for oversight; no-op checks avoid stale incidental writes.",
+    "integrations": [],
+    "failures": "Simplify UI policy, retain distinction between inherited/default and explicit user choice. Settings matrix must not offer inert teams/phase/communication producers as if implemented.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.preferences.get",
+      "notifications.preferences.set",
+      "notifications.digestCadence.set"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-004"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-005",
+    "title": "Task due/overdue reminders and reminder cancellation/resync",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/tasks/notifications.ts#syncTaskNotificationsFor/cancelTaskNotificationsFor/registerTaskStillLivePredicates",
+      "alpha:src/lib/tasks/notifications.ts",
+      "src/lib/notifications/sync.ts",
+      "src/lib/notifications/sync.ts#cancelEntityNotifications",
+      "src/lib/notifications/sync.ts#runNotificationSync"
+    ],
+    "routes": [
+      "/tasks",
+      "/api/notifications/dispatch"
+    ],
+    "operations": [
+      "syncTaskNotificationsFor",
+      "cancelTaskNotificationsFor",
+      "registerTaskStillLivePredicates",
+      "planTaskNotifications",
+      "composeTaskDue",
+      "composeTaskOverdue",
+      "taskDueAt",
+      "taskOverdueAt",
+      "taskStillLivePredicate",
+      "cancelEntityNotifications",
+      "runNotificationSync"
+    ],
+    "tests": [
+      "src/lib/tasks/notifications.test.ts",
+      "src/lib/notifications/sync.test.ts"
+    ],
+    "tables": [
+      "tasks",
+      "notifications",
+      "notification_deliveries",
+      "users"
+    ],
+    "permissions": "Assignee is recipient where applicable; same church/active seat/relationship; domain writes own reminder facts.",
+    "states": "task.due/task.overdue intents; due-date/id dedupe; complete/delete/reassign/reschedule cancel stale intents and regenerate applicable ones; alpha follows revised assignee/follow-up ownership. Due reminder at due instant and overdue reminder after one calendar-day offset.",
+    "validation": "Task eligibility/liveness reloaded before dispatch; overdue threshold derives actual current task not old body.",
+    "integrations": [],
+    "failures": "Best-effort reminder side effects can lag source operation; retryable cancellation/enqueue failures must be observable and repairable without rolling back a legitimate task edit.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.syncTaskReminders",
+      "notifications.cancelTaskReminders"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-005"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-006",
+    "title": "Meeting scheduled and day-offset reminders",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/meetings/notifications.ts#syncMeetingNotifications/resolveMeetingAudience/registerMeetingStillLivePredicates",
+      "src/lib/email/templates/meeting-reminder.tsx",
+      "src/lib/meetings/notifications.ts#guestListUserIdsQuery",
+      "src/db/schema/meetings.ts#meetingAttendance"
+    ],
+    "routes": [
+      "/meetings",
+      "/api/notifications/dispatch"
+    ],
+    "operations": [
+      "syncMeetingNotifications",
+      "resolveMeetingAudience",
+      "listCoreGroupUserIds",
+      "listGuestListUserIds",
+      "loadMeetingNotificationFacts",
+      "registerMeetingStillLivePredicates",
+      "planMeetingNotifications",
+      "composeMeetingScheduled",
+      "composeMeetingReminder"
+    ],
+    "tests": [
+      "src/lib/meetings/notifications.test.ts",
+      "src/lib/email/templates/meeting-reminder.test.ts",
+      "src/app/api/notifications/dispatch/route.test.ts"
+    ],
+    "tables": [
+      "church_meetings",
+      "meeting_attendance",
+      "persons",
+      "users",
+      "team_memberships",
+      "notifications",
+      "notification_deliveries"
+    ],
+    "permissions": "Meeting audience by type; only linked authenticated users receive notifications; guest bulk invitation is separate communication pipeline.",
+    "states": "Immediate scheduled announcement to linked core-group accounts; reminders at seven/three/one days before meeting to guest-list linked accounts plus meeting creator; edits cancel and rebuild reminders; cancelled/completed/past meeting liveness suppresses stale reminder.",
+    "validation": "Meeting date/type/location metadata; church-local interpretation at construction and dispatch; association changes re-evaluated. The guest-list audience is sourced from meeting_attendance joined to persons and users; meeting_guests is not a source-defined table. Church/person login guards are applied to that audience.",
+    "integrations": [],
+    "failures": "No-email/ineligible account must not cause mailing an unrelated CRM address. Registered predicates are essential in actual cron process, not merely test process.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.syncMeetingReminders",
+      "notifications.meetingAudience"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-006"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-007",
+    "title": "Planter open-items daily/weekly digest and church local send schedule",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/digest.ts#runPlanterDigest/runDailyPlanterDigestSweep",
+      "src/lib/notifications/digest-content.ts",
+      "src/app/(dashboard)/settings/actions.ts#setChurchDigestScheduleAction",
+      "src/lib/notifications/channels/digest-email.ts#composePlanterDigestEmail",
+      "src/lib/notifications/digest-content.ts#composePlanterDigestBody",
+      "src/lib/notifications/digest-content.ts#composePlanterDigestTitle",
+      "src/lib/notifications/digest-content.ts#currentDigestDedupeKeys",
+      "src/lib/notifications/digest-content.ts#digestAnchorFrom",
+      "src/lib/notifications/digest-content.ts#digestLinesFromBody",
+      "src/lib/notifications/digest-content.ts#digestPeriodFor",
+      "src/lib/notifications/digest-content.ts#digestSendHourLabel",
+      "src/lib/notifications/digest-content.ts#planterDigestDedupeKey",
+      "src/lib/notifications/digest-content.ts#totalOutstanding",
+      "src/lib/notifications/digest-content.ts#widestPeriodEnd",
+      "src/lib/notifications/digest.ts#listDigestCohorts",
+      "src/lib/notifications/digest.ts#listPlanterDigestRecipients",
+      "src/lib/notifications/digest.ts#loadChurchDigestAnchor",
+      "src/lib/notifications/digest.ts#plantsOwedPlanterDigestQuery",
+      "src/lib/notifications/digest.ts#runDailyPlanterDigest",
+      "src/lib/notifications/digest.ts#runDailyPlanterDigestSweep",
+      "src/lib/notifications/digest.ts#runPlanterDigest",
+      "src/lib/notifications/digest.ts#runPlanterDigestForChurch",
+      "src/lib/notifications/digest.ts#runPlanterDigestSweep",
+      "src/lib/notifications/digest.ts#selectPlantsOwedPlanterDigest",
+      "src/lib/notifications/digest.ts#summarizeOutstandingForRecipient"
+    ],
+    "routes": [
+      "/settings/notifications",
+      "/settings/church",
+      "/api/notifications/dispatch"
+    ],
+    "operations": [
+      "summarizeOutstandingForRecipient",
+      "listPlanterDigestRecipients",
+      "loadChurchDigestAnchor",
+      "digestPeriodFor",
+      "runPlanterDigest",
+      "runDailyPlanterDigestSweep",
+      "setChurchDigestScheduleAction",
+      "runDailyPlanterDigest",
+      "runPlanterDigestForChurch",
+      "listDigestCohorts",
+      "plantsOwedPlanterDigestQuery",
+      "selectPlantsOwedPlanterDigest",
+      "runPlanterDigestSweep",
+      "composePlanterDigestEmail",
+      "composePlanterDigestBody",
+      "composePlanterDigestTitle",
+      "currentDigestDedupeKeys",
+      "digestAnchorFrom",
+      "digestLinesFromBody",
+      "digestSendHourLabel",
+      "planterDigestDedupeKey",
+      "totalOutstanding",
+      "widestPeriodEnd"
+    ],
+    "tests": [
+      "src/lib/notifications/digest.test.ts",
+      "src/lib/notifications/digest-content.test.ts",
+      "src/lib/notifications/digest-content.test.ts",
+      "src/app/(dashboard)/settings/actions.test.ts"
+    ],
+    "tables": [
+      "tasks",
+      "church_meetings",
+      "notifications",
+      "notification_preferences",
+      "users",
+      "churches"
+    ],
+    "permissions": "User cadence + preference; church.profile changes church weekday/hour/timezone; scoped assignee/task visibility.",
+    "states": "Only nonempty overdue/due-before-next-digest/upcoming-meeting counts; daily or weekly period key dedupes; defaultSunday16:00 church-local.",
+    "validation": "Calendar/DST-aware periods; 25 plants/page,500 ceiling,10s sweep budget; query selects owed cohorts rather than truncating and starving tail.",
+    "integrations": [],
+    "failures": "Missed ticks delay current period delivery; no replay of every missed historical digest. Alpha task ownership semantics must be reflected, not old globally assigned task count.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.previewPlanterDigest",
+      "notifications.generateOwedPlanterDigests",
+      "church.digestSchedule.set"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-007"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-008",
+    "title": "Oversight privacy-preserving daily activity digest",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/oversight-digest.ts",
+      "src/lib/notifications/oversight-audience.ts",
+      "src/lib/notifications/oversight-sharing.ts",
+      "src/lib/notifications/categories.ts",
+      "src/lib/notifications/oversight-admin.ts#namesAnOversightOrg",
+      "src/lib/notifications/oversight-admin.ts#noOversightOrg",
+      "src/lib/notifications/oversight-admin.ts#oversightOrgOfKind",
+      "src/lib/notifications/oversight-audience.ts#churchLevelCondition",
+      "src/lib/notifications/oversight-audience.ts#classifyOversightCandidate",
+      "src/lib/notifications/oversight-audience.ts#listOversightAdminsOfOrg",
+      "src/lib/notifications/oversight-audience.ts#listOversightRecipientsForChurch",
+      "src/lib/notifications/oversight-audience.ts#oversightAudienceCondition",
+      "src/lib/notifications/oversight-audience.ts#oversightReachCondition",
+      "src/lib/notifications/oversight-digest.ts#activityWindowForDay",
+      "src/lib/notifications/oversight-digest.ts#composeDigestBody",
+      "src/lib/notifications/oversight-digest.ts#dayKeyInAppZone",
+      "src/lib/notifications/oversight-digest.ts#digestDayKey",
+      "src/lib/notifications/oversight-digest.ts#digestDedupeKey",
+      "src/lib/notifications/oversight-digest.ts#plantsOwedDigestQuery",
+      "src/lib/notifications/oversight-digest.ts#previousCompleteDayWindow",
+      "src/lib/notifications/oversight-digest.ts#runDailyOversightDigest",
+      "src/lib/notifications/oversight-digest.ts#runDailyOversightDigestSweep",
+      "src/lib/notifications/oversight-digest.ts#runOversightDigest",
+      "src/lib/notifications/oversight-digest.ts#runOversightDigestSweep",
+      "src/lib/notifications/oversight-digest.ts#selectPlantsOwedDigest",
+      "src/lib/notifications/oversight-digest.ts#summarizeChurchActivity",
+      "src/lib/notifications/oversight-digest.ts#totalActivity"
+    ],
+    "routes": [
+      "/notifications",
+      "/oversight",
+      "/api/notifications/dispatch"
+    ],
+    "operations": [
+      "summarizeChurchActivity",
+      "runOversightDigest",
+      "runDailyOversightDigestSweep",
+      "listOversightRecipientsForChurch",
+      "listOversightAdminsOfOrg",
+      "runDailyOversightDigest",
+      "plantsOwedDigestQuery",
+      "selectPlantsOwedDigest",
+      "runOversightDigestSweep",
+      "previousCompleteDayWindow",
+      "namesAnOversightOrg",
+      "noOversightOrg",
+      "oversightOrgOfKind",
+      "churchLevelCondition",
+      "classifyOversightCandidate",
+      "oversightAudienceCondition",
+      "oversightReachCondition",
+      "activityWindowForDay",
+      "composeDigestBody",
+      "dayKeyInAppZone",
+      "digestDayKey",
+      "digestDedupeKey",
+      "totalActivity"
+    ],
+    "tests": [
+      "src/lib/notifications/oversight-digest.test.ts",
+      "src/lib/notifications/oversight-feed-scope.test.ts",
+      "src/lib/notifications/oversight-audience.test.ts"
+    ],
+    "tables": [
+      "churches",
+      "persons",
+      "church_meetings",
+      "tasks",
+      "phase_transitions",
+      "notifications",
+      "church_privacy_settings",
+      "users"
+    ],
+    "permissions": "Oversight activity sharing required; active sending church/network admin reach only; misprovisioned multi-tenancy seats refused/reported; no granular recipient data.",
+    "states": "Daily previous complete app-zone day; only nonzero counts for meetings/people/tasks/phase activity; per-plant/day/recipient dedupe; current relationship checked again at send/read.",
+    "validation": "Counts only, no person names/notes/messages/giving; 25/page,500 ceiling,10s budget; per-org audience avoids tenancy collision.",
+    "integrations": [],
+    "failures": "Current oversight uses app timezone while planter uses church zone; v3 should decide explicit daily window, preserve consent meaning. No hidden activity when sharing is off; already-sent email persists.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.previewOversightDigest",
+      "notifications.generateOwedOversightDigests"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-008"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-009",
+    "title": "Relationship, sharing, phase and launch milestone fanout",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/oversight.ts",
+      "src/lib/notifications/oversight-events.ts",
+      "src/lib/notifications/plant-association.ts",
+      "src/lib/notifications/oversight-relationship.ts",
+      "src/lib/notifications/oversight-events.ts#handlePhaseChangedForOversight",
+      "src/lib/notifications/oversight-events.ts#isPhaseAdvance",
+      "src/lib/notifications/oversight-events.ts#phaseAdvanceCondition",
+      "src/lib/notifications/oversight-relationship.ts#orgHasRecordedRelationshipWithChurch",
+      "src/lib/notifications/oversight-relationship.ts#recipientOrgOf",
+      "src/lib/notifications/oversight-sharing.ts#announceSharingChange",
+      "src/lib/notifications/oversight-sharing.ts#setSharingToggle",
+      "src/lib/notifications/oversight-sharing.ts#sharingChangeAudience",
+      "src/lib/notifications/oversight.ts#announceAssociationEnded",
+      "src/lib/notifications/oversight.ts#announceInvitationAccepted",
+      "src/lib/notifications/oversight.ts#announceInvitationDeclined",
+      "src/lib/notifications/oversight.ts#announceLaunchDateChanged",
+      "src/lib/notifications/oversight.ts#announceMilestone",
+      "src/lib/notifications/oversight.ts#announcePhaseAdvanced",
+      "src/lib/notifications/oversight.ts#announceSendingChurchDeclinedNetwork",
+      "src/lib/notifications/oversight.ts#announceSendingChurchJoinedNetwork",
+      "src/lib/notifications/oversight.ts#announceSendingChurchLeftNetwork",
+      "src/lib/notifications/oversight.ts#announceSharingChanged",
+      "src/lib/notifications/oversight.ts#composeMilestone",
+      "src/lib/notifications/oversight.ts#fanOutToOversight",
+      "src/lib/notifications/oversight.ts#fanOutToOversightOrg",
+      "src/lib/notifications/oversight.ts#invitingOrgForInvitation",
+      "src/lib/notifications/oversight.ts#oversightMilestoneType",
+      "src/lib/notifications/plant-association.ts#announceRemovedFromOversightOrg",
+      "src/lib/notifications/plant-association.ts#composeRemovedFromOrg",
+      "src/lib/notifications/plant-association.ts#plantOwnerOfChurch",
+      "src/lib/notifications/plant-association.ts#resolveOversightOrgName"
+    ],
+    "routes": [
+      "/notifications",
+      "/settings/association",
+      "/oversight/invitations"
+    ],
+    "operations": [
+      "announceInvitationAccepted",
+      "announceInvitationDeclined",
+      "announceAssociationEnded",
+      "announceSendingChurchJoinedNetwork",
+      "announceSendingChurchDeclinedNetwork",
+      "announceSendingChurchLeftNetwork",
+      "announceSharingChanged",
+      "announcePhaseAdvanced",
+      "announceLaunchDateChanged",
+      "announceRemovedFromOversightOrg",
+      "handlePhaseChangedForOversight",
+      "isPhaseAdvance",
+      "phaseAdvanceCondition",
+      "orgHasRecordedRelationshipWithChurch",
+      "recipientOrgOf",
+      "announceSharingChange",
+      "setSharingToggle",
+      "sharingChangeAudience",
+      "announceMilestone",
+      "composeMilestone",
+      "fanOutToOversight",
+      "fanOutToOversightOrg",
+      "invitingOrgForInvitation",
+      "oversightMilestoneType",
+      "composeRemovedFromOrg",
+      "plantOwnerOfChurch",
+      "resolveOversightOrgName"
+    ],
+    "tests": [
+      "src/lib/notifications/oversight.test.ts",
+      "src/lib/notifications/oversight-events.test.ts",
+      "src/lib/notifications/oversight-relationship.test.ts",
+      "src/lib/notifications/plant-association.test.ts",
+      "src/lib/notifications/oversight-sharing.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "association_events",
+      "churches",
+      "church_privacy_settings",
+      "phase_transitions",
+      "launches",
+      "organization_invitations",
+      "users",
+      "sending_churches",
+      "sending_networks"
+    ],
+    "permissions": "milestones only; relationship facts can be exempt from sharing; phase/launch needs oversight activity sharing; departed relationship recipient handled deliberately.",
+    "states": "Occurrence identity dedupes; phase only actual advance, not declaration/backward movement; plant owner also notified when org removes association.",
+    "validation": "Known milestone vocabulary; explicit church/org anchor; privacy changed announces closure of sharing without listing private facts.",
+    "integrations": [],
+    "failures": "Best-effort fanout failures must not invalidate association/phase operation; repair intent must capture event-time audience and policy without reopening private access.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.emitRelationshipMilestone",
+      "notifications.emitSharingMilestone",
+      "notifications.emitPhaseMilestone",
+      "notifications.emitLaunchMilestone"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-009"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-010",
+    "title": "Signed delivery webhooks for notifications and bulk communication",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/api/webhooks/resend/route.ts#POST",
+      "src/lib/notifications/channels/delivery-events.ts",
+      "src/lib/communication/queries.ts#RECIPIENT_STATUS_RANK",
+      "src/lib/notifications/channels/delivery-events.ts#addressSuppressionForEvent",
+      "src/lib/notifications/channels/delivery-events.ts#notificationDeliveryOutcome"
+    ],
+    "routes": [
+      "/api/webhooks/resend"
+    ],
+    "operations": [
+      "POST Resend webhook",
+      "applyNotificationDeliveryEvent",
+      "applyAddressSuppression",
+      "notificationDeliveryOutcome",
+      "addressSuppressionForEvent"
+    ],
+    "tests": [
+      "src/app/api/webhooks/resend/route.test.ts",
+      "src/lib/notifications/channels/delivery-events.test.ts"
+    ],
+    "tables": [
+      "notification_deliveries",
+      "communication_recipients",
+      "email_suppressions"
+    ],
+    "permissions": "Raw request verified by Resend/Svix id/timestamp/signature; fail invalid signature400; provider ID exact lookup, no public tenancy input.",
+    "states": "Notification failed event overwrites queued/sent channel only; soft bounce transient, hard/complaint permanent; communication sent/delivered/opened/clicked rank monotonic except bounce/fail terminal overrides.",
+    "validation": "Unknown/missing message ID =>ack200; hard bounce complaint suppress every event.to address globally; delivery times use processing now, not created_at.",
+    "integrations": [
+      "Resend webhooks/Svix"
+    ],
+    "failures": "Catch-all DB/processing failure responds200 and loses provider retry; no durable event ID inbox/dedup/order history; concurrent read/rank/update can regress status. Bulk bounce error unconditionally says hard even when soft. Notification parent state not necessarily reopened after asynchronous failed channel event.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "mail.acceptWebhook",
+      "mail.processDeliveryEvent",
+      "mail.reconcileDeliveryState"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-010"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-011",
+    "title": "Global address suppression and self-service restoration history",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/channels/suppression.ts",
+      "src/app/(dashboard)/settings/actions.ts#clearMyEmailSuppressionAction",
+      "src/components/notifications/email-suppression-notice.tsx",
+      "src/lib/notifications/channels/suppression.ts#clearAddressSuppression",
+      "src/lib/notifications/channels/suppression.ts#isAddressSuppressed",
+      "src/lib/notifications/channels/suppression.ts#loadSuppressedAddresses",
+      "src/lib/notifications/channels/suppression.ts#normalizeEmailAddress",
+      "src/lib/notifications/channels/suppression.ts#recordAddressSuppression"
+    ],
+    "routes": [
+      "/settings/notifications"
+    ],
+    "operations": [
+      "normalizeEmailAddress",
+      "recordAddressSuppression",
+      "loadSuppressedAddresses",
+      "isAddressSuppressed",
+      "clearAddressSuppression",
+      "clearMyEmailSuppressionAction"
+    ],
+    "tests": [
+      "src/lib/notifications/channels/suppression.test.ts",
+      "src/app/(dashboard)/settings/actions.test.ts"
+    ],
+    "tables": [
+      "email_suppressions",
+      "users"
+    ],
+    "permissions": "Session self.write can clear only current account email; generic clear helper also supports admin actor but no admin UI found.",
+    "states": "One active suppression/address; clear retains historical row(reason/time/actor), repeat clear success false/no-op; subsequent hard bounce creates new row.",
+    "validation": "Normalized trim/lowercase; only hard_bounce/spam_complaint; clearedAt/reason paired constraint; nonempty reason; dispatch loads batch suppressed set.",
+    "integrations": [],
+    "failures": "UI copy says holder re-verified, but action requires only current session and does not require fresh verification/password. Decide stronger restoration proof. Current raw bulk sender ignores suppression and several direct transactional senders also bypass queue check.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "mail.suppression.listForSelf",
+      "mail.suppression.recordProviderFact",
+      "mail.suppression.restoreReviewed"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-011"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-012",
+    "title": "Category email unsubscribe, one-click opt-out and bounded undo",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/notifications/channels/unsubscribe.ts",
+      "src/lib/notifications/channels/unsubscribe-token.ts",
+      "src/app/api/notifications/unsubscribe/route.ts",
+      "src/app/unsubscribe/page.tsx",
+      "src/app/unsubscribe/actions.ts",
+      "src/lib/notifications/channels/email.ts",
+      "src/lib/notifications/channels/unsubscribe-token.ts#mintUnsubscribeToken",
+      "src/lib/notifications/channels/unsubscribe-token.ts#unsubscribeTokenSecret",
+      "src/lib/notifications/channels/unsubscribe-token.ts#verifyUnsubscribeToken",
+      "src/lib/notifications/channels/unsubscribe.ts#applyEmailOptIn",
+      "src/lib/notifications/channels/unsubscribe.ts#applyEmailOptOut",
+      "src/lib/notifications/channels/unsubscribe.ts#describeUnsubscribeSubject",
+      "src/lib/notifications/channels/unsubscribe.ts#unsubscribeWriteQuery"
+    ],
+    "routes": [
+      "/unsubscribe",
+      "/api/notifications/unsubscribe"
+    ],
+    "operations": [
+      "mintUnsubscribeToken",
+      "verifyUnsubscribeToken",
+      "describeUnsubscribeSubject",
+      "applyEmailOptOut",
+      "applyEmailOptIn",
+      "unsubscribeWriteQuery",
+      "GET confirmation redirect",
+      "POST one-click opt-out",
+      "unsubscribeTokenSecret"
+    ],
+    "tests": [
+      "src/lib/notifications/channels/unsubscribe-token.test.ts",
+      "src/lib/notifications/channels/unsubscribe.test.ts",
+      "src/app/api/notifications/unsubscribe/route.test.ts"
+    ],
+    "tables": [
+      "notification_preferences",
+      "users"
+    ],
+    "permissions": "Opaque AES256-GCM token binds user/category/purpose, no auth required; production dedicated secret>=32; dev may use CRON_SECRET fallback.",
+    "states": "Disable token180days; distinct enable/undo token1hour; GET displays confirmation, POST mutates; in_app untouched; chosen intent records consent.",
+    "validation": "Malformed/tampered/expired/wrong-purpose fail closed; no public token contents; RFC8058 List-Unsubscribe headers; unknown recipient refused.",
+    "integrations": [],
+    "failures": "Endpoint POST always200 on invalid token for provider; UI distinguishes expired/refusal. Secret rotation invalidates in-flight tokens; key version/rotation plan needed. Unsubscribe does not govern bulk CRM recipient email consent today.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.describeEmailOptOut",
+      "notifications.applyEmailOptOut",
+      "notifications.undoEmailOptOut"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-012"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "NTF-013",
+    "title": "Shared transactional email transport and protected email templates",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/email/client.ts#sendEmail",
+      "src/lib/email/redact.ts",
+      "src/lib/invitations/seat-email.ts",
+      "src/lib/invitations/email.ts",
+      "src/lib/auth/email-change-email.ts",
+      "alpha:src/lib/auth/password-reset-email.ts",
+      "src/lib/notifications/channels/email.ts#appBaseUrl",
+      "src/lib/notifications/channels/email.ts#batchSubject",
+      "src/lib/notifications/channels/email.ts#composeBatchEmail",
+      "src/lib/notifications/channels/email.ts#notificationPreferencesUrl",
+      "src/lib/notifications/channels/email.ts#unsubscribeUrl",
+      "alpha:src/db/schema/password-reset-request.ts#passwordResetRequests"
+    ],
+    "routes": [],
+    "operations": [
+      "sendEmail",
+      "organizationInvitationEmail",
+      "seatInvitationEmail",
+      "emailChangeVerificationEmail",
+      "emailChangeNoticeEmail",
+      "passwordResetEmail (alpha)",
+      "appBaseUrl",
+      "batchSubject",
+      "composeBatchEmail",
+      "notificationPreferencesUrl",
+      "unsubscribeUrl"
+    ],
+    "tests": [
+      "src/lib/email/client.test.ts",
+      "src/lib/invitations/email.test.ts",
+      "src/lib/invitations/core-email.test.ts",
+      "src/lib/email/templates/organization-invitation.test.ts",
+      "alpha:src/lib/auth/password-reset-email.test.ts"
+    ],
+    "tables": [
+      "user_invitations",
+      "organization_invitations",
+      "email_change_requests",
+      "password_reset_requests"
+    ],
+    "permissions": "Domain issuer decides credential/recipient; actor/address/token never arbitrary Evry parameters; recovery/verification is auth module.",
+    "states": "Provider acceptance wrapper returns success/id/error; true provider idempotency is request options, not RFC header; reply-to configurable everyfield.app identity.",
+    "validation": "HTML/text pairs, token-safe server logging redaction; optional RFC headers and idempotency; email-change/recovery invalidation requirements in auth specs.",
+    "integrations": [
+      "Resend",
+      "React Email"
+    ],
+    "failures": "No provider timeout in shared helper, no durable transport retry/history outside notification delivery; feedback and public invite use same helper. Current development successful-send logs include address and subject. Sensitive recovery links must remain out of logs/tool context.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "mail.sendTransactional",
+      "mail.renderTransactional"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-013"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved.",
+    "table_provenance": {
+      "password_reset_requests": {
+        "status": "implemented-local-only",
+        "source_ref": "alpha:src/db/schema/password-reset-request.ts#passwordResetRequests",
+        "revision": "2107df58885c883960422ce7e60719f0adbac0e4"
+      }
+    }
+  },
+  {
+    "id": "NTF-014",
+    "title": "Declared notification producers and unused email helpers",
+    "module": "notifications",
+    "status": "partial",
+    "source_refs": [
+      "src/lib/notifications/categories.ts#NOTIFICATION_CATEGORIES",
+      "src/lib/events/subscriptions.ts#Future subscriptions",
+      "src/lib/email/templates/team-welcome.tsx",
+      "src/lib/email/templates/team-alert.tsx",
+      "src/lib/email/templates/meeting-reminder.tsx"
+    ],
+    "routes": [],
+    "operations": [
+      "teamWelcomeEmail",
+      "teamAlertEmail",
+      "standalone meetingReminderEmail",
+      "communication/teams/phase category declarations"
+    ],
+    "tests": [
+      "src/lib/email/templates/meeting-reminder.test.ts",
+      "src/lib/notifications/categories.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "notification_preferences"
+    ],
+    "permissions": "Closed categories appear in preferences; no current producer located for communication scheduled/delivery alerts, teams health/training alert, planter assessment-ready phase notification.",
+    "states": "Template functions implemented; team.welcome/team.alert helpers have no runtime caller found. Phase advance oversight milestone is live separately.",
+    "validation": "Do not count rendering helpers or category labels as sent product behavior.",
+    "integrations": [],
+    "failures": "Historical FRD describes these producers; not current implementation proof. Scope decision needed, with full feature-preserving plan reservation rather than silent removal.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.teamWelcome (decision)",
+      "notifications.teamHealthAlert (decision)",
+      "notifications.trainingAlert (decision)",
+      "notifications.assessmentReady (decision)",
+      "notifications.communicationFailure (decision)"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-014"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Reserve explicit feature decision and acceptance gate for historical intended producers. Standalone unused helpers can be replaced once semantic behavior is specified."
+  },
+  {
+    "id": "NTF-015",
+    "title": "Discovery association postcommit transactional receipts",
+    "module": "notifications",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/discovery/association-notice.ts#announceDiscoveryAssociationChange",
+      "src/lib/discovery/association-notice.ts#loadFacts/sendNotice",
+      "src/lib/discovery/associations.ts#respondDiscoveryInvitationAs",
+      "src/lib/discovery/associations.ts#leaveDiscoveryOrgAs",
+      "src/lib/discovery/associations.ts#removeDiscoveryFromOrgAs",
+      "src/lib/auth/tenancy.ts#isOrgOwner/oversightOrgOf",
+      "src/db/schema/discovery-profile.ts#discoveryProfiles",
+      "src/db/schema/association-event.ts#associationEvents"
+    ],
+    "routes": [
+      "/dashboard",
+      "/oversight"
+    ],
+    "operations": [
+      "announceDiscoveryAssociationChange",
+      "winning invitation response receipt (accepted/declined)",
+      "winning discovery departure/removal receipt (left/removed)",
+      "principal-deduplicated discovery and organization-owner audience",
+      "per-recipient durable-occurrence-derived provider idempotency key"
+    ],
+    "tests": [
+      "src/lib/discovery/association-notice.test.ts"
+    ],
+    "tables": [
+      "users",
+      "discovery_profiles",
+      "sending_churches",
+      "sending_networks",
+      "organization_invitations",
+      "association_events"
+    ],
+    "permissions": "Internal postcommit producer, not an authorization entry point. Caller owns winning association mutation and audit lifecycle. Receipt goes to the discovery account and only valid owners of the exact organization; admins are not included merely by being admins. Defective or multi-tenant principal links are excluded. Seatless discovery accounts require neither a church nor a notification row.",
+    "states": "accepted/declined uses winning invitation ID as occurrence; left/removed uses committed association audit-event ID. Email sends after association persistence; each audience principal gets one rendered HTML/plain-text message and /dashboard or /oversight link. Result reports sent/failed counts.",
+    "validation": "Recipient account must resolve to the requested user; organization and owner tenancy must match. Recipient Map keyed by user ID prevents overlap. Provider key hashes user, organization type/id, event, durable occurrence and recipient. Retrying the same winning event reuses the key; organization owners other than the affected discovery principal are resolved from current facts.",
+    "integrations": [
+      "shared sendEmail transport",
+      "Resend provider idempotency",
+      "React Email"
+    ],
+    "failures": "Missing facts yields failed=1. Per-recipient render/provider refusal/transport exceptions increment failure without undoing committed association. Logs intentionally avoid recipient addresses/payload and exception details. Provider idempotency is bounded by provider retention; no durable notification delivery row, outbox or later receipt reconciliation exists. Shared direct sender does not apply notification preference/suppression handling automatically; keep transactional purpose distinct and unify safe transport policies explicitly.",
+    "v3_module": "notifications",
+    "v3_operations": [
+      "notifications.sendDiscoveryAssociationReceipt",
+      "notifications.inspectAssociationReceipt",
+      "notifications.retryAssociationReceipt"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-015"
+    ],
+    "work_packages": [
+      "WP-notifications"
+    ],
+    "decision": "Preserve discovery association receipts and owner audience. Use one reviewed domain association operation plus reliable postcommit intent/transport where loss matters; no customer migration or second seat tenancy is required. Root identity/oversight specification owns association authority; this feature owns receipt production."
+  },
+  {
+    "id": "DOC-001",
+    "title": "Document template library, filtering and contextual entry points",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/templates.ts#DOCUMENT_TEMPLATES/getTemplateById",
+      "src/components/documents/documents-library.tsx",
+      "src/lib/documents/contextual.ts",
+      "src/components/wiki/article-templates.ts",
+      "src/lib/documents/contextual.ts#contextualTemplateHref",
+      "src/lib/documents/contextual.ts#getLaunchChecklistSection",
+      "src/lib/documents/contextual.ts#getMeetingContextualTemplates",
+      "src/lib/documents/contextual.ts#getTeamContextualTemplates",
+      "src/lib/documents/contextual.ts#resolveContextualTemplates",
+      "src/lib/documents/templates.ts#getTemplateById"
+    ],
+    "routes": [
+      "/documents",
+      "/meetings/[id]",
+      "/teams/[teamId]",
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "getTemplateById",
+      "resolveContextualTemplates",
+      "getMeetingContextualTemplates",
+      "getTeamContextualTemplates",
+      "getLaunchChecklistSection",
+      "getArticleTemplates",
+      "contextualTemplateHref"
+    ],
+    "tests": [
+      "src/components/documents/documents-library.test.ts",
+      "src/lib/documents/templates-live.test.ts",
+      "src/lib/documents/contextual.test.ts",
+      "src/components/wiki/article-templates.test.ts",
+      "src/components/wiki/article-templates-live.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Authenticated church context for generate; library catalog is code-defined public reference; read-only viewers may read/generate current library.",
+    "states": "11 templates,12 template/format combinations; categories commitment/vision_meeting/administrative/operational; optional phase and related Wiki slug.",
+    "validation": "Unknown contextual catalog IDs dropped; exact curated article-to-template mapping; meeting-type and team checklist matching; valid template query deep link opens generate dialog.",
+    "integrations": [],
+    "failures": "Missing retired catalog template should not create a broken download link; same renderer registry validates offered format. No user-uploaded/custom document template editing found.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.templates.list",
+      "documents.templates.get",
+      "documents.templates.contextual"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-001"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "DOC-002",
+    "title": "Merge-value generation and exact-byte PDF/DOCX/XLSX previews",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/api/documents/[templateId]/route.ts",
+      "src/lib/documents/merge.ts",
+      "src/lib/documents/merge-context.ts",
+      "src/lib/documents/render.ts",
+      "src/lib/documents/preview.ts",
+      "src/components/documents/generate-dialog.tsx",
+      "src/components/documents/document-preview.tsx",
+      "src/lib/documents/docx/index.ts#renderDocumentDocx",
+      "src/lib/documents/docx/layout.ts#agendaTable",
+      "src/lib/documents/docx/layout.ts#handout",
+      "src/lib/documents/docx/layout.ts#signature",
+      "src/lib/documents/docx/vision-meeting-agenda.ts#buildVisionMeetingAgenda",
+      "src/lib/documents/merge-context.ts#resolveDocumentMergeContext",
+      "src/lib/documents/merge.ts#buildAutoFillDefaults",
+      "src/lib/documents/merge.ts#resolveMergeValues",
+      "src/lib/documents/pdf/fonts.ts#registerPdfFonts",
+      "src/lib/documents/pdf/index.tsx#renderDocumentPdf",
+      "src/lib/documents/pdf/vision-meeting-agenda.tsx#VisionMeetingAgendaDocument",
+      "src/lib/documents/preview.ts#previewDocumentBytes",
+      "src/lib/documents/render-text.ts#churchNameOf",
+      "src/lib/documents/render-text.ts#documentSubtitle",
+      "src/lib/documents/render.ts#canRenderDocument",
+      "src/lib/documents/render.ts#registeredTemplateIds",
+      "src/lib/documents/render.ts#renderDocument",
+      "src/lib/documents/types.ts#isDocumentFormat",
+      "src/lib/documents/xlsx/index.ts#renderDocumentXlsx",
+      "src/lib/documents/xlsx/layout.ts#formatBudget"
+    ],
+    "routes": [
+      "/api/documents/[templateId]?format=&preview=1",
+      "/documents?template="
+    ],
+    "operations": [
+      "resolveDocumentMergeContext",
+      "buildAutoFillDefaults",
+      "resolveMergeValues",
+      "canRenderDocument",
+      "registeredTemplateIds",
+      "renderDocument",
+      "previewDocumentBytes",
+      "renderDocumentDocx",
+      "agendaTable",
+      "handout",
+      "signature",
+      "buildVisionMeetingAgenda",
+      "registerPdfFonts",
+      "renderDocumentPdf",
+      "VisionMeetingAgendaDocument",
+      "churchNameOf",
+      "documentSubtitle",
+      "isDocumentFormat",
+      "renderDocumentXlsx",
+      "formatBudget"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "src/lib/documents/preview.test.ts",
+      "src/components/documents/generate-dialog.test.ts",
+      "src/lib/documents/pdf/fonts.test.ts"
+    ],
+    "tables": [
+      "churches",
+      "users",
+      "launches"
+    ],
+    "permissions": "Session required; account current church supplies merge context; generation endpoint checks session, not named document.generate capability.",
+    "states": "PDF inline bytes preview; DOCX parsed generated ZIP XML paragraphs/tables/footer and XLSX generated workbook sheets/cells/formulas preview JSON; preview never stored.",
+    "validation": "Catalog fields only; user provided nonempty wins auto defaults; invalid/unsupported format falls back first offered. Auto church_name, current user_name as pastor_name, launch target date format; required field is UI descriptor and no server nonempty bound found.",
+    "integrations": [
+      "React PDF",
+      "docx",
+      "ExcelJS",
+      "JSZip",
+      "fast-xml-parser"
+    ],
+    "failures": "GET nonpreview has durable write side effect; arbitrarily long query merge values no server limit; source of pastor_name is current user not authoritative planter profile; preview8MB limit,XML2m chars,1000 blocks,XLSX20 sheets/500rows/50cols. Render failure500; preview content faithful but not full Word pagination.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.resolveContext",
+      "documents.preview",
+      "documents.generate"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-002"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve exact-byte preview/render single source. Use bounded typed POST for durable generation, distinct read-only preview and explicit authorization; agree pastor identity semantics instead of silently rewriting template content."
+  },
+  {
+    "id": "DOC-003",
+    "title": "Saved generated-document history and fresh signed re-download",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/db/schema/documents.ts#generatedDocuments",
+      "src/lib/documents/service.ts",
+      "src/app/(dashboard)/documents/history/page.tsx",
+      "src/app/(dashboard)/documents/actions.ts#getGeneratedDocumentDownloadUrlAction",
+      "src/components/documents/history-download-button.tsx",
+      "src/lib/documents/service.ts#generatedDocumentFilename",
+      "src/lib/documents/service.ts#generatedDocumentForChurchQuery",
+      "src/lib/documents/service.ts#generatedDocumentRow",
+      "src/lib/documents/service.ts#generatedDocumentStorageKey",
+      "src/lib/documents/service.ts#generatedDocumentsForChurchQuery",
+      "src/lib/documents/service.ts#getGeneratedDocument",
+      "src/lib/documents/service.ts#getGeneratedDocumentDownloadUrl",
+      "src/lib/documents/service.ts#insertGeneratedDocumentQuery",
+      "src/lib/documents/service.ts#listGeneratedDocuments",
+      "src/lib/documents/service.ts#recordGeneratedDocument",
+      "src/lib/documents/service.ts#toGeneratedDocumentListItem"
+    ],
+    "routes": [
+      "/documents/history"
+    ],
+    "operations": [
+      "recordGeneratedDocument",
+      "generatedDocumentStorageKey",
+      "generatedDocumentFilename",
+      "listGeneratedDocuments",
+      "getGeneratedDocument",
+      "getGeneratedDocumentDownloadUrl",
+      "getGeneratedDocumentDownloadUrlAction",
+      "generatedDocumentForChurchQuery",
+      "generatedDocumentRow",
+      "generatedDocumentsForChurchQuery",
+      "insertGeneratedDocumentQuery",
+      "toGeneratedDocumentListItem"
+    ],
+    "tests": [
+      "src/lib/documents/service.test.ts",
+      "src/components/documents/history-download-button.test.ts",
+      "scripts/proofs/document-storage.mjs"
+    ],
+    "tables": [
+      "generated_documents",
+      "churches",
+      "users"
+    ],
+    "permissions": "read capability/current church; requester cannot name storage key; DB row scoped by church before presign.",
+    "states": "Generated bytes uploaded before row insert; insert failure compensates delete; history latest100; signedURL3600s; artifact exact bytes persisted rather than regenerating today.",
+    "validation": "UUID history ID strict; unique storageKey,format DB enum/check; storage path documents/<church>/<UUID>.<ext>; template name fallback for removed catalog entry.",
+    "integrations": [
+      "Private S3-compatible storage/presigned URL"
+    ],
+    "failures": "Cleanup failure logs but leaves orphan object; upload success/DB failure repair requires lifecycle reconciler. Download failure clear UI error. Stored row lacks merge-value/template-version/content checksum and initial actor ownership changes; no deletion/archive/retention UI.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.history.list",
+      "documents.history.get",
+      "documents.download",
+      "documents.reconcileOrphans"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-003"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "DOC-004",
+    "title": "Core Group Commitment Card",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/pdf/commitment-card.tsx",
+      "src/lib/documents/templates.ts#commitment-card",
+      "src/lib/documents/pdf/commitment-card.tsx#CommitmentCardDocument"
+    ],
+    "routes": [
+      "/documents?template=commitment-card",
+      "/api/documents/commitment-card"
+    ],
+    "operations": [
+      "render commitment-card in pdf",
+      "CommitmentCardDocument"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; commitment; phase1.",
+    "validation": "Printed quarter-page GROW/PRAY/GIVE commitment through Launch Sunday; church_name required, pastor_name optional. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "React PDF"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.commitment-card"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-004"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-005",
+    "title": "Response Card",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/pdf/response-card.tsx",
+      "src/lib/documents/templates.ts#response-card",
+      "src/lib/documents/pdf/response-card.tsx#ResponseCardDocument"
+    ],
+    "routes": [
+      "/documents?template=response-card",
+      "/api/documents/response-card"
+    ],
+    "operations": [
+      "render response-card in pdf",
+      "ResponseCardDocument"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; vision_meeting; phase1.",
+    "validation": "Quarter-page vision-meeting guest contact and involvement response, church_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "React PDF"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.response-card"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-005"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-006",
+    "title": "Guest Sign-in Sheet",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/pdf/sign-in-sheet.tsx",
+      "src/lib/documents/templates.ts#guest-sign-in-sheet",
+      "src/lib/documents/pdf/sign-in-sheet.tsx#SignInSheetDocument"
+    ],
+    "routes": [
+      "/documents?template=guest-sign-in-sheet",
+      "/api/documents/guest-sign-in-sheet"
+    ],
+    "operations": [
+      "render guest-sign-in-sheet in pdf",
+      "SignInSheetDocument"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; vision_meeting; phase1.",
+    "validation": "Letter-sheet names/contact/who invited; church_name,optional meeting_date/meeting_number. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "React PDF"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.guest-sign-in-sheet"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-006"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-007",
+    "title": "Vision Meeting Agenda",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/content/vision-meeting-agenda.ts",
+      "src/lib/documents/templates.ts#vision-meeting-agenda"
+    ],
+    "routes": [
+      "/documents?template=vision-meeting-agenda",
+      "/api/documents/vision-meeting-agenda"
+    ],
+    "operations": [
+      "render vision-meeting-agenda in pdf/docx"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; vision_meeting; phase1.",
+    "validation": "One-page welcome/story/vision/GROW-PRAY-GIVE ask/next steps; church_name,pastor_name,meeting_date; shared content model for PDF and Word. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "React PDF/docx"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.vision-meeting-agenda"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-007"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-008",
+    "title": "Expectations of a Core Group Member",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/docx/member-expectations.ts",
+      "src/lib/documents/templates.ts#member-expectations",
+      "src/lib/documents/docx/member-expectations.ts#buildMemberExpectations"
+    ],
+    "routes": [
+      "/documents?template=member-expectations",
+      "/api/documents/member-expectations"
+    ],
+    "operations": [
+      "render member-expectations in docx",
+      "buildMemberExpectations"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; commitment; phase1.",
+    "validation": "Editable one-pager presence/GROW-PRAY-GIVE/team participation; church_name,pastor_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "docx"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.member-expectations"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-008"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-009",
+    "title": "Launch Team Commitment",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/docx/launch-team-commitment.ts",
+      "src/lib/documents/templates.ts#launch-team-commitment",
+      "src/lib/documents/docx/launch-team-commitment.ts#buildLaunchTeamCommitment"
+    ],
+    "routes": [
+      "/documents?template=launch-team-commitment",
+      "/api/documents/launch-team-commitment"
+    ],
+    "operations": [
+      "render launch-team-commitment in docx",
+      "buildLaunchTeamCommitment"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; commitment; phase2.",
+    "validation": "Editable member commitment letter approaching Launch Sunday; church_name,pastor_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "docx"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.launch-team-commitment"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-009"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-010",
+    "title": "Vision Meeting Follow-up Letter",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/docx/follow-up-letter.ts",
+      "src/lib/documents/templates.ts#follow-up-letter",
+      "src/lib/documents/docx/follow-up-letter.ts#buildFollowUpLetter"
+    ],
+    "routes": [
+      "/documents?template=follow-up-letter",
+      "/api/documents/follow-up-letter"
+    ],
+    "operations": [
+      "render follow-up-letter in docx",
+      "buildFollowUpLetter"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; vision_meeting; phase1.",
+    "validation": "Editable guest thank-you and next-step invitation; church_name,pastor_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "docx"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.follow-up-letter"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-010"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-011",
+    "title": "Board / Elder Meeting Agenda",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/docx/board-meeting-agenda.ts",
+      "src/lib/documents/templates.ts#board-meeting-agenda",
+      "src/lib/documents/docx/board-meeting-agenda.ts#buildBoardMeetingAgenda"
+    ],
+    "routes": [
+      "/documents?template=board-meeting-agenda",
+      "/api/documents/board-meeting-agenda"
+    ],
+    "operations": [
+      "render board-meeting-agenda in docx",
+      "buildBoardMeetingAgenda"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; administrative.",
+    "validation": "Prayer/minutes/financial/ministry/action-item editable agenda; church_name,meeting_date. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "docx"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.board-meeting-agenda"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-011"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-012",
+    "title": "First-Year Budget",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/xlsx/first-year-budget.ts",
+      "src/lib/documents/templates.ts#first-year-budget",
+      "src/lib/documents/xlsx/first-year-budget.ts#buildFirstYearBudget"
+    ],
+    "routes": [
+      "/documents?template=first-year-budget",
+      "/api/documents/first-year-budget"
+    ],
+    "operations": [
+      "render first-year-budget in xlsx",
+      "buildFirstYearBudget"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts",
+      "src/lib/documents/xlsx/budgets.test.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; administrative.",
+    "validation": "12-month income/expense spreadsheet with live totals/formulas, church_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "ExcelJS"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.first-year-budget"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-012"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-013",
+    "title": "Budget Worksheet",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/xlsx/budget-worksheet.ts",
+      "src/lib/documents/templates.ts#budget-worksheet",
+      "src/lib/documents/xlsx/budget-worksheet.ts#buildBudgetWorksheet"
+    ],
+    "routes": [
+      "/documents?template=budget-worksheet",
+      "/api/documents/budget-worksheet"
+    ],
+    "operations": [
+      "render budget-worksheet in xlsx",
+      "buildBudgetWorksheet"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts",
+      "src/lib/documents/xlsx/budgets.test.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; administrative.",
+    "validation": "Monthly versus annual editable planner with live totals/formulas, church_name. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "ExcelJS"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.budget-worksheet"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-013"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-014",
+    "title": "Launch Sunday Checklists",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/documents/pdf/launch-sunday-checklists.tsx",
+      "src/lib/documents/templates.ts#launch-sunday-checklists",
+      "src/lib/documents/pdf/launch-sunday-checklists.tsx#LaunchSundayChecklistsDocument"
+    ],
+    "routes": [
+      "/documents?template=launch-sunday-checklists",
+      "/api/documents/launch-sunday-checklists"
+    ],
+    "operations": [
+      "render launch-sunday-checklists in pdf",
+      "LaunchSundayChecklistsDocument"
+    ],
+    "tests": [
+      "src/lib/documents/render.test.ts",
+      "scripts/check-document-exports.py",
+      "scripts/export-document-catalog.ts"
+    ],
+    "tables": [
+      "generated_documents"
+    ],
+    "permissions": "Generation uses DOC-002 session/church context.",
+    "states": "Canonical static methodology-derived template; operational; phase4.",
+    "validation": "Six-page per-team launch-day checklist setup/hospitality/worship/kids/connections/prayer; church_name,launch_date; individual team contextual section links. No customer import or OCR ingestion occurs.",
+    "integrations": [
+      "React PDF"
+    ],
+    "failures": "Printed signatures/response-card data are not ingested automatically; editing downloaded file does not synchronize application. Preserve authoritative playbook wording/content and source version.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "documents.render.launch-sunday-checklists"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-014"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve template and supported formats. Record canonical content version and render fixtures; methodology changes require explicit SME approval."
+  },
+  {
+    "id": "DOC-015",
+    "title": "Private storage service and uploaded commitment attachments",
+    "module": "documents",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/storage.ts",
+      "src/lib/people/commitments.ts",
+      "src/app/(dashboard)/people/assessment-actions.ts",
+      "src/db/schema/people.ts#commitments"
+    ],
+    "routes": [
+      "person commitment assessment file workflow"
+    ],
+    "operations": [
+      "uploadFile",
+      "deleteFile",
+      "getSignedDownloadUrl",
+      "getFileBytes",
+      "getExtensionFromMimeType",
+      "isAllowedCommitmentFileType",
+      "isValidCommitmentFileSize"
+    ],
+    "tests": [
+      "scripts/proofs/document-storage.mjs",
+      "scripts/prove-picture-key-fence.sh",
+      "scripts/cs013-mutation-check.test.ts"
+    ],
+    "tables": [
+      "commitments",
+      "generated_documents"
+    ],
+    "permissions": "Service internal only; church/person-authorized writer and read endpoint must fence keys. Photo/avatar read proxies owned by auth/people audit.",
+    "states": "Private bucket; commitment documents signed download; replacement immutable object name; max10MB commitment upload.",
+    "validation": "Allowed commitment MIME is PDF/JPEG/JPG/PNG, checked from client-declared file.type; no content-signature check found on this commitment path; size<=10MB. Word is a generated export, not an allowed commitment upload. Path and database row identity required.",
+    "integrations": [
+      "AWS SDK S3-compatible API"
+    ],
+    "failures": "Generic storage helper grants no authorization itself. Orphan objects, upload+DB compensation and expiring downloads need common ops. No universal file-library/upload-any-file feature found. Commitment upload occurs before createCommitment and no compensation is visible in inspected action, so DB failure can leave unreferenced object.",
+    "v3_module": "documents",
+    "v3_operations": [
+      "storage.putPrivateObject",
+      "storage.readAuthorizedObject",
+      "storage.createAuthorizedDownload",
+      "storage.deleteUnreferencedObject"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-015"
+    ],
+    "work_packages": [
+      "WP-documents"
+    ],
+    "decision": "Preserve attachment workflow, defer exact person commitment rules to people module. Keep one private object adapter; avoid making arbitrary storage key a public/Evry argument."
+  },
+  {
+    "id": "WIKI-001",
+    "title": "Published Wiki corpus visibility, church overrides and MDX rendering",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/db/schema/wiki.ts#wikiArticles/wikiSections",
+      "src/lib/wiki/get-articles.ts#visibleToChurch/notOverriddenByChurch/visibleArticlesQuery/articleBySlugQuery/getArticles",
+      "src/lib/wiki/get-article.ts#getArticle/compileArticle",
+      "src/app/(dashboard)/wiki/[...slug]/page.tsx",
+      "src/lib/wiki/get-article.ts#compileArticle",
+      "src/lib/wiki/get-article.ts#getArticle",
+      "src/lib/wiki/get-article.ts#getBreadcrumbs",
+      "src/lib/wiki/get-articles.ts#articleBySlugQuery",
+      "src/lib/wiki/get-articles.ts#articleParentPath",
+      "src/lib/wiki/get-articles.ts#byNavigationOrder",
+      "src/lib/wiki/get-articles.ts#getArticleNavigation",
+      "src/lib/wiki/get-articles.ts#getArticlesByPrefix",
+      "src/lib/wiki/get-articles.ts#getWikiNavigation",
+      "src/lib/wiki/get-articles.ts#notOverriddenByChurch",
+      "src/lib/wiki/get-articles.ts#publishedArticleRefsQuery",
+      "src/lib/wiki/get-articles.ts#resolveRelatedArticles",
+      "src/lib/wiki/get-articles.ts#resolveSiblingNavigation",
+      "src/lib/wiki/get-articles.ts#visibleArticlesQuery",
+      "src/lib/wiki/get-articles.ts#visibleToChurch",
+      "src/lib/wiki/types.ts#toArticle",
+      "src/lib/wiki/types.ts#toArticleMeta"
+    ],
+    "routes": [
+      "/wiki",
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "getArticles",
+      "getPublishedArticleRefs",
+      "getArticle",
+      "compileArticle",
+      "getArticlesByPrefix",
+      "getBreadcrumbs",
+      "articleBySlugQuery",
+      "articleParentPath",
+      "byNavigationOrder",
+      "getArticleNavigation",
+      "getWikiNavigation",
+      "notOverriddenByChurch",
+      "publishedArticleRefsQuery",
+      "resolveRelatedArticles",
+      "resolveSiblingNavigation",
+      "visibleArticlesQuery",
+      "visibleToChurch",
+      "toArticle",
+      "toArticleMeta"
+    ],
+    "tests": [
+      "src/lib/wiki/get-articles.test.ts",
+      "src/lib/wiki/tenancy.test.ts",
+      "src/lib/wiki/tenancy-live.test.ts",
+      "src/lib/wiki/wiki-read-graph.test.ts"
+    ],
+    "tables": [
+      "wiki_articles",
+      "wiki_sections"
+    ],
+    "permissions": "Current session church or global only; published church-local slug overrides global; unauthenticated crawler global shell contains no personal data.",
+    "states": "Article draft/published/archived enum; runtime current writes removed, content comes externally; six content types/tutorial/how_to/explanation/reference/overview/guide.",
+    "validation": "No other church article; override suppresses global in list/search/related/navigation; related slug resolution only current visible corpus.",
+    "integrations": [
+      "next-mdx-remote",
+      "remark-gfm",
+      "rehype-slug"
+    ],
+    "failures": "Unique(slug,churchId) allows duplicate null/global slugs unless separate historical constraint; church article references and slugs are content identity; MDX compilation is code execution trust surface, so only curated approved content may be compiled.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.articles.list",
+      "wiki.articles.get",
+      "wiki.articles.resolveVisibleCorpus"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-001"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-002",
+    "title": "Phase/sidebar navigation, breadcrumbs, sibling and related articles",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/get-articles.ts#getWikiNavigation/getArticleNavigation/resolveRelatedArticles/resolveSiblingNavigation",
+      "src/lib/wiki/href.ts",
+      "src/lib/wiki/toc.ts",
+      "src/components/wiki/wiki-sidebar.tsx",
+      "src/components/wiki/wiki-mobile-navigation.tsx",
+      "src/lib/wiki/href.ts#encodeWikiSlug",
+      "src/lib/wiki/href.ts#wikiHref",
+      "src/lib/wiki/href.ts#wikiSlugFromPageParams",
+      "src/lib/wiki/toc.ts#activeHeadingId",
+      "src/lib/wiki/toc.ts#extractHeadings"
+    ],
+    "routes": [
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "getWikiNavigation",
+      "getArticleNavigation",
+      "getBreadcrumbs",
+      "resolveRelatedArticles",
+      "resolveSiblingNavigation",
+      "extractHeadings",
+      "activeHeadingId",
+      "wikiHref",
+      "encodeWikiSlug",
+      "wikiSlugFromPageParams"
+    ],
+    "tests": [
+      "src/lib/wiki/toc.test.ts",
+      "src/lib/wiki/href.test.ts",
+      "src/components/wiki/wiki-mobile-navigation.test.ts",
+      "src/lib/wiki/get-articles.test.ts"
+    ],
+    "tables": [
+      "wiki_articles",
+      "wiki_sections"
+    ],
+    "permissions": "Same visible corpus as WIKI-001.",
+    "states": "Getting-started,Journey phases0..6,frameworks,reference,resources navigation; two-level H2/H3 table of contents; responsive mobile drawer and accessible active headings.",
+    "validation": "Deterministic sortOrder/title/slug; duplicate/missing related slugs skipped; siblings restricted same article parent.",
+    "integrations": [],
+    "failures": "Slug href encoding differs from Next cache revalidation key; non-ASCII/space/path delimiter regression must not recur. Navigation categories largely derived slug, with wikiSections not the sole hierarchy authority.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.navigation",
+      "wiki.articleNeighbors",
+      "wiki.tableOfContents"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-002"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-003",
+    "title": "Server full-text search and search dialog/page failure semantics",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/search.ts#searchArticlesQuery/searchWikiPage/searchArticles",
+      "src/app/(dashboard)/wiki/actions.ts#searchWikiArticles",
+      "src/lib/wiki/search-request.ts",
+      "src/lib/wiki/search-params.ts",
+      "src/components/wiki/wiki-search-results.tsx",
+      "src/lib/wiki/search-params.ts#parseWikiSearchParams",
+      "src/lib/wiki/search-params.ts#wikiSearchHref",
+      "src/lib/wiki/search-params.ts#wikiSnippetParts",
+      "src/lib/wiki/search-request.ts#runWikiSearch",
+      "src/lib/wiki/search.ts#searchArticles",
+      "src/lib/wiki/search.ts#searchArticlesQuery",
+      "src/lib/wiki/search.ts#searchWikiPage"
+    ],
+    "routes": [
+      "/wiki/search",
+      "Wiki search dialog"
+    ],
+    "operations": [
+      "searchArticlesQuery",
+      "searchWikiPage",
+      "searchArticles",
+      "searchWikiArticles",
+      "runWikiSearch",
+      "parseWikiSearchParams",
+      "wikiSnippetParts",
+      "wikiSearchHref"
+    ],
+    "tests": [
+      "src/lib/wiki/search-request.test.ts",
+      "src/lib/wiki/search-params.test.ts",
+      "src/lib/wiki/tenancy-live.test.ts"
+    ],
+    "tables": [
+      "wiki_articles"
+    ],
+    "permissions": "Authenticated read action; same tenant override filtering as all reads; anonymous POST refuses rather than serving global corpus.",
+    "states": "English weighted Postgres tsvector titleA/excerptB/contentC,websearch query/rank/snippet; optional phase;20/page; results/empty/unavailable distinct.",
+    "validation": "Query trimmed max200 action length, unknown page/phase params normalized; snippet highlight handled without arbitrary HTML injection.",
+    "integrations": [],
+    "failures": "DB/timeout errors reject and UI shows unavailable, never false no-matches. Corpus index language may require product localization decision, not generic vector search replacement.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.search"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-003"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-004",
+    "title": "Per-user reading progress, resume and recent articles",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/progress.ts#updateProgress/recordView",
+      "src/lib/wiki/write-queries.ts#progressUpsertQuery/recordViewUpsertQuery",
+      "src/lib/wiki/reads.ts#getArticlesProgress/getRecentlyViewed/getLastInProgress/getProgressStats",
+      "src/lib/wiki/resume.ts",
+      "src/components/wiki/progress-tracker.tsx",
+      "src/lib/wiki/progress-stats.ts#summariseProgress",
+      "src/lib/wiki/progress.ts#recordView",
+      "src/lib/wiki/progress.ts#updateProgress",
+      "src/lib/wiki/reads.ts#getArticlesProgress",
+      "src/lib/wiki/reads.ts#getBookmarkedSlugs",
+      "src/lib/wiki/reads.ts#getBookmarks",
+      "src/lib/wiki/reads.ts#getLastInProgress",
+      "src/lib/wiki/reads.ts#getProgressStats",
+      "src/lib/wiki/reads.ts#getRecentlyViewed",
+      "src/lib/wiki/reads.ts#isBookmarked",
+      "src/lib/wiki/resume.ts#readingPosition",
+      "src/lib/wiki/resume.ts#resumeScrollTop",
+      "src/lib/wiki/resume.ts#scheduleReadingRestore",
+      "src/lib/wiki/resume.ts#wikiResumeHref",
+      "src/lib/wiki/write-queries.ts#articleFeedbackUpsertQuery",
+      "src/lib/wiki/write-queries.ts#bookmarkDeleteQuery",
+      "src/lib/wiki/write-queries.ts#bookmarkInsertQuery",
+      "src/lib/wiki/write-queries.ts#progressUpsertQuery",
+      "src/lib/wiki/write-queries.ts#recordViewUpsertQuery"
+    ],
+    "routes": [
+      "/wiki",
+      "/wiki/progress",
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "updateProgress",
+      "recordView",
+      "getArticlesProgress",
+      "getRecentlyViewed",
+      "getLastInProgress",
+      "getProgressStats",
+      "summariseProgress",
+      "scheduleReadingRestore",
+      "getBookmarkedSlugs",
+      "getBookmarks",
+      "isBookmarked",
+      "readingPosition",
+      "resumeScrollTop",
+      "wikiResumeHref",
+      "articleFeedbackUpsertQuery",
+      "bookmarkDeleteQuery",
+      "bookmarkInsertQuery",
+      "progressUpsertQuery",
+      "recordViewUpsertQuery"
+    ],
+    "tests": [
+      "src/lib/wiki/write-paths.test.ts",
+      "src/lib/wiki/resume.test.ts",
+      "src/lib/wiki/progress-stats.test.ts",
+      "src/lib/wiki/tenancy-live.test.ts"
+    ],
+    "tables": [
+      "wiki_progress",
+      "wiki_articles"
+    ],
+    "permissions": "self.write; user ID minted session; progress/bookmarks not church-owned; only visible corpus contributes displayed progress.",
+    "states": "not_started/in_progress/completed; scroll fraction0..1; completedAt preserved on passive re-view; lastViewedAt touch; resume greatest eligible in-progress with scroll restore.",
+    "validation": "Strict status/scroll patch; lowercase safe slug<=200; current write builders validate schema but do not verify article exists/visible in DB.",
+    "integrations": [],
+    "failures": "User can store well-formed nonexistent or foreign slug but reads filter corpus. Progress keyed slug conflates two same-slug article versions/church overrides; explicit downgrade may leave completedAt. v3 versioned article identity and completion semantics decision required.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.reading.recordView",
+      "wiki.reading.updateProgress",
+      "wiki.reading.recent",
+      "wiki.reading.resume",
+      "wiki.reading.stats"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-004"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-005",
+    "title": "Per-user bookmarks with concurrency-safe add and visible-corpus reads",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/bookmarks.ts#toggleBookmark",
+      "src/lib/wiki/write-queries.ts#bookmarkInsertQuery/bookmarkDeleteQuery",
+      "src/lib/wiki/reads.ts#isBookmarked/getBookmarkedSlugs/getBookmarks"
+    ],
+    "routes": [
+      "/wiki",
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "toggleBookmark",
+      "isBookmarked",
+      "getBookmarkedSlugs",
+      "getBookmarks"
+    ],
+    "tests": [
+      "src/lib/wiki/write-paths.test.ts",
+      "src/lib/wiki/tenancy-live.test.ts"
+    ],
+    "tables": [
+      "wiki_bookmarks",
+      "wiki_articles"
+    ],
+    "permissions": "self.write current user; read current session; bookmarks retain across re-seating but display only current visible article.",
+    "states": "Unique(user,slug); delete-else-add toggles; simultaneous add uses onConflictDoNothing.",
+    "validation": "Slug safe<=200; deleted/unpublished/foreign bookmarks are not leaked in resolved list.",
+    "integrations": [],
+    "failures": "Toggle race can yield unintuitive outcome under simultaneous opposing requests; use explicit setBookmarked desired boolean with operation id in v3. Slug/version identity open with WIKI-004.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.bookmarks.list",
+      "wiki.bookmarks.set"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-005"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-006",
+    "title": "Helpful/unhelpful article rating with current church/user identity",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/feedback.ts",
+      "src/app/(dashboard)/wiki/actions.ts#submitArticleFeedbackAction",
+      "src/lib/wiki/write-queries.ts#articleFeedbackUpsertQuery",
+      "src/components/wiki/article-feedback.tsx",
+      "src/lib/wiki/feedback.ts#articleFeedbackForUserRead",
+      "src/lib/wiki/feedback.ts#getArticleFeedbackForUser",
+      "src/lib/wiki/feedback.ts#upsertArticleFeedback"
+    ],
+    "routes": [
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "getArticleFeedbackForUser",
+      "upsertArticleFeedback",
+      "submitArticleFeedbackAction",
+      "articleFeedbackForUserRead"
+    ],
+    "tests": [
+      "src/lib/wiki/feedback.test.ts",
+      "src/components/wiki/article-feedback.test.ts",
+      "src/lib/wiki/write-paths.test.ts"
+    ],
+    "tables": [
+      "wiki_article_feedback"
+    ],
+    "permissions": "self.write session user/church; no church rejects; unique(church,user,slug).",
+    "states": "Helpful/unhelpful overwrite current vote; current rating returned to optimistic control and refresh.",
+    "validation": "Strict input rating/slug; DB rating check; no public arbitrary church identity.",
+    "integrations": [],
+    "failures": "No admin article-rating analysis UI found; per-church article feedback and user-global reading records have different scope deliberately. Changes to personal church ownership need retention/privacy decision.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.feedback.getMine",
+      "wiki.feedback.setMine"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-006"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-007",
+    "title": "Article print/download PDF export from rendered content",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/components/wiki/article-actions.tsx",
+      "src/components/wiki/article-pdf/extract.ts",
+      "src/components/wiki/article-pdf/render.tsx",
+      "src/lib/documents/pdf/fonts.ts"
+    ],
+    "routes": [
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "print article",
+      "extractPrintBlocks",
+      "renderBlock",
+      "pdfFileName",
+      "download article PDF"
+    ],
+    "tests": [
+      "src/components/wiki/article-actions.test.ts",
+      "src/components/wiki/article-pdf/extract.test.ts",
+      "src/components/wiki/article-pdf/render.test.ts",
+      "src/lib/documents/pdf/fonts.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Visible article reader; DOM current visible body; no server file storage/history.",
+    "states": "Build client PDF letter format/title/description/source URL/footer/fonts; extract paragraphs/headings/lists/tables/callouts from data-print-body.",
+    "validation": "Local font binaries avoid remote font dependence; safe slug filename; browser print uses same article body.",
+    "integrations": [
+      "React PDF browser renderer"
+    ],
+    "failures": "PDF generation/font failure toast suggests print fallback; no generated_documents record. Interactivity/embedded widgets cannot be assumed exportable; export acceptance needs real structured sample.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.article.print",
+      "wiki.article.exportPdf"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-007"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-008",
+    "title": "Contextual WikiGuide operational reference panel",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/wiki/guide-config.ts",
+      "src/components/wiki-guide/wiki-guide-provider.tsx",
+      "src/components/wiki-guide/wiki-guide-panel.tsx",
+      "src/app/api/wiki/article/route.ts",
+      "src/lib/wiki/guide-config.ts#resolveGuideEntry"
+    ],
+    "routes": [
+      "/api/wiki/article?slug=",
+      "contextual WikiGuide panel across dashboard modules"
+    ],
+    "operations": [
+      "resolveGuideEntry",
+      "GET article",
+      "open context-specific reference guide"
+    ],
+    "tests": [
+      "src/lib/wiki/guide-config.test.ts",
+      "src/lib/wiki/wiki-read-graph.test.ts"
+    ],
+    "tables": [
+      "wiki_articles"
+    ],
+    "permissions": "Authenticated GET; current church-visible published article; role/page guide configuration; no per-user progress write merely fetching guide.",
+    "states": "Raw MDX article data title/description/readTime/type/content to guide panel; route-based and wildcard guidance; surfaced from people/meetings/teams/tasks/phase/launch/settings/etc.",
+    "validation": "Missing slug400,unauth401,missing visible article404,read failure500; known curated guide-config links.",
+    "integrations": [],
+    "failures": "Panel content rendering may differ from full MDX article; external content is untrusted for assistant instructions. Evry must cite approved version with snippets, not treat guide article as authority to execute operations.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.contextGuide",
+      "wiki.referenceExcerpt"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-008"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "WIKI-009",
+    "title": "Secret-gated content-cache refresh and retired admin mutations",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/api/wiki/revalidate/route.ts",
+      "src/lib/wiki/service.ts",
+      "src/lib/wiki/service.test.ts",
+      "src/lib/wiki/service.ts#revalidateArticle",
+      "src/lib/wiki/service.ts#wikiRevalidationPath"
+    ],
+    "routes": [
+      "/api/wiki/revalidate"
+    ],
+    "operations": [
+      "POST revalidateArticle",
+      "DELETE revalidateAll",
+      "wikiRevalidationPath",
+      "revalidateArticle"
+    ],
+    "tests": [
+      "src/app/api/wiki/revalidate/route.test.ts",
+      "src/lib/wiki/service.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Configured REVALIDATION_SECRET in body; constant-time comparison; fail unset401.",
+    "states": "POST slug page+index; DELETE entire Wiki layout; returns revalidated timestamp. Current createArticle/updateArticle/deleteArticle/createSection/updateSection/deleteSection removed because no callers/admin UI.",
+    "validation": "Cache-key slug delimiter escaping explicitly differs href encoding; malformed JSON500/missing slug400.",
+    "integrations": [],
+    "failures": "Only refreshes cache, does not import/edit content. No supported native admin wiki write surface. Do not revive unscoped retired writes merely to make v3 bootstrap convenient.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "reference.invalidateWikiCache",
+      "wiki.adminPublishing (decision)"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-009"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve authorized reference refresh. Decide whether future content publishing needs product admin workflow; old unused mutation exports are dead, not shipping features."
+  },
+  {
+    "id": "WIKI-010",
+    "title": "Available checksummed global reference snapshot and reproducible bootstrap contract",
+    "module": "wiki",
+    "status": "partial",
+    "source_refs": [
+      "scripts/seed-dev-db.ts#PROTECTED_TABLES",
+      "scripts/README.md",
+      "scripts/embed-methodology-corpus.ts",
+      "scripts/audit-benchmark-language.ts",
+      "src/lib/wiki/benchmark-language.ts",
+      "product-docs/launch-playbook.md",
+      "/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run/manifest.json",
+      "/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run/global-seed-payload.json",
+      "/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run/RESULTS.md",
+      "src/lib/wiki/benchmark-language.ts#findBenchmarkMentions",
+      "src/lib/wiki/benchmark-language.ts#findGatePhrasing",
+      "src/lib/wiki/benchmark-language.ts#splitSentences"
+    ],
+    "routes": [],
+    "operations": [
+      "audit-benchmark-language",
+      "embed-methodology-corpus",
+      "checksummed published-global bundle",
+      "prepared idempotent bootstrap contract",
+      "findBenchmarkMentions",
+      "findGatePhrasing",
+      "splitSentences"
+    ],
+    "tests": [
+      "src/lib/wiki/benchmark-language.test.ts",
+      "src/lib/wiki/get-articles.test.ts"
+    ],
+    "tables": [
+      "wiki_articles",
+      "wiki_sections",
+      "methodology_embeddings"
+    ],
+    "permissions": "Operator-approved reference bootstrap only; no customer/church-local article or user-progress migration; current corpus DB not read in this audit.",
+    "states": "Verified prior local snapshot manifest revision2107df58885c883960422ce7e60719f0adbac0e4:96 published global articles,21 referenced ancestor sections,7 global system message templates. Payload SHA256 7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59. No tenant/user/vector/credential records; no shared writes/provider calls.",
+    "validation": "Payload hash independently rechecked here. Manifest records unique global/section/template identities, all related links/current31 guide slugs resolve, section graph acyclic,96 MDX syntactic compilations with0failures. This is evidence, not editorial/methodology/currentness approval. Stable IDs/slugs/checksums,parent-first install,repeat-equal no-op,mismatch stop rather than overwrite.",
+    "integrations": [
+      "OpenAI embeddings (derivative)"
+    ],
+    "failures": "Canonical bundle now available; fresh live export is unnecessary for planning. Snapshot currentness/SME editorial approval remains decision. Prior exact chunker547 expected chunks versus stored572,431 match/114differ/2missing/27obsolete; all21 Playbook match. Stored vectors lack model/version provenance; regenerate derivative embeddings after approved content version, do not copy stored vectors blindly.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "reference.exportApprovedWiki",
+      "reference.validateBundle",
+      "reference.installApprovedWiki",
+      "reference.rebuildEmbeddings"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-010"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve available global reference bundle and approve content/version against current SME foundation before bootstrap. Prepare fresh empty-DB installer only in future implementation; no customer migration, no source database mutation. Root copies source evidence under docs/evidence/reference-bootstrap."
+  },
+  {
+    "id": "WIKI-011",
+    "title": "Sessionless global Wiki crawler previews and authentication boundary",
+    "module": "wiki",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/crawler.ts#CRAWLER_USER_AGENTS",
+      "src/lib/crawler.ts#CRAWLER_PREVIEWABLE_ROUTE_PREFIXES",
+      "src/lib/crawler.ts#isCrawlerUserAgent",
+      "src/lib/crawler.ts#isCrawlerPreviewableRoute",
+      "src/lib/crawler.ts#isCrawlerPreviewRequest",
+      "src/proxy.ts#proxy/proceed",
+      "src/lib/routed-url.ts#ROUTED_URL_HEADER/routedPathname",
+      "src/app/(dashboard)/layout.tsx",
+      "src/app/(dashboard)/wiki/[...slug]/page.tsx#readerChurchId/generateMetadata",
+      "src/lib/wiki/get-articles.ts#visibleToChurch"
+    ],
+    "routes": [
+      "/wiki",
+      "/wiki/[...slug]"
+    ],
+    "operations": [
+      "isCrawlerUserAgent",
+      "isCrawlerPreviewableRoute",
+      "isCrawlerPreviewRequest",
+      "proxy stamps actual routed URL",
+      "sessionless bare layout for scoped Wiki preview",
+      "global-only article metadata and rendering"
+    ],
+    "tests": [
+      "src/lib/crawler.test.ts",
+      "src/proxy.test.ts",
+      "src/lib/wiki/tenancy.test.ts",
+      "src/lib/wiki/wiki-read-graph.test.ts"
+    ],
+    "tables": [
+      "wiki_articles",
+      "wiki_sections"
+    ],
+    "permissions": "Known crawler User-Agent plus exact /wiki prefix is a public-preview allowance only. Actual session governs personal/church content and all writes. A spoofed known User-Agent can reach the global published Wiki shell; this is not trusted authentication. Anonymous /dashboard, /oversight and other authenticated product routes redirect even with crawler User-Agent.",
+    "states": "Known lowercased social/search tokens are accepted. WhatsApp fetcher must begin whatsapp/<digit>; Mozilla WebView containing WhatsApp remains a human browser and follows login. Missing/unknown User-Agent, missing routed URL and unknown path fail closed. Sessionless permitted request renders children without personalized sidebar/bell; page resolves no church and global published corpus only.",
+    "validation": "/wikileaks is not /wiki. Proxy overwrites any client routed-URL header with actual pathname and query before layout reads it; x-is-crawler is neither read nor emitted. Invalid/expired cookie is rechecked by session resolution. Metadata and article reads share session-derived church scope. Crawler allowance does not bypass origin checks, action authorization, progress/bookmark/rating writes or private article policy.",
+    "integrations": [
+      "social link preview fetchers",
+      "search crawlers",
+      "Next metadata/route proxy"
+    ],
+    "failures": "Unrecognized fetcher variants lose preview cards safely. UA spoofing is inherent; personal data must be guarded by session-derived corpus and feature authorization, not UA. Diverging proxy/layout allowlists previously broke previews and produced 500s; shared classification and source/integration guards prevent drift. Explicitly decide the supported public global preview contract in v3 rather than hiding it inside authentication middleware.",
+    "v3_module": "wiki",
+    "v3_operations": [
+      "wiki.publicPreviewMetadata",
+      "wiki.renderGlobalPreview",
+      "auth.classifyPublicPreview"
+    ],
+    "acceptance_ids": [
+      "AC-WIKI-011"
+    ],
+    "work_packages": [
+      "WP-wiki"
+    ],
+    "decision": "Preserve global Wiki metadata/link previews and authenticated church/user scope. Acceptance must cover ordinary browser redirect, WhatsApp human versus fetcher, spoofed x-is-crawler/routed URL refusal, known-UA global-only rendering, foreign-tenant article denial and unauthenticated writes refusal."
+  },
+  {
+    "id": "ADM-001",
+    "title": "In-app feedback widget and durable user submission",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/components/feedback/feedback-button.tsx",
+      "src/app/(dashboard)/feedback/actions.ts#submitFeedbackAction",
+      "src/lib/feedback/service.ts#createFeedback",
+      "src/lib/validations/feedback.ts"
+    ],
+    "routes": [
+      "Global dashboard feedback dialog"
+    ],
+    "operations": [
+      "submitFeedbackAction",
+      "createFeedback"
+    ],
+    "tests": [
+      "src/lib/feedback/github.test.ts",
+      "src/components/admin/feedback/feedback-status-select.test.ts"
+    ],
+    "tables": [
+      "feedback",
+      "users",
+      "churches"
+    ],
+    "permissions": "self.write current session user, optional current church; all authenticated seating types may submit.",
+    "states": "bug/suggestion/question/other; defaultsuggestion/new; row committed before async notifications through Next after.",
+    "validation": "Trimmed nonempty<=5000 description; pageUrl<=500 optional; category enum.",
+    "integrations": [],
+    "failures": "UI success means row stored, not email/GitHub delivery. No attachment/screenshot upload, editing own submission/history or deletion found. Repeated POST creates new row; app page path input not canonicalized before DB storage.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "feedback.submit"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-001"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "ADM-002",
+    "title": "Platform-wide feedback triage and status transitions",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(dashboard)/admin/feedback/page.tsx",
+      "src/app/(dashboard)/admin/feedback/actions.ts#updateFeedbackStatusAction",
+      "src/lib/feedback/service.ts#listFeedback/updateFeedbackStatus",
+      "src/lib/auth/admin.ts",
+      "src/lib/feedback/service.ts#createFeedback",
+      "src/lib/feedback/service.ts#listFeedback",
+      "src/lib/feedback/service.ts#setFeedbackGithubIssue",
+      "src/lib/feedback/service.ts#updateFeedbackStatus"
+    ],
+    "routes": [
+      "/admin/feedback"
+    ],
+    "operations": [
+      "isPlatformAdmin",
+      "requirePlatformAdmin",
+      "listFeedback",
+      "updateFeedbackStatus",
+      "updateFeedbackStatusAction",
+      "createFeedback",
+      "setFeedbackGithubIssue"
+    ],
+    "tests": [
+      "src/components/admin/feedback/feedback-status-select.test.ts",
+      "src/lib/feedback/github.test.ts"
+    ],
+    "tables": [
+      "feedback",
+      "users",
+      "churches"
+    ],
+    "permissions": "ADMIN_EMAILS normalized email allowlist separate from church admin; session gate returns404 to outsiders; cross-tenant listing intentionally platform-only.",
+    "states": "new/reviewed/resolved/dismissed arbitrary transitions; list25+1 pagination,status/category filters,user name/email/church/page/GitHub link.",
+    "validation": "UUID ID and closed status enum; page clamped>=1; required admin check before parse/write.",
+    "integrations": [],
+    "failures": "No admin audit actor/status history/no-op/concurrency version; unknown row update can return success. Current email identity-based platform privilege changes with email credential; Better Auth design should assign explicit immutable principal grant.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "feedback.admin.list",
+      "feedback.admin.changeStatus",
+      "platformAdmin.authorize"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-002"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "ADM-003",
+    "title": "Optional feedback email and GitHub issue bridge",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/feedback/notify.ts#notifyNewFeedback",
+      "src/lib/feedback/github.ts#buildFeedbackIssue/createFeedbackIssue/setFeedbackGithubIssue",
+      "src/lib/email/templates/feedback-notification.tsx",
+      "src/lib/feedback/github.ts#buildFeedbackIssue",
+      "src/lib/feedback/github.ts#createFeedbackIssue",
+      "src/lib/feedback/github.ts#feedbackIssueUrl"
+    ],
+    "routes": [
+      "/admin/feedback"
+    ],
+    "operations": [
+      "notifyNewFeedback",
+      "createFeedbackIssue",
+      "buildFeedbackIssue",
+      "setFeedbackGithubIssue",
+      "feedbackIssueUrl"
+    ],
+    "tests": [
+      "src/lib/feedback/github.test.ts"
+    ],
+    "tables": [
+      "feedback",
+      "churches"
+    ],
+    "permissions": "Trusted server environment FEEDBACK_EMAIL_TO/GITHUB_FEEDBACK_TOKEN; user submission does not itself grant permission to publish sensitive description publicly.",
+    "states": "Email and GitHub requests parallel,best effort; token absent skips; issue number persisted if accepted; closing issue does not change app status.",
+    "validation": "Issue100-character first-line title; category labels; body retains free description and pseudonymous church/user IDs; page slug redacts non-UUID path segments;10s GitHub timeout.",
+    "integrations": [
+      "Resend",
+      "GitHub REST issue API"
+    ],
+    "failures": "No durable retry/job/outbox/dedupe: provider may create issue but app fails persisting number; retry could duplicate. User description can contain personal data. V3 bridge visibility and reviewed publication default must be explicit. Email sendEmail false result not inspected by notifier.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "feedback.proposeExternalIssue",
+      "feedback.publishApprovedIssue",
+      "feedback.notifyOperator",
+      "feedback.reconcileIssueLink"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-003"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve optional bridge capability but make destination/private visibility and reviewed publication policy explicit. No actual external message or issue sent in this audit."
+  },
+  {
+    "id": "ADM-004",
+    "title": "Dashboard routing by identity and onboarding/plant state",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(dashboard)/dashboard/page.tsx",
+      "src/app/(dashboard)/dashboard/onboarding-dashboard.tsx",
+      "src/app/(dashboard)/dashboard/plant-dashboard.tsx",
+      "src/app/(dashboard)/dashboard/discovery-home.tsx",
+      "src/app/(dashboard)/dashboard/no-plant-empty-state.tsx"
+    ],
+    "routes": [
+      "/dashboard"
+    ],
+    "operations": [
+      "resolve dashboard home",
+      "OnboardingDashboard",
+      "PlantDashboard",
+      "DiscoveryHome"
+    ],
+    "tests": [
+      "src/app/(dashboard)/dashboard/incomplete-onboarding.test.ts",
+      "src/app/(dashboard)/dashboard/mission-route-compositions.test.ts",
+      "src/app/(dashboard)/dashboard/confirm-leadership.test.ts"
+    ],
+    "tables": [
+      "users",
+      "churches",
+      "discovery_profiles",
+      "launches",
+      "phase_transitions"
+    ],
+    "permissions": "Session established; no-seat discovery profile home, oversight redirect, unfinished onboarding versus plant dashboard; read permissions/nudges keyed actual seating.",
+    "states": "Incomplete church setup/leadership/journey/people steps; leadership re-entry query; no planter nudge; association reminder; no-plant empty state; onboarding mutation details owned by identity audit.",
+    "validation": "Query params and authoritative saved onboarding facts gate renders; never infer finished setup only from route.",
+    "integrations": [],
+    "failures": "No global dashboard admin CRUD; compositional home states must survive rebuild and stale browser session/seat changes. Client prompt dismissals do not replace required server validation.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "dashboard.resolveHome",
+      "dashboard.readSetupGaps"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-004"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "ADM-005",
+    "title": "Plant metrics, activity feed, quick actions and operational prompts",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/dashboard/service.ts#getDashboardMetrics/getRecentActivity",
+      "src/components/dashboard/quick-actions.tsx",
+      "src/components/dashboard/activity-guidance.tsx",
+      "src/app/(dashboard)/dashboard/use-dismissed.ts",
+      "src/app/(dashboard)/dashboard/plant-dashboard.tsx",
+      "src/lib/dashboard/service.ts#getDashboardMetrics",
+      "src/lib/dashboard/service.ts#getRecentActivity",
+      "src/lib/dashboard/sidebar-preference.ts#sidebarDefaultOpen",
+      "src/components/dashboard/activity-feed.tsx",
+      "src/components/dashboard/metric-card.tsx",
+      "src/components/launch/launch-status-card.tsx",
+      "src/lib/launch/countdown.ts#daysUntilTarget",
+      "src/lib/launch/milestones.ts#getLaunchReadiness",
+      "src/lib/launch/queries.ts#getLaunchForChurch",
+      "src/lib/phase-engine/transitions/service.ts#hasInitialPhaseDeclaration",
+      "src/app/(dashboard)/settings/association/queries.ts#getPendingInvitationsForPlant",
+      "src/app/(dashboard)/dashboard/confirm-leadership.ts#churchHasPlanterUser"
+    ],
+    "routes": [
+      "/dashboard"
+    ],
+    "operations": [
+      "getDashboardMetrics",
+      "getRecentActivity",
+      "quick actions",
+      "incompleteOnboardingItems",
+      "dismissalKey",
+      "useDismissed",
+      "sidebarDefaultOpen",
+      "PlantDashboard composition",
+      "phase header label and phase-specific empty activity guidance",
+      "LaunchStatusCard countdown/status/readiness/outcome projection",
+      "owner-only pending association reminder",
+      "leadership re-entry and incomplete onboarding projections"
+    ],
+    "tests": [
+      "src/components/dashboard/quick-actions.test.ts",
+      "src/components/dashboard/activity-guidance.test.ts",
+      "src/lib/tasks/badge-counts.test.ts",
+      "src/app/(dashboard)/dashboard/church-created-confetti.test.ts"
+    ],
+    "tables": [
+      "persons",
+      "person_activities",
+      "church_meetings",
+      "ministry_teams",
+      "tasks",
+      "launches",
+      "launch_milestones",
+      "launch_milestone_tasks",
+      "churches",
+      "users",
+      "organization_invitations",
+      "phase_transitions"
+    ],
+    "permissions": "Church-scoped aggregate/activity; overdue tasks viewer-assignee scoped; quick actions match holdsSeatFor write permission; person-sensitive feed never oversight substitute.",
+    "states": "Four metrics: recruited core_group/launch_team/leader people (excludes seat-person cohort), all non-deleted people, viewer-assigned overdue tasks, completed vision meetings. Feed combines person-created/status/commitment/note activities, completed meetings and completed tasks, sorted to 20. Church current_phase supplies header label and contextual empty-feed guidance; this dashboard does not read Plant Intelligence assessments. Launch card reads target date/status, shared countdown, readiness only when a dated launch is not completed, and completion attendance/decision outcomes. Quick actions capability-gate create verbs; schedule-launch call to action is owner-capability gated. Owner-only association reminder, leadership re-entry/no-planter/pastor prompts, incomplete onboarding, church-created celebration and church-scoped browser dismissal state compose the screen.",
+    "validation": "Methodology-derived pipeline denominator excludes planter recruited cohort; explicit completion facts; no database-wide unscoped metrics. Launch readiness joins launch_milestones, launch_milestone_tasks, tasks and users; initial journey declaration reads phase_transitions. People pipeline metrics are not rendered by this dashboard; the unused pipeline projection is separately inventoried by the identity/people owner.",
+    "integrations": [],
+    "failures": "Activity uses meeting updatedAt, so correcting old meeting can look newly completed; absent event ledger and suppressed deleted person joins alter history. Dashboard sums are projections, not normative rubric thresholds. Metrics tests must validate independent denominators.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "dashboard.metrics",
+      "dashboard.activity",
+      "dashboard.availableActions",
+      "dashboard.promptState"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-005"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "ADM-006",
+    "title": "Public product landing, interactive examples and invite-request form",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(marketing)/page.tsx",
+      "src/app/(marketing)/actions.ts#requestInviteAction",
+      "src/app/(marketing)/_components/invite-form.tsx",
+      "src/app/(marketing)/_components/vignettes",
+      "src/app/(marketing)/_components/use-tablist-keys.ts"
+    ],
+    "routes": [
+      "/"
+    ],
+    "operations": [
+      "requestInviteAction",
+      "public feature/phase tabs",
+      "fixture-backed product vignettes"
+    ],
+    "tests": [
+      "src/app/(marketing)/privacy/page.test.ts",
+      "src/lib/email/client.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Anonymous; honeypot website empty; email sent configured ADMIN_EMAILS; no registration performed or contact/lead DB row.",
+    "states": "Invite request idle/success/error; provider idempotency invite-request/<lowercase email>; static fixtures represent product interactions but no customer data source.",
+    "validation": "z.email; trap filled returns fake success; admins missing/provider failure shows contact fallback; email case normalized in key.",
+    "integrations": [
+      "Resend"
+    ],
+    "failures": "No rate limiter/durable lead receipt/double opt-in. Anonymous form triggers real email and user-provided address in subject; public product copy/claims must align actual functionality and methodology. Marketing fixture thresholds/copy are illustrative historical snapshots, not current rubric authority.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "marketing.requestInvitation",
+      "marketing.readProductExamples"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-006"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "ADM-007",
+    "title": "Public privacy/terms, static sitemap and robots",
+    "module": "admin",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/(marketing)/privacy/page.tsx",
+      "src/app/(marketing)/terms/page.tsx",
+      "src/app/sitemap.ts",
+      "src/app/robots.ts",
+      "src/proxy.ts"
+    ],
+    "routes": [
+      "/privacy",
+      "/terms",
+      "/sitemap.xml",
+      "/robots.txt"
+    ],
+    "operations": [
+      "renderPrivacy",
+      "renderTerms",
+      "sitemap",
+      "robots"
+    ],
+    "tests": [
+      "src/app/(marketing)/privacy/page.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Public static reads; robots disallows /dashboard,/api,/rsvp; not an access control.",
+    "states": "Static home/terms/privacy sitemap,hermetic build; authenticated marketing redirect/crawler behavior owned by auth.",
+    "validation": "Public policies describe deployed vendors and consent; product domain hardcoded everyfield.app.",
+    "integrations": [],
+    "failures": "Legal/privacy wording current v2 evidence only, revalidate for actual v3 vendors/model terms before launch. No actual consent tracking/newsletter implemented just from a public policy page.",
+    "v3_module": "admin",
+    "v3_operations": [
+      "marketing.privacyPolicy",
+      "marketing.terms",
+      "marketing.sitemap"
+    ],
+    "acceptance_ids": [
+      "AC-ADM-007"
+    ],
+    "work_packages": [
+      "WP-admin"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-001",
+    "title": "External schedules and bounded HTTP job ticks",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      ".github/workflows/notifications-dispatch.yml",
+      ".github/workflows/phase-engine-assess.yml",
+      "src/app/api/notifications/dispatch/route.ts",
+      "src/app/api/phase-engine/assess/route.ts",
+      "scripts/phase-engine-assess.mjs",
+      "vercel.json",
+      "src/lib/security/constant-time.ts#constantTimeEquals",
+      "src/lib/security/constant-time.ts#matchesBearerSecret",
+      "src/app/api/wiki/revalidate/route.ts#isAuthorized"
+    ],
+    "routes": [
+      "/api/notifications/dispatch",
+      "/api/phase-engine/assess"
+    ],
+    "operations": [
+      "scheduled notification tick15m",
+      "scheduled assessment tick07:00/19:00 UTC",
+      "workflow_dispatch",
+      "runDispatchTick",
+      "constantTimeEquals (internal shared-secret helper)",
+      "matchesBearerSecret (internal exact Bearer guard)"
+    ],
+    "tests": [
+      "src/app/api/notifications/dispatch/route.test.ts",
+      "scripts/phase-engine-assess.test.ts",
+      "src/lib/security/constant-time.test.ts"
+    ],
+    "tables": [
+      "notifications",
+      "notification_deliveries",
+      "plant_assessments",
+      "churches"
+    ],
+    "permissions": "Shared CRON_SECRET constant-time bearer; never trigger during audit; Actions least privilege; production destination literal.",
+    "states": "Notifications60s function/55s tick,dispatch before oversight/planter digest sweep; assessment own270s budget/300s function; missed ticks owed work remains.",
+    "validation": "External triggers contain no domain business logic; Actions best-effort scheduling/default branch; cancel concurrent runner; response counts checked. Both job routes fail closed when CRON_SECRET is unset, then compare the exact Bearer scheme/header through one Node crypto helper. Presented and expected UTF-8 values are SHA-256 hashed before timingSafeEqual, with raw lengths checked afterward. Wiki revalidation uses the same equality primitive with its own secret. This helper grants no human/agent tenant capability.",
+    "integrations": [
+      "GitHub Actions",
+      "Vercel HTTP functions"
+    ],
+    "failures": "Workflow comments claim all errors safely released but queued crash gap remains NTF-002. Tick budget can starve digest sweeps under sustained dispatch backlog; explicit fairness/SLA needed. Fresh v3 should choose reliable worker scheduler proportional to scale, not inherit Hobby workaround. Retain centralized secret-check correctness when moving transports; helper itself accepts an empty expected secret, so route-level unset-secret refusal is part of the required contract.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "jobs.tickNotifications",
+      "jobs.tickAssessments",
+      "jobs.manualRun",
+      "jobs.inspectLag"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-001"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-002",
+    "title": "Basic health and runtime errors versus dependency readiness",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/app/api/health/route.ts",
+      "src/app/(dashboard)/error.tsx",
+      "src/app/(dashboard)/not-found.tsx",
+      "src/app/global-error.tsx"
+    ],
+    "routes": [
+      "/api/health"
+    ],
+    "operations": [
+      "GET health",
+      "dashboard error retry",
+      "not found"
+    ],
+    "tests": [
+      "src/app/(dashboard)/page-canvas-scroll-layouts.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Public health returns status/timestamp only; error screens do not expose detailed server secrets.",
+    "states": "ok means process route answered; does not check DB/storage/mail/job health.",
+    "validation": "No live dependency work performed in health handler.",
+    "integrations": [],
+    "failures": "Need separate readiness/operator diagnostics with sanitized dependency/lag state; public health must stay bounded and safe. Error retry can repeat side effects unless mutations have idempotency.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "ops.liveness",
+      "ops.readiness",
+      "ops.errorCorrelation"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-002"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-003",
+    "title": "Production Sentry errors and isolated optional Langfuse tracing",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "instrumentation.ts",
+      "instrumentation-client.ts",
+      "src/lib/observability/langfuse-config.ts",
+      "src/lib/observability/langfuse.ts",
+      "src/lib/phase-engine/observability.ts",
+      "ops/langfuse/README.md",
+      "ops/langfuse/manage.sh"
+    ],
+    "routes": [],
+    "operations": [
+      "register",
+      "onRequestError",
+      "onRouterTransitionStart",
+      "parseLangfuseConfig",
+      "initializeLangfuseTracing",
+      "maskLangfuseData",
+      "startJudgeTrace",
+      "forceFlushLangfuse",
+      "shutdownLangfuseTracing"
+    ],
+    "tests": [
+      "src/lib/observability/langfuse-config.test.ts",
+      "src/lib/observability/langfuse.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Server-only credentials; explicit Langfuse URL/environment/no implicit cloud fallback; reject NEXT_PUBLIC secret; production Sentry enabled only configured.",
+    "states": "Langfuse disabled/configured/refused(partial/invalid/public_secret); isolated OTel provider, content-free masked trace payload; optional local stack.",
+    "validation": "Base URLHTTPS except loopbackHTTP,no embedded credentials/query/hash; bounded credential/env schema; AI run tokens/latency/status metadata traced.",
+    "integrations": [
+      "Sentry",
+      "Langfuse",
+      "OpenTelemetry"
+    ],
+    "failures": "Tracing is advisory and flush-bounded; no durable job metrics/admin operations console found. Production error telemetry PII redaction must be verified, not assumed from separate AI masking.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "ops.reportError",
+      "ops.traceOperation",
+      "ops.traceModelAttempt",
+      "ops.flushTelemetry"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-003"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved.",
+    "supporting_evidence_notes": [
+      {
+        "path": "ops/langfuse/manage.sh",
+        "role": "shared operational support, not independent capability/public API"
+      }
+    ]
+  },
+  {
+    "id": "OPS-004",
+    "title": "Cross-module process event bus and registered consumers",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "src/lib/events/event-bus.ts",
+      "src/lib/events/subscriptions.ts",
+      "src/lib/phase-engine/dirty-handler.ts"
+    ],
+    "routes": [],
+    "operations": [
+      "eventBus.on",
+      "eventBus.emit",
+      "registerSubscriptions",
+      "strict emission",
+      "handlerCount"
+    ],
+    "tests": [
+      "src/lib/events/event-bus.test.ts"
+    ],
+    "tables": [
+      "person_activities",
+      "tasks",
+      "communications",
+      "churches",
+      "phase_transitions"
+    ],
+    "permissions": "Internal domain event payload carries church/actor; handlers each tenant-check; not a public Event RPC.",
+    "states": "In-memory lazy singleton,Promise.allSettled; default failures logged,strict emits AggregateError after all handlers; hot-reload init guarded.",
+    "validation": "Meeting attendance=>pipeline/follow-up/evaluation task; team member/leader=>pipeline; meeting evaluation=>complete matching task; material=>dirty; phase=>oversight/template offer; task=>contact log.",
+    "integrations": [],
+    "failures": "Process death loses cross-domain side effect; strict is not transaction rollback and handlers may already have succeeded. Do not mandate no feature imports as architecture dogma: critical domain consequences can be direct shared transaction, advisory notification effects use outbox when needed.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "domain.executeAtomicConsequences",
+      "events.appendRequiredOutbox",
+      "events.deliverIdempotentConsumer"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-004"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve consequences, replace unnecessary event indirection. Durable outbox only for asynchronous/external/repairable effects; no general distributed event platform assumed."
+  },
+  {
+    "id": "OPS-005",
+    "title": "Migration generation, journal provenance and safe operator diagnostics",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "scripts/db-migrate.ts",
+      "scripts/restamp-migration.ts",
+      "scripts/backfill-snapshot.ts",
+      "src/db/migrations.test.ts",
+      "memory/contracts/db.md",
+      "AGENTS.md"
+    ],
+    "routes": [],
+    "operations": [
+      "db:generate",
+      "db:migrate",
+      "migration preflight/diagnosis",
+      "restamp source snapshot timestamps",
+      "backfill snapshot tooling"
+    ],
+    "tests": [
+      "scripts/db-migrate.test.ts",
+      "scripts/restamp-migration.test.ts",
+      "src/db/migrations.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Database target must be positively identified; shared development has held effective production; ledger repairs attended operator work only.",
+    "states": "Versioned SQL/migration snapshots80+ main,alpha adds81..85; applied history not overwritten/deleted; no db:push convention.",
+    "validation": "Source-only snapshot ordering repair distinct from DB ledger manipulation; advisory-lock/provenance/replay checks in owning script.",
+    "integrations": [],
+    "failures": "Fresh v3 requires new initial migrations and reference bootstrap, not historical v2 chain or customer migration. Do not run destructive seeds or patch live ledger. Empty DB/provisioning acceptance essential.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "ops.schemaValidate",
+      "ops.applyVersionedMigration",
+      "ops.inspectMigrationProvenance"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-005"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved.",
+    "table_patterns": [
+      "all application schema tables, determined by the inspected migration/snapshot; not an assertion of reads to every feature table"
+    ],
+    "metadata_refs": [
+      "drizzle.__drizzle_migrations"
+    ]
+  },
+  {
+    "id": "OPS-006",
+    "title": "Development seeds, protected database guard and preserved reference content",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "scripts/seed-dev-db.ts",
+      "src/lib/dev-seed/protected-database.ts",
+      "src/lib/dev-seed/oversight-admin-upsert.ts",
+      "scripts/seed-marketing-church.ts",
+      "scripts/seed-phase-engine-eval.ts",
+      "scripts/patch-contact-info.ts"
+    ],
+    "routes": [],
+    "operations": [
+      "db:seed",
+      "db:clean",
+      "db:reset",
+      "seedOversightOrgs",
+      "seed-marketing-church",
+      "seed-phase-engine-eval",
+      "patch-contact-info"
+    ],
+    "tests": [
+      "src/lib/dev-seed/protected-database.test.ts",
+      "src/lib/seats/roster.test.ts"
+    ],
+    "tables": [
+      "churches",
+      "users",
+      "launches",
+      "sending_churches",
+      "sending_networks",
+      "wiki_articles",
+      "wiki_sections",
+      "plant_assessments"
+    ],
+    "permissions": "Explicit owned throwaway/dev target required; sentinel alone insufficient; protected cohort blocks unless deliberate allow-protected-db; oversight-orgs-only is nondestructive but changes accounts.",
+    "states": "General seed wipes user/church reachable tables; Wiki/sections protected; pinned oversight IDs upsert; marketing contacts repair preserves saved approved assessments; eval fleets synthetic.",
+    "validation": "Bootstrap fixtures include pipeline/meeting/team/task/notifications/phase/launch variations; FK graph ordering cycle guards; checks protected content references before wipe.",
+    "integrations": [],
+    "failures": "Rebuild data bootstrap must separate approved global references from demo/eval identities/fixtures; no customers means no customer migration or legacy historical table retention needed in new DB. Snapshot of canonical corpus required WIKI-010.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "reference.bootstrapApprovedBundle",
+      "fixtures.seedOwnedEnvironment",
+      "fixtures.resetOwnedEnvironment"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-006"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-007",
+    "title": "Isolated live database tests and hermetic build/CI checks",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      ".github/workflows/pull-request-checks.yml",
+      "scripts/live-db-run.ts",
+      "scripts/live-db-stack.sh",
+      "scripts/live-db-prepare.sh",
+      "scripts/live-db-endpoint.ts",
+      "scripts/live-db-preflight.ts",
+      "scripts/live-db-names.ts",
+      "src/db/live-suite-coverage.test.ts",
+      "src/db/client-boundary.bundle.test.ts"
+    ],
+    "routes": [],
+    "operations": [
+      "test:ci",
+      "test:live",
+      "live-db preflight",
+      "per-suite schema/endpoint isolate",
+      "format/lint/typecheck/test/build CI"
+    ],
+    "tests": [
+      "scripts/discovery-db-endpoint.test.ts",
+      "src/db/live-suite-coverage.test.ts",
+      "ops/tests/ci-test-parity.test.mjs"
+    ],
+    "tables": [],
+    "permissions": "Placeholder creds hermetic build; live tests owned Postgres/Neon endpoint, never shared dev/prod; LIVE_DB_TESTS flag explicit.",
+    "states": "PR check all bases/manual refs; docs-only skip except requirements/memory read by tests; ordinary tests can pass without actually live SQL tests unless live job enables them.",
+    "validation": "Frozen lockfile,Node24 parity,own schema per live suite,coverage guard suite registration; native concurrency proofs not replaced by mocked SQL snapshot counts. This is test-environment infrastructure, not a claim that one application capability owns all schema tables; root schema map owns exact feature/table coverage.",
+    "integrations": [],
+    "failures": "High test count includes source-text and SQL compilation tests, not full product acceptance. V3 require vertical browser/API/native transaction coverage per feature IDs and negative permission/race/failure tests.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "qa.verifyContracts",
+      "qa.verifyNativeTransactions",
+      "qa.verifyVerticalSlices",
+      "qa.hermeticBuild"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-007"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved.",
+    "table_patterns": [
+      "application schema in an isolated, owned live-test database; exact feature tables vary by the selected test"
+    ],
+    "metadata_refs": [
+      "drizzle.__drizzle_migrations"
+    ]
+  },
+  {
+    "id": "OPS-008",
+    "title": "Managed local previews, disposable mail and worktree environment",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "ops/local-previews.md",
+      "scripts/preview-local.mjs",
+      "scripts/preview-mail.mjs",
+      "scripts/preview-runtime.mjs",
+      "scripts/preview-fixtures.ts",
+      "scripts/worktree-add.sh",
+      "scripts/worktree-env.sh",
+      "ops/guard-worktree-pnpm.sh"
+    ],
+    "routes": [],
+    "operations": [
+      "preview startup/runtime/fixtures",
+      "local mail capture",
+      "worktree-add",
+      "worktree-env",
+      "guard-worktree-pnpm"
+    ],
+    "tests": [
+      "scripts/preview-local.test.ts",
+      "ops/tests/worktree-env.test.mjs",
+      "ops/tests/guard-worktree-pnpm.test.mjs"
+    ],
+    "tables": [],
+    "permissions": "Preview target checkout/DB must be isolated and provenance shown; no node_modules symlink; real install; secrets not copied/exposed wholesale.",
+    "states": "Portless managed preview; dev hot-reload vs clean committed production evidence; local services per worktree.",
+    "validation": "Guard selected source revision and named URL; no unrelated localhost server evidence.",
+    "integrations": [
+      "Portless CLI",
+      "local mail capture",
+      "local Postgres/Neon proxy"
+    ],
+    "failures": "These are v2 engineering workflows to re-evaluate, not product requirements. Keep safe environment isolation; simplify automation/guard stack to supported v3 runtime.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "dev.createIsolatedPreview",
+      "dev.inspectPreviewProvenance",
+      "dev.cleanupPreview"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-008"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-009",
+    "title": "Issue board synchronization and agent workflow tooling",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      ".github/workflows/board-sync.yml",
+      "ops/board.sh",
+      "ops/setup-labels.sh",
+      "ops/merge-hold.sh",
+      "ops/process.md",
+      "ops/tests/requirement-ids.test.mjs"
+    ],
+    "routes": [],
+    "operations": [
+      "board-sync issue event",
+      "board status query",
+      "setup labels",
+      "merge-hold checks",
+      "requirement ID validation"
+    ],
+    "tests": [
+      "ops/tests/board-query.test.mjs",
+      "ops/tests/merge-hold-parity.test.mjs",
+      "ops/tests/requirement-ids.test.mjs"
+    ],
+    "tables": [],
+    "permissions": "GitHub repository read token separate Project PAT; no business platform admin authority; audit never invokes writers.",
+    "states": "Six statuses derived canonical issue labels/closed state; per-issue serialization; duplicate active labels warn; absent project token visible skip.",
+    "validation": "Default historical Project IDs/options hardcoded; live labels reread rather than stale webhook payload.",
+    "integrations": [
+      "GitHub Issues/Projects GraphQL"
+    ],
+    "failures": "Optional engineering coordination, not customer-facing module; general fresh repo workflow should not inherit private IDs/old feature board or declare past decisions permanent. Requirements traceability useful, cumbersome gated delivery scripts already retired.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "engineering.trackWork",
+      "engineering.validateRequirements"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-009"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Document current tooling; retain outcome traceability. Carry exact board automation only if chosen for new project; no product capability removal implied."
+  },
+  {
+    "id": "OPS-010",
+    "title": "Agent setup/hooks, script inventory and native proof tooling",
+    "module": "operations",
+    "status": "implemented-main",
+    "source_refs": [
+      "scripts/README.md",
+      "ops/script-inventory.mjs",
+      "ops/sync-codex-setup.mjs",
+      "ops/codex-session-context.sh",
+      "ops/format-agent-edit.sh",
+      "ops/guard-worktree-pnpm-hook.sh",
+      "ops/principles-context.sh",
+      ".cursor/hooks/format.sh",
+      ".cursor/hooks/guard-worktree-pnpm.sh",
+      "scripts/proofs"
+    ],
+    "routes": [],
+    "operations": [
+      "script-inventory",
+      "sync-codex-setup",
+      "session-context",
+      "format/guard edit hooks",
+      "native proof runners",
+      "export-document-catalog",
+      "check-document-exports"
+    ],
+    "tests": [
+      "ops/tests/codex-setup.test.mjs",
+      "scripts/cs013-mutation-check.test.ts"
+    ],
+    "tables": [],
+    "permissions": "Read-only inventory available; other scripts may mutate accounts/schema/storage or production, must classify and target before future invocation.",
+    "states": "README reviewed57 maintained files12tests; additional proofs remain tracked. Current source inventory is evidence of actual files, not permission to execute.",
+    "validation": "Hooks share adapters; markdown deliberately unformatted; native proofs bind source+target+concurrency conditions.",
+    "integrations": [],
+    "failures": "Historical proofs/manual acceptance harnesses can be obsolete. Keep critical behavioral tests and reproducible fixtures, avoid copying every agent-specific historical adapter to v3. Inventory includes untracked alpha image extraction tools as local-only, no product capabilities.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "engineering.inventoryTools",
+      "engineering.auditProofCoverage",
+      "engineering.installChosenHooks"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-010"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Preserve capability; implementation redesign is proposed, no removal approved."
+  },
+  {
+    "id": "OPS-011",
+    "title": "Read-only retired Evry/database boundary diagnostics",
+    "module": "operations",
+    "status": "dead",
+    "source_refs": [
+      "scripts/audit-retired-agent-db.ts",
+      "scripts/retired-agent-boundary.test.ts",
+      "scripts/proofs/retired-agent-alpha.md",
+      "src/db/schema/evry.ts",
+      "src/db/schema/evry-eve.ts"
+    ],
+    "routes": [],
+    "operations": [
+      "audit-retired-agent-db",
+      "retired-agent-boundary checks"
+    ],
+    "tests": [
+      "scripts/retired-agent-boundary.test.ts"
+    ],
+    "tables": [
+      "evry_action_plans",
+      "evry_action_plan_states",
+      "evry_plan_confirmations",
+      "evry_product_audit_events",
+      "evry_execution_attempts",
+      "evry_execution_effect_claims",
+      "evry_execution_outcomes",
+      "evry_conversations",
+      "evry_conversation_states",
+      "evry_conversation_messages",
+      "evry_conversation_artifacts",
+      "evry_active_runs",
+      "evry_eve_sessions"
+    ],
+    "permissions": "Read-only legacy diagnostic; v2 historical data/schema must remain unchanged; no retired runtime restored.",
+    "states": "Main Evry runtime retired in PR854, legacy tables/migrations retained; full v3 first-class Evry requested separately and must be new design.",
+    "validation": "Diagnostic distinguishes current native domain routes from retired agent runtime; root Evry audit owns exact table and capability map. tables lists exactly the 13 retained source-defined Evry tables. SQL catalog discovery also probes legacy prefixes and communication_failed_retries; those probes do not prove any additional live table exists. No database was inspected.",
+    "integrations": [],
+    "failures": "No current active Evry operational feature inferred from legacy schemas. Historical capability evidence remains source history; v3 reference plan should use preserved domain operations, reviewed authority policy.",
+    "v3_module": "operations",
+    "v3_operations": [
+      "ops.inspectLegacyEvidence",
+      "evry new specification (root-owned)"
+    ],
+    "acceptance_ids": [
+      "AC-OPS-011"
+    ],
+    "work_packages": [
+      "WP-operations"
+    ],
+    "decision": "Retired runtime is dead on main; no v2 data deletion. Fresh v3 does not need historical agent tables, but full user-requested Evry capabilities need explicit new specs.",
+    "table_patterns": [
+      "public.evry\\_%",
+      "public.eve\\_%",
+      "public.assistant\\_%"
+    ],
+    "metadata_refs": [
+      "pg_catalog.pg_tables",
+      "pg_catalog.pg_constraint",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace",
+      "drizzle.__drizzle_migrations"
+    ],
+    "diagnostic_probe_names": [
+      "communication_failed_retries"
+    ]
+  }
+]

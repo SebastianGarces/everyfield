@@ -1,0 +1,310 @@
+{
+  "scope": "source controller aliases; no new target API",
+  "passed": true,
+  "records": [
+    {
+      "feature_id": "IDN-014",
+      "source": "main",
+      "path": "src/app/(dashboard)/dashboard/actions.ts",
+      "symbol": "confirmLeadership",
+      "matched_feature_ids": [
+        "IDN-014"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "IDN-014",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/dashboard/actions.ts",
+      "symbol": "confirmLeadership",
+      "matched_feature_ids": [
+        "IDN-014"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "COM-009",
+      "source": "main",
+      "path": "src/app/(dashboard)/communication/actions.ts",
+      "symbol": "resendToNonOpenersAction",
+      "matched_feature_ids": [
+        "COM-009"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "COM-009",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/communication/actions.ts",
+      "symbol": "resendToNonOpenersAction",
+      "matched_feature_ids": [
+        "COM-009"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-002",
+      "source": "main",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-002",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-003",
+      "source": "main",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-003",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-005",
+      "source": "main",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-005",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-006",
+      "source": "main",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-006",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-007",
+      "source": "main",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "PHASE-007",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/phase/actions.ts",
+      "symbol": "transitionPhaseAction",
+      "matched_feature_ids": [
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-005",
+        "PHASE-006",
+        "PHASE-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-001",
+      "source": "main",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "scheduleLaunchAction",
+      "matched_feature_ids": [
+        "LCH-001"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-001",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "scheduleLaunchAction",
+      "matched_feature_ids": [
+        "LCH-001"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-004",
+      "source": "main",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "completeMilestoneAction",
+      "matched_feature_ids": [
+        "LCH-004"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-004",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "completeMilestoneAction",
+      "matched_feature_ids": [
+        "LCH-004"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-004",
+      "source": "main",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "reopenMilestoneAction",
+      "matched_feature_ids": [
+        "LCH-004"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-004",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "reopenMilestoneAction",
+      "matched_feature_ids": [
+        "LCH-004"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-006",
+      "source": "main",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "recordLaunchOutcomeAction",
+      "matched_feature_ids": [
+        "LCH-006"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-006",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "recordLaunchOutcomeAction",
+      "matched_feature_ids": [
+        "LCH-006"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-007",
+      "source": "main",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "updateLaunchOutcomeAction",
+      "matched_feature_ids": [
+        "LCH-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    },
+    {
+      "feature_id": "LCH-007",
+      "source": "alpha",
+      "path": "src/app/(dashboard)/launch/actions.ts",
+      "symbol": "updateLaunchOutcomeAction",
+      "matched_feature_ids": [
+        "LCH-007"
+      ],
+      "passed": true,
+      "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+    }
+  ]
+}

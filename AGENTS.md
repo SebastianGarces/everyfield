@@ -1,0 +1,10 @@
+# Scoped build-explorer maintenance instructions
+
+These instructions are additive and concern only work-package progress and the offline documentation explorer. Preserve any other repository instructions. This maintenance workflow does not authorize v3 application implementation, database/runtime changes, deployment or external services.
+
+- Read `docs/build-agent-workflow.md` before changing a work-package status. Treat `docs/plan/dag.json` as the package/dependency authority and versioned `docs/build-progress.json` as the evidence-backed progress authority.
+- Each assigned package owner must keep progress current when work starts, blockers change, reviewed milestones/tests complete, and before handoff or closure. Submit only the owned `docs/build-progress-updates/WP-NNN.json`; do not race other agents with whole canonical JSON or HTML rewrites.
+- Use the current package `base_revision`, real output/commit references, named test/review results and explanatory evidence. File presence and browser-local planning changes never establish canonical completion. `done` requires substantive output/commit plus named passed acceptance evidence, satisfied package gates and canonically done direct prerequisites.
+- The integration owner reviews and merges package patches with `python3 docs/update-build-explorer.py --root . --check`, `--apply`, then `--check`. A stale revision requires evidence reconciliation before resubmission. Preserve submitted patches and use the canonical applied SHA records for idempotent replay.
+- Before a package is closed, complete the mandatory checklist in `docs/build-agent-workflow.md`, integrate its evidence and progress, refresh the single `everyfield-build-explorer.html`, and verify the file offline. Keep browser-local overrides separate and source `embedded-local-state` empty.
+- Preserve inline CSS, JavaScript, graph data, unrelated review documents and existing instructions. Only the integration owner changes shared canonical progress or refreshes embedded progress. Use `--refresh-html` followed by `--check` to repair an interrupted integration; canonical progress takes precedence.

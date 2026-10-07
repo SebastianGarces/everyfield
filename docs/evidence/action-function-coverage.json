@@ -1,0 +1,3364 @@
+[
+  {
+    "source": "main",
+    "path": "src/app/unsubscribe/actions.ts",
+    "symbol": "confirmUnsubscribeAction",
+    "feature_ids": [
+      "IDN-028",
+      "NTF-012"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/unsubscribe/actions.ts",
+    "symbol": "undoUnsubscribeAction",
+    "feature_ids": [
+      "IDN-028",
+      "NTF-012"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(marketing)/actions.ts",
+    "symbol": "requestInviteAction",
+    "feature_ids": [
+      "ADM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setNotificationPreferenceAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setDigestCadenceAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "clearMyEmailSuppressionAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchTimeZoneAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchDigestScheduleAction",
+    "feature_ids": [
+      "IDN-011",
+      "NTF-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchProfileFieldAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchInactivityThresholdsAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setSharingToggleAction",
+    "feature_ids": [
+      "IDN-022"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/phase/feedback-actions.ts",
+    "symbol": "submitInsightFeedbackAction",
+    "feature_ids": [
+      "PI-033"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/phase/checkin-actions.ts",
+    "symbol": "saveCheckinAction",
+    "feature_ids": [
+      "PI-038",
+      "PI-041"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/phase/actions.ts",
+    "symbol": "transitionPhaseAction",
+    "feature_ids": [
+      "PHASE-002",
+      "PHASE-003",
+      "PHASE-005",
+      "PHASE-006",
+      "PHASE-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/phase/signals-actions.ts",
+    "symbol": "setManualSignalAction",
+    "feature_ids": [
+      "PI-015"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "assignFollowUpAction",
+    "feature_ids": [
+      "TSK-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "createAndAssignFollowUpAction",
+    "feature_ids": [
+      "TSK-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "handOffFollowUpsAction",
+    "feature_ids": [
+      "TSK-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "createTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "quickAddTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "updateTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "completeTaskAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "reopenTaskAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "deleteTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "updateTaskStatusAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "addSubtaskAction",
+    "feature_ids": [
+      "TSK-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "setSubtaskCompletionAction",
+    "feature_ids": [
+      "TSK-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "bulkCompleteTasksAction",
+    "feature_ids": [
+      "TSK-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "bulkRescheduleTasksAction",
+    "feature_ids": [
+      "TSK-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "importTaskTemplateAction",
+    "feature_ids": [
+      "TSK-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "loadMoreTasksAction",
+    "feature_ids": [
+      "TSK-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/phase-prompt-actions.ts",
+    "symbol": "importPhaseTemplatesAction",
+    "feature_ids": [
+      "TSK-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/tasks/phase-prompt-actions.ts",
+    "symbol": "dismissPhaseTemplatePromptAction",
+    "feature_ids": [
+      "TSK-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/oversight/discovery-actions.ts",
+    "symbol": "removeDiscoveryAssociate",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "scheduleLaunchAction",
+    "feature_ids": [
+      "LCH-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "completeMilestoneAction",
+    "feature_ids": [
+      "LCH-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "reopenMilestoneAction",
+    "feature_ids": [
+      "LCH-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "setLaunchTaskCompleteAction",
+    "feature_ids": [
+      "TSK-003",
+      "LCH-001",
+      "LCH-004",
+      "LCH-005",
+      "LCH-006",
+      "LCH-007"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "recordLaunchOutcomeAction",
+    "feature_ids": [
+      "LCH-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "updateLaunchOutcomeAction",
+    "feature_ids": [
+      "LCH-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/wiki/actions.ts",
+    "symbol": "searchWikiArticles",
+    "feature_ids": [
+      "WIKI-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/wiki/actions.ts",
+    "symbol": "submitArticleFeedbackAction",
+    "feature_ids": [
+      "WIKI-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/feedback/actions.ts",
+    "symbol": "submitFeedbackAction",
+    "feature_ids": [
+      "ADM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/dashboard/discovery-actions.ts",
+    "symbol": "createDiscoveryPlant",
+    "feature_ids": [
+      "IDN-016"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "createChurchBasics",
+    "feature_ids": [
+      "IDN-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "confirmLeadership",
+    "feature_ids": [
+      "IDN-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "declareJourney",
+    "feature_ids": [
+      "IDN-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "completeOnboarding",
+    "feature_ids": [
+      "IDN-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createAssessmentAction",
+    "feature_ids": [
+      "PPL-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createInterviewAction",
+    "feature_ids": [
+      "PPL-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createCommitmentAction",
+    "feature_ids": [
+      "PPL-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "getCommitmentDownloadUrlAction",
+    "feature_ids": [
+      "PPL-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "listHouseholdsAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "createHouseholdWithHeadAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "updateHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "deleteHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "addToHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "removeFromHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "propagateAddressAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "getHouseholdMembersAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "addNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "editNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "deleteNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "getMoreActivitiesAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/pipeline-actions.ts",
+    "symbol": "reorderPipelineAction",
+    "feature_ids": [
+      "PPL-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "createPersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "updatePersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "loadMorePeopleAction",
+    "feature_ids": [
+      "PPL-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "uploadPersonPhotoAction",
+    "feature_ids": [
+      "PPL-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "removePersonPhotoAction",
+    "feature_ids": [
+      "PPL-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "deletePersonAction",
+    "feature_ids": [
+      "PPL-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "changeStatusAction",
+    "feature_ids": [
+      "PPL-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "changeStatusWithReasonAction",
+    "feature_ids": [
+      "PPL-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "checkForDuplicatesAction",
+    "feature_ids": [
+      "PPL-016"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "quickAddPersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "listTagsAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "createTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "updateTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "assignTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "removeTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "deleteTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "addSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "updateSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "removeSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "getPersonSkillsAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "downloadCsvTemplateAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "exportPeopleAction",
+    "feature_ids": [
+      "PPL-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "previewImportAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "executeBulkImportAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "listTeamsAction",
+    "feature_ids": [
+      "TEAM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "searchTeamCandidatesAction",
+    "feature_ids": [
+      "TEAM-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createTeamAction",
+    "feature_ids": [
+      "TEAM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateTeamAction",
+    "feature_ids": [
+      "TEAM-001",
+      "TEAM-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "searchLeaderCandidatesAction",
+    "feature_ids": [
+      "TEAM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "assignTeamLeaderAction",
+    "feature_ids": [
+      "TEAM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "initializeTeamsAction",
+    "feature_ids": [
+      "TEAM-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "initializeTeamsWithRolesAction",
+    "feature_ids": [
+      "TEAM-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "deleteRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "importRoleTemplatesAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "setResponsibilityCompleteAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "deleteResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "assignMemberAction",
+    "feature_ids": [
+      "TEAM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "removeMemberAction",
+    "feature_ids": [
+      "TEAM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createMeetingAction",
+    "feature_ids": [
+      "TEAM-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createTrainingProgramAction",
+    "feature_ids": [
+      "TEAM-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "markTrainingCompleteAction",
+    "feature_ids": [
+      "TEAM-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "deleteMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateMeetingStatusAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createLocationAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateLocationAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddAttendeeAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "removeAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "finalizeAttendanceAction",
+    "feature_ids": [
+      "MTG-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "recordAttendanceBatchAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createEvaluationAction",
+    "feature_ids": [
+      "MTG-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "toggleChecklistItemAction",
+    "feature_ids": [
+      "MTG-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateChecklistItemAction",
+    "feature_ids": [
+      "MTG-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addToGuestListAction",
+    "feature_ids": [
+      "MTG-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "removeFromGuestListAction",
+    "feature_ids": [
+      "MTG-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateRsvpStatusAction",
+    "feature_ids": [
+      "MTG-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddPersonToGuestListAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "toggleAttendanceStatusAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addWalkInAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddWalkInAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addAttendeeNoteAction",
+    "feature_ids": [
+      "MTG-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "recordResponseCardAction",
+    "feature_ids": [
+      "MTG-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "clearResponseCardAction",
+    "feature_ids": [
+      "MTG-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "saveAgendaAction",
+    "feature_ids": [
+      "MTG-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/documents/actions.ts",
+    "symbol": "getGeneratedDocumentDownloadUrlAction",
+    "feature_ids": [
+      "DOC-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "sendMessageAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "resendToNonOpenersAction",
+    "feature_ids": [
+      "COM-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "resolveGroupAction",
+    "feature_ids": [
+      "COM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "searchPeopleAction",
+    "feature_ids": [
+      "COM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "getTemplatesAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "createTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "updateTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "deleteTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "forkTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "markNotificationReadAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "markAllNotificationsReadAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "loadMoreNotificationsAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/people/duplicates/actions.ts",
+    "symbol": "mergePeopleAction",
+    "feature_ids": [
+      "PPL-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/admin/feedback/actions.ts",
+    "symbol": "updateFeedbackStatusAction",
+    "feature_ids": [
+      "ADM-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "createInvitationAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "resendInvitationEmailAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "revokeInvitationAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/oversight/plants/[id]/actions.ts",
+    "symbol": "removePlantFromOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "acceptAssociationInvitation",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "declineAssociationInvitation",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveOversightOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveNetwork",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveDiscoveryOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "createSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "createCoachInvitationAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "resendSeatInvitationEmailAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "revokeSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "appointAdminAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "demoteToMemberAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "removeSeatAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "endCoachAssignmentAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "uploadAvatarAction",
+    "feature_ids": [
+      "IDN-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "removeAvatarAction",
+    "feature_ids": [
+      "IDN-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "requestEmailChangeAction",
+    "feature_ids": [
+      "IDN-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "confirmEmailChangeAction",
+    "feature_ids": [
+      "IDN-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "changePasswordAction",
+    "feature_ids": [
+      "IDN-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(auth)/seat-invitation/actions.ts",
+    "symbol": "acceptSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(auth)/coach-invitation/actions.ts",
+    "symbol": "acceptCoachInvitationAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(auth)/register/actions.ts",
+    "symbol": "register",
+    "feature_ids": [
+      "IDN-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(auth)/login/actions.ts",
+    "symbol": "login",
+    "feature_ids": [
+      "IDN-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "main",
+    "path": "src/app/(auth)/login/dev-actions.ts",
+    "symbol": "devLoginAs",
+    "feature_ids": [
+      "IDN-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/unsubscribe/actions.ts",
+    "symbol": "confirmUnsubscribeAction",
+    "feature_ids": [
+      "IDN-028",
+      "NTF-012"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/unsubscribe/actions.ts",
+    "symbol": "undoUnsubscribeAction",
+    "feature_ids": [
+      "IDN-028",
+      "NTF-012"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(marketing)/actions.ts",
+    "symbol": "requestInviteAction",
+    "feature_ids": [
+      "ADM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setNotificationPreferenceAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setDigestCadenceAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "clearMyEmailSuppressionAction",
+    "feature_ids": [
+      "IDN-012",
+      "NTF-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchTimeZoneAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchDigestScheduleAction",
+    "feature_ids": [
+      "IDN-011",
+      "NTF-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchProfileFieldAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setChurchInactivityThresholdsAction",
+    "feature_ids": [
+      "IDN-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/actions.ts",
+    "symbol": "setSharingToggleAction",
+    "feature_ids": [
+      "IDN-022"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/phase/feedback-actions.ts",
+    "symbol": "submitInsightFeedbackAction",
+    "feature_ids": [
+      "PI-033"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/phase/checkin-actions.ts",
+    "symbol": "saveCheckinAction",
+    "feature_ids": [
+      "PI-038",
+      "PI-041"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/phase/checkin-actions.ts",
+    "symbol": "correctCheckinAction",
+    "feature_ids": [
+      "PI-038",
+      "PI-041"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/phase/actions.ts",
+    "symbol": "transitionPhaseAction",
+    "feature_ids": [
+      "PHASE-002",
+      "PHASE-003",
+      "PHASE-005",
+      "PHASE-006",
+      "PHASE-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/phase/signals-actions.ts",
+    "symbol": "setManualSignalAction",
+    "feature_ids": [
+      "PI-015"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "assignFollowUpAction",
+    "feature_ids": [
+      "TSK-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "createAndAssignFollowUpAction",
+    "feature_ids": [
+      "TSK-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/follow-up-actions.ts",
+    "symbol": "handOffFollowUpsAction",
+    "feature_ids": [
+      "TSK-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "createTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "quickAddTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "updateTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "completeTaskAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "reopenTaskAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "deleteTaskAction",
+    "feature_ids": [
+      "TSK-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "updateTaskStatusAction",
+    "feature_ids": [
+      "TSK-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "addSubtaskAction",
+    "feature_ids": [
+      "TSK-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "setSubtaskCompletionAction",
+    "feature_ids": [
+      "TSK-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "bulkCompleteTasksAction",
+    "feature_ids": [
+      "TSK-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "bulkRescheduleTasksAction",
+    "feature_ids": [
+      "TSK-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "importTaskTemplateAction",
+    "feature_ids": [
+      "TSK-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/actions.ts",
+    "symbol": "loadMoreTasksAction",
+    "feature_ids": [
+      "TSK-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/phase-prompt-actions.ts",
+    "symbol": "importPhaseTemplatesAction",
+    "feature_ids": [
+      "TSK-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/tasks/phase-prompt-actions.ts",
+    "symbol": "dismissPhaseTemplatePromptAction",
+    "feature_ids": [
+      "TSK-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/oversight/discovery-actions.ts",
+    "symbol": "removeDiscoveryAssociate",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "scheduleLaunchAction",
+    "feature_ids": [
+      "LCH-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "completeMilestoneAction",
+    "feature_ids": [
+      "LCH-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "reopenMilestoneAction",
+    "feature_ids": [
+      "LCH-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "setLaunchTaskCompleteAction",
+    "feature_ids": [
+      "TSK-003",
+      "LCH-001",
+      "LCH-004",
+      "LCH-005",
+      "LCH-006",
+      "LCH-007"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "recordLaunchOutcomeAction",
+    "feature_ids": [
+      "LCH-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/launch/actions.ts",
+    "symbol": "updateLaunchOutcomeAction",
+    "feature_ids": [
+      "LCH-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/wiki/actions.ts",
+    "symbol": "searchWikiArticles",
+    "feature_ids": [
+      "WIKI-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/wiki/actions.ts",
+    "symbol": "submitArticleFeedbackAction",
+    "feature_ids": [
+      "WIKI-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/feedback/actions.ts",
+    "symbol": "submitFeedbackAction",
+    "feature_ids": [
+      "ADM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/dashboard/discovery-actions.ts",
+    "symbol": "createDiscoveryPlant",
+    "feature_ids": [
+      "IDN-016"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "createChurchBasics",
+    "feature_ids": [
+      "IDN-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "confirmLeadership",
+    "feature_ids": [
+      "IDN-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "declareJourney",
+    "feature_ids": [
+      "IDN-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/dashboard/actions.ts",
+    "symbol": "completeOnboarding",
+    "feature_ids": [
+      "IDN-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createAssessmentAction",
+    "feature_ids": [
+      "PPL-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createInterviewAction",
+    "feature_ids": [
+      "PPL-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "createCommitmentAction",
+    "feature_ids": [
+      "PPL-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/assessment-actions.ts",
+    "symbol": "getCommitmentDownloadUrlAction",
+    "feature_ids": [
+      "PPL-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "listHouseholdsAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "createHouseholdWithHeadAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "updateHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "deleteHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "addToHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "removeFromHouseholdAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "propagateAddressAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/household-actions.ts",
+    "symbol": "getHouseholdMembersAction",
+    "feature_ids": [
+      "PPL-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/correction-actions.ts",
+    "symbol": "correctPersonRecordAction",
+    "feature_ids": [
+      "PPL-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "addNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "editNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "deleteNoteAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/activity-actions.ts",
+    "symbol": "getMoreActivitiesAction",
+    "feature_ids": [
+      "PPL-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/pipeline-actions.ts",
+    "symbol": "reorderPipelineAction",
+    "feature_ids": [
+      "PPL-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "createPersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "updatePersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "loadMorePeopleAction",
+    "feature_ids": [
+      "PPL-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "uploadPersonPhotoAction",
+    "feature_ids": [
+      "PPL-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "removePersonPhotoAction",
+    "feature_ids": [
+      "PPL-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "deletePersonAction",
+    "feature_ids": [
+      "PPL-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "changeStatusAction",
+    "feature_ids": [
+      "PPL-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "changeStatusWithReasonAction",
+    "feature_ids": [
+      "PPL-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "checkForDuplicatesAction",
+    "feature_ids": [
+      "PPL-016"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/actions.ts",
+    "symbol": "quickAddPersonAction",
+    "feature_ids": [
+      "PPL-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "listTagsAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "createTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "updateTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "assignTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "removeTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/tag-actions.ts",
+    "symbol": "deleteTagAction",
+    "feature_ids": [
+      "PPL-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "addSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "updateSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "removeSkillAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/skill-actions.ts",
+    "symbol": "getPersonSkillsAction",
+    "feature_ids": [
+      "PPL-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "downloadCsvTemplateAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "exportPeopleAction",
+    "feature_ids": [
+      "PPL-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "previewImportAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/import-export-actions.ts",
+    "symbol": "executeBulkImportAction",
+    "feature_ids": [
+      "PPL-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "listTeamsAction",
+    "feature_ids": [
+      "TEAM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "searchTeamCandidatesAction",
+    "feature_ids": [
+      "TEAM-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createTeamAction",
+    "feature_ids": [
+      "TEAM-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateTeamAction",
+    "feature_ids": [
+      "TEAM-001",
+      "TEAM-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "searchLeaderCandidatesAction",
+    "feature_ids": [
+      "TEAM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "assignTeamLeaderAction",
+    "feature_ids": [
+      "TEAM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "initializeTeamsAction",
+    "feature_ids": [
+      "TEAM-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "initializeTeamsWithRolesAction",
+    "feature_ids": [
+      "TEAM-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "deleteRoleAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "importRoleTemplatesAction",
+    "feature_ids": [
+      "TEAM-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "setResponsibilityCompleteAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "deleteResponsibilityAction",
+    "feature_ids": [
+      "TEAM-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "assignMemberAction",
+    "feature_ids": [
+      "TEAM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "removeMemberAction",
+    "feature_ids": [
+      "TEAM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createMeetingAction",
+    "feature_ids": [
+      "TEAM-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "createTrainingProgramAction",
+    "feature_ids": [
+      "TEAM-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "markTrainingCompleteAction",
+    "feature_ids": [
+      "TEAM-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "undoTrainingCompleteAction",
+    "feature_ids": [
+      "TEAM-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/teams/actions.ts",
+    "symbol": "updateTrainingProgramAction",
+    "feature_ids": [
+      "TEAM-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "deleteMeetingAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateMeetingStatusAction",
+    "feature_ids": [
+      "MTG-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createLocationAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateLocationAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddAttendeeAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "removeAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "finalizeAttendanceAction",
+    "feature_ids": [
+      "MTG-012"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "recordAttendanceBatchAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "createEvaluationAction",
+    "feature_ids": [
+      "MTG-014"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateEvaluationAction",
+    "feature_ids": [
+      "MTG-015"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "archiveLocationAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "toggleChecklistItemAction",
+    "feature_ids": [
+      "MTG-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateChecklistItemAction",
+    "feature_ids": [
+      "MTG-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addToGuestListAction",
+    "feature_ids": [
+      "MTG-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "removeFromGuestListAction",
+    "feature_ids": [
+      "MTG-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "updateRsvpStatusAction",
+    "feature_ids": [
+      "MTG-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddPersonToGuestListAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "toggleAttendanceStatusAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addWalkInAttendeeAction",
+    "feature_ids": [
+      "MTG-010"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "quickAddWalkInAction",
+    "feature_ids": [
+      "MTG-011"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "addAttendeeNoteAction",
+    "feature_ids": [
+      "MTG-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "recordResponseCardAction",
+    "feature_ids": [
+      "MTG-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "clearResponseCardAction",
+    "feature_ids": [
+      "MTG-013"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "saveAgendaAction",
+    "feature_ids": [
+      "MTG-005"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "saveLocationFormAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "archiveLocationFormAction",
+    "feature_ids": [
+      "MTG-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/meetings/actions.ts",
+    "symbol": "restoreLocationFormAction",
+    "feature_ids": [
+      "MTG-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/documents/actions.ts",
+    "symbol": "getGeneratedDocumentDownloadUrlAction",
+    "feature_ids": [
+      "DOC-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "sendMessageAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "resendToNonOpenersAction",
+    "feature_ids": [
+      "COM-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "resolveGroupAction",
+    "feature_ids": [
+      "COM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "searchPeopleAction",
+    "feature_ids": [
+      "COM-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "getTemplatesAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "createTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "updateTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "deleteTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/communication/actions.ts",
+    "symbol": "forkTemplateAction",
+    "feature_ids": [
+      "COM-003",
+      "COM-004",
+      "COM-006",
+      "COM-007",
+      "COM-009"
+    ],
+    "mapping_kind": "file/module support; inspect spec operation ledger"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "markNotificationReadAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "markAllNotificationsReadAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/notifications/actions.ts",
+    "symbol": "loadMoreNotificationsAction",
+    "feature_ids": [
+      "NTF-003"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/people/duplicates/actions.ts",
+    "symbol": "mergePeopleAction",
+    "feature_ids": [
+      "PPL-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/admin/feedback/actions.ts",
+    "symbol": "updateFeedbackStatusAction",
+    "feature_ids": [
+      "ADM-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "createInvitationAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "resendInvitationEmailAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/oversight/invitations/actions.ts",
+    "symbol": "revokeInvitationAction",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/oversight/plants/[id]/actions.ts",
+    "symbol": "removePlantFromOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "acceptAssociationInvitation",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "declineAssociationInvitation",
+    "feature_ids": [
+      "IDN-020"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveOversightOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveNetwork",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/association/actions.ts",
+    "symbol": "leaveDiscoveryOrg",
+    "feature_ids": [
+      "IDN-021"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "createSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "createCoachInvitationAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "resendSeatInvitationEmailAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "revokeSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "appointAdminAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "demoteToMemberAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "removeSeatAction",
+    "feature_ids": [
+      "IDN-019"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/team/actions.ts",
+    "symbol": "endCoachAssignmentAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "uploadAvatarAction",
+    "feature_ids": [
+      "IDN-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "removeAvatarAction",
+    "feature_ids": [
+      "IDN-006"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "requestEmailChangeAction",
+    "feature_ids": [
+      "IDN-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "confirmEmailChangeAction",
+    "feature_ids": [
+      "IDN-007"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(dashboard)/settings/account/actions.ts",
+    "symbol": "changePasswordAction",
+    "feature_ids": [
+      "IDN-008"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/seat-invitation/actions.ts",
+    "symbol": "acceptSeatInvitationAction",
+    "feature_ids": [
+      "IDN-017"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/coach-invitation/actions.ts",
+    "symbol": "acceptCoachInvitationAction",
+    "feature_ids": [
+      "IDN-018"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/register/actions.ts",
+    "symbol": "register",
+    "feature_ids": [
+      "IDN-002"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/forgot-password/actions.ts",
+    "symbol": "forgotPassword",
+    "feature_ids": [
+      "IDN-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/reset-password/actions.ts",
+    "symbol": "finishPasswordReset",
+    "feature_ids": [
+      "IDN-009"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/login/actions.ts",
+    "symbol": "login",
+    "feature_ids": [
+      "IDN-001"
+    ],
+    "mapping_kind": "named semantic operation"
+  },
+  {
+    "source": "alpha",
+    "path": "src/app/(auth)/login/dev-actions.ts",
+    "symbol": "devLoginAs",
+    "feature_ids": [
+      "IDN-004"
+    ],
+    "mapping_kind": "named semantic operation"
+  }
+]

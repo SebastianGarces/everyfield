@@ -1,0 +1,15 @@
+# Canonical reference bootstrap evidence
+
+This is a **reference-data evidence snapshot**, not application implementation or a database writer. The user supplied the existing authorized global-only export through the parent task. It is sufficient to prepare v3 content sources without another live database export or any customer migration.
+
+Files: [manifest](manifest.json), [global payload](global-seed-payload.json), [prior MDX syntax result](mdx-syntax.json), [independent verification](verification.json).
+
+Provenance: `/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run/`, exact audited code revision `2107df58885c883960422ce7e60719f0adbac0e4`. Payload SHA-256 `7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59`; manifest SHA-256 `b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b`. Its prior RESULTS reports zero shared writes/provider calls and filters `church_id IS NULL AND status = 'published'`. This task independently checked scope and checksum evidence; it did not access that database.
+
+The payload contains 96 approved published global Wiki article rows, 21 referenced section/ancestor rows, and seven code-defined global system-message templates. It contains no customer church/user/contact/progress/feedback records, credentials or embedding vectors. Reference UUID/slug identity and section ancestry are preserved. All article content and record hashes, section hashes/ancestry, exact Playbook bytes and original system-template hashes match. System-template manifest hashes use original source-field order; payload scope additions/key ordering differ, explained in verification.json.
+
+Prior evidence compiled all 96 MDX sources with zero failures and validated 31 active contextual-help slugs and related links. Compilation is syntax evidence, not executing arbitrary MDX or approving editorial meaning. The future reference owner must approve the snapshot as the intended starting version and resolve documented conflicts with the Playbook/rubric. Do not overwrite it with invented guidance.
+
+Future version-controlled source strategy: promote approved records into `packages/reference/wiki/<stable-slug>.mdx` plus section/catalog metadata and a release manifest; preserve source IDs/checksums, content version and review provenance. Keep a pure loader/validator separate from the explicit bootstrap writer. The writer runs against a named fresh v3 target in one guarded transaction/lock, inserts ancestors first, no-ops on checksum-equal repeats and stops on unexpected differing digests. New approved versions use intentional reviewed updates. Tenant content/progress never enters the global seed.
+
+Do not import the old vectors: prior comparison had 547 expected chunks versus572 stored (431 matched,114 mismatched,2 missing,27 obsolete), without model provenance. Future bootstrap regenerates from pinned content/chunker/model/dimensions and verifies exact active chunk-key/hash counts, retires stale chunks and records generation lineage. That operation is not performed here.

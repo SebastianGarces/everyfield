@@ -1,0 +1,281 @@
+{
+  "generated_at": "2026-10-03",
+  "scope": "all documentation package files except this self-referential manifest",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4925,
+      "sha256": "1014084c8f514a3a731d32996cfe8ecdf7dd76baa972ad1190630bd6f68ad5f4"
+    },
+    {
+      "path": "audits/communications-knowledge-ops.json",
+      "bytes": 185809,
+      "sha256": "9bc9eef09f87bd2f77d3866bb41f044b8827e4da8196cbbe7bef1a3ad341c80f"
+    },
+    {
+      "path": "audits/coverage-review.json",
+      "bytes": 41038,
+      "sha256": "4b58eeb91c9ddfa729894ae19ba897a89aecf582d218d28576d8394ff07c2cd9"
+    },
+    {
+      "path": "audits/database-map.json",
+      "bytes": 764338,
+      "sha256": "0a951ed751990ba26f67466698b9cb210e7e533f7f5eecdd96f4050a4c2f787c"
+    },
+    {
+      "path": "audits/evry-surfaces.json",
+      "bytes": 1315134,
+      "sha256": "94ee7a1eaec502a7a0026921bcd6500456f44f3401c8342b4febcccfdbf4237f"
+    },
+    {
+      "path": "audits/evry.json",
+      "bytes": 621441,
+      "sha256": "f00b83b6b59e629994797ae73e83ca12a18b2b4a7133ce3d764585f852abf7a8"
+    },
+    {
+      "path": "audits/identity-people.json",
+      "bytes": 200414,
+      "sha256": "94ab1ac5212e9db9cf9064540ae1644d52ff6c2962902e0aef7bf2648d079aae"
+    },
+    {
+      "path": "audits/meetings-tasks-teams.json",
+      "bytes": 176025,
+      "sha256": "eab8f5e2307b420540c510690c6f929a4b977ce6a16c87aa7eb31b8e74fa973c"
+    },
+    {
+      "path": "audits/methodology-intelligence.json",
+      "bytes": 133042,
+      "sha256": "c3eb64c484220962d38868892bdeeb59d1339cdcdc0e94cd96991dc7ff17a532"
+    },
+    {
+      "path": "audits/review.json",
+      "bytes": 19707,
+      "sha256": "aac4cfd8a9402375abfd5865073413c9e8abfaa80821eee209a984dc584eea9d"
+    },
+    {
+      "path": "docs/architecture/architecture.md",
+      "bytes": 20040,
+      "sha256": "dc79d0d2d03a085899613bee01daad0413ffc570bf827276479f01214e1467cc"
+    },
+    {
+      "path": "docs/architecture/complexity-budget.md",
+      "bytes": 8266,
+      "sha256": "b160315786c64e81f57c10e53b783c04821b80f993860fec216d9541c8ba4da0"
+    },
+    {
+      "path": "docs/architecture/contracts.md",
+      "bytes": 11026,
+      "sha256": "b4ffc0ec7a870840ba9cf6fedb7ac910ed8e571a7be1242798b82c60e9dd75f2"
+    },
+    {
+      "path": "docs/architecture/decisions.md",
+      "bytes": 5244,
+      "sha256": "8ee4c9d5bbeec2193cfa46fb2d3ed555f066a75f375a49416127c11443ef7753"
+    },
+    {
+      "path": "docs/capability-preservation.md",
+      "bytes": 162415,
+      "sha256": "f85a106e60f4b143b56355925caa9b1d3a890846e469416606b6d01209cc44e6"
+    },
+    {
+      "path": "docs/coverage-review.md",
+      "bytes": 4732,
+      "sha256": "5cade63a836d9f3b3fc48c3d9699a2a1b683748fe8d49a71a8c4d1a5fde69655"
+    },
+    {
+      "path": "docs/database-map.md",
+      "bytes": 59839,
+      "sha256": "4987ac91d69e2435af2713668f8fe1b9db7b19ab4b72c6eaf5b7cf38720c5858"
+    },
+    {
+      "path": "docs/deliverables.md",
+      "bytes": 4929,
+      "sha256": "f03c2385b1fd72f6dde6a5813c6c7c061c3b4821ef02a01a846f62dfea05ec9e"
+    },
+    {
+      "path": "docs/dependencies.md",
+      "bytes": 8652,
+      "sha256": "9dfbde6ad3fab1a4661359e475466ac346bddfbce0314ee5bde5814a6ac4b16d"
+    },
+    {
+      "path": "docs/evidence/acceptance-registry.json",
+      "bytes": 1043648,
+      "sha256": "bcb0d3d0106e136c6e28fcf7b5493bb61437b3dc2e3c48a0bc1e4e9fe6e71c57"
+    },
+    {
+      "path": "docs/evidence/action-function-coverage.json",
+      "bytes": 81950,
+      "sha256": "fecdea5e3c19df6cb86b5252360ffb6fa08bdf9f448a7d4df6296348ff2ab9bf"
+    },
+    {
+      "path": "docs/evidence/callable-ownership.json",
+      "bytes": 1429010,
+      "sha256": "1171c8620c20388234e2fad9dcd706b1d75cdd7b9a32c0944cba72f9122cafc1"
+    },
+    {
+      "path": "docs/evidence/capabilities.json",
+      "bytes": 1578166,
+      "sha256": "5cbe7cb4e812254f1d3ca203092719debbdc74b8487b355eb34d1082082b8c50"
+    },
+    {
+      "path": "docs/evidence/coverage-summary.json",
+      "bytes": 574,
+      "sha256": "626a0d0a919a7ec1924f6c3adfe9f398dc4a5171f6a8ad8def642977c874358c"
+    },
+    {
+      "path": "docs/evidence/database-map.json",
+      "bytes": 764338,
+      "sha256": "0a951ed751990ba26f67466698b9cb210e7e533f7f5eecdd96f4050a4c2f787c"
+    },
+    {
+      "path": "docs/evidence/dependency-inventory.json",
+      "bytes": 58088,
+      "sha256": "52f5ea6d3601162f0c25961a09ba7c5e3deecba252280327360b8ef89ac78296"
+    },
+    {
+      "path": "docs/evidence/local-schema-source.json",
+      "bytes": 99662,
+      "sha256": "793f153571131e2a62491fb1ca74eb294a63f1761bfbe599699277b6357843c2"
+    },
+    {
+      "path": "docs/evidence/reference-bootstrap/README.md",
+      "bytes": 3073,
+      "sha256": "9dc66d8ffa104ed97eaa9a6ae463feff6a6dc3e113a7ca186997b007d8fa6011"
+    },
+    {
+      "path": "docs/evidence/reference-bootstrap/global-seed-payload.json",
+      "bytes": 921307,
+      "sha256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59"
+    },
+    {
+      "path": "docs/evidence/reference-bootstrap/manifest.json",
+      "bytes": 163283,
+      "sha256": "b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b"
+    },
+    {
+      "path": "docs/evidence/reference-bootstrap/mdx-syntax.json",
+      "bytes": 89,
+      "sha256": "9ff709532dffdb79a75fd6390d1854c0c4993f140aa66d7cdc50e50e190962a9"
+    },
+    {
+      "path": "docs/evidence/reference-bootstrap/verification.json",
+      "bytes": 1524,
+      "sha256": "c6fd5dec1bcae2874dfd3f1042eecd487c5ca680e051c23a1c87800d8be32bd6"
+    },
+    {
+      "path": "docs/evidence/schema-source.json",
+      "bytes": 197165,
+      "sha256": "ff100b51a06a73665de91d46e7593d2396637303ece49d6bae8d10ed6d8353c8"
+    },
+    {
+      "path": "docs/evidence/source-manifest.json",
+      "bytes": 699595,
+      "sha256": "ca361f52eba5ba301d0219593a7b39e62986cd6ffd488b067c7817e6963778f2"
+    },
+    {
+      "path": "docs/evidence/surface-coverage-summary.json",
+      "bytes": 607,
+      "sha256": "99e4fbdef6f89d20d77fc4f013217deadd82f062cebfafd57f26ec86203c1f6f"
+    },
+    {
+      "path": "docs/evidence/surface-inventory-full.json",
+      "bytes": 1101347,
+      "sha256": "ca0ad69f3df878cd193dbdf9d60769fa287cb55b2e85f572a240aaae37c43a59"
+    },
+    {
+      "path": "docs/evidence/surface-ownership.json",
+      "bytes": 2260258,
+      "sha256": "899bdba0a8170794ed3873681fda7aab875d50d5ec1be9fd4efc3e917f41a767"
+    },
+    {
+      "path": "docs/evidence/surfaces.json",
+      "bytes": 1091547,
+      "sha256": "0dd53114373c1c2f034708d47f2b40046b9be20511bdb8d590eda06fd16e7288"
+    },
+    {
+      "path": "docs/evidence/validation.json",
+      "bytes": 2935,
+      "sha256": "ba2781516f2e97d93c6fdebb330aef8d139c9bc4e5302b6fadf23ca66b4667c4"
+    },
+    {
+      "path": "docs/evidence/wrapper-alias-verification.json",
+      "bytes": 9033,
+      "sha256": "4d82db3a4c3e0ef6a093de480d80068dc9d81801c1723f3f89416f11a4a29cd3"
+    },
+    {
+      "path": "docs/evry-design.md",
+      "bytes": 40798,
+      "sha256": "66280184eb0b3183e6b5d37166de37b3e48eca1673806bcb5b31689f1d6b514b"
+    },
+    {
+      "path": "docs/executive-summary.md",
+      "bytes": 10137,
+      "sha256": "1985dd1482780e952057171d72c26c005ecf004025c03e61f74efdd63d322107"
+    },
+    {
+      "path": "docs/lessons.md",
+      "bytes": 6999,
+      "sha256": "62fef8e2e0717139a7cc50922642f38615f1c4c86f7bf0a43e4135990fe39e68"
+    },
+    {
+      "path": "docs/methodology-foundations.md",
+      "bytes": 17903,
+      "sha256": "63c0922a758202834c2ac12df6c3e4a61e55adf3b6b073419189dfa40355a607"
+    },
+    {
+      "path": "docs/modules/README.md",
+      "bytes": 9175,
+      "sha256": "864ed3833b590d1f7c8efb6dca3902dde7ac019751d84dee6aef76fdd50e40e8"
+    },
+    {
+      "path": "docs/modules/communications-knowledge-ops.md",
+      "bytes": 211818,
+      "sha256": "b92536fb0316d5777a3be5bbbf6abcd5131d8db2e6dfbf5d2688ec19b1da009e"
+    },
+    {
+      "path": "docs/modules/evry-inventory.md",
+      "bytes": 43546,
+      "sha256": "23f47f160804bcbe64841ad65036565d690fe25e0f682b0f41426710daa3d3b9"
+    },
+    {
+      "path": "docs/modules/identity-people.md",
+      "bytes": 198909,
+      "sha256": "56bb17c8aede4be56d72709849f72793f87b51bf6d7dc679612363a58df0d577"
+    },
+    {
+      "path": "docs/modules/meetings-tasks-teams.md",
+      "bytes": 97183,
+      "sha256": "ae9a9b74cfeea00b802a96e6ba037030fdd67a0d4bf4f7def63adf4bffe93eef"
+    },
+    {
+      "path": "docs/modules/methodology-intelligence-launch.md",
+      "bytes": 55794,
+      "sha256": "903ba6493c5bbd1cd2b88dae72ec4aad3af3b3ec5f23b8d11a1971660973d3ba"
+    },
+    {
+      "path": "docs/open-decisions.md",
+      "bytes": 6319,
+      "sha256": "f8a34cf654e2e521328225b9afe61117b85ebd9fb5ef34f866ea85120b13415e"
+    },
+    {
+      "path": "docs/plan/build-plan.md",
+      "bytes": 74015,
+      "sha256": "854ba7396e7a5d0a4bc5370b9df9e790b9304e75ed9a38a2cf8a90200feb3e7e"
+    },
+    {
+      "path": "docs/plan/dag.json",
+      "bytes": 180526,
+      "sha256": "313adc78f6c42b6ba325c281530ed672dabacb6448699a30eb921643a9c3d675"
+    },
+    {
+      "path": "docs/review.md",
+      "bytes": 8201,
+      "sha256": "47e11258cbe13e0e8b132e22e525df38266c0479ae060a22815eb94ae99b0c91"
+    },
+    {
+      "path": "docs/sources.md",
+      "bytes": 4143,
+      "sha256": "6d766c62ee4965088729d1c8ce9a15d511545ca2cc96f32a98ff9421b1c24986"
+    }
+  ]
+}

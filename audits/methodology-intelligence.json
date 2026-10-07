@@ -1,0 +1,3906 @@
+{
+  "audit_date": "2026-10-03",
+  "source_baselines": {
+    "main": "18fc1a505c64615fe9ef197dba0e2cd037063d31",
+    "alpha": "2107df58885c883960422ce7e60719f0adbac0e4",
+    "diagnostics": "81abfcc7fb150fdfa5fa87392052dd07da966d03"
+  },
+  "scope": "Methodology, Plant Intelligence, phases, launch, private check-ins and global reference bootstrap; source reads only, no DB or provider calls",
+  "canonical_sources": [
+    {
+      "path": "product-docs/launch-playbook.md",
+      "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+      "last_change_commit": "4192fa24ed86d856df58b811168bb43e1986f67c",
+      "alpha_same": true
+    },
+    {
+      "path": "product-docs/features/phase-engine/rubric-v0.md",
+      "sha256": "969c1fd0e796eb4af311bc691b26ccbefbfd1fa7b4f6fa3b02aee46d456a9f6e",
+      "last_change_commit": "78f4ef9b6bef82e47adec52af33ca8c7807b1ae7",
+      "alpha_same": true
+    },
+    {
+      "path": "product-docs/features/phase-engine/rubric-v1.md",
+      "sha256": "5575450dff37bb730361f71a8152257622c5f089c84e448648f1c8543b1704c7",
+      "last_change_commit": "8375526e0b1429f8ee0b81abed3a2dc104da74ea",
+      "alpha_same": true
+    },
+    {
+      "path": "product-docs/features/phase-engine/bryan-comments-review.md",
+      "sha256": "d15ea5328380f4406fed465c83b0ecd6ed3771e376424d313ae9e36d4803d3f6",
+      "last_change_commit": "8375526e0b1429f8ee0b81abed3a2dc104da74ea",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/phase-engine/rubric.ts",
+      "sha256": "e847ad196edb2d80d7d08744a8f4d5fad06feef389943d38ef12cb5d746e71d7",
+      "last_change_commit": "1db2f5f3841bb91f1809868309aaab73846814cc",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/phase-engine/manual-signals.ts",
+      "sha256": "513dfbde8b50db48543f5b6fb93ae7e954f71af9de0dfd1da9bcebd44879c88b",
+      "last_change_commit": "1358c1106c764fb705a5169dc6964fffcb0a386d",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/tasks/templates.ts",
+      "sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851",
+      "last_change_commit": "7ea51b6c69eb606343acc73ecf1ceb36c73d99b0",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/ministry-teams/role-templates.ts",
+      "sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f",
+      "last_change_commit": "9d94806d23e54aee8cf0dfdebaae651c7a3b60ee",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/documents/templates.ts",
+      "sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+      "last_change_commit": "9031033c6e9f9eec3b30976f7fae7cc07e956161",
+      "alpha_same": true
+    },
+    {
+      "path": "src/lib/communication/system-templates.ts",
+      "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
+      "last_change_commit": "2c8d874f724f68dc80e0c111d74a1a6592c19a89",
+      "alpha_same": true
+    },
+    {
+      "path": "product-docs/wiki/article-checklist.md",
+      "sha256": "fc55ded589f7afa797d5d28a30e8e7f8731336b16ed656df9cd256fce54bb4b5",
+      "last_change_commit": "5f2aa0315eac356cf788951731de10afb26104b3",
+      "alpha_same": true
+    }
+  ],
+  "features": [
+    {
+      "id": "PI-001",
+      "title": "Deterministic fact-snapshot assembly",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildFactSnapshot",
+        "src/lib/phase-engine/signals/types.ts#PlantFactSnapshot"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "buildFactSnapshot"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts",
+        "src/lib/phase-engine/signals/queries.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "persons",
+        "commitments",
+        "church_meetings",
+        "meeting_attendance",
+        "ministry_teams",
+        "team_memberships",
+        "training_programs",
+        "training_completions",
+        "assessments",
+        "interviews",
+        "plant_signals",
+        "launches",
+        "launch_milestones"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "All feature queries tenant-scoped, ignore soft-deleted/inapplicable records; snapshotVersion and generatedAt recorded"
+      ],
+      "integrations": [],
+      "failures": [
+        "Missing church throws; empty evidence is explicit, never a zero-health pass"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "buildFactSnapshot"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep deterministic facts and a single injected asOf clock; replace many independent reads with a defined consistent snapshot transaction or explicit source revision watermark.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Fixed asOf and one consistent source revision produce identical facts; a racing correction either belongs wholly to the snapshot or remains dirty for the next one."
+      ]
+    },
+    {
+      "id": "PI-002",
+      "title": "Committed adult growth, first commitments and flat streak",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildCoreGroupSignals"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readCoreGroupGrowth"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "commitments",
+        "persons"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "unknown/no commitments",
+        "measured"
+      ],
+      "validation": [
+        "50/100 are methodology benchmarks, not universal success rules"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readCoreGroupGrowth"
+      ],
+      "acceptance_ids": [
+        "AC-PI-002"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep committed adult definitions; deduplicate earliest commitment per person, rolling 28-day vs prior28, one new adult resets flat streak; 21 slowed/28 stalled are approved v1 language floors.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Duplicate commitments do not double adults; one new adult resets flat streak; 20/21/27/28-day fixtures respect vocabulary floors."
+      ]
+    },
+    {
+      "id": "PI-003",
+      "title": "Growth source composition and unknown source counts",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildCoreGroupSignals",
+        "src/lib/phase-engine/rubric.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readGrowthSourceMix"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "persons",
+        "commitments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Count only committed set; no individual names to oversight"
+      ],
+      "integrations": [],
+      "failures": [
+        "Mostly unknown sources must be described as unobserved"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readGrowthSourceMix"
+      ],
+      "acceptance_ids": [
+        "AC-PI-003"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve planter-only source mix and unknown-source count; source attribution is not conversion or spiritual fruit; do not introduce conversion scoring.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Source counts sum over committed adults only; unknown sources remain unknown; no source mix enters oversight or conversion judgment."
+      ]
+    },
+    {
+      "id": "PI-004",
+      "title": "Vision meeting cadence, completed attendance and trend",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildVisionMeetingSignals",
+        "src/lib/phase-engine/signals/queries.ts#getCompletedVisionMeetings"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readVisionCadence"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "church_meetings",
+        "meeting_attendance"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readVisionCadence"
+      ],
+      "acceptance_ids": [
+        "AC-PI-004"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep completed vision-meeting data, latest/previous attendance, predictable cadence and new-attendee interpretation; target14, watch21, direct28 days; never chastise weekly cadence.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Only completed vision meetings affect cadence; weekly rhythm gets no excessive-frequency warning; day 21 and 28 have distinct voice."
+      ]
+    },
+    {
+      "id": "PI-005",
+      "title": "Core group cohesion and leader disengagement pattern",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildCohesionSignals"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readCohesionPattern"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "meeting_attendance",
+        "church_meetings",
+        "persons",
+        "ministry_teams"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Leader flag is qualitative, not an invented numeric weight"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readCohesionPattern"
+      ],
+      "acceptance_ids": [
+        "AC-PI-005"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve 28-day vs prior28 attendance; disengagement=no recent attendance after prior attendance; active committed denominator, threshold20%, minimum3, leader presence makes tone more direct. No claim about spiritual unity or causes.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Three of twelve qualifies and four of seventy does not; dormant people do not dilute active denominator; leader flag changes tone, not arithmetic."
+      ]
+    },
+    {
+      "id": "PI-006",
+      "title": "Eight ministry coverage readings",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildMinistryRoleSignals",
+        "src/lib/phase-engine/signals/types.ts#MINISTRY_ROLE_KEYS"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readMinistryCoverage"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "ministry_teams"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Main picks first name-sorted matching team; broad synonyms and admin/finance catalog mismatch require explicit mapping"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readMinistryCoverage"
+      ],
+      "acceptance_ids": [
+        "AC-PI-006"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep the eight Playbook ministry areas, while replacing name-substring matching with stable canonical ministry-area mappings so rename/duplicate/synonym choices do not change coverage.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Renaming a mapped ministry or adding an unrelated synonym-named team does not change canonical coverage; ambiguous custom mapping is explicit."
+      ]
+    },
+    {
+      "id": "PI-007",
+      "title": "Leadership candidate signals and human interview/4Cs references",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildLeadershipSignals",
+        "src/lib/phase-engine/signals/types.ts#LeadershipCandidateSignal"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readLeadershipCandidates"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "persons",
+        "commitments",
+        "meeting_attendance",
+        "team_memberships",
+        "ministry_teams",
+        "interviews",
+        "assessments"
+      ],
+      "permissions": [
+        "Plant owner assessment; no person-level insight to oversight"
+      ],
+      "states": [],
+      "validation": [
+        "No interview is unknown evidence, not a bad interview"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readLeadershipCandidates"
+      ],
+      "acceptance_ids": [
+        "AC-PI-007"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve60-day behavioral conversation signal, opaque person IDs, countable tenure/attendance/serving and latest recorded human interview/4Cs results. No automated pastoral/character/doctrine/fitness verdict.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Missing interview remains unknown; recorded interview/4Cs may be cited but no output manufactures doctrine/character/pastoral fitness."
+      ]
+    },
+    {
+      "id": "PI-008",
+      "title": "Training program/member completion readings",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildTrainingSignals",
+        "src/lib/phase-engine/signals/queries.ts#getTrainingCompletions"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readTrainingReadiness"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "training_programs",
+        "training_completions",
+        "team_memberships"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readTrainingReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-PI-008"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep denominator and team training definition explicit; no programs/no assignees is unknown rather than100%; use shared training operation contracts.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "No programs or no eligible members renders unknown/N/A rather than 100%; revocation and former-member rules use training source contract."
+      ]
+    },
+    {
+      "id": "PI-009",
+      "title": "Launch countdown, status, milestones and outcome facts",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildLaunchSignals",
+        "src/lib/launch/countdown.ts#daysUntilTarget"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readLaunchFacts"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts",
+        "src/lib/launch/countdown.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_milestones"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readLaunchFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-009"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Read canonical launch date/status/outcome and readiness only from launch domain. Completion never changes phase; use one day/time contract.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Launch workspace, snapshot and oversight use the identical canonical date/status/outcome; recording never advances phase."
+      ]
+    },
+    {
+      "id": "PI-010",
+      "title": "Legacy person-record follow-up staleness facts",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildFollowUpSignals"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readLegacyFollowUpStaleness"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts"
+      ],
+      "tables": [
+        "persons",
+        "meeting_attendance"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Main cohort=attendee/following_up/interviewed first-time contacts; warm attended within14days"
+      ],
+      "integrations": [],
+      "failures": [
+        "Legacy facts still enter alpha judge although separate actual-contact/task metrics landed"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readLegacyFollowUpStaleness"
+      ],
+      "acceptance_ids": [
+        "AC-PI-010"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep historical snapshots interpretable, but replace person.updatedAt proxy for new v3 output: editing a profile is not contact. Reconcile v1 warm7/cold14 language with user-approved alpha task warnings before new rubric packaging.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Profile text edits never count as actual contact in new snapshots; historical fields remain explicitly identified as legacy proxies."
+      ]
+    },
+    {
+      "id": "PI-011",
+      "title": "Measured task follow-up ownership",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.ts#buildFollowUpSignals",
+        "src/lib/tasks/follow-up-ownership.ts#countFollowUpOwnership"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readFollowUpOwnership"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/build-fact-snapshot.test.ts",
+        "src/lib/tasks/follow-up-ownership.test.ts"
+      ],
+      "tables": [
+        "tasks",
+        "persons",
+        "users"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readFollowUpOwnership"
+      ],
+      "acceptance_ids": [
+        "AC-PI-011"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep unowned/stale-unowned per-contact and distinct/planter owner per-task facts; demoted/removed/noncommitted assignees count unowned. Never infer planter bottleneck from staleness.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Removed/demoted/noncommitted assignees count unowned; stale task volume alone cannot blame the planter."
+      ]
+    },
+    {
+      "id": "PI-012",
+      "title": "48-hour originating-meeting follow-up task metric",
+      "module": "intelligence",
+      "status": "implemented-local-only",
+      "source_refs": [
+        "src/lib/phase-engine/signals/follow-up-task-metrics.ts#computeFollowUpTaskMetrics",
+        "src/lib/phase-engine/signals/trends.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readMeetingFollowUpCompletion"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/follow-up-task-metrics.test.ts"
+      ],
+      "tables": [
+        "tasks",
+        "church_meetings"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Pending under48h not failures; future creation/completion ignored; soft-deleted meetings retained as evidence"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readMeetingFollowUpCompletion"
+      ],
+      "acceptance_ids": [
+        "AC-PI-012"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve alpha: mature obligations only; denominator undeleted top-level follow_up tasks with same-plant originating meeting and valid followUpStartedAt; no_longer_needed excluded and counted waived, manual/missing provenance unmeasured; success completion after creation/start and by start+48h.",
+      "source_version": "alpha2107df58",
+      "acceptance_criteria": [
+        "Pending under 48 hours is excluded; valid originating meeting clock governs completion; waived/manual/foreign provenance is counted separately."
+      ]
+    },
+    {
+      "id": "PI-013",
+      "title": "Actual contact freshness independent of task completion",
+      "module": "intelligence",
+      "status": "implemented-local-only",
+      "source_refs": [
+        "src/lib/phase-engine/signals/follow-up-task-metrics.ts#computeContactFreshness",
+        "src/lib/phase-engine/signals/queries.ts#getOpenFollowUpContacts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readContactFreshness"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/follow-up-task-metrics.test.ts"
+      ],
+      "tables": [
+        "persons"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readContactFreshness"
+      ],
+      "acceptance_ids": [
+        "AC-PI-013"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve alpha lastContactAt actual-success evidence: measured only finite nonfuture timestamps, recent strictly younger than 14 days; missing/future contact unknown. Task completion never silently establishes actual contact.",
+      "source_version": "alpha2107df58",
+      "acceptance_criteria": [
+        "Only finite nonfuture actual-contact timestamps count; exactly 14 days is not recent; absent evidence is unknown."
+      ]
+    },
+    {
+      "id": "PI-014",
+      "title": "Eight-lens measured/attested/unknown evidence profile",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/evidence.ts#buildEvidenceProfile"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "deriveLensEvidence"
+      ],
+      "tests": [
+        "src/lib/phase-engine/signals/evidence.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_signals"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "measured",
+        "attested",
+        "unknown"
+      ],
+      "validation": [
+        "No inferred-fact state; inference belongs to judgment"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "deriveLensEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-PI-014"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep absence distinct from health; recompute profile from versioned snapshot consistently for prompt/read validator, retain attestation age. Revisit cohesion using vision-only isMeasured and split generosity/funding semantics rather than silently extrapolate.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Every lens has evidence quality; missing/old snapshot fields cannot generate positive health; prayer and funding/giving remain distinguishable."
+      ]
+    },
+    {
+      "id": "PI-015",
+      "title": "Seven manual attestation toggles and reaffirmation",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/manual-signals.ts#MANUAL_SIGNALS",
+        "src/lib/phase-engine/signals/attestation-service.ts#upsertManualSignal",
+        "src/app/(dashboard)/phase/signals-actions.ts#setManualSignalAction"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "listManualSignals",
+        "upsertManualSignal",
+        "reaffirmManualSignal"
+      ],
+      "tests": [
+        "src/lib/phase-engine/manual-signals.test.ts",
+        "src/lib/phase-engine/signals/attestation-service.test.ts"
+      ],
+      "tables": [
+        "plant_signals",
+        "churches"
+      ],
+      "permissions": [
+        "Plant Owner/Admin phase.signal"
+      ],
+      "states": [],
+      "validation": [
+        "Closed key enum, boolean current input; stale remains attested with age"
+      ],
+      "integrations": [],
+      "failures": [
+        "Write marks dirty after durable upsert; fresh assessment may lag"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "listManualSignals",
+        "upsertManualSignal",
+        "reaffirmManualSignal"
+      ],
+      "acceptance_ids": [
+        "AC-PI-015"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested;30day reaffirm for giving/prayer rhythms. Keep who/when; add correction history instead of losing previous attestations.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "All seven keys accept only their typed values; wrong key denied; aged prayer/giving can reaffirm without erasing original history."
+      ]
+    },
+    {
+      "id": "PI-016",
+      "title": "Active and historical rubric version registry",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/rubric.ts#RUBRICS",
+        "src/lib/phase-engine/rubric.ts#ACTIVE_RUBRIC_VERSION",
+        "product-docs/features/phase-engine/rubric-v1.md"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "getActiveRubric",
+        "replayRubricVersion"
+      ],
+      "tests": [
+        "src/lib/phase-engine/rubric.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "phase_transitions"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Record rubric content hash, not only mutable v1 label in future"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "getActiveRubric",
+        "replayRubricVersion"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve authoritative approved v1 and registered v0 provenance; create an immutable content-addressed reference package with prose/prompt generation from a single reviewed source. Do not silently author v2 methodology.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Each assessment binds exact approved rubric hash; v0 replay selects v0 and cannot silently reinterpret under mutable v1 text."
+      ]
+    },
+    {
+      "id": "PI-017",
+      "title": "Phase-filtered dense/sparse methodology retrieval",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/rag/retrieve.ts#retrieve",
+        "src/lib/phase-engine/rag/chunk.ts",
+        "src/lib/phase-engine/rag/embed.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "retrieveMethodology",
+        "embedReferenceQuery"
+      ],
+      "tests": [
+        "src/lib/phase-engine/rag/chunk.test.ts"
+      ],
+      "tables": [
+        "methodology_embeddings",
+        "wiki_articles"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [
+        "Postgres pgvector",
+        "OpenAI embeddings"
+      ],
+      "failures": [
+        "safeRetrieve currently catches any error to[]; surface degraded grounding in v3"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "retrieveMethodology",
+        "embedReferenceQuery"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep global-only approved reference corpus, pgvector cosine plus Wiki FTS reciprocal-rank fusion; dense phase/null restriction and sparse all-phase boost are distinct. Return passage IDs/hashes and canonical slugs.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Retrieval returns only approved global content and recorded passage provenance; a shortened corpus has no stale current passage."
+      ]
+    },
+    {
+      "id": "PI-018",
+      "title": "Typed dual-audience judge and product-rule validation",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/judge/run-assessment.ts#runAssessment",
+        "src/lib/phase-engine/judge/schema.ts#judgeOutputSchemaFor",
+        "src/lib/phase-engine/judge/prompt.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "runAssessment",
+        "validateAssessmentDraft"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/schema.test.ts",
+        "src/lib/phase-engine/judge/judge.test.ts",
+        "src/lib/phase-engine/judge/network-register.test.ts"
+      ],
+      "tables": [
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Title 3–140/body 10–1200 characters; category/audience/severity closed enums; citedFacts nonempty; generated summary 10–600 characters"
+      ],
+      "integrations": [
+        "OpenAI via Vercel AI SDK",
+        "Optional self-hosted Langfuse"
+      ],
+      "failures": [
+        "Prompt-only claim floors and person/body leak prevention still require semantic evaluation",
+        "Generated overall summary is validated but not persisted by the current publication path; decide explicitly whether to preserve it in v3 or retain only persisted findings."
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "runAssessment",
+        "validateAssessmentDraft"
+      ],
+      "acceptance_ids": [
+        "AC-PI-018"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep plain TS structured pipeline; audience coverage, three planter action slots, network register, planter pairing and unknown-not-positive guards. Add exact fact-path/value/numeric claim validation: nonempty citation strings alone do not prove truth.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Reject invalid category/audience/budget/unknown-positive/pairing output and false FactRef values; valid structured shape alone is not labeled truthful."
+      ]
+    },
+    {
+      "id": "PI-019",
+      "title": "Bounded corrective draft retries",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/judge/run-assessment.ts#runAssessment",
+        "src/lib/phase-engine/judge/schema-rejection.ts#carryCorrectionForward"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "retryRejectedDraft"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/schema-retry.test.ts"
+      ],
+      "tables": [
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "valid",
+        "retryable rejected draft",
+        "exhausted",
+        "deadline-truncated"
+      ],
+      "validation": [],
+      "integrations": [
+        "OpenAI via Vercel AI SDK",
+        "Optional self-hosted Langfuse"
+      ],
+      "failures": [
+        "Budget exhaustion fails judgment while retaining last complete"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "retryRejectedDraft"
+      ],
+      "acceptance_ids": [
+        "AC-PI-019"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep separate output-correction ladder: default 3 drafts, accumulated named rule violations, same grounded snapshot, run deadline bound; do not multiply SDK/provider retries invisibly.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "A later draft receives cumulative named corrections; attempts/deadline bound retries; invalid drafts never reach current assessment."
+      ]
+    },
+    {
+      "id": "PI-020",
+      "title": "Provider throttling, backoff and learned token pacing",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/judge/paced-call.ts#runPacedCall",
+        "src/lib/phase-engine/judge/token-pacer.ts#TokenPacer",
+        "src/lib/phase-engine/judge/rate-limit.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "paceProviderCall",
+        "retryProviderFailure"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/paced-call.test.ts",
+        "src/lib/phase-engine/judge/token-pacer.test.ts",
+        "src/lib/phase-engine/judge/rate-limit.test.ts"
+      ],
+      "tables": [
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [
+        "OpenAI via Vercel AI SDK",
+        "Optional self-hosted Langfuse"
+      ],
+      "failures": [
+        "Manual trigger/another cron can consume same provider budget outside process-local pacer"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "paceProviderCall",
+        "retryProviderFailure"
+      ],
+      "acceptance_ids": [
+        "AC-PI-020"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep Retry-After/header-informed shared budget,429 deferral distinct from 5 xx/output failure, SDK maxRetries0, default 4 attempts and deadline on all waits; simplify into one provider adapter with injectable clock.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "429 follows Retry-After and defers distinctly; 5xx retry waits are deadline-bound; SDK retries do not multiply budget invisibly."
+      ]
+    },
+    {
+      "id": "PI-021",
+      "title": "Dirty-or-seven-day-stale assessment scheduling",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/app/api/phase-engine/assess/route.ts#runAssessmentBatch",
+        "src/lib/phase-engine/assessment/dirty.ts#selectionReasonFor",
+        "src/lib/phase-engine/assessment/queries.ts#selectPlantsForAssessment"
+      ],
+      "routes": [
+        "/api/phase-engine/assess"
+      ],
+      "operations": [
+        "selectAssessmentCandidates",
+        "runAssessmentBatch"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/dirty.test.ts",
+        "src/app/api/phase-engine/assess/route.test.ts",
+        "scripts/phase-engine-assess.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Cron bearer secret constant-time, missing secret rejects all"
+      ],
+      "states": [
+        "never-assessed",
+        "dirty",
+        "stale",
+        "skipped",
+        "attempted",
+        "assessed",
+        "failed",
+        "deferred"
+      ],
+      "validation": [
+        "Main batch maximum 10 / soft budget 270 seconds / maximum duration 300 seconds; actual deployed cadence not in vercel.json"
+      ],
+      "integrations": [
+        "OpenAI via Vercel AI SDK",
+        "Optional self-hosted Langfuse"
+      ],
+      "failures": [
+        "No proven cross-run lease or in-flight cancellation; process deadline limits retries, not full request latency",
+        "Candidate query loads every church and all complete assessment history before in-memory latest selection; no onboarding/readiness eligibility filter is applied here."
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "selectAssessmentCandidates",
+        "runAssessmentBatch"
+      ],
+      "acceptance_ids": [
+        "AC-PI-021"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep dirty/never-assessed/stale semantics and oldest-first starvation control. Query latest complete assessment per plant in SQL and define explicit eligibility for freshly created, inactive or retired plants. Use a separate job worker with per-plant lease/idempotency key and bounded cohorts; preserve run summary counts and operator trigger.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Concurrent ticks claim a revision once; oldest waiting plant progresses; summary arithmetic and attempted token costs remain consistent.",
+        "Candidate query stays bounded as history grows; explicit eligibility policy does not silently exclude a formerly assessed plant or repeatedly bill an unready fresh plant."
+      ]
+    },
+    {
+      "id": "PI-022",
+      "title": "Pending/complete/failed/deferred snapshots and recovery",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/generate-assessment.ts#generateAssessment",
+        "src/lib/phase-engine/assessment/generate-assessment.ts#markAssessmentUnjudgedStatement"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "generateAssessment",
+        "markAssessmentUnjudged"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/generate-assessment.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "pending",
+        "complete",
+        "failed",
+        "deferred"
+      ],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Current insert insights then complete update are separate writes; crashes can strand pending rows; post-complete event failure cannot demote dueCAS"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "generateAssessment",
+        "markAssessmentUnjudged"
+      ],
+      "acceptance_ids": [
+        "AC-PI-022"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep immutable point-in-time runs and last good complete fallback; transactionally publish insight rows + complete pointer and durable side effects. Recover abandoned pending runs by lease timeout. Failed and deferred are separate operational states.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Crash at every publication step preserves prior complete read; expired pending lease recovers; post-complete event failure cannot demote result."
+      ]
+    },
+    {
+      "id": "PI-023",
+      "title": "Insight persistence, severity/rank and snapshot deltas",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/persist.ts#buildInsightRows",
+        "src/lib/phase-engine/assessment/persist.ts#computeSnapshotDelta"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "persistInsights",
+        "computeSnapshotDelta"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/persist.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Article slugs survive only if retrieved, case/slash normalized to corpus spelling; critical currently reserved"
+      ],
+      "integrations": [],
+      "failures": [
+        "Individual detection is cited-path heuristic, does not validate every body token"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "persistInsights",
+        "computeSnapshotDelta"
+      ],
+      "acceptance_ids": [
+        "AC-PI-023"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve stable urgency order, positive→info/info→low/watch→medium/urgent→high mapping, per-snapshot what-changed delta; replace dual enum mapping with one canonical vocabulary in v3 while legacy labels stay explainable.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Only retrieved canonical slugs persist; stable urgency/rank and first/later deltas are deterministic; individual facts never survive oversight publication."
+      ]
+    },
+    {
+      "id": "PI-024",
+      "title": "Cached assessment reads, as-of and seen marker",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/queries.ts#getLatestAssessment",
+        "src/app/(dashboard)/phase/page.tsx"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "getLatestAssessment",
+        "markAssessmentSeen"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/queries.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights",
+        "churches"
+      ],
+      "permissions": [
+        "/phase plant Owner only; no owner→dashboard"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Multiple newest reads may race; v3 fetch one AssessmentView version per surface"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "getLatestAssessment",
+        "markAssessmentSeen"
+      ],
+      "acceptance_ids": [
+        "AC-PI-024"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep latest complete cached reads with zero model calls; as-of/delta distinguish stale/current. Move seen write to explicit authenticated acknowledgment operation instead of read-component side effect.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Page load performs zero model calls and reads one AssessmentView version; explicit acknowledgment releases the intended snapshot only."
+      ]
+    },
+    {
+      "id": "PI-025",
+      "title": "Primary focus, two supplements, separate positive surface",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/components/phase-engine/focus-panel.tsx",
+        "src/components/phase-engine/focus-presentation.ts",
+        "src/lib/phase-engine/judge/schema.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readFocusView"
+      ],
+      "tests": [
+        "src/components/phase-engine/focus-presentation.test.ts"
+      ],
+      "tables": [
+        "plant_insights",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readFocusView"
+      ],
+      "acceptance_ids": [
+        "AC-PI-025"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve one primary focus plus at most two supplemental nonpositive work items, separate positive observations, stable sectioned reading and saved drafts. Keep the short actionable view rather than expanding into a generic report.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Three nonpositive work items maximum with one primary and two supplements; earned positives remain separate; refresh preserves unsaved draft."
+      ]
+    },
+    {
+      "id": "PI-026",
+      "title": "Human-readable citations and exact snapshot drill-down",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/fact-format.ts",
+        "src/lib/phase-engine/fact-phrases.ts",
+        "src/lib/phase-engine/attestation-citation.ts",
+        "src/lib/phase-engine/assessment/snapshot-fact.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "resolveCitedFact",
+        "formatCitedFact"
+      ],
+      "tests": [
+        "src/lib/phase-engine/fact-format.test.ts",
+        "src/lib/phase-engine/assessment/snapshot-fact.test.ts",
+        "src/components/phase-engine/citation-voice.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_signals"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Unknown/unresolvable citation must stay unverifiable, never invented evidence"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "resolveCitedFact",
+        "formatCitedFact"
+      ],
+      "acceptance_ids": [
+        "AC-PI-026"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve cited evidence resolving against stored snapshot, attestation key/index resolution and familiar same-meaning language. Simplify ad hoc citation grammar to typed FactRef path+value+provenance, while legacy decoders read old forms.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Every rendered citation resolves to its stored fact value; unknown/malformed/indexed attestation refs stay unverifiable rather than inferred."
+      ]
+    },
+    {
+      "id": "PI-027",
+      "title": "CSF scorecard eight evidence-aware lens standings",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/queries.ts#buildCsfScorecard",
+        "src/components/phase-engine/csf-scorecard.tsx"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readCsfScorecard"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/queries.test.ts",
+        "src/components/phase-engine/csf-scorecard.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readCsfScorecard"
+      ],
+      "acceptance_ids": [
+        "AC-PI-027"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep eight persistent tiles and distinct not-raised/unknown/positive/watch states; absence of insight not healthy. Derive only from authorized assessment insights.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "All eight tiles distinguish unknown, not raised and positive; privacy-filtered severity alone drives displayed standing."
+      ]
+    },
+    {
+      "id": "PI-028",
+      "title": "Phase exit criteria cluster, measured progress and evidence",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/exit-criteria.ts#PHASE_EXIT_CRITERIA",
+        "src/lib/phase-engine/assessment/exit-criteria.ts#buildExitCriteriaProgress"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readExitCriteria",
+        "readCriterionEvidence"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/exit-criteria.test.ts",
+        "src/components/phase-engine/exit-criteria.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights",
+        "plant_signals"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "met",
+        "not_met",
+        "unknown",
+        "not_tracked"
+      ],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readExitCriteria",
+        "readCriterionEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep per-phase advisory criteria and the five-indicator Phase 1 cluster without weights or magic headcount. Separate deterministic met/not_met/unknown from judge severity and criteria not currently tracked.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Phase 1 exposes all five indicators with no weighted score; deterministic progress and judge evidence do not override Owner phase choice."
+      ]
+    },
+    {
+      "id": "PI-029",
+      "title": "Persisted historical trends with engine-derived alerts",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/trends.ts#buildPlantTrends",
+        "src/components/phase-engine/trends.tsx"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readAssessmentTrends"
+      ],
+      "tests": [
+        "src/components/phase-engine/trends.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [
+        "Missing old metric fields=unmeasured, never zero; authorized insight severities alone drive alerts"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readAssessmentTrends"
+      ],
+      "acceptance_ids": [
+        "AC-PI-029"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep last 12 snapshot history, current/previous movement, original snapshot facts rather than recomputing old activity; alpha preserves five independent metrics including task 48 h and actual-contact freshness.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "History reads original snapshot values; absent alpha fields are unmeasured; task completion and actual contact use separate denominators."
+      ]
+    },
+    {
+      "id": "PI-030",
+      "title": "Milestone timeline of declared/moved phases and launch",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/milestones.ts#getMilestoneTimeline",
+        "src/components/phase-engine/milestone-timeline.tsx"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readJourneyTimeline"
+      ],
+      "tests": [
+        "src/components/phase-engine/milestone-timeline.test.ts"
+      ],
+      "tables": [
+        "phase_transitions",
+        "launches",
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readJourneyTimeline"
+      ],
+      "acceptance_ids": [
+        "AC-PI-030"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep chronological actual initial declaration/transition/Launch Sunday story and severity badges; never manufacture prior ladder phases for a plant joining midjourney.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "A phase-3 initial declaration displays one declaration, not invented phase-1/2 events; badges use the same authorized assessment."
+      ]
+    },
+    {
+      "id": "PI-031",
+      "title": "Oversight privacy-safe four-valued health rollup",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/oversight/read.ts#getOversightPlantHealth",
+        "src/lib/phase-engine/oversight/read.ts#classifyPlantHealth"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readOversightAssessment",
+        "readPortfolioLaunchReadiness"
+      ],
+      "tests": [
+        "src/lib/phase-engine/oversight/read.test.ts",
+        "src/lib/phase-engine/oversight/health-presentation.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights",
+        "churches",
+        "launches"
+      ],
+      "permissions": [
+        "Associated network/sending-church seats; individual CRM unavailable; coach assignment scope separate"
+      ],
+      "states": [],
+      "validation": [
+        "No visible assessment/shared bearing content must not imply health; toggles do not authorize hidden raw snapshots"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readOversightAssessment",
+        "readPortfolioLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-PI-031"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep on-track/watch/readiness/limited-visibility classifications. Readiness needs launch within 30 days plus unresolved roles/training, not a close date alone. Filter consent on every read, withhold persons, and re-audit ungated categories and multi-feature facts.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Consent off removes associated facts on next read; no data yields limited visibility; near launch without gaps does not escalate."
+      ]
+    },
+    {
+      "id": "PI-032",
+      "title": "Planter-paired concerns and seen-or-72-hour release",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/judge/network-register.ts#findUnpairedNetworkCategories",
+        "src/lib/phase-engine/assessment/queries.ts#assessmentReleasedToOversight"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "validateConcernPairing",
+        "releaseAssessmentToOversight"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/network-register.test.ts",
+        "src/lib/phase-engine/assessment/queries.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [
+        "unseen held",
+        "seen released",
+        "72h released"
+      ],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "validateConcernPairing",
+        "releaseAssessmentToOversight"
+      ],
+      "acceptance_ids": [
+        "AC-PI-032"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep the same underlying concern visible to the planter and conservatively phrased to oversight. The current seen-or-72-hour fallback may release without opening; explicitly confirm that policy against literal planter-sees-first wording before v3 launch.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Network concerns have evaluated corresponding planter concern IDs; unseen release obeys the explicitly approved 72-hour or stricter policy."
+      ]
+    },
+    {
+      "id": "PI-033",
+      "title": "Per-insight feedback rating and optional comment",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/feedback/service.ts#upsertInsightFeedback",
+        "src/app/(dashboard)/phase/feedback-actions.ts#submitInsightFeedbackAction"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "submitInsightFeedback",
+        "readOwnInsightFeedback"
+      ],
+      "tests": [
+        "src/lib/phase-engine/feedback/service.test.ts",
+        "src/components/phase-engine/insight-feedback.test.ts"
+      ],
+      "tables": [
+        "insight_feedback",
+        "plant_insights",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Source self.write any session but action requires own user.churchId and church access; FRD coach feedback not actually reached by no-church coach"
+      ],
+      "states": [],
+      "validation": [
+        "Useful/not_useful enum, comment bounded, tenant-owned insight required"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "submitInsightFeedback",
+        "readOwnInsightFeedback"
+      ],
+      "acceptance_ids": [
+        "AC-PI-033"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve one current feedback rating per insight/user, assessment/rubric linkage and prefilled UI. Feedback is human-reviewed evaluation input, never an automatic rubric change.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Cross-plant insight denied; repeat own rating updates current row; optional comment bounded; feedback cannot automatically activate a rubric."
+      ]
+    },
+    {
+      "id": "PI-034",
+      "title": "Cold-start queued/quiet guidance",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/cold-start.ts#assessmentColdStart",
+        "src/app/(dashboard)/phase/page.tsx"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "readColdStartGuidance"
+      ],
+      "tests": [
+        "src/lib/phase-engine/cold-start.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "readColdStartGuidance"
+      ],
+      "acceptance_ids": [
+        "AC-PI-034"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep neutral missing evidence/first useful step, queued-after-material-event vs quiet/unassessed distinction. No fake positives to satisfy dual-audience schema.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Brand-new/quiet/queued plants get honest first-step guidance and never a fake positive based on no evidence."
+      ]
+    },
+    {
+      "id": "PI-035",
+      "title": "Judge observability and graceful optional tracing",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/observability.ts#startJudgeTrace",
+        "src/lib/observability/langfuse.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "traceAssessmentRun"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/judge.test.ts"
+      ],
+      "tables": [
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Unconfigured tracing noops, so no proof of deployed monitoring"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "traceAssessmentRun"
+      ],
+      "acceptance_ids": [
+        "AC-PI-035"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep rubric/model/snapshot metadata, token usage, failure/retry rules and operator monitoring. Tracing failure cannot break assessment. Current adapter records metadata/usage rather than full prompts/responses claimed by older prose; define redacted minimum trace fields.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Unconfigured or failed tracing cannot change job result; configured metadata includes exact versions, usage and rejection class without private check-ins."
+      ]
+    },
+    {
+      "id": "PI-036",
+      "title": "Offline fleet eval, assessment trigger and language audit tooling",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "scripts/run-eval-v1-pass.ts",
+        "scripts/seed-phase-engine-eval.ts",
+        "scripts/phase-engine-assess.mjs",
+        "scripts/audit-benchmark-language.ts",
+        "scripts/proofs/assessment-scheduler.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "evaluateRubric",
+        "auditReferenceLanguage",
+        "triggerAssessmentRun"
+      ],
+      "tests": [
+        "scripts/phase-engine-assess.test.ts"
+      ],
+      "tables": [
+        "plant_assessments",
+        "plant_insights",
+        "wiki_articles"
+      ],
+      "permissions": [
+        "Operator only, isolated eval tenancy"
+      ],
+      "states": [],
+      "validation": [
+        "Semantic tests include vocab floors, growthsource only planter, no wellbeing verdict; passing typed tests not proof of domain quality"
+      ],
+      "integrations": [
+        "OpenAI via Vercel AI SDK",
+        "Optional self-hosted Langfuse"
+      ],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "evaluateRubric",
+        "auditReferenceLanguage",
+        "triggerAssessmentRun"
+      ],
+      "acceptance_ids": [
+        "AC-PI-036"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep synthetic versioned representative fixtures and SME-reviewed evaluation before model/rubric rollout. Rewrite DB-destructive fixture seeding to isolated disposable test environment; never execute historical seed against shared source DB.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Representative synthetic fleet checks semantic floors, no wellbeing verdict, source privacy and grounding; failures are reviewed before model/rubric rollout."
+      ]
+    },
+    {
+      "id": "PI-037",
+      "title": "Material-event dirty marking and refresh semantics",
+      "module": "intelligence",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/dirty-handler.ts#markPlantDirty",
+        "src/lib/events/subscriptions.ts"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "markAssessmentDirty"
+      ],
+      "tests": [
+        "src/lib/phase-engine/dirty-handler.test.ts"
+      ],
+      "tables": [
+        "churches"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [
+        "Current markPlantDirty swallows logs; lost marks delay7days; no general durable bus"
+      ],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "markAssessmentDirty"
+      ],
+      "acceptance_ids": [
+        "AC-PI-037"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep freshness after attendance/team/person/task/phase/signal/outcome changes; inventory all material corrections/deletions too. Replace best-effort missed dirty events with transactionally bumped source revision plus periodic stale fallback.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Every material correction/deletion/retirement increments relevant source revision atomically; lost external delivery cannot hide changed evidence."
+      ]
+    },
+    {
+      "id": "PI-038",
+      "title": "Private weekly four-dimension planter check-in",
+      "module": "private-checkins",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/planter-checkin.ts#CHECKIN_DIMENSIONS",
+        "src/lib/phase-engine/planter-checkin-db.ts#saveCheckin",
+        "src/app/(dashboard)/phase/checkin-actions.ts#saveCheckinAction"
+      ],
+      "routes": [
+        "/phase"
+      ],
+      "operations": [
+        "savePrivateCheckin",
+        "readCurrentPrivateCheckin"
+      ],
+      "tests": [
+        "src/lib/phase-engine/planter-checkin.test.ts",
+        "src/components/phase-engine/planter-checkin-card.test.ts"
+      ],
+      "tables": [
+        "planter_checkins"
+      ],
+      "permissions": [
+        "Alpha Owner-only phase.declare corrects main Admin-capable phase.signal write mismatch"
+      ],
+      "states": [
+        "unanswered",
+        "answered",
+        "corrected"
+      ],
+      "validation": [
+        "Note max2000; all four enums required; no dirty marker/events"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/private-checkins",
+      "v3_operations": [
+        "savePrivateCheckin",
+        "readCurrentPrivateCheckin"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve four spiritually/marriage-family/financially/pace answers using steady/strained/struggling and an optional note. Server-derived Monday and unique church/week make current-week answering idempotent; alpha keeps revisions. No AI, readiness, oversight, coach or Evry access by default.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Owner-only current save requires all four enums, derives week on server and produces no assessment/AI/oversight/event side effect."
+      ]
+    },
+    {
+      "id": "PI-039",
+      "title": "Private 12-week strip and three-consecutive-struggling nudge",
+      "module": "private-checkins",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/planter-checkin.ts#checkinNudges",
+        "src/components/phase-engine/planter-checkin-card.tsx"
+      ],
+      "routes": [
+        "/phase"
+      ],
+      "operations": [
+        "readPrivateCheckinTrends",
+        "readPrivateSupportNudge"
+      ],
+      "tests": [
+        "src/lib/phase-engine/planter-checkin.test.ts"
+      ],
+      "tables": [
+        "planter_checkins"
+      ],
+      "permissions": [
+        "Plant Owner only"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/private-checkins",
+      "v3_operations": [
+        "readPrivateCheckinTrends",
+        "readPrivateSupportNudge"
+      ],
+      "acceptance_ids": [
+        "AC-PI-039"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Keep the private 12-week strip and a nudge after three consecutive struggling weeks to seek human support. A missing week breaks the run. No inferred pastoral concern or generated counseling.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Three consecutive struggling answers nudge; a missing week breaks streak; no private values leave the care projection."
+      ]
+    },
+    {
+      "id": "PI-040",
+      "title": "Full private check-in history with preserved revisions",
+      "module": "private-checkins",
+      "status": "implemented-local-only",
+      "source_refs": [
+        "src/app/(dashboard)/phase/checkins/page.tsx",
+        "src/lib/phase-engine/planter-checkin-db.ts#listCheckinHistory",
+        "src/db/schema/phase-engine.ts#PlanterCheckinRevision"
+      ],
+      "routes": [
+        "/phase/checkins"
+      ],
+      "operations": [
+        "readPrivateCheckinHistory"
+      ],
+      "tests": [
+        "src/components/phase-engine/planter-checkin-card.test.ts"
+      ],
+      "tables": [
+        "planter_checkins"
+      ],
+      "permissions": [
+        "Only current plant Owner, never org/coach/model"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/private-checkins",
+      "v3_operations": [
+        "readPrivateCheckinHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PI-040"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve alpha full history route and prior-answer revisions. Separate sensitive personal care storage/access policy from church/assessment module in v3; owner-transfer policy unresolved.",
+      "source_version": "alpha2107df58",
+      "acceptance_criteria": [
+        "Only authorized private owner/history subject reads full weeks and prior revisions; org/coach/Evry context cannot retrieve them."
+      ]
+    },
+    {
+      "id": "PI-041",
+      "title": "Correct existing check-in without deleting history",
+      "module": "private-checkins",
+      "status": "implemented-local-only",
+      "source_refs": [
+        "src/app/(dashboard)/phase/checkin-actions.ts#correctCheckinAction",
+        "src/lib/phase-engine/planter-checkin-db.ts#correctCheckin"
+      ],
+      "routes": [
+        "/phase/checkins"
+      ],
+      "operations": [
+        "correctPrivateCheckin"
+      ],
+      "tests": [],
+      "tables": [
+        "planter_checkins"
+      ],
+      "permissions": [
+        "Plant Owner"
+      ],
+      "states": [],
+      "validation": [
+        "UUID ID; enum/note validation; cannot post arbitrary week"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/private-checkins",
+      "v3_operations": [
+        "correctPrivateCheckin"
+      ],
+      "acceptance_ids": [
+        "AC-PI-041"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve tenant-scoped correction of an existing week with previous values, author and time appended. No deletion surface. Add expected revision and unchanged-save no-op to prevent lost corrections or revision spam.",
+      "source_version": "alpha2107df58",
+      "acceptance_criteria": [
+        "Existing same-plant row only; stale revision denied; unchanged correction no history spam; original values remain available."
+      ]
+    },
+    {
+      "id": "PI-042",
+      "title": "Accurate final-draft assessment failure diagnostics",
+      "module": "intelligence",
+      "status": "implemented-local-only",
+      "source_refs": [
+        "src/lib/phase-engine/judge/schema-rejection.ts#SchemaRejectionError",
+        "src/app/api/phase-engine/assess/route.ts#runAssessmentBatch"
+      ],
+      "routes": [
+        "/phase",
+        "/dashboard",
+        "/oversight/health"
+      ],
+      "operations": [
+        "describeFailedAssessmentDraft"
+      ],
+      "tests": [
+        "src/lib/phase-engine/judge/schema-retry.test.ts",
+        "src/app/api/phase-engine/assess/route.test.ts"
+      ],
+      "tables": [
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/intelligence",
+      "v3_operations": [
+        "describeFailedAssessmentDraft"
+      ],
+      "acceptance_ids": [
+        "AC-PI-042"
+      ],
+      "work_packages": [
+        "WP-intelligence"
+      ],
+      "decision": "Preserve diagnostics81abfcc7: report no valid draft after N attempts and the LAST rejected rule; do not falsely claim every draft broke the same rule or that a later model response must repeat it. Add attempt-level rule history.",
+      "source_version": "diagnostics81abfcc7",
+      "acceptance_criteria": [
+        "A mixed-rule sequence reports attempt count and last rejection accurately without attributing that last rule to every draft."
+      ]
+    },
+    {
+      "id": "PHASE-001",
+      "title": "One-time midjourney initial phase declaration",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/transitions/service.ts#declareInitialPhase"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "declareInitialPhase"
+      ],
+      "tests": [
+        "src/lib/phase-engine/transitions/declaration-race.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "declareInitialPhase"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-001"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Keep one attested existing-phase history row. A row lock, partial unique index and ON CONFLICT prevent double declaration; the losing request does not change phase.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Two racing declarations produce exactly one honest row and one phase value; repeated requests do not replay fabricated progression."
+      ]
+    },
+    {
+      "id": "PHASE-002",
+      "title": "Reasoned forward/backward/skipping/correcting phase transition",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/transitions/service.ts#transitionPhase",
+        "src/app/(dashboard)/phase/actions.ts#transitionPhaseAction"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "transitionPhase",
+        "transitionPhaseAction"
+      ],
+      "tests": [
+        "src/lib/phase-engine/transitions/service.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "transitionPhase"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-002"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Preserve Owner confirmation and reason, phases 0–6, fact snapshot/rubric audit and no readiness gate. Replace pre-read fromPhase with a locked aggregate or expected revision so concurrent changes preserve truthful history.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Stale revision denied and audit fromPhase equals locked prior state; forward/backward/skip allowed with reason; readiness never hard-blocks."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/phase/actions.ts",
+          "source_symbol": "transitionPhaseAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "PHASE-003",
+      "title": "Direction classification and same-phase behavior",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/transitions/service.ts#classifyTransition",
+        "src/app/(dashboard)/phase/actions.ts#transitionPhaseAction"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "classifyPhaseChange",
+        "transitionPhaseAction"
+      ],
+      "tests": [
+        "src/lib/phase-engine/transitions/service.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "classifyPhaseChange"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-003"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Current same-phase requests classify as noop but still append history and emit an event. Decide explicitly whether that behavior remains; no silent removal.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Same-phase behavior follows the explicit reviewed choice, with consistent audit/event/no-op receipt."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/phase/actions.ts",
+          "source_symbol": "transitionPhaseAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "PHASE-004",
+      "title": "Advisory ready/approaching/not_ready/unknown phase control",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/transitions/service.ts#deriveReadiness"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "readPhaseReadiness"
+      ],
+      "tests": [
+        "src/lib/phase-engine/transitions/service.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "readPhaseReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-004"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Keep ready/approaching/not_ready/unknown context from cached assessment and soft confirmation for unmet criteria. Readiness neither blocks nor executes a transition.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Missing assessment produces unknown; advisory ready status does not mutate plant, task or launch state."
+      ]
+    },
+    {
+      "id": "PHASE-005",
+      "title": "Typed phase.changed and assessment.created events",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/events.ts",
+        "src/lib/events/subscriptions.ts",
+        "src/app/(dashboard)/phase/actions.ts#transitionPhaseAction"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "emitPhaseChanged",
+        "emitAssessmentCreated",
+        "transitionPhaseAction"
+      ],
+      "tests": [
+        "src/lib/phase-engine/dirty-handler.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "emitPhaseChanged",
+        "emitAssessmentCreated"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-005"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Preserve typed phase.changed and plant.assessment.created payloads. Use direct bounded coordination for local effects and a small durable outbox where external delivery or jobs require recovery.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Local effects and external durable work use one typed payload; actor/tenant/rubric metadata cannot be client forged."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/phase/actions.ts",
+          "source_symbol": "transitionPhaseAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "PHASE-006",
+      "title": "Phase-driven task-template prompt and Wiki recommendations",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/tasks/phase-prompt.ts",
+        "src/lib/events/subscriptions.ts",
+        "src/app/(dashboard)/phase/actions.ts#transitionPhaseAction"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "offerPhaseTasks",
+        "recommendPhaseWiki",
+        "transitionPhaseAction"
+      ],
+      "tests": [
+        "src/lib/tasks/phase-prompt.test.ts",
+        "src/lib/tasks/phase-prompt-live.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "offerPhaseTasks",
+        "recommendPhaseWiki"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-006"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Preserve plant-level phase checklist offers and answers, without resurrecting declined/deleted tasks. Wiki recommendations can derive from current phase; historical event-contract dogma need not be copied.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Phase offer belongs to plant once; deleting/declining/importing survives reload and does not generate duplicate work."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/phase/actions.ts",
+          "source_symbol": "transitionPhaseAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "PHASE-007",
+      "title": "Phase transition audit and journey chronology",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/signals/milestones.ts",
+        "src/db/schema/phase-engine.ts#phaseTransitions",
+        "src/app/(dashboard)/phase/actions.ts#transitionPhaseAction"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "readPhaseHistory",
+        "transitionPhaseAction"
+      ],
+      "tests": [
+        "src/components/phase-engine/milestone-timeline.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "readPhaseHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-007"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Keep initiator, time, reason, kind, phases, facts and rubric. Existing append-only policy is an application convention. Corrections append truthful new facts rather than rewrite earlier history.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Corrections append attributable new history; ordinary users cannot rewrite transition authors, snapshots or timestamps."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/phase/actions.ts",
+          "source_symbol": "transitionPhaseAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "PHASE-008",
+      "title": "Seven church-planting phases and Playbook criteria catalog",
+      "module": "phases",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/phase-engine/assessment/exit-criteria.ts#PHASE_EXIT_CRITERIA",
+        "product-docs/features/phase-engine/rubric-v1.md"
+      ],
+      "routes": [
+        "/phase",
+        "/onboarding"
+      ],
+      "operations": [
+        "readPhaseCatalog"
+      ],
+      "tests": [
+        "src/lib/phase-engine/assessment/exit-criteria.test.ts"
+      ],
+      "tables": [
+        "churches",
+        "phase_transitions",
+        "plant_assessments"
+      ],
+      "permissions": [
+        "Plant Owner for declaration/change; authorized tenant readers for own journey"
+      ],
+      "states": [
+        "initial_declaration",
+        "transition",
+        "advance",
+        "regress",
+        "skip",
+        "noop"
+      ],
+      "validation": [
+        "Phase integer0..6; ordinary reason trim1..2000; reserved initial reason rejected"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/phases",
+      "v3_operations": [
+        "readPhaseCatalog"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-008"
+      ],
+      "work_packages": [
+        "WP-phases"
+      ],
+      "decision": "Preserve all seven phases and reviewed criteria. Aggregate display names/criteria from the approved reference package instead of repeating constants in UI and judge modules.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "All seven reviewed phases and names resolve consistently across reference, UI, criteria and assistant lookup."
+      ]
+    },
+    {
+      "id": "LCH-001",
+      "title": "Set, move, postpone and recommit canonical launch date",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/service.ts#setLaunchDate",
+        "src/app/(dashboard)/launch/actions.ts#scheduleLaunchAction"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "scheduleLaunch",
+        "moveLaunch",
+        "postponeLaunch",
+        "scheduleLaunchAction"
+      ],
+      "tests": [
+        "src/lib/launch/service.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_events"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [
+        "Oversight launch-date notification after durablewrite"
+      ],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "scheduleLaunch",
+        "moveLaunch",
+        "postponeLaunch"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-001"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep one live launch per plant and transactional date/status journal. Planning schedules, scheduled postpones or moves, postponed recommits, completed cannot be redated. Same-day recommit is a real change; unchanged save causes no write or notification.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Concurrent first schedule writes one live row and journal; unchanged resave no-op; same-day postponed recommit schedules; completed cannot redated."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/launch/actions.ts",
+          "source_symbol": "scheduleLaunchAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "LCH-002",
+      "title": "Launch date/status journal and actor names",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/journal.ts#getLaunchJournalEntries"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "readLaunchJournal"
+      ],
+      "tests": [
+        "src/lib/launch/service.test.ts",
+        "src/lib/launch/outcome.test.ts"
+      ],
+      "tables": [
+        "launch_events",
+        "users"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "readLaunchJournal"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-002"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep old/new target and status, actor, reason and scheduled/moved/postponed/completed event vocabulary. Store exact outcome revisions in v3, rather than claim current journal notes preserve overwritten values.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Journal old/new values are truthful under race; actor is session derived; full future outcome revisions are available."
+      ]
+    },
+    {
+      "id": "LCH-003",
+      "title": "Nine Playbook milestones and 22 linked prep tasks",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/milestones.ts#seedLaunchMilestones"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "seedLaunchReadiness"
+      ],
+      "tests": [
+        "src/lib/launch/milestones.test.ts"
+      ],
+      "tables": [
+        "launch_milestones",
+        "launch_milestone_tasks",
+        "tasks"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "seedLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Preserve nine stable milestone keys across operations, launch-team preparation and promotion, plus twenty-two linked tasks. Atomic dependent insertion and database uniqueness prevent duplicate tasks; user-deleted work does not reappear.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Blank schedule creates nine milestones and twenty-two linked tasks once; retry and concurrent seed add no duplicates or resurrect deleted work."
+      ]
+    },
+    {
+      "id": "LCH-004",
+      "title": "Complete/reopen milestone under live-task guard",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/milestones.ts#completeLaunchMilestone",
+        "src/lib/launch/milestones.ts#reopenLaunchMilestone",
+        "src/app/(dashboard)/launch/actions.ts#completeMilestoneAction",
+        "src/app/(dashboard)/launch/actions.ts#reopenMilestoneAction"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "completeLaunchMilestone",
+        "reopenLaunchMilestone",
+        "completeMilestoneAction",
+        "reopenMilestoneAction"
+      ],
+      "tests": [
+        "src/lib/launch/milestones.test.ts"
+      ],
+      "tables": [
+        "launch_milestones",
+        "launch_milestone_tasks",
+        "tasks"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "completeLaunchMilestone",
+        "reopenLaunchMilestone"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-004"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep explicit milestone completion separate from task progress. Alpha unresolved states not_started/in_progress/blocked prevent completion; complete or no_longer_needed resolves an obligation. Ignore soft-deleted tasks and allow reopening.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Unresolved live task blocks completion; waived/deleted task does not; reopen is authorized and preserves audit history."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/launch/actions.ts",
+          "source_symbol": "completeMilestoneAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        },
+        {
+          "source_path": "src/app/(dashboard)/launch/actions.ts",
+          "source_symbol": "reopenMilestoneAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "LCH-005",
+      "title": "Complete/reopen linked launch task using ordinary task rules",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/app/(dashboard)/launch/actions.ts#setLaunchTaskCompleteAction",
+        "src/lib/launch/milestones.ts#isLaunchTask"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "completeLaunchTask",
+        "reopenLaunchTask"
+      ],
+      "tests": [
+        "src/app/(dashboard)/launch/actions.test.ts"
+      ],
+      "tables": [
+        "tasks",
+        "launch_milestone_tasks",
+        "launch_milestones"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "completeLaunchTask",
+        "reopenLaunchTask"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-005"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep same-plant launch-link checks plus ordinary task assignment/authority. Surface ActiveTaskOccurrenceError instead of changing the wrong recurring occurrence. No second task writer.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Only same-plant linked launch task can toggle, ordinary subject authority applies, and recurring active occurrence conflicts surface."
+      ]
+    },
+    {
+      "id": "LCH-006",
+      "title": "Record Launch Sunday outcome once date arrives",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/outcome.ts#recordLaunchOutcome",
+        "src/app/(dashboard)/launch/actions.ts#recordLaunchOutcomeAction"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "recordLaunchOutcome",
+        "recordLaunchOutcomeAction"
+      ],
+      "tests": [
+        "src/lib/launch/outcome.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_events",
+        "churches"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "recordLaunchOutcome"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep null versus zero counts, notes and capture-the-day. Owner only, calendar-day eligibility and once-only guard, atomic journal and source freshness. No meeting row or phase advancement.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Future day refused; null counts remain null; duplicate recording cannot overwrite; no meeting or phase mutation."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/launch/actions.ts",
+          "source_symbol": "recordLaunchOutcomeAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "LCH-007",
+      "title": "Correct recorded outcome with journal/no-op semantics",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/outcome.ts#updateLaunchOutcome",
+        "src/app/(dashboard)/launch/actions.ts#updateLaunchOutcomeAction"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "correctLaunchOutcome",
+        "updateLaunchOutcomeAction"
+      ],
+      "tests": [
+        "src/lib/launch/outcome.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_events",
+        "churches"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "correctLaunchOutcome"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-007"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Preserve correction of an existing completed outcome at any time; unchanged input causes no write, historical date stays fixed. Add full before/after revisions because current journal omits prior counts and text.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Correction requires recorded outcome, rejects stale revision, retains historical date and original values, and no-op input creates no journal."
+      ],
+      "source_wrapper_aliases": [
+        {
+          "source_path": "src/app/(dashboard)/launch/actions.ts",
+          "source_symbol": "updateLaunchOutcomeAction",
+          "role": "source controller wrapper/side-effect chain; not a required public v3 API"
+        }
+      ]
+    },
+    {
+      "id": "LCH-008",
+      "title": "Launch workspace, dashboard countdown and outcome forms",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/app/(dashboard)/launch/page.tsx",
+        "src/components/launch/launch-tabs.tsx",
+        "src/lib/launch/countdown.ts"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "readLaunchWorkspace",
+        "readLaunchCountdown"
+      ],
+      "tests": [
+        "src/app/(dashboard)/launch/page.test.ts",
+        "src/components/launch/presentation.test.ts",
+        "src/lib/launch/countdown.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_milestones",
+        "launch_milestone_tasks",
+        "tasks"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "readLaunchWorkspace",
+        "readLaunchCountdown"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-008"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Keep date/status/readiness/history/journal/outcome workspace and compact dashboard card. Use one calendar-day contract. Decide explicitly whether current UTC day boundary changes to the plant timezone.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Screen and dashboard countdown agree at midnight/DST in approved zone; all Owner/member controls match server policy."
+      ]
+    },
+    {
+      "id": "LCH-009",
+      "title": "Converge missing readiness after seed failure",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/milestones.ts#convergeLaunchReadiness"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "repairLaunchReadiness"
+      ],
+      "tests": [
+        "src/lib/launch/readiness-converge-live.test.ts"
+      ],
+      "tables": [
+        "launches",
+        "launch_milestones",
+        "launch_milestone_tasks",
+        "tasks"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "repairLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-009"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Preserve idempotent recovery of missing readiness for scheduled/postponed launches. Planning/completed launches do not receive surprise old tasks. Replace page-load writes with explicit repair work and visible readiness-pending state.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Failed readiness creation retries explicitly and converges; reads have no writes; completed/planning launch does not seed old tasks."
+      ]
+    },
+    {
+      "id": "LCH-010",
+      "title": "Milestone completion history and named actor",
+      "module": "launch",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/launch/milestones.ts#getLaunchMilestoneHistory"
+      ],
+      "routes": [
+        "/launch",
+        "/dashboard"
+      ],
+      "operations": [
+        "readMilestoneCompletionHistory"
+      ],
+      "tests": [
+        "src/lib/launch/milestones.test.ts"
+      ],
+      "tables": [
+        "launch_milestones",
+        "users"
+      ],
+      "permissions": [
+        "Schedule/outcome Plant Owner; milestones seated own-duty; linkedtasks normal task scope"
+      ],
+      "states": [
+        "planning",
+        "scheduled",
+        "postponed",
+        "completed"
+      ],
+      "validation": [
+        "YYYY-MM-DD real date; note<=2000; counts integer0..1millionnullable; outcome text<=10000"
+      ],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "readMilestoneCompletionHistory"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-010"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Preserve current completed-by/date history. Reopening currently clears those fields and loses earlier completions; add explicit completion/reopen events if v3 promises full historical history.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Completion/reopen history records actor/time and stays legible after reopening, with current status distinguished from past events."
+      ]
+    },
+    {
+      "id": "LCH-011",
+      "title": "Recurring services and worship/volunteer scheduling boundary",
+      "module": "launch",
+      "status": "uncertain",
+      "source_refs": [
+        "product-docs/features/launch/frd.md#Non-goals (alpha)"
+      ],
+      "routes": [],
+      "operations": [
+        "decidePostLaunchServices"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Authenticated tenant context; see module spec authority table"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/launch",
+      "v3_operations": [
+        "decidePostLaunchServices"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-011"
+      ],
+      "work_packages": [
+        "WP-launch"
+      ],
+      "decision": "Recurring post-launch services and worship/volunteer scheduling remain intentionally unimplemented. Preserve phase-6 guidance and templates, and require scoped Services discovery rather than infer an existing service-planning module.",
+      "source_version": "see decision",
+      "acceptance_criteria": [
+        "Reference guidance is retained; recurring-service scope is labeled unimplemented and cannot be reported as launch-module completion."
+      ]
+    },
+    {
+      "id": "REF-001",
+      "title": "Canonical SME Launch Playbook source",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "product-docs/launch-playbook.md"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "packagePlaybook"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "packagePlaybook"
+      ],
+      "acceptance_ids": [
+        "AC-REF-001"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Preserve the exact approved Playbook, source hash and SME provenance. Operational software design does not authorize rewriting benchmarks, human criteria or spiritual methodology. Reference lookup is distinct from assistant-generated counsel.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Approved Playbook bytes/hash match manifest; methodology edits require separate human approval."
+      ]
+    },
+    {
+      "id": "REF-002",
+      "title": "Approved global Wiki article/section bootstrap",
+      "module": "reference",
+      "status": "partial",
+      "source_refs": [
+        "product-docs/wiki/article-checklist.md",
+        "scripts/audit-benchmark-language.ts",
+        "src/db/schema/wiki.ts"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "importApprovedGlobalWiki"
+      ],
+      "tests": [],
+      "tables": [
+        "wiki_articles",
+        "wiki_sections"
+      ],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "importApprovedGlobalWiki"
+      ],
+      "acceptance_ids": [
+        "AC-REF-002"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "A verified read-only bootstrap snapshot at alpha2107 contains 96 global published Wiki articles, 21 referenced sections and 7 global templates. Preserve its checksums and review editorial/currentness alignment before future import; no tenant records or vectors were exported.",
+      "source_version": "see decision",
+      "acceptance_criteria": [
+        "Snapshot SHA/content/record hashes and 96/21/7 scope counts match; no tenant records; editorial/currentness approval is explicit."
+      ]
+    },
+    {
+      "id": "REF-003",
+      "title": "Eleven generated document template catalog",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/documents/templates.ts#DOCUMENT_TEMPLATES"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "packageDocumentTemplates"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "packageDocumentTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-003"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Preserve all eleven code-defined document template IDs, content, merge fields and formats. No generic database CMS is needed; document owners retain rendering/field-validation acceptance.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Eleven template IDs/formats/merge fields survive and representative exported files render correctly."
+      ]
+    },
+    {
+      "id": "REF-004",
+      "title": "Twenty phase/launch checklist templates",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/tasks/templates.ts#TASK_TEMPLATES"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "packageTaskTemplates"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "packageTaskTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-004"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Preserve twenty stable phase/launch checklist template keys, phase tags, task/subtask content and due offsets. Version the reference package and keep phase offers as plant choices rather than automatic task creation.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Twenty template keys and phase/task/subtask offsets match approved package; import and offer contracts preserve user decisions."
+      ]
+    },
+    {
+      "id": "REF-005",
+      "title": "Ten predefined ministry teams and role/responsibility catalog",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/ministry-teams/role-templates.ts#TEAM_TEMPLATES",
+        "src/db/schema/ministry-teams.ts#PREDEFINED_TEAM_KEYS"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "packageTeamTemplates"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "packageTeamTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-005"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Preserve ten predefined team catalogs, roles, responsibilities, eligibility/safety flags and stable keys. Resolve mapping to the eight intelligence ministry areas explicitly; do not silently drop prayer or invent a required ninth area.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Ten team templates and all roles/responsibilities remain; eight-area mapping reconciled without deleting prayer/funding responsibility."
+      ]
+    },
+    {
+      "id": "REF-006",
+      "title": "Seven system communication templates",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "src/lib/communication/system-templates.ts#SYSTEM_TEMPLATES",
+        "scripts/seed-system-templates.ts"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "seedSystemCommunicationTemplates"
+      ],
+      "tests": [],
+      "tables": [
+        "message_templates"
+      ],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "seedSystemCommunicationTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-006"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Preserve seven global system communication templates and merge contracts. Use stable identity/versioned idempotent imports, keep tenant copies distinct and import no customer recipients or sends.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Seven global templates preserve merge fields/content and idempotent scope identity; tenant copies never overwritten."
+      ]
+    },
+    {
+      "id": "REF-007",
+      "title": "Global methodology embeddings bootstrap",
+      "module": "reference",
+      "status": "implemented-main",
+      "source_refs": [
+        "scripts/embed-methodology-corpus.ts",
+        "src/db/schema/methodology-embeddings.ts"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "rebuildMethodologyCorpus"
+      ],
+      "tests": [],
+      "tables": [
+        "methodology_embeddings",
+        "wiki_articles"
+      ],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [
+        "Postgres pgvector",
+        "OpenAI embeddings"
+      ],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "rebuildMethodologyCorpus"
+      ],
+      "acceptance_ids": [
+        "AC-REF-007"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Build global Playbook/published-Wiki passages from the approved source snapshot; rubric stays whole in context. Verified evidence has 547 expected chunks versus 572 stored, 114 mismatches, 2 missing, 27 obsolete, and no recorded vector-model provenance. Regenerate derived vectors in future rather than copy unverified vectors.",
+      "source_version": "main18fc1a50",
+      "acceptance_criteria": [
+        "Exact approved expected passages published under recorded embedder/corpus version; obsolete/mismatched old chunks absent from current corpus."
+      ]
+    },
+    {
+      "id": "REF-008",
+      "title": "Reference package verification and editorial approval gate",
+      "module": "reference",
+      "status": "partial",
+      "source_refs": [
+        "scripts/audit-benchmark-language.ts",
+        "product-docs/features/phase-engine/bryan-comments-review.md"
+      ],
+      "routes": [
+        "/wiki",
+        "/documents",
+        "/tasks/templates"
+      ],
+      "operations": [
+        "verifyReferencePackage"
+      ],
+      "tests": [],
+      "tables": [],
+      "permissions": [
+        "Operator-only global reference publishing; tenant data excluded"
+      ],
+      "states": [],
+      "validation": [],
+      "integrations": [],
+      "failures": [],
+      "v3_module": "packages/domain/src/reference",
+      "v3_operations": [
+        "verifyReferencePackage"
+      ],
+      "acceptance_ids": [
+        "AC-REF-008"
+      ],
+      "work_packages": [
+        "WP-reference"
+      ],
+      "decision": "Verify source/content hashes, article and section identities, related links, active contextual-help slugs, templates, phases/lenses and all 26 comment dispositions. Existing 96 MDX compile successes prove syntax only; editorial approval and blank-environment parity are still gates.",
+      "source_version": "see decision",
+      "acceptance_criteria": [
+        "Blank bootstrap verifies article/section graph, 31 active help slugs, template links and all comment dispositions; MDX syntax pass not claimed editorial approval."
+      ]
+    }
+  ],
+  "source_files": [
+    "src/lib/phase-engine/assessment/dirty.test.ts",
+    "src/lib/phase-engine/assessment/dirty.ts",
+    "src/lib/phase-engine/assessment/exit-criteria.test.ts",
+    "src/lib/phase-engine/assessment/exit-criteria.ts",
+    "src/lib/phase-engine/assessment/generate-assessment.test.ts",
+    "src/lib/phase-engine/assessment/generate-assessment.ts",
+    "src/lib/phase-engine/assessment/index.ts",
+    "src/lib/phase-engine/assessment/persist.test.ts",
+    "src/lib/phase-engine/assessment/persist.ts",
+    "src/lib/phase-engine/assessment/queries.test.ts",
+    "src/lib/phase-engine/assessment/queries.ts",
+    "src/lib/phase-engine/assessment/snapshot-fact.test.ts",
+    "src/lib/phase-engine/assessment/snapshot-fact.ts",
+    "src/lib/phase-engine/attestation-citation.ts",
+    "src/lib/phase-engine/cold-start.test.ts",
+    "src/lib/phase-engine/cold-start.ts",
+    "src/lib/phase-engine/dirty-handler.test.ts",
+    "src/lib/phase-engine/dirty-handler.ts",
+    "src/lib/phase-engine/events.ts",
+    "src/lib/phase-engine/fact-format.test.ts",
+    "src/lib/phase-engine/fact-format.ts",
+    "src/lib/phase-engine/fact-phrases.ts",
+    "src/lib/phase-engine/feedback/service.test.ts",
+    "src/lib/phase-engine/feedback/service.ts",
+    "src/lib/phase-engine/judge/index.ts",
+    "src/lib/phase-engine/judge/judge.test.ts",
+    "src/lib/phase-engine/judge/network-register.test.ts",
+    "src/lib/phase-engine/judge/network-register.ts",
+    "src/lib/phase-engine/judge/paced-call.test.ts",
+    "src/lib/phase-engine/judge/paced-call.ts",
+    "src/lib/phase-engine/judge/prompt.ts",
+    "src/lib/phase-engine/judge/provider.ts",
+    "src/lib/phase-engine/judge/rate-limit.test.ts",
+    "src/lib/phase-engine/judge/rate-limit.ts",
+    "src/lib/phase-engine/judge/run-assessment.ts",
+    "src/lib/phase-engine/judge/schema-rejection.ts",
+    "src/lib/phase-engine/judge/schema-retry.test.ts",
+    "src/lib/phase-engine/judge/schema.test.ts",
+    "src/lib/phase-engine/judge/schema.ts",
+    "src/lib/phase-engine/judge/testing.ts",
+    "src/lib/phase-engine/judge/token-pacer.test.ts",
+    "src/lib/phase-engine/judge/token-pacer.ts",
+    "src/lib/phase-engine/manual-signals.test.ts",
+    "src/lib/phase-engine/manual-signals.ts",
+    "src/lib/phase-engine/observability.ts",
+    "src/lib/phase-engine/oversight/health-presentation.test.ts",
+    "src/lib/phase-engine/oversight/health-presentation.ts",
+    "src/lib/phase-engine/oversight/read.test.ts",
+    "src/lib/phase-engine/oversight/read.ts",
+    "src/lib/phase-engine/planter-checkin-db.ts",
+    "src/lib/phase-engine/planter-checkin.test.ts",
+    "src/lib/phase-engine/planter-checkin.ts",
+    "src/lib/phase-engine/rag/chunk.test.ts",
+    "src/lib/phase-engine/rag/chunk.ts",
+    "src/lib/phase-engine/rag/embed.ts",
+    "src/lib/phase-engine/rag/index.ts",
+    "src/lib/phase-engine/rag/retrieve.ts",
+    "src/lib/phase-engine/rubric.test.ts",
+    "src/lib/phase-engine/rubric.ts",
+    "src/lib/phase-engine/signals/attestation-service.test.ts",
+    "src/lib/phase-engine/signals/attestation-service.ts",
+    "src/lib/phase-engine/signals/build-fact-snapshot.test.ts",
+    "src/lib/phase-engine/signals/build-fact-snapshot.ts",
+    "src/lib/phase-engine/signals/evidence.test.ts",
+    "src/lib/phase-engine/signals/evidence.ts",
+    "src/lib/phase-engine/signals/index.ts",
+    "src/lib/phase-engine/signals/milestones.ts",
+    "src/lib/phase-engine/signals/queries.test.ts",
+    "src/lib/phase-engine/signals/queries.ts",
+    "src/lib/phase-engine/signals/testing.ts",
+    "src/lib/phase-engine/signals/trends.ts",
+    "src/lib/phase-engine/signals/types.ts",
+    "src/lib/phase-engine/transitions/declaration-race.test.ts",
+    "src/lib/phase-engine/transitions/index.ts",
+    "src/lib/phase-engine/transitions/service.test.ts",
+    "src/lib/phase-engine/transitions/service.ts",
+    "src/lib/launch/countdown.test.ts",
+    "src/lib/launch/countdown.ts",
+    "src/lib/launch/index.ts",
+    "src/lib/launch/journal.ts",
+    "src/lib/launch/milestone-areas.ts",
+    "src/lib/launch/milestones.test.ts",
+    "src/lib/launch/milestones.ts",
+    "src/lib/launch/outcome.test.ts",
+    "src/lib/launch/outcome.ts",
+    "src/lib/launch/queries.test.ts",
+    "src/lib/launch/queries.ts",
+    "src/lib/launch/readiness-converge-live.test.ts",
+    "src/lib/launch/service.test.ts",
+    "src/lib/launch/service.ts",
+    "src/lib/launch/validation.ts",
+    "src/components/phase-engine/citation-voice.test.ts",
+    "src/components/phase-engine/csf-scorecard.test.ts",
+    "src/components/phase-engine/csf-scorecard.tsx",
+    "src/components/phase-engine/exit-criteria.test.ts",
+    "src/components/phase-engine/exit-criteria.tsx",
+    "src/components/phase-engine/focus-panel.tsx",
+    "src/components/phase-engine/focus-presentation.test.ts",
+    "src/components/phase-engine/focus-presentation.ts",
+    "src/components/phase-engine/insight-card-view.tsx",
+    "src/components/phase-engine/insight-card.tsx",
+    "src/components/phase-engine/insight-feedback.test.ts",
+    "src/components/phase-engine/insight-feedback.tsx",
+    "src/components/phase-engine/milestone-timeline.test.ts",
+    "src/components/phase-engine/milestone-timeline.tsx",
+    "src/components/phase-engine/phase-control.tsx",
+    "src/components/phase-engine/phase-workspace.css",
+    "src/components/phase-engine/phase-workspace.tsx",
+    "src/components/phase-engine/plant-health-card.tsx",
+    "src/components/phase-engine/plant-health-portfolio.tsx",
+    "src/components/phase-engine/planter-checkin-card.test.ts",
+    "src/components/phase-engine/planter-checkin-card.tsx",
+    "src/components/phase-engine/signal-toggles.tsx",
+    "src/components/phase-engine/trends.test.ts",
+    "src/components/phase-engine/trends.tsx",
+    "src/components/launch/launch-date-card.tsx",
+    "src/components/launch/launch-history.tsx",
+    "src/components/launch/launch-journal.tsx",
+    "src/components/launch/launch-status-card.tsx",
+    "src/components/launch/launch-tabs.tsx",
+    "src/components/launch/milestone-board.tsx",
+    "src/components/launch/outcome-form.tsx",
+    "src/components/launch/presentation.test.ts",
+    "src/components/launch/presentation.ts",
+    "src/components/launch/schedule-launch-form.tsx",
+    "src/app/(dashboard)/phase/actions.ts",
+    "src/app/(dashboard)/phase/checkin-actions.ts",
+    "src/app/(dashboard)/phase/feedback-actions.ts",
+    "src/app/(dashboard)/phase/page.tsx",
+    "src/app/(dashboard)/phase/signals-actions.ts",
+    "src/app/(dashboard)/launch/actions.test.ts",
+    "src/app/(dashboard)/launch/actions.ts",
+    "src/app/(dashboard)/launch/page.test.ts",
+    "src/app/(dashboard)/launch/page.tsx",
+    "src/app/api/phase-engine/assess/deadline-truncation-chain.test.ts",
+    "src/app/api/phase-engine/assess/route.test.ts",
+    "src/app/api/phase-engine/assess/route.ts",
+    "src/app/api/phase-engine/assess/throttle.test.ts"
+  ],
+  "alpha_added_files": [
+    "src/app/(dashboard)/phase/checkins/page.tsx",
+    "src/lib/phase-engine/signals/follow-up-task-metrics.ts",
+    "src/lib/phase-engine/signals/follow-up-task-metrics.test.ts"
+  ],
+  "coverage": {
+    "features": 69,
+    "status_counts": {
+      "partial": 2,
+      "implemented-main": 61,
+      "uncertain": 1,
+      "implemented-local-only": 5
+    },
+    "owned_source_files": 138,
+    "alpha_added_files": 3
+  },
+  "open_evidence_gaps": [
+    "Approved global Wiki snapshot found and verified; editorial/currentness review remains false, no live source or import necessary for documentation.",
+    "Deployedassessmentcron cadence,configuredLangfuse/accountdatacontrols unverified",
+    "No runtime/browser/liveDB/provider proof executed during documentation-only audit",
+    "HistoricalGoogleDocreview information supplied by parent; newer repository disposition takes precedence pending SME approval"
+  ],
+  "reference_bootstrap_snapshot": {
+    "source_path": "/Users/sebastian/Documents/Codex/2026-09-30/task/evidence/assessment-ops/bootstrap-dry-run",
+    "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
+    "manifest_sha256": "b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b",
+    "payload_sha256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+    "scope": "published global reference content only",
+    "article_count": 96,
+    "section_count": 21,
+    "template_count": 7,
+    "mdx_compile_failures": 0,
+    "semantic_editorial_review": false,
+    "provider_calls": 0,
+    "shared_writes": 0,
+    "vector_model_provenance": "not recorded",
+    "expected_chunks": 547,
+    "stored_chunks": 572,
+    "matching_chunks": 431,
+    "mismatched_chunks": 114,
+    "missing_chunks": 2,
+    "obsolete_chunks": 27,
+    "packaged_evidence_path": "docs/evidence/reference-bootstrap/"
+  }
+}

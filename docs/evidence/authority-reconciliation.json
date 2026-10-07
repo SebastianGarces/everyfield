@@ -1,0 +1,249 @@
+{
+  "scope": "ADR-010 and mechanically linked accepted PD-001/PD-003 target copies only. No new product or architecture ruling adopted.",
+  "modified_existing_paths": [
+    "everyfield-build-explorer.html",
+    "docs/database-map.md",
+    "docs/capability-preservation.md",
+    "docs/evry-design.md",
+    "docs/evidence/capabilities.json",
+    "docs/evidence/acceptance-registry.json",
+    "docs/architecture/decisions.md",
+    "docs/modules/meetings-tasks-teams.md",
+    "docs/modules/identity-people.md"
+  ],
+  "astra_reports_preserved": [
+    "docs/reviews/astra-holistic-architecture-agenda.md",
+    "docs/reviews/astra-holistic-planning-agenda.md",
+    "docs/reviews/astra-holistic-product-agenda.md",
+    "docs/reviews/astra-holistic-interaction-agenda.md",
+    "docs/reviews/astra-implementation-readiness-review.md"
+  ],
+  "historical_audits_preserved": true,
+  "features": 496,
+  "future_acceptance_gates": 720,
+  "changed_feature_fields": [
+    [
+      "PPL-014",
+      "decision"
+    ]
+  ],
+  "changed_future_gate_fields": [
+    [
+      "AC-EVR-001--EVR-001",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-002--EVR-002",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-003--EVR-003",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-004--EVR-004",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-005--EVR-005",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-006--EVR-006",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-007--EVR-007",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-008--EVR-008",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-009--EVR-009",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-010--EVR-010",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-011--EVR-011",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-012--EVR-012",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-013--EVR-013",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-014--EVR-014",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-015--EVR-015",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-015-MEETING-INVITE--EVR-015",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-016--EVR-016",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-017--EVR-017",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-018--EVR-018",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-019--EVR-019",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-020--EVR-020",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-021--EVR-021",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-022--EVR-022",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-023--EVR-023",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-024--EVR-024",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-025--EVR-025",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-026--EVR-026",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-027--EVR-027",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-028--EVR-028",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-029--EVR-029",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-030--EVR-030",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-031--EVR-031",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-032--EVR-032",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-033--EVR-033",
+      "positive_obligation"
+    ],
+    [
+      "AC-EVR-034--EVR-034",
+      "positive_obligation"
+    ]
+  ],
+  "all_five_accepted_rulings_unchanged": true,
+  "unresolved_decision_review_entries": 20,
+  "css_js_and_nonjson_html_unchanged": true,
+  "updater_serialization_note": "Documented refresh reserializes canonical-progress JSON with indentation; parsed values are unchanged.",
+  "graph_models_and_relationships_unchanged": true,
+  "embedded_feature_and_acceptance_data_match_canonical": true,
+  "source_hashes_and_fingerprint_verified": true,
+  "canonical_progress_equal_unchanged_revision": 0,
+  "canonical_all86_not_started": true,
+  "all_markdown_file_links_resolve": true,
+  "v2_hashes_checked_unchanged": 3960,
+  "html_sha256": "4d2dcbd633bd5fe8b72fb4617262db61f6739539c1677720b9559089a54c6172",
+  "html_bytes": 5997943,
+  "updater_commands": [
+    "python3 docs/update-build-explorer.py --root . --refresh-html",
+    "python3 docs/update-build-explorer.py --root . --check"
+  ],
+  "focused_offline_browser_results": {
+    "checks": [
+      {
+        "name": "coverage unchanged",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "all five accepted rulings and twenty unresolved entries retained",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "35 canonical gates no longer reopen accepted authority",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "Evry gate panel presents accepted reviewed-write authority",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "commitment target copy preserves advanced stage",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "private-check-in exclusion and native preservation retained",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "whole-plan decisions remain visible without build-readiness claim",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "canonical all86notstarted and no local overrides",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "no browser page or console errors",
+        "result": "pass",
+        "detail": null
+      },
+      {
+        "name": "no outbound runtime requests",
+        "result": "pass",
+        "detail": null
+      }
+    ],
+    "pageErrors": [],
+    "consoleErrors": [],
+    "outboundRequests": []
+  },
+  "added_evidence_path": "docs/evidence/authority-reconciliation.json",
+  "supersedes_html_sha256": "fd9f9066183994689d7f6e82dafffd50e751e5270e9b1dcd134fcd3723a0e808",
+  "prior_qa_evidence": "docs/evidence/build-explorer-evidence.json preserves the original delivery review; this record verifies the subsequent narrow factual reconciliation."
+}
