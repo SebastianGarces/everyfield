@@ -21,53 +21,54 @@
   --ef-green: #1CE362;
 
   /* neutrals (cool grey). Cream is for brand and marketing, not app surfaces */
-  --ef-ink-2: #3A3D42;
+  --ef-ink-2: #343843;
   --ef-text: #181D19;
-  --ef-text-2: #5F6268;
-  --ef-text-3: #8E9197;
-  --ef-canvas: #E7E8EA;
-  --ef-frame: #F3F3F4;
-  --ef-surface: #F9F9FA;
-  --ef-surface-2: #EEEEF0;
+  --ef-text-2: #5B6170;
+  --ef-text-3: #8A909C;
+  --ef-canvas: #E9ECF0;
+  --ef-frame: #F2F4F7;
+  --ef-surface: #FAFBFC;
+  --ef-surface-2: #EDF0F4;
   --ef-surface-raised: #FFFFFF;
-  --ef-line: rgba(24, 29, 25, .08);
-  --ef-line-2: rgba(24, 29, 25, .14);
+  --ef-line: rgba(22, 30, 46, .075);
+  --ef-line-2: rgba(22, 30, 46, .13);
 
   /* hues: 600 text/solid, 500 solid, 300 hatch, 100 tint, 50 wash */
-  /* Data hues, muted. 600 text, 500 solid, 300 hatch, 100 tint, 50 wash.
+  /* Data hues: clean and mid-saturated, with clear light tints.
+     600 text, 500 solid, 300 hatch, 100 tint, 50 wash.
      The brand green above is for the logo and brand moments only. */
-  --ef-green-700: #2E6B4A;
-  --ef-green-600: #3B8259;
-  --ef-green-500: #5A9E76;
-  --ef-green-300: #A8CDB6;
-  --ef-green-100: #E1EEE5;
-  --ef-green-50:  #F0F6F2;
+  --ef-green-700: #1E7A45;
+  --ef-green-600: #2A9657;
+  --ef-green-500: #44B46E;
+  --ef-green-300: #A3DBB6;
+  --ef-green-100: #E1F4E7;
+  --ef-green-50:  #F1FAF4;
 
-  --ef-blue-600: #3D5598;
-  --ef-blue-500: #5671B5;
-  --ef-blue-300: #AEBBDD;
-  --ef-blue-100: #E3E8F4;
-  --ef-blue-50:  #F1F3F9;
+  --ef-blue-600: #3450D4;
+  --ef-blue-500: #5672EA;
+  --ef-blue-300: #A9BAF6;
+  --ef-blue-100: #E5EAFD;
+  --ef-blue-50:  #F2F5FE;
 
-  --ef-magenta-600: #A24B66;
-  --ef-magenta-500: #C06A83;
-  --ef-magenta-300: #E2B5C2;
-  --ef-magenta-100: #F5E6EA;
-  --ef-magenta-50:  #FAF2F4;
+  --ef-magenta-600: #C8452F;
+  --ef-magenta-500: #E2634C;
+  --ef-magenta-300: #F2B4A7;
+  --ef-magenta-100: #FCE8E3;
+  --ef-magenta-50:  #FEF4F1;
 
-  --ef-amber-600: #9A6629;
-  --ef-amber-500: #C98F4A;
-  --ef-amber-300: #E7C99F;
-  --ef-amber-100: #F5EBDC;
-  --ef-amber-50:  #FAF5EE;
+  --ef-amber-600: #B26F12;
+  --ef-amber-500: #E9A23B;
+  --ef-amber-300: #F4D290;
+  --ef-amber-100: #FCF0D5;
+  --ef-amber-50:  #FEF8EB;
 
-  --ef-violet-600: #66609A;
-  --ef-violet-500: #8780B5;
-  --ef-violet-100: #ECEAF4;
+  --ef-violet-600: #7357D1;
+  --ef-violet-500: #9A82EB;
+  --ef-violet-100: #EEE9FD;
 
-  --ef-teal-600: #3C7C7A;
-  --ef-teal-500: #5E9C99;
-  --ef-teal-100: #E2EEED;
+  --ef-teal-600: #1C857F;
+  --ef-teal-500: #35AAA3;
+  --ef-teal-100: #DCF3F1;
 
   /* semantic roles */
   --ef-positive: var(--ef-green-600);
@@ -116,8 +117,8 @@
   --ef-shadow-nav-active: 0 1px 2px rgba(24,29,25,.14), 0 2px 5px -2px rgba(24,29,25,.16);
 
   /* hatch patterns: planned / estimated values */
-  --ef-hatch-w: 2px;
-  --ef-hatch-gap: 5px;
+  --ef-hatch-w: 1.6px;
+  --ef-hatch-gap: 5.5px;
 }
 
 /* =====================================================================
@@ -154,7 +155,13 @@ button { font: inherit; color: inherit; }
 
 /* hatch utility. set --hatch to a color */
 .hatch {
-  background-image: repeating-linear-gradient(-55deg, var(--hatch, var(--ef-blue-300)) 0 var(--ef-hatch-w), transparent var(--ef-hatch-w) var(--ef-hatch-gap));
+  /* 45deg lines with a soft 1px edge so they do not stair-step, over a light tint of the same color */
+  background-color: color-mix(in srgb, var(--hatch, var(--ef-blue-300)) 16%, transparent);
+  background-image: repeating-linear-gradient(-45deg,
+    var(--hatch, var(--ef-blue-300)) 0,
+    var(--hatch, var(--ef-blue-300)) var(--ef-hatch-w),
+    transparent calc(var(--ef-hatch-w) + 1px),
+    transparent var(--ef-hatch-gap));
 }
 
 /* =====================================================================
@@ -196,7 +203,7 @@ button { font: inherit; color: inherit; }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
 .phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
-.phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(90,158,118,.22); }
+.phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(68,180,110,.22); }
 .top-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
 .top-icon:hover { background: var(--ef-surface-2); }
 .top-icon i { font-size: 20px; }
@@ -357,7 +364,7 @@ button { font: inherit; color: inherit; }
   background: linear-gradient(180deg, var(--ef-amber-50), var(--ef-amber-100));
   border-color: rgba(238,139,44,.18); box-shadow: none; border-radius: var(--ef-radius-lg); padding: 20px 22px;
 }
-.card[data-variant="callout"][data-tone="green"] { background: linear-gradient(180deg, var(--ef-green-50), var(--ef-green-100)); border-color: rgba(90,158,118,.2); }
+.card[data-variant="callout"][data-tone="green"] { background: linear-gradient(180deg, var(--ef-green-50), var(--ef-green-100)); border-color: rgba(68,180,110,.2); }
 .card[data-variant="callout"][data-tone="blue"] { background: linear-gradient(180deg, var(--ef-blue-50), var(--ef-blue-100)); border-color: rgba(47,85,228,.14); }
 .card[data-size="sm"] { padding: 20px 22px; border-radius: var(--ef-radius-lg); }
 .card[data-pad="none"] { padding: 0; }
@@ -412,13 +419,13 @@ button { font: inherit; color: inherit; }
   opacity: .38; mix-blend-mode: overlay;
 }
 /* field: forest, sage, sand */
-.insight[data-tone="field"] { --g-base: #1F2B24; --g1: #18221C; --g2: #457A5C; --g3: #D4BE95; --g4: #6F9C80; }
+.insight[data-tone="field"] { --g-base: #15281D; --g1: #12231A; --g2: #2E8F55; --g3: #EBD7A4; --g4: #6CC48E; }
 /* dusk: navy, slate blue, peach */
-.insight[data-tone="dusk"]  { --g-base: #1E2741; --g1: #1A2240; --g2: #4D63A0; --g3: #E2A982; --g4: #8EA0CB; }
+.insight[data-tone="dusk"]  { --g-base: #182352; --g1: #141E4A; --g2: #3D5BD9; --g3: #F4B48A; --g4: #9DB2F5; }
 /* ember: plum, rose, apricot */
-.insight[data-tone="ember"] { --g-base: #2E1C28; --g1: #2B1826; --g2: #8C4767; --g3: #E0A27A; --g4: #B9667F; }
+.insight[data-tone="ember"] { --g-base: #36151E; --g1: #301219; --g2: #C9493A; --g3: #F5B47E; --g4: #E2839A; }
 /* ocean: deep teal, sea, mint */
-.insight[data-tone="ocean"] { --g-base: #17292D; --g1: #142428; --g2: #346E73; --g3: #9CCBB4; --g4: #5C9993; }
+.insight[data-tone="ocean"] { --g-base: #0F2A30; --g1: #0C242A; --g2: #1E8C86; --g3: #A6E3C9; --g4: #5BB9D1; }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
@@ -456,7 +463,7 @@ button { font: inherit; color: inherit; }
 .btn i { font-size: 18px; }
 .btn[data-variant="primary"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
 .btn[data-variant="primary"]:hover { background: #262C27; }
-.btn[data-variant="brand"] { background: var(--ef-green-600); color: #fff; box-shadow: 0 6px 14px -8px rgba(46,107,74,.7); }
+.btn[data-variant="brand"] { background: var(--ef-green-600); color: #fff; box-shadow: 0 4px 10px -6px rgba(30,122,69,.6); }
 .btn[data-variant="secondary"] { background: var(--ef-surface-2); color: var(--ef-ink); }
 .btn[data-variant="secondary"]:hover { background: #E6E6E9; }
 .btn[data-variant="outline"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1px var(--ef-line-2); }
@@ -517,8 +524,8 @@ button { font: inherit; color: inherit; }
 .input input { border: 0; outline: 0; background: transparent; font: inherit; flex: 1; min-width: 0; color: inherit; }
 .input input::placeholder, textarea::placeholder { color: var(--ef-text-3); }
 .input i { color: var(--ef-text-3); }
-.input:focus-within, .input[data-state="focus"] { box-shadow: 0 0 0 1px var(--ef-ink), 0 0 0 4px rgba(86,113,181,.2); }
-.input[data-invalid="true"] { box-shadow: 0 0 0 1px var(--ef-magenta-500), 0 0 0 4px rgba(219,69,146,.15); }
+.input:focus-within, .input[data-state="focus"] { box-shadow: 0 0 0 1px var(--ef-ink), 0 0 0 4px rgba(86,114,234,.2); }
+.input[data-invalid="true"] { box-shadow: 0 0 0 1px var(--ef-magenta-500), 0 0 0 4px rgba(226,99,76,.15); }
 .input.select { cursor: pointer; justify-content: space-between; }
 textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: vertical; line-height: 1.5; }
 .kbd {
@@ -637,7 +644,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .progress { height: 8px; border-radius: 99px; background: var(--ef-surface-2); overflow: hidden; }
 .progress > span { display: block; height: 100%; border-radius: 99px; background: var(--fill, var(--ef-green-500)); }
 .progress[data-size="sm"] { height: 6px; }
-.meter-hatch { height: 10px; border-radius: 99px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; position: relative; overflow: hidden; }
+.meter-hatch { height: 12px; border-radius: 99px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; position: relative; overflow: hidden; }
 .meter-hatch > span { position: absolute; inset: 2px auto 2px 2px; border-radius: 99px; }
 .ring { --p: 60; --c: var(--ef-green-500); width: 56px; height: 56px; border-radius: 50%; flex: none;
   background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--ef-surface-2) 0); display: grid; place-items: center; }
@@ -785,7 +792,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .pcard .foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .stage-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--tint); color: var(--tone); }
 .stage-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.st-prospect { --tint: #ECEDEF; --tone: #6B6E74; }
+.st-prospect { --tint: #EDF0F4; --tone: #636A78; }
 .st-attendee { --tint: var(--ef-blue-100); --tone: var(--ef-blue-600); }
 .st-following { --tint: var(--ef-amber-100); --tone: var(--ef-amber-600); }
 .st-interviewed { --tint: var(--ef-violet-100); --tone: var(--ef-violet-600); }
@@ -1024,15 +1031,15 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
   <div class="doc-section">
     <div class="doc-h"><h2>Data hues and roles</h2><code>--ef-{hue}-{600|500|300|100|50}</code></div>
-    <p class="doc-note">Every hue is muted and has one job. Sage green means healthy or committed. Slate blue means measured or actual. Rose means risk or a gap. Ochre means attention or waiting. Lavender and teal only label categories, like pipeline stages. Token names stay generic (green, blue, magenta, amber) so a hue can change without renaming.</p>
+    <p class="doc-note">Every hue has one job. Green means healthy or committed. Blue means measured or actual. Coral means risk or a gap. Amber means attention or waiting. Lavender and teal only label categories, like pipeline stages. Tints are light and clean, never grey. Token names stay generic (green, blue, magenta, amber) so a hue can change without renaming.</p>
     <div class="grid g-3">
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Sage</span>healthy · committed · positive</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Green</span>healthy · committed · positive</div>
         <div class="ramp"><div style="background:var(--ef-green-700);color:#fff">700</div><div style="background:var(--ef-green-500)">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Slate blue</span>measured · actual · info</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Blue</span>measured · actual · info</div>
         <div class="ramp"><div style="background:var(--ef-blue-600);color:#fff">600</div><div style="background:var(--ef-blue-500);color:#fff">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Rose</span>risk · gap · overdue</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Coral</span>risk · gap · overdue</div>
         <div class="ramp"><div style="background:var(--ef-magenta-600);color:#fff">600</div><div style="background:var(--ef-magenta-500);color:#fff">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Ochre</span>attention · waiting · draft</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Amber</span>attention · waiting · draft</div>
         <div class="ramp"><div style="background:var(--ef-amber-600);color:#fff">600</div><div style="background:var(--ef-amber-500)">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Lavender</span><span class="tag tone-teal">Teal</span>category only</div>
         <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:#fff">v600</div><div style="background:var(--ef-violet-500);color:#fff">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:#fff">t600</div><div style="background:var(--ef-teal-500)">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
