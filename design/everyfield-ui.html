@@ -34,41 +34,44 @@
   --ef-line-2: rgba(24, 29, 25, .14);
 
   /* hues: 600 text/solid, 500 solid, 300 hatch, 100 tint, 50 wash */
-  --ef-green-700: #0B7A36;
-  --ef-green-600: #0FA347;
-  --ef-green-500: #1CE362;
-  --ef-green-300: #8DEFAE;
-  --ef-green-100: #DDF8E5;
-  --ef-green-50:  #EFFBF2;
+  /* Data hues, muted. 600 text, 500 solid, 300 hatch, 100 tint, 50 wash.
+     The brand green above is for the logo and brand moments only. */
+  --ef-green-700: #2E6B4A;
+  --ef-green-600: #3B8259;
+  --ef-green-500: #5A9E76;
+  --ef-green-300: #A8CDB6;
+  --ef-green-100: #E1EEE5;
+  --ef-green-50:  #F0F6F2;
 
-  --ef-blue-600: #2443C9;
-  --ef-blue-500: #2F55E4;
-  --ef-blue-300: #A3B5F3;
-  --ef-blue-100: #E4EAFC;
-  --ef-blue-50:  #F1F4FE;
+  --ef-blue-600: #3D5598;
+  --ef-blue-500: #5671B5;
+  --ef-blue-300: #AEBBDD;
+  --ef-blue-100: #E3E8F4;
+  --ef-blue-50:  #F1F3F9;
 
-  --ef-magenta-600: #C02A78;
-  --ef-magenta-500: #DB4592;
-  --ef-magenta-300: #EFA0C7;
-  --ef-magenta-100: #FBE3EF;
-  --ef-magenta-50:  #FDF1F7;
+  --ef-magenta-600: #A24B66;
+  --ef-magenta-500: #C06A83;
+  --ef-magenta-300: #E2B5C2;
+  --ef-magenta-100: #F5E6EA;
+  --ef-magenta-50:  #FAF2F4;
 
-  --ef-amber-600: #C46A12;
-  --ef-amber-500: #EE8B2C;
-  --ef-amber-300: #F6C38F;
-  --ef-amber-100: #FCEBD6;
-  --ef-amber-50:  #FEF6EC;
+  --ef-amber-600: #9A6629;
+  --ef-amber-500: #C98F4A;
+  --ef-amber-300: #E7C99F;
+  --ef-amber-100: #F5EBDC;
+  --ef-amber-50:  #FAF5EE;
 
-  --ef-violet-600: #6043D0;
-  --ef-violet-500: #7B5CE6;
-  --ef-violet-100: #ECE6FC;
+  --ef-violet-600: #66609A;
+  --ef-violet-500: #8780B5;
+  --ef-violet-100: #ECEAF4;
 
-  --ef-teal-600: #0E8784;
-  --ef-teal-500: #17A9A5;
-  --ef-teal-100: #DCF4F3;
+  --ef-teal-600: #3C7C7A;
+  --ef-teal-500: #5E9C99;
+  --ef-teal-100: #E2EEED;
 
   /* semantic roles */
   --ef-positive: var(--ef-green-600);
+  --ef-accent: var(--ef-green-500);
   --ef-measured: var(--ef-blue-500);
   --ef-risk: var(--ef-magenta-500);
   --ef-attention: var(--ef-amber-500);
@@ -120,7 +123,7 @@ body {
   font-family: var(--ef-font-body);
   font-size: var(--ef-text-md);
   color: var(--ef-text);
-  background: var(--ef-canvas);
+  background: var(--ef-frame);
   -webkit-font-smoothing: antialiased;
   line-height: 1.45;
 }
@@ -152,11 +155,8 @@ button { font: inherit; color: inherit; }
    3. APP SHELL  (React: <AppShell>, <Sidebar>, <PageHeader>)
    ===================================================================== */
 .frame {
-  margin: 20px;
-  min-height: calc(100vh - 40px);
+  min-height: 100vh;
   background: var(--ef-frame);
-  border-radius: var(--ef-radius-frame);
-  box-shadow: 0 0 0 1px rgba(255,255,255,.7) inset, 0 30px 60px -30px rgba(24,29,25,.25);
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   grid-template-rows: auto 1fr;
@@ -170,7 +170,6 @@ button { font: inherit; color: inherit; }
   padding: 22px 24px 8px 22px;
   position: sticky; top: 0; z-index: 20;
   background: linear-gradient(var(--ef-frame) 78%, rgba(243,243,244,0));
-  border-radius: var(--ef-radius-frame) var(--ef-radius-frame) 0 0;
 }
 .topbar > * { white-space: nowrap; flex: none; }
 .topbar .topnav { flex: 0 1 auto; }
@@ -189,18 +188,19 @@ button { font: inherit; color: inherit; }
 }
 .topnav a:hover { background: var(--ef-surface-2); }
 .topnav a[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
-.topnav a[aria-current="page"]::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green); }
+
 .top-cluster { display: flex; align-items: center; gap: 6px; height: 60px; padding: 0 8px; }
 .phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
-.phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(28,227,98,.25); }
+.phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(90,158,118,.22); }
 .top-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
 .top-icon:hover { background: var(--ef-surface-2); }
 .top-icon i { font-size: 20px; }
 .top-icon .ping { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: var(--ef-amber-500); box-shadow: 0 0 0 2px #fff; }
-.evry-chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px 0 8px; border-radius: 999px; cursor: pointer; color: #fff; font-weight: 500;
-  background: radial-gradient(120% 160% at 100% 100%, rgba(28,227,98,.6), transparent 60%), var(--ef-ink); box-shadow: var(--ef-shadow-pill); }
-.evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.12); }
-.evry-chip .spark i { color: var(--ef-green); font-size: 16px; }
+.evry-chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px 0 8px; border-radius: 999px; cursor: pointer; color: var(--ef-ink); font-weight: 500;
+  background: var(--ef-surface-2); }
+.evry-chip:hover { background: #E6E6E9; }
+.evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-raised); box-shadow: 0 1px 2px rgba(24,29,25,.08); }
+.evry-chip .spark i { color: var(--ef-ink); font-size: 16px; }
 .user-pill { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px 0 8px; cursor: pointer; }
 .user-pill .meta { line-height: 1.2; }
 .user-pill .meta b { font-weight: 600; display: block; font-size: 15px; }
@@ -220,12 +220,12 @@ button { font: inherit; color: inherit; }
 }
 
 /* ---- Icon rail  (<Rail>, <Rail.Group>, <Rail.Item>) ---- */
-.rail { padding: 18px 0 20px 22px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 92px; height: calc(100vh - 132px); }
+.rail { padding: 18px 0 20px 22px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 92px; height: calc(100vh - 112px); }
 .rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
 .rail-item:hover { background: var(--ef-surface-2); }
 .rail-item i { font-size: 20px; }
-.rail-item[aria-current="page"] { background: var(--ef-ink); color: var(--ef-green); box-shadow: var(--ef-shadow-pill); width: 52px; height: 52px; }
+.rail-item[aria-current="page"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); width: 52px; height: 52px; }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
   background: var(--ef-ink); color: #fff; font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 30; }
 .rail-item:hover .rail-tip { opacity: 1; transform: translateY(-50%); }
@@ -241,7 +241,7 @@ button { font: inherit; color: inherit; }
 .doc-dock a { color: rgba(255,255,255,.8); height: 38px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .doc-dock a i { font-size: 16px; }
 .doc-dock a:hover { background: rgba(255,255,255,.08); }
-.doc-dock a[aria-current="page"] { background: var(--ef-green); color: var(--ef-ink); }
+.doc-dock a[aria-current="page"] { background: #fff; color: var(--ef-ink); }
 
 /* ---- Sidebar (alternative shell, shown on the Components page) ---- */
 .sidebar {
@@ -274,7 +274,7 @@ button { font: inherit; color: inherit; }
 .nav-item[aria-current="page"] {
   background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill);
 }
-.nav-item[aria-current="page"] i { color: var(--ef-green); }
+.nav-item[aria-current="page"] i { color: #fff; }
 .nav-item .count {
   margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
   background: var(--ef-amber-500); color: #fff; font-size: 12px; font-weight: 600;
@@ -299,14 +299,14 @@ button { font: inherit; color: inherit; }
 .evry-launch {
   display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 10px 0 12px;
   border-radius: var(--ef-radius-md); cursor: pointer; color: #fff;
-  background: radial-gradient(120% 140% at 100% 100%, rgba(28,227,98,.55), transparent 60%), var(--ef-ink);
+  background: var(--ef-ink);
   box-shadow: var(--ef-shadow-pill); margin-top: 8px;
 }
 .evry-launch .spark {
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
   background: rgba(255,255,255,.12);
 }
-.evry-launch .spark i { color: var(--ef-green); font-size: 17px; }
+.evry-launch .spark i { color: #fff; font-size: 17px; }
 .evry-launch .kbd { background: rgba(255,255,255,.14); color: rgba(255,255,255,.8); box-shadow: none; }
 
 .main { padding: 18px 26px 96px 10px; min-width: 0; }
@@ -354,7 +354,7 @@ button { font: inherit; color: inherit; }
   background: linear-gradient(180deg, var(--ef-amber-50), var(--ef-amber-100));
   border-color: rgba(238,139,44,.18); box-shadow: none; border-radius: var(--ef-radius-lg); padding: 20px 22px;
 }
-.card[data-variant="callout"][data-tone="green"] { background: linear-gradient(180deg, var(--ef-green-50), var(--ef-green-100)); border-color: rgba(28,227,98,.2); }
+.card[data-variant="callout"][data-tone="green"] { background: linear-gradient(180deg, var(--ef-green-50), var(--ef-green-100)); border-color: rgba(90,158,118,.2); }
 .card[data-variant="callout"][data-tone="blue"] { background: linear-gradient(180deg, var(--ef-blue-50), var(--ef-blue-100)); border-color: rgba(47,85,228,.14); }
 .card[data-size="sm"] { padding: 20px 22px; border-radius: var(--ef-radius-lg); }
 .card[data-pad="none"] { padding: 0; }
@@ -384,80 +384,63 @@ button { font: inherit; color: inherit; }
 .tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
 .tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
 
-/* ---- InsightCard  (<InsightCard tone="field|dusk|ember|ocean">) : the gradient card ---- */
+/* ---- InsightCard  (<InsightCard tone="field|dusk|ember|ocean">) : the gradient card ----
+   Three layers: a base color, a heavily blurred mesh of color blobs (::before),
+   and film grain (::after). Tones set the four blob colors. */
 .insight {
   position: relative; overflow: hidden; isolation: isolate;
   border-radius: var(--ef-radius-card); padding: 28px 30px; color: #fff;
   display: flex; flex-direction: column; min-height: 300px;
-  box-shadow: 0 20px 40px -24px rgba(24,29,25,.55);
+  background: var(--g-base);
+  box-shadow: 0 18px 36px -24px rgba(24,29,25,.45);
 }
-.insight::before, .insight::after { content: ""; position: absolute; pointer-events: none; z-index: -1; }
-/* ornament 1: soft disc */
 .insight::before {
-  width: 360px; height: 360px; border-radius: 50%; right: -70px; bottom: -170px;
-  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.38), rgba(255,255,255,.05) 60%, transparent 70%);
-  border: 1px solid rgba(255,255,255,.18);
+  content: ""; position: absolute; inset: -30%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(34% 38% at 26% 28%, var(--g1) 0%, transparent 72%),
+    radial-gradient(36% 40% at 66% 34%, var(--g2) 0%, transparent 72%),
+    radial-gradient(40% 40% at 70% 72%, var(--g3) 0%, transparent 72%),
+    radial-gradient(34% 34% at 34% 74%, var(--g4) 0%, transparent 72%);
+  filter: blur(56px) saturate(.95);
 }
-/* ornament 2: outlined tab at the edge */
 .insight::after {
-  width: 90px; height: 150px; right: -44px; bottom: 40px; border-radius: 24px 0 0 24px;
-  border: 1.5px solid rgba(255,255,255,.4); border-right: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0));
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: .38; mix-blend-mode: overlay;
 }
-.insight[data-tone="dusk"] {
-  background:
-    radial-gradient(70% 60% at 100% 100%, #F6A86B 0%, rgba(246,168,107,0) 70%),
-    radial-gradient(60% 50% at 75% 75%, rgba(250,226,190,.85) 0%, rgba(250,226,190,0) 70%),
-    linear-gradient(165deg, #121C42 0%, #22398A 38%, #5F7FC8 66%, #B9C6E3 88%);
-}
-.insight[data-tone="field"] {
-  background:
-    radial-gradient(70% 55% at 100% 100%, rgba(246,240,233,.95) 0%, rgba(246,240,233,0) 62%),
-    radial-gradient(60% 60% at 80% 70%, rgba(28,227,98,.9) 0%, rgba(28,227,98,0) 70%),
-    linear-gradient(160deg, #0E1410 0%, #142A1B 35%, #136B37 70%, #3FD07A 100%);
-}
-.insight[data-tone="ember"] {
-  background:
-    radial-gradient(70% 60% at 100% 100%, #F7BE77 0%, rgba(247,190,119,0) 70%),
-    radial-gradient(55% 50% at 70% 75%, rgba(255,214,190,.7) 0%, rgba(255,214,190,0) 70%),
-    linear-gradient(160deg, #24101F 0%, #5E1847 36%, #B83479 66%, #EE8B6E 100%);
-}
-.insight[data-tone="ocean"] {
-  background:
-    radial-gradient(70% 60% at 100% 100%, rgba(141,239,174,.95) 0%, rgba(141,239,174,0) 68%),
-    radial-gradient(55% 50% at 70% 75%, rgba(220,244,243,.7) 0%, rgba(220,244,243,0) 70%),
-    linear-gradient(160deg, #0D1A24 0%, #0F3B4B 38%, #138C8A 70%, #6FD7B9 100%);
-}
-.insight[data-tone="field"] .watermark {
-  position: absolute; right: -40px; top: 34px; width: 260px; opacity: .08; z-index: -1;
-}
+/* field: forest, sage, sand */
+.insight[data-tone="field"] { --g-base: #1F2B24; --g1: #18221C; --g2: #457A5C; --g3: #D4BE95; --g4: #6F9C80; }
+/* dusk: navy, slate blue, peach */
+.insight[data-tone="dusk"]  { --g-base: #1E2741; --g1: #1A2240; --g2: #4D63A0; --g3: #E2A982; --g4: #8EA0CB; }
+/* ember: plum, rose, apricot */
+.insight[data-tone="ember"] { --g-base: #2E1C28; --g1: #2B1826; --g2: #8C4767; --g3: #E0A27A; --g4: #B9667F; }
+/* ocean: deep teal, sea, mint */
+.insight[data-tone="ocean"] { --g-base: #17292D; --g1: #142428; --g2: #346E73; --g3: #9CCBB4; --g4: #5C9993; }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
   border-radius: 999px; font-size: var(--ef-text-sm); font-weight: 500;
-  background: rgba(255,255,255,.12); box-shadow: 0 0 0 1px rgba(255,255,255,.22) inset;
+  background: rgba(255,255,255,.12); box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset;
   backdrop-filter: blur(8px);
 }
 .insight-pill i { font-size: 15px; }
-.insight-count { font-size: var(--ef-text-sm); color: rgba(255,255,255,.75); }
+.insight-count { font-size: var(--ef-text-sm); color: rgba(255,255,255,.72); }
 .insight-metric { display: flex; align-items: flex-end; gap: 14px; margin-top: 26px; }
 .insight-metric .num { font-size: 64px; line-height: .95; font-weight: 500; }
 .insight-metric .unit { font-size: var(--ef-text-md); color: rgba(255,255,255,.75); max-width: 170px; line-height: 1.3; padding-bottom: 4px; }
-.insight-title { font-family: var(--ef-font-display); font-size: 27px; line-height: 1.18; font-weight: 500; margin-top: 18px; letter-spacing: -0.02em; max-width: 420px; }
-.insight-text { color: rgba(255,255,255,.78); margin-top: 12px; max-width: 360px; font-size: 15px; }
+.insight-title { font-family: var(--ef-font-display); font-size: 27px; line-height: 1.18; font-weight: 500; margin-top: 18px; letter-spacing: -0.02em; max-width: 440px; }
+.insight-text { color: rgba(255,255,255,.78); margin-top: 12px; max-width: 420px; font-size: 15px; }
 .insight-footer { margin-top: auto; padding-top: 26px; display: flex; gap: 10px; align-items: center; }
 .insight[data-size="sm"] { min-height: 0; padding: 22px 24px; }
 .insight[data-size="sm"] .insight-metric .num { font-size: 46px; }
 .insight[data-size="sm"] .insight-title { font-size: 21px; }
-.insight[data-size="sm"]::before { width: 260px; height: 260px; bottom: -140px; }
-.insight[data-size="sm"]::after { height: 110px; bottom: -40px; right: -36px; }
-.insight .btn[data-variant="light"] { box-shadow: 0 8px 18px -10px rgba(0,0,0,.6); }
+.insight .btn[data-variant="light"] { box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
 .insight-dots { display: flex; gap: 6px; }
 .insight-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.35); }
 .insight-dots span[aria-current] { background: #fff; width: 18px; border-radius: 6px; }
 .insight .spark { display: flex; align-items: flex-end; gap: 6px; height: 54px; margin-top: 20px; max-width: 62%; }
-.insight .spark span { flex: 1; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.28); }
-.insight .spark span:last-child { background: #fff; }
+.insight .spark span { flex: 1; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.24); }
+.insight .spark span:last-child { background: rgba(255,255,255,.9); }
 
 /* ---- Button  (<Button variant size>, <IconButton>) ---- */
 .btn {
@@ -470,7 +453,7 @@ button { font: inherit; color: inherit; }
 .btn i { font-size: 18px; }
 .btn[data-variant="primary"] { background: var(--ef-ink); color: #fff; box-shadow: var(--ef-shadow-pill); }
 .btn[data-variant="primary"]:hover { background: #262C27; }
-.btn[data-variant="brand"] { background: var(--ef-green); color: var(--ef-ink); box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 6px 14px -6px rgba(15,163,71,.7); }
+.btn[data-variant="brand"] { background: var(--ef-green-600); color: #fff; box-shadow: 0 6px 14px -8px rgba(46,107,74,.7); }
 .btn[data-variant="secondary"] { background: var(--ef-surface-2); color: var(--ef-ink); }
 .btn[data-variant="secondary"]:hover { background: #E6E6E9; }
 .btn[data-variant="outline"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1px var(--ef-line-2); }
@@ -531,7 +514,7 @@ button { font: inherit; color: inherit; }
 .input input { border: 0; outline: 0; background: transparent; font: inherit; flex: 1; min-width: 0; color: inherit; }
 .input input::placeholder, textarea::placeholder { color: var(--ef-text-3); }
 .input i { color: var(--ef-text-3); }
-.input:focus-within, .input[data-state="focus"] { box-shadow: 0 0 0 1px var(--ef-ink), 0 0 0 4px rgba(28,227,98,.28); }
+.input:focus-within, .input[data-state="focus"] { box-shadow: 0 0 0 1px var(--ef-ink), 0 0 0 4px rgba(86,113,181,.2); }
 .input[data-invalid="true"] { box-shadow: 0 0 0 1px var(--ef-magenta-500), 0 0 0 4px rgba(219,69,146,.15); }
 .input.select { cursor: pointer; justify-content: space-between; }
 textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: vertical; line-height: 1.5; }
@@ -546,9 +529,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   display: inline-grid; place-items: center; flex: none; background: var(--ef-surface-raised); cursor: pointer;
 }
 .check[data-checked="true"] { background: var(--ef-ink); box-shadow: none; }
-.check[data-checked="true"]::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--ef-green); border-bottom: 2px solid var(--ef-green); transform: rotate(-45deg) translate(1px,-1px); }
+.check[data-checked="true"]::after { content: ""; width: 9px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px,-1px); }
 .check[data-checked="mixed"] { background: var(--ef-ink); box-shadow: none; }
-.check[data-checked="mixed"]::after { content: ""; width: 9px; height: 2px; background: var(--ef-green); border-radius: 2px; }
+.check[data-checked="mixed"]::after { content: ""; width: 9px; height: 2px; background: #fff; border-radius: 2px; }
 .check.round { border-radius: 50%; }
 .radio { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ef-line-2) inset; display: inline-grid; place-items: center; background: #fff; }
 .radio[data-checked="true"] { box-shadow: 0 0 0 6px var(--ef-ink) inset; }
@@ -719,7 +702,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   display: flex; align-items: center; gap: 12px; background: var(--ef-ink); color: #fff; border-radius: 16px;
   padding: 12px 14px 12px 16px; box-shadow: var(--ef-shadow-pop); max-width: 440px;
 }
-.toast .t-icon { width: 28px; height: 28px; border-radius: 50%; background: rgba(28,227,98,.18); display: grid; place-items: center; color: var(--ef-green); }
+.toast .t-icon { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; color: var(--ef-green-300); }
 .toast .t-icon i { font-size: 16px; }
 .toast .btn { height: 32px; font-size: 13px; padding: 0 10px; }
 
@@ -779,7 +762,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .heat .h1 { background: var(--ef-green-100); color: var(--ef-green-700); }
 .heat .h2 { background: var(--ef-green-300); color: var(--ef-ink); }
 .heat .h3 { background: var(--ef-green-500); color: var(--ef-ink); }
-.heat .h4 { background: #0FA347; color: #fff; }
+.heat .h4 { background: var(--ef-green-700); color: #fff; }
 
 /* ---- Lens tile (<LensTile state>) ---- */
 .lens { border-radius: 20px; padding: 18px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; display: flex; flex-direction: column; gap: 10px; min-height: 168px; }
@@ -811,7 +794,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .st-interviewed { --tint: var(--ef-violet-100); --tone: var(--ef-violet-600); }
 .st-core { --tint: var(--ef-green-100); --tone: var(--ef-green-700); }
 .st-launch { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
-.st-leader { --tint: var(--ef-ink); --tone: var(--ef-green); }
+.st-leader { --tint: var(--ef-ink); --tone: #fff; }
 
 /* ---- Domain: ministry card, role slot ---- */
 .ministry-card .m-icon { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; background: var(--tint); color: var(--tone); }
@@ -852,7 +835,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .tree { display: flex; flex-direction: column; gap: 2px; }
 .tree-phase { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; font-weight: 500; cursor: pointer; }
 .tree-phase .ph { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--ef-surface-2); color: var(--ef-text-2); font-family: var(--ef-font-display); }
-.tree-phase[data-open] .ph { background: var(--ef-ink); color: var(--ef-green); }
+.tree-phase[data-open] .ph { background: var(--ef-ink); color: #fff; }
 .tree-item { padding: 7px 10px 7px 44px; border-radius: 10px; color: var(--ef-text-2); font-size: var(--ef-text-md); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .tree-item:hover { background: rgba(24,29,25,.04); }
 .tree-item[aria-current] { background: var(--ef-surface-raised); color: var(--ef-ink); font-weight: 500; box-shadow: var(--ef-shadow-raised); }
@@ -866,17 +849,16 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   transform: translateX(calc(100% + 40px)); transition: transform .35s cubic-bezier(.2,.8,.2,1);
 }
 .evry-panel[data-open="true"] { transform: none; }
-.evry-head { padding: 18px 18px 14px 20px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; color: #fff;
-  background: radial-gradient(90% 140% at 100% 0%, rgba(28,227,98,.55), transparent 60%), radial-gradient(60% 120% at 80% 120%, rgba(246,240,233,.35), transparent 60%), var(--ef-ink); }
-.evry-head .orb { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.12); display: grid; place-items: center; }
-.evry-head .orb i { color: var(--ef-green); font-size: 20px; }
-.evry-head .icon-btn { box-shadow: 0 0 0 1px rgba(255,255,255,.25); color: #fff; }
+.evry-head { padding: 18px 18px 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--ef-line); }
+.evry-head .orb { width: 38px; height: 38px; border-radius: 12px; background: var(--ef-ink); display: grid; place-items: center; }
+.evry-head .orb i { color: #fff; font-size: 20px; }
+
 .evry-context { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--ef-line); flex-wrap: wrap; }
 .evry-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
 .msg-user { align-self: flex-end; max-width: 85%; background: var(--ef-ink); color: #fff; padding: 11px 15px; border-radius: 18px 18px 6px 18px; }
 .msg-evry { max-width: 100%; display: flex; gap: 10px; }
 .msg-evry .who { width: 28px; height: 28px; border-radius: 9px; background: var(--ef-ink); display: grid; place-items: center; flex: none; }
-.msg-evry .who i { color: var(--ef-green); font-size: 15px; }
+.msg-evry .who i { color: #fff; font-size: 15px; }
 .msg-evry .bubble { line-height: 1.55; color: var(--ef-ink-2); }
 .cite { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ef-blue-100); color: var(--ef-blue-600); font-size: 12px; font-weight: 600; vertical-align: 1px; }
 .review-card { background: var(--ef-surface-raised); border-radius: 20px; box-shadow: 0 0 0 1px var(--ef-line) inset, var(--ef-shadow-raised); overflow: hidden; }
@@ -1021,27 +1003,27 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
   <div class="doc-section">
     <div class="doc-h"><h2>Brand colors</h2><code>--ef-ink · --ef-green · --ef-cream</code></div>
-    <p class="doc-note">The app runs on neutral greys so the data hues stand out. Ink and green carry the brand inside the app. Cream is for the landing page, marketing and print.</p>
+    <p class="doc-note">The app runs on neutral greys so the data hues stand out. Ink carries the brand inside the app. Field green is for the logo and rare brand moments. Cream is for the landing page, marketing and print.</p>
     <div class="grid g-3">
       <div class="swatch"><div class="chipc" style="background:#181D19"></div><div class="info"><b>Ink</b><span>#181D19 · text, active nav, primary button</span></div></div>
-      <div class="swatch"><div class="chipc" style="background:#1CE362"></div><div class="info"><b>Field green</b><span>#1CE362 · brand, healthy, on track, focus ring</span></div></div>
+      <div class="swatch"><div class="chipc" style="background:#1CE362"></div><div class="info"><b>Field green</b><span>#1CE362 · logo and brand moments only</span></div></div>
       <div class="swatch"><div class="chipc" style="background:#F6F0E9"></div><div class="info"><b>Cream</b><span>#F6F0E9 · brand and marketing only, glow in gradients</span></div></div>
     </div>
   </div>
 
   <div class="doc-section">
     <div class="doc-h"><h2>Data hues and roles</h2><code>--ef-{hue}-{600|500|300|100|50}</code></div>
-    <p class="doc-note">Every hue has one job. Green means healthy or committed. Blue means measured or actual. Magenta means risk or a gap. Amber means attention or waiting. Violet and teal only label categories, like pipeline stages.</p>
+    <p class="doc-note">Every hue is muted and has one job. Sage green means healthy or committed. Slate blue means measured or actual. Rose means risk or a gap. Ochre means attention or waiting. Lavender and teal only label categories, like pipeline stages. Token names stay generic (green, blue, magenta, amber) so a hue can change without renaming.</p>
     <div class="grid g-3">
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Green</span>healthy · committed · positive</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Sage</span>healthy · committed · positive</div>
         <div class="ramp"><div style="background:var(--ef-green-700);color:#fff">700</div><div style="background:var(--ef-green-500)">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Blue</span>measured · actual · info</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Slate blue</span>measured · actual · info</div>
         <div class="ramp"><div style="background:var(--ef-blue-600);color:#fff">600</div><div style="background:var(--ef-blue-500);color:#fff">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Magenta</span>risk · gap · overdue</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Rose</span>risk · gap · overdue</div>
         <div class="ramp"><div style="background:var(--ef-magenta-600);color:#fff">600</div><div style="background:var(--ef-magenta-500);color:#fff">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Amber</span>attention · waiting · draft</div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Ochre</span>attention · waiting · draft</div>
         <div class="ramp"><div style="background:var(--ef-amber-600);color:#fff">600</div><div style="background:var(--ef-amber-500)">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Violet</span><span class="tag tone-teal">Teal</span>category only</div>
+      <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Lavender</span><span class="tag tone-teal">Teal</span>category only</div>
         <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:#fff">v600</div><div style="background:var(--ef-violet-500);color:#fff">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:#fff">t600</div><div style="background:var(--ef-teal-500)">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
       <div class="specimen"><div class="specimen-label">Neutrals (app UI)</div>
         <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-text-2);color:#fff">text-2</div><div style="background:var(--ef-text-3);color:#fff">text-3</div><div style="background:var(--ef-canvas)">canvas</div><div style="background:var(--ef-frame)">frame</div><div style="background:var(--ef-surface)">surface</div><div style="background:#fff">raised</div></div></div>
@@ -1050,7 +1032,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
   <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
-    <p class="doc-note">The gradient card is the signature surface. Use at most two per page, and only for one finding the person should act on. Field is the default. Dusk is for neutral findings, Ember for risk, Ocean for growth.</p>
+    <p class="doc-note">The gradient card is the signature surface. Four color blobs are blurred together and covered with film grain. Use at most two per page, and only for one finding the person should act on. Field is the default. Dusk is for neutral findings, Ember for risk, Ocean for growth.</p>
     <div class="grid g-4">
       <div class="insight" data-tone="field" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default · brand</div></div>
       <div class="insight" data-tone="dusk" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>dusk</div><div class="insight-title">Neutral finding</div></div>
@@ -1172,7 +1154,6 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="doc-h"><h2>Insight card</h2><code>&lt;InsightCard tone size&gt; Pill · Metric · Title · Text · Action</code></div>
     <div class="grid" style="grid-template-columns: 1.1fr 1fr 1fr">
       <div class="insight" data-tone="field">
-        <svg class="watermark" viewBox="0 0 657 530" style="color:#fff"><use href="#ef-mark"/></svg>
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-plant-01"></i>Momentum</span><span class="insight-count">Last 28 days</span></div>
         <div class="insight-metric"><span class="num">+9</span><span class="unit">committed adults, up from +4 the 28 days before</span></div>
         <div class="insight-title">The core group is growing faster than in any month so far</div>
@@ -1571,7 +1552,6 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <!-- col 3 -->
     <div class="stack" style="gap:20px">
       <div class="insight" data-tone="field" style="min-height:400px">
-        <svg class="watermark" viewBox="0 0 657 530" style="color:#fff"><use href="#ef-mark"/></svg>
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-plant-01"></i>Momentum</span><div class="insight-dots"><span aria-current></span><span></span><span></span></div></div>
         <div class="insight-metric"><span class="num">+9</span><span class="unit">committed adults in 28 days, up from +4</span></div>
         <div class="insight-title">Your core group is growing faster than in any month so far</div>
@@ -2130,7 +2110,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Interview David Kim</div><div class="t-meta"><span>Thu Oct 9</span><span><i class="hgi-stroke hgi-user-check-01"></i> Interview</span></div></div><span class="avatar tone-green" data-size="xs">DR</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Draft first-year budget</div><div class="t-meta"><span>Fri Oct 10</span><span><i class="hgi-stroke hgi-coins-01"></i> Blocked by: get giving estimate</span></div></div><span class="avatar tone-teal" data-size="xs">CP</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
 
-      <div class="bulk-bar mt-4"><span class="check" data-checked="true" style="background:var(--ef-green);"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:#fff"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      <div class="bulk-bar mt-4"><span class="check" data-checked="true" style="background:rgba(255,255,255,.16)"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:#fff"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
     </div>
 
     <div class="stack" style="gap:20px">
@@ -2430,7 +2410,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
     <span class="orb"><i class="hgi-stroke hgi-ai-magic"></i></span>
-    <div class="grow"><div style="font-family:var(--ef-font-display);font-size:19px;font-weight:500">Evry</div><div style="font-size:12px;color:rgba(255,255,255,.7)">Reads and drafts. You approve every change.</div></div>
+    <div class="grow"><div style="font-family:var(--ef-font-display);font-size:19px;font-weight:500">Evry</div><div style="font-size:12px;color:var(--ef-text-3)">Reads and drafts. You approve every change.</div></div>
     <button class="icon-btn" data-size="sm" title="History"><i class="hgi-stroke hgi-clock-01"></i></button>
     <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeEvry()"><i class="hgi-stroke hgi-cancel-01"></i></button>
   </div>
