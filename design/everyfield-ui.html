@@ -295,7 +295,7 @@ button { font: inherit; color: inherit; }
 .rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
 .rail-item i { font-size: 20px; }
-.rail-item[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); width: 52px; height: 52px; }
+.rail-item[aria-current="page"], .rail-item[aria-expanded="true"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); width: 52px; height: 52px; }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
   background: var(--ef-ink); color: var(--ef-on-ink); font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 30; }
 .rail-item:hover .rail-tip { opacity: 1; transform: translateY(-50%); }
@@ -1138,6 +1138,76 @@ body[data-shell="bare"] .main { padding: 0; }
 .notif-item .nt { font-size: var(--ef-text-md); line-height: 1.4; }
 .notif-item .nm { font-size: var(--ef-text-xs); color: var(--ef-text-3); margin-top: 3px; }
 
+
+/* ---- Feedback dialog (<FeedbackDialog>) ---- */
+.modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
+.modal-panel[data-size="sm"] .modal-body { padding: 26px 30px 22px; }
+.modal-head { display: flex; align-items: flex-start; gap: 12px; }
+.fb-types { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.fb-type { border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 12px 11px; border-radius: 16px; background: var(--ef-surface-2); color: var(--ef-ink-2); font: inherit; font-weight: 500; font-size: var(--ef-text-sm); text-align: left; transition: background .15s, box-shadow .15s; }
+.fb-type i { font-size: 18px; color: var(--ef-text-2); }
+.fb-type:hover { background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line-2) inset; }
+.fb-type[aria-checked="true"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1.5px var(--ef-ink) inset, var(--ef-shadow-raised); }
+.fb-type[aria-checked="true"] i { color: var(--ef-ink); }
+.fb-count { font-variant-numeric: tabular-nums; }
+.fb-meta { border-radius: 18px; background: var(--ef-surface-2); padding: 4px 16px; }
+.fb-meta summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px 0; font-weight: 500; font-size: var(--ef-text-sm); color: var(--ef-ink-2); }
+.fb-meta summary::-webkit-details-marker { display: none; }
+.fb-meta summary .chev { margin-left: auto; color: var(--ef-text-3); transition: transform .2s; }
+.fb-meta[open] summary .chev { transform: rotate(180deg); }
+.fb-meta dl { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 7px 14px; margin: 0 0 14px; font-size: var(--ef-text-sm); }
+.fb-meta dt { color: var(--ef-text-2); }
+.fb-meta dd { margin: 0; color: var(--ef-ink); overflow-wrap: anywhere; }
+.fb-meta dd code { font-size: 12.5px; }
+.fb-done { display: none; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 34px 30px 30px; }
+#feedback[data-state="sent"] .fb-done { display: flex; }
+#feedback[data-state="sent"] .fb-form { display: none; }
+
+/* ---- Guide panel (<GuidePanel>) ---- */
+.guide-panel .evry-head .g-icon { width: 40px; height: 40px; border-radius: 13px; background: var(--ef-green-100); display: grid; place-items: center; flex: none; }
+.guide-panel .evry-head .g-icon i { font-size: 21px; color: var(--ef-green-700, var(--ef-ink)); }
+.guide-body { flex: 1; overflow-y: auto; padding: 22px 26px 28px; }
+.guide-body .prose { font-size: 15px; line-height: 1.65; max-width: none; }
+.guide-body .prose h2 { font-size: 21px; margin: 24px 0 8px; }
+.guide-body .prose h3 { font-size: 17px; }
+.guide-body .prose blockquote { font-size: 17px; }
+.guide-kicker { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--ef-text-3); font-size: 13px; margin-bottom: 8px; }
+.guide-title { font-family: var(--ef-font-display); font-size: 27px; line-height: 1.15; letter-spacing: -0.02em; color: var(--ef-ink); margin: 0 0 16px; }
+.guide-foot { display: flex; gap: 8px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--ef-line); }
+.guide-section-h { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ef-text-3); margin: 22px 0 6px; }
+
+/* ---- Help center (<HelpCenter>, <HowTo>, <Faq>) ---- */
+.help-hero { position: relative; overflow: hidden; border-radius: 30px; padding: 42px 44px 38px; background: var(--ef-ink); color: var(--ef-on-ink); }
+.help-hero::after { content: ""; position: absolute; right: -60px; top: -80px; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(28,227,98,.42), rgba(28,227,98,0) 68%); pointer-events: none; }
+.help-hero h1 { font-family: var(--ef-font-display); font-weight: 500; font-size: 40px; letter-spacing: -0.03em; margin: 0 0 8px; color: inherit; }
+.help-hero p { margin: 0 0 22px; color: rgba(255,255,255,.72); max-width: 520px; }
+.help-hero .input { max-width: 560px; height: 52px; border-radius: 16px; background: var(--ef-surface); position: relative; z-index: 1; }
+.help-hero .hh-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; position: relative; z-index: 1; }
+.help-hero .hh-tags a { color: rgba(255,255,255,.82); font-size: 13px; padding: 5px 11px; border-radius: 99px; background: rgba(255,255,255,.1); }
+.help-hero .hh-tags a:hover { background: rgba(255,255,255,.18); color: #fff; }
+.help-topics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+.help-topic { display: flex; flex-direction: column; gap: 10px; padding: 18px; cursor: pointer; }
+.help-topic .ht-icon { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: var(--ef-surface-2); }
+.help-topic .ht-icon i { font-size: 20px; color: var(--ef-ink); }
+.help-topic b { font-weight: 600; color: var(--ef-ink); }
+.faq { border-top: 1px solid var(--ef-line); }
+.faq:first-child { border-top: 0; }
+.faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 15px 0; font-weight: 500; color: var(--ef-ink); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary i { margin-left: auto; color: var(--ef-text-3); transition: transform .2s; }
+.faq[open] summary i { transform: rotate(45deg); }
+.faq p { margin: -4px 0 16px; color: var(--ef-ink-2); line-height: 1.6; padding-right: 28px; }
+.shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--ef-line); font-size: var(--ef-text-sm); }
+.shortcut-row:first-child { border-top: 0; }
+.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.steps > li { counter-increment: step; position: relative; padding: 14px 0 18px 54px; border-top: 1px solid var(--ef-line); }
+.steps > li:first-child { border-top: 0; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 12px; width: 34px; height: 34px; border-radius: 11px; background: var(--ef-surface-2); display: grid; place-items: center; font-family: var(--ef-font-display); font-weight: 600; color: var(--ef-ink); }
+.steps > li b { color: var(--ef-ink); font-weight: 600; }
+.steps > li p { margin: 4px 0 0; color: var(--ef-ink-2); line-height: 1.6; }
+.ui-ref { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 7px; background: var(--ef-surface-2); color: var(--ef-ink); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.ui-ref i { font-size: 13px; }
+
 /* ---- Settings modal  (<SettingsDialog section>) ---- */
 .modal { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 40px; background: rgba(15,17,21,.32); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
 .modal[data-open="true"] { opacity: 1; pointer-events: auto; }
@@ -1322,7 +1392,8 @@ body[data-shell="bare"] .main { padding: 0; }
     </div>
     <div class="rail-spacer"></div>
     <div class="rail-group pill-surface">
-      <a class="rail-item" href="#/help" data-nav="help"><i class="hgi-stroke hgi-help-circle"></i><span class="rail-tip">Help</span></a>
+      <button class="rail-item" onclick="openFeedback()"><i class="hgi-stroke hgi-message-edit-01"></i><span class="rail-tip">Send feedback</span></button>
+      <button class="rail-item" id="guide-btn" data-nav="help" onclick="toggleGuide()"><i class="hgi-stroke hgi-book-open-02"></i><span class="rail-tip">Guide</span></button>
       <a class="rail-item" href="#/settings" data-nav="settings"><i class="hgi-stroke hgi-settings-02"></i><span class="rail-tip">Settings</span></a>
     </div>
   </aside>
@@ -1845,7 +1916,8 @@ body[data-shell="bare"] .main { padding: 0; }
     <div class="evry-launch" onclick="openEvry()"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="grow" style="font-weight:500">Ask Evry</span><span class="kbd">⌘J</span></div>
     <a class="nav-item" ><i class="hgi-stroke hgi-notification-03"></i>Notifications<span class="count">3</span></a>
     <a class="nav-item" ><i class="hgi-stroke hgi-settings-02"></i>Settings</a>
-    <a class="nav-item" ><i class="hgi-stroke hgi-help-circle"></i>Help</a>
+    <a class="nav-item" ><i class="hgi-stroke hgi-message-edit-01"></i>Send feedback</a>
+    <a class="nav-item" ><i class="hgi-stroke hgi-book-open-02"></i>Guide</a>
     <div class="sidebar-user">
       <span class="avatar tone-green" data-ring="true">DR</span>
       <div class="meta grow"><b>Daniel Reyes</b><span>Lead planter · Harvest Point</span></div>
@@ -3290,6 +3362,10 @@ body[data-shell="bare"] .main { padding: 0; }
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Composer</td><td><code class="k">&lt;Composer&gt;</code> <code class=k>&lt;RecipientChip&gt;</code> <code class=k>&lt;MergeField&gt;</code> <code class=k>&lt;EmailPreview&gt;</code></td><td class="muted t-sm">To, Template, Subject, Insert, Preview, Actions</td><td class="muted t-sm">email only</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Combobox, Select</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Document card</td><td><code class="k">&lt;DocCard&gt;</code> <code class=k>&lt;DocThumb&gt;</code> <code class=k>&lt;FormatChip&gt;</code></td><td class="muted t-sm">Stage, Thumb, Use, Formats, Name, Description</td><td class="muted t-sm">thumb page/quarter/sheet/grid-sheet · selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Radio (selection)</span></td></tr>
 <tr><td class="faint t-sm">Evry</td><td class="cell-title">Evry character</td><td><code class="k">&lt;EvryBot&gt;</code></td><td class="muted t-sm">Body, Face, Eyes, Mouth</td><td class="muted t-sm">size xs/sm/md/lg/xl · mood idle/thinking/talking/happy · follow</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (CSS + small script)</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
+<tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Content</td><td class="cell-title">FAQ item</td><td><code class="k">&lt;Faq&gt;</code></td><td class="muted t-sm">Question, Answer</td><td class="muted t-sm">open</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Accordion</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Settings dialog</td><td><code class="k">&lt;SettingsDialog section&gt;</code></td><td class="muted t-sm">Side nav, Section, Row, Footer (unsaved changes)</td><td class="muted t-sm">deep link per section</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Notification pop-over</td><td><code class="k">&lt;NotificationPopover&gt;</code> <code class=k>&lt;NotificationItem&gt;</code></td><td class="muted t-sm">Header, Item (icon, text, time, unread), Footer</td><td class="muted t-sm">unread</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Popover</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">User menu</td><td><code class="k">&lt;UserMenu&gt;</code></td><td class="muted t-sm">Identity, View switcher, Links, Sign out</td><td class="muted t-sm">current view</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Menu</span></td></tr>
@@ -3316,6 +3392,129 @@ body[data-shell="bare"] .main { padding: 0; }
 <!-- =================================================================
      PAGE: STUB  (sections not designed in this pass)
      ================================================================= -->
+
+<!-- =================================================================
+     PAGE: HELP CENTER  (#/help)
+     ================================================================= -->
+<section class="page" data-page="help">
+  <div class="help-hero">
+    <div class="breadcrumb" style="color:rgba(255,255,255,.6);margin-bottom:14px"><span>Help center</span></div>
+    <h1>How can we help?</h1>
+    <p>Step-by-step how-tos for using Everyfield. For the church-planting method itself, read the Wiki.</p>
+    <div class="input"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search how-tos, for example “import people”"><span class="kbd">/</span></div>
+    <div class="hh-tags"><a href="#/help/article">Record attendance at the door</a><a href="#/help/article">Import people from a spreadsheet</a><a href="#/help/article">Invite your team</a><a href="#/help/article">Approve an Evry change</a></div>
+  </div>
+
+  <div class="row between" style="margin:30px 0 14px"><h2 class="card-title">Browse by topic</h2><span class="faint t-sm">48 how-tos</span></div>
+  <div class="help-topics">
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-rocket-01"></i></span><b>Getting started</b><span class="muted t-sm">Set up your church, phase and launch date.</span><span class="faint t-xs">6 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-user-multiple"></i></span><b>People</b><span class="muted t-sm">Add, import, merge and move people through stages.</span><span class="faint t-xs">9 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-calendar-03"></i></span><b>Meetings</b><span class="muted t-sm">Plan meetings, check people in and share RSVPs.</span><span class="faint t-xs">8 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-task-01"></i></span><b>Tasks and follow-ups</b><span class="muted t-sm">Assign work and record how a follow-up went.</span><span class="faint t-xs">7 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-mail-01"></i></span><b>Email and documents</b><span class="muted t-sm">Send emails and generate Playbook documents.</span><span class="faint t-xs">6 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-chart-line-data-01"></i></span><b>Plant Intelligence</b><span class="muted t-sm">Read the lenses and see where a finding comes from.</span><span class="faint t-xs">4 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span></span><b>Working with Evry</b><span class="muted t-sm">Ask questions, review proposals and approve changes.</span><span class="faint t-xs">5 how-tos</span></a>
+    <a class="card help-topic" href="#/help/article"><span class="ht-icon"><i class="hgi-stroke hgi-settings-02"></i></span><b>Account and settings</b><span class="muted t-sm">Seats, notifications, sharing and your password.</span><span class="faint t-xs">3 how-tos</span></a>
+  </div>
+
+  <div class="grid mt-6" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:start">
+    <div class="stack" style="gap:16px">
+      <div class="card">
+        <div class="row between"><h2 class="card-title">Popular how-tos</h2></div>
+        <div class="list mt-2">
+          <a class="list-row" href="#/help/article"><span class="ht-icon" style="width:36px;height:36px;border-radius:11px;background:var(--ef-surface-2);display:grid;place-items:center"><i class="hgi-stroke hgi-calendar-03"></i></span><div class="grow"><div class="list-title">Record attendance at the door</div><div class="list-sub">Meetings · 3 min · works on a phone</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+          <a class="list-row" href="#/help/article"><span class="ht-icon" style="width:36px;height:36px;border-radius:11px;background:var(--ef-surface-2);display:grid;place-items:center"><i class="hgi-stroke hgi-file-02"></i></span><div class="grow"><div class="list-title">Import people from a spreadsheet</div><div class="list-sub">People · 4 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+          <a class="list-row" href="#/help/article"><span class="ht-icon" style="width:36px;height:36px;border-radius:11px;background:var(--ef-surface-2);display:grid;place-items:center"><i class="hgi-stroke hgi-task-01"></i></span><div class="grow"><div class="list-title">Close a follow-up with an outcome</div><div class="list-sub">Tasks · 2 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+          <a class="list-row" href="#/help/article"><span class="ht-icon" style="width:36px;height:36px;border-radius:11px;background:var(--ef-surface-2);display:grid;place-items:center"><span class="evry-bot" data-size="xs" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span></span><div class="grow"><div class="list-title">Review and approve a change from Evry</div><div class="list-sub">Evry · 2 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+          <a class="list-row" href="#/help/article"><span class="ht-icon" style="width:36px;height:36px;border-radius:11px;background:var(--ef-surface-2);display:grid;place-items:center"><i class="hgi-stroke hgi-user-multiple"></i></span><div class="grow"><div class="list-title">Invite your team and choose their access</div><div class="list-sub">Settings · 3 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Questions people ask</h2>
+        <div class="mt-2">
+          <details class="faq" open><summary>What is the difference between the Wiki and Help?<i class="hgi-stroke hgi-add-01"></i></summary><p>The Wiki teaches the church-planting method: what to do in each phase and why. Help explains how to use Everyfield: where to click and what each screen does.</p></details>
+          <details class="faq"><summary>Can Evry change my records on its own?<i class="hgi-stroke hgi-add-01"></i></summary><p>No. Evry can read and draft. Every change it suggests waits for you to review and approve it.</p></details>
+          <details class="faq"><summary>Who can see the people in my church?<i class="hgi-stroke hgi-add-01"></i></summary><p>Only people with a seat in your church. A sending church or network never sees names or personal details.</p></details>
+          <details class="faq"><summary>Can I undo a merge or a sent email?<i class="hgi-stroke hgi-add-01"></i></summary><p>No. Everyfield warns you before these actions. You can correct details later, and the history keeps what changed.</p></details>
+          <details class="faq"><summary>Why does a count show “Not recorded” instead of 0?<i class="hgi-stroke hgi-add-01"></i></summary><p>“Not recorded” means nobody entered a number yet. A 0 is a real result, for example a meeting with no guests.</p></details>
+        </div>
+      </div>
+    </div>
+    <div class="stack" style="gap:16px">
+      <div class="card" data-variant="callout" data-tone="ink">
+        <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-book-open-02"></i></span>Guide on every page</div>
+        <p class="callout-text t-sm">Open <span class="ui-ref"><i class="hgi-stroke hgi-book-open-02"></i>Guide</span> in the rail to read the Playbook article for the page you are on.</p>
+      </div>
+      <div class="card">
+        <h2 class="card-title sm">Keyboard shortcuts</h2>
+        <div class="mt-3">
+          <div class="shortcut-row"><span>Search</span><span class="kbd">⌘K</span></div>
+          <div class="shortcut-row"><span>Ask Evry</span><span class="kbd">⌘J</span></div>
+          <div class="shortcut-row"><span>Settings</span><span class="kbd">⌘,</span></div>
+          <div class="shortcut-row"><span>Search this page</span><span class="kbd">/</span></div>
+          <div class="shortcut-row"><span>Close a panel or dialog</span><span class="kbd">Esc</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row between"><h2 class="card-title sm">What's new</h2><span class="faint t-xs">Oct 2026</span></div>
+        <div class="list mt-2">
+          <div class="list-row" style="cursor:default"><span class="badge" data-size="sm" data-status="positive" style="min-width:58px;justify-content:center">New</span><div class="grow"><div class="list-title t-sm">Follow-up outcomes</div><div class="list-sub t-xs">Record how a call went, not just a tick.</div></div></div>
+          <div class="list-row" style="cursor:default"><span class="badge" data-size="sm" data-status="positive" style="min-width:58px;justify-content:center">New</span><div class="grow"><div class="list-title t-sm">Door check-in on a phone</div><div class="list-sub t-xs">Check people in as they arrive.</div></div></div>
+          <div class="list-row" style="cursor:default"><span class="badge" data-size="sm" data-plain="true" style="min-width:58px;justify-content:center">Better</span><div class="grow"><div class="list-title t-sm">Duplicate review</div><div class="list-sub t-xs">Pick each detail to keep before you merge.</div></div></div>
+        </div>
+      </div>
+      <div class="card" style="gap:12px">
+        <h2 class="card-title sm">Still stuck?</h2>
+        <p class="muted t-sm" style="margin:0">Tell us what happened. We see which page you were on, so you do not need to explain where.</p>
+        <div><button class="btn" data-variant="secondary" data-size="sm" onclick="openFeedback('question')"><i class="hgi-stroke hgi-message-edit-01"></i>Send feedback</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: HELP ARTICLE  (#/help/article)
+     ================================================================= -->
+<section class="page" data-page="help-article">
+  <header class="page-header">
+    <div class="titles">
+      <div class="breadcrumb"><a href="#/help">Help center</a><i class="hgi-stroke hgi-arrow-right-01"></i><span>Meetings</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Record attendance at the door</span></div>
+      <h1 class="page-title xl">Record attendance at the door</h1>
+      <p class="page-sub row gap-4" style="display:flex"><span>3 min</span><span>·</span><span>Works on a phone</span><span>·</span><span>Updated Oct 2026</span></p>
+    </div>
+    <div class="page-actions"><a class="btn" data-variant="primary" href="#/mobile"><i class="hgi-stroke hgi-play-circle"></i>Do it now</a></div>
+  </header>
+  <div class="grid" style="grid-template-columns:minmax(0,1fr) 300px;align-items:start">
+    <article class="card" style="padding:32px 40px">
+      <div class="prose" style="margin:0">
+        <p style="font-size:17px;color:var(--ef-ink)">Check people in as they arrive, so you know who came for the first time and who needs a follow-up in the next 48 hours.</p>
+        <h2 style="margin-top:22px">Steps</h2>
+      </div>
+      <ol class="steps" style="max-width:700px">
+        <li><b>Open the meeting.</b><p>Go to <span class="ui-ref"><i class="hgi-stroke hgi-calendar-03"></i>Meetings</span> and choose today's meeting.</p></li>
+        <li><b>Start check-in.</b><p>Press <span class="ui-ref">Start check-in</span>. On a phone, the list fills the screen and the search sits at the top.</p></li>
+        <li><b>Tap each person who arrives.</b><p>A green tick shows they are present. Tap again to undo a wrong tap before you finish.</p></li>
+        <li><b>Add a first-time guest.</b><p>Press <span class="ui-ref"><i class="hgi-stroke hgi-add-01"></i>New guest</span>, type a name and an email or phone. Everyfield checks for a possible duplicate.</p></li>
+        <li><b>Finish.</b><p>Press <span class="ui-ref">Finish check-in</span>. First-time guests get a follow-up task, due in 48 hours.</p></li>
+      </ol>
+      <div class="card mt-4" data-variant="callout" style="max-width:700px"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-bulb"></i></span>Tip</div><p class="callout-text t-sm">If nobody new came, record 0 guests. An empty count means “not recorded”, which is different from zero.</p></div>
+      <div class="prose-foot" style="margin-left:0;max-width:700px">
+        <div class="row gap-3"><span class="muted">Did this help?</span><button class="btn" data-variant="secondary" data-size="sm"><i class="hgi-stroke hgi-thumbs-up"></i>Yes</button><button class="btn" data-variant="ghost" data-size="sm" onclick="openFeedback('suggestion')">Not really</button></div>
+      </div>
+    </article>
+    <div class="stack" style="position:sticky;top:100px">
+      <div class="card" data-size="sm">
+        <div class="guide-section-h" style="margin-top:0">Why it matters</div>
+        <a class="list-row" href="#/wiki" style="padding:10px 0"><i class="hgi-stroke hgi-book-open-01" style="color:var(--ef-text-3)"></i><div class="grow"><div class="list-title t-sm">Follow up within 48 hours</div><div class="list-sub t-xs">Wiki · Phase 1</div></div><i class="hgi-stroke hgi-arrow-up-right-01 chev"></i></a>
+        <div class="guide-section-h">Related how-tos</div>
+        <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Share a public RSVP link</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Close a follow-up with an outcome</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Review possible duplicates</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="page" data-page="stub">
   <header class="page-header"><div class="titles"><h1 class="page-title xl" data-stub-title>Section</h1><p class="page-sub" data-stub-sub></p></div></header>
   <div class="card"><div class="empty" style="padding:70px 24px"><div class="e-art"><i data-stub-icon class="hgi-stroke hgi-rocket-01"></i></div><div class="card-title sm">Not designed in this pass</div><p class="muted" style="max-width:360px">This screen uses the same kit. It is out of scope for the first visual pass.</p><a class="btn" data-variant="primary" data-size="sm" href="#/components" style="margin-top:8px">See the components</a></div></div>
@@ -3446,7 +3645,62 @@ body[data-shell="bare"] .main { padding: 0; }
   </div>
 </div>
 
-<div class="scrim" id="scrim" onclick="closeEvry()"></div>
+
+<!-- ================= FEEDBACK DIALOG  <FeedbackDialog> (global, no route) ================= -->
+<div class="modal" id="feedback" data-open="false" data-state="form" role="dialog" aria-modal="true" aria-labelledby="fb-title" onclick="if (event.target === this) closeFeedback()">
+  <div class="modal-panel" data-size="sm">
+    <div class="modal-main">
+      <div class="fb-form">
+        <div class="modal-body">
+          <div class="modal-head">
+            <div class="grow"><h2 id="fb-title" style="font-size:26px">Send feedback</h2><p class="muted mt-2" style="margin-bottom:0">Tell us what went wrong or what would help. The Everyfield team reads every message.</p></div>
+            <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeFeedback()"><i class="hgi-stroke hgi-cancel-01"></i></button>
+          </div>
+          <div class="fb-types mt-4" role="radiogroup" aria-label="Type">
+            <button class="fb-type" role="radio" data-fb-type="bug" aria-checked="false"><i class="hgi-stroke hgi-bug-01"></i>Something broke</button>
+            <button class="fb-type" role="radio" data-fb-type="suggestion" aria-checked="true"><i class="hgi-stroke hgi-idea-01"></i>Idea</button>
+            <button class="fb-type" role="radio" data-fb-type="question" aria-checked="false"><i class="hgi-stroke hgi-help-circle"></i>Question</button>
+            <button class="fb-type" role="radio" data-fb-type="other" aria-checked="false"><i class="hgi-stroke hgi-comment-01"></i>Other</button>
+          </div>
+          <div class="field mt-4">
+            <label class="field-label" for="fb-text" id="fb-label">What would make this better?</label>
+            <textarea class="input" id="fb-text" maxlength="5000" style="min-height:130px" placeholder="Describe it in your own words."></textarea>
+            <div class="row between"><span class="field-hint">Please do not include passwords or private details about people.</span><span class="field-hint fb-count" id="fb-count">0 / 5000</span></div>
+          </div>
+          <details class="fb-meta mt-4">
+            <summary><i class="hgi-stroke hgi-information-circle"></i><span>Sent with your feedback: <b id="fb-page-short" style="font-weight:600">Overview</b> and 8 more details</span><i class="hgi-stroke hgi-arrow-down-01 chev"></i></summary>
+            <dl id="fb-meta"></dl>
+          </details>
+        </div>
+        <div class="modal-foot"><span class="faint t-sm grow">No screenshot is sent.</span><button class="btn" data-variant="ghost" onclick="closeFeedback()">Cancel</button><button class="btn" data-variant="primary" id="fb-send" onclick="sendFeedback()" disabled><i class="hgi-stroke hgi-sent"></i>Send</button></div>
+      </div>
+      <div class="fb-done">
+        <span class="evry-bot" data-size="xl" data-mood="happy" id="fb-bot" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>
+        <h2 style="font-size:26px;margin-top:8px">Thank you, Daniel</h2>
+        <p class="muted" style="max-width:380px;margin:0">Your feedback is saved, together with the details from <b id="fb-done-page">Overview</b>. If we have a question, we reply to daniel@harvestpoint.org.</p>
+        <div class="row gap-2 mt-3"><button class="btn" data-variant="secondary" onclick="resetFeedback()">Send more</button><button class="btn" data-variant="primary" onclick="closeFeedback()">Done</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= GUIDE PANEL  <GuidePanel> ================= -->
+<aside class="evry-panel guide-panel" id="guide" data-open="false" data-kind="article" aria-label="Guide">
+  <div class="evry-head">
+    <span class="g-icon"><i class="hgi-stroke hgi-book-open-02"></i></span>
+    <div class="grow"><div style="font-family:var(--ef-font-display);font-size:19px;font-weight:500">Guide</div><div style="font-size:12px;color:var(--ef-text-3)" id="guide-sub">For this page</div></div>
+    <a class="icon-btn" data-size="sm" title="Open in Wiki" id="guide-open-wiki" href="#/wiki" onclick="closeGuide()"><i class="hgi-stroke hgi-arrow-up-right-01"></i></a>
+    <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeGuide()"><i class="hgi-stroke hgi-cancel-01"></i></button>
+  </div>
+  <div class="guide-body" id="guide-body"></div>
+  <div class="guide-foot">
+    <a class="btn" data-variant="secondary" data-size="sm" href="#/help" onclick="closeGuide()"><i class="hgi-stroke hgi-help-circle"></i>Help center</a>
+    <span class="grow"></span>
+    <button class="btn" data-variant="ghost" data-size="sm" onclick="closeGuide(); openFeedback()"><i class="hgi-stroke hgi-message-edit-01"></i>Send feedback</button>
+  </div>
+</aside>
+
+<div class="scrim" id="scrim" onclick="closeEvry(); closeGuide()"></div>
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
     <span class="evry-bot" data-size="lg" data-mood="idle" data-follow id="evry-head-bot" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>
@@ -3510,9 +3764,10 @@ body[data-shell="bare"] .main { padding: 0; }
 /* Router: #/page or #/page/sub. Sub-routes map to detail pages. */
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
-  'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings']
+  'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
+  'help/article': ['help-article', 'help']
 };
-const STUBS = { help: ['Help', 'Guides and contact for the Everyfield team.', 'hgi-help-circle'] };
+const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
 let lastAppHash = '#/overview';
 function route() {
@@ -3529,6 +3784,7 @@ function route() {
   let page = head, nav = head;
   if (DETAIL[hash]) [page, nav] = DETAIL[hash];
   showPage(page, nav);
+  if (document.getElementById('guide')?.dataset.open === 'true') renderGuide();
 }
 function showPage(page, nav) {
   let el = document.querySelector(`.page[data-page="${page}"]`);
@@ -3749,12 +4005,124 @@ document.addEventListener('pointermove', e => {
   });
 });
 
-function openEvry() { document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; const hb = document.getElementById('evry-head-bot'); if (hb) { hb.dataset.mood = 'happy'; clearTimeout(hb.__mt); hb.__mt = setTimeout(() => hb.dataset.mood = 'idle', 1400); } }
+function openEvry() { closeGuide(); document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; const hb = document.getElementById('evry-head-bot'); if (hb) { hb.dataset.mood = 'happy'; clearTimeout(hb.__mt); hb.__mt = setTimeout(() => hb.dataset.mood = 'idle', 1400); } }
 function closeEvry() { document.getElementById('evry').dataset.open = 'false'; document.getElementById('scrim').dataset.open = 'false'; }
+
+/* ---- Feedback dialog: global, opens over any page and reads that page's details ---- */
+const FB_LABEL = { bug: 'What happened, and what did you expect?', suggestion: 'What would make this better?', question: 'What would you like to know?', other: 'What is on your mind?' };
+function currentPageInfo() {
+  const el = document.querySelector('.page[data-active="true"]');
+  const crumbs = el ? [...el.querySelectorAll('.breadcrumb > span, .breadcrumb > a')].map(x => x.textContent.trim()).filter(Boolean) : [];
+  const title = el?.querySelector('.page-title, .help-hero h1')?.textContent.trim() || 'Overview';
+  const section = crumbs.length > 1 ? crumbs[0] : null;
+  return { name: section && section !== title ? section + ' · ' + title : title, path: '/' + lastAppHash.replace(/^#\/?/, '') };
+}
+function browserName() { const u = navigator.userAgent; const m = u.match(/(Edg|Firefox|Chrome|Safari)\/(\d+)/); const os = /Mac/.test(u) ? 'macOS' : /Windows/.test(u) ? 'Windows' : /Android/.test(u) ? 'Android' : /iPhone|iPad/.test(u) ? 'iOS' : 'Linux'; return (m ? ({ Edg: 'Edge' }[m[1]] || m[1]) + ' ' + m[2] : 'Browser') + ' · ' + os; }
+function openFeedback(type) {
+  closeEvry(); closeGuide(); closePopovers();
+  const m = document.getElementById('feedback'), info = currentPageInfo();
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const rows = [
+    ['Page', esc(info.name)], ['Address', '<code class="k">' + esc(info.path) + '</code>'], ['Church', 'Harvest Point'], ['Your role', 'Owner · Lead planter'],
+    ['Browser', esc(browserName())], ['Screen', innerWidth + ' × ' + innerHeight], ['Theme', document.documentElement.dataset.theme === 'dark' ? 'Dark' : 'Light'],
+    ['App version', 'v3.0 · design preview'], ['Time', new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })]
+  ];
+  document.getElementById('fb-meta').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  document.getElementById('fb-page-short').textContent = info.name;
+  document.getElementById('fb-done-page').textContent = info.name;
+  m.dataset.page = info.path;
+  if (type) setFeedbackType(type);
+  m.dataset.open = 'true';
+  setTimeout(() => document.getElementById('fb-text').focus(), 60);
+}
+function setFeedbackType(t) {
+  document.querySelectorAll('[data-fb-type]').forEach(b => b.setAttribute('aria-checked', b.dataset.fbType === t));
+  document.getElementById('fb-label').textContent = FB_LABEL[t];
+}
+function closeFeedback() { const m = document.getElementById('feedback'); if (m.dataset.open !== 'true') return; m.dataset.open = 'false'; setTimeout(resetFeedback, 250); }
+function resetFeedback() { const m = document.getElementById('feedback'); m.dataset.state = 'form'; const t = document.getElementById('fb-text'); t.value = ''; updateFbCount(); if (m.dataset.open === 'true') t.focus(); }
+function updateFbCount() { const t = document.getElementById('fb-text'), n = t.value.trim().length; document.getElementById('fb-count').textContent = t.value.length + ' / 5000'; document.getElementById('fb-send').disabled = n === 0; }
+function sendFeedback() { if (document.getElementById('fb-send').disabled) return; document.getElementById('feedback').dataset.state = 'sent'; }
+document.addEventListener('click', e => { const b = e.target.closest('[data-fb-type]'); if (b) setFeedbackType(b.dataset.fbType); });
+document.getElementById('fb-text').addEventListener('input', updateFbCount);
+
+/* ---- Guide panel: the Wiki article for this page (WIKI-008), or a compact help center ---- */
+const GUIDES = {
+  people: { phase: 'Phase 1 · Core Group Development', read: '5 min', title: 'Grow your core group one person at a time', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">Your core group is the people who will plant this church with you. Each person moves through stages as trust grows.</p>
+    <h2>The stages</h2>
+    <ul><li><b>Contact:</b> you know their name and how to reach them.</li><li><b>Attended:</b> they came to a vision meeting.</li><li><b>Interviewed:</b> you sat down and heard their story.</li><li><b>Committed:</b> they signed a commitment card.</li><li><b>Core group:</b> they serve with you.</li></ul>
+    <blockquote>Do not rush a stage. A person who is invited too early often steps back later.<cite>Launch Playbook, p. 42</cite></blockquote>
+    <h2>On this page</h2>
+    <p>Filter by stage to see who is ready for the next step. Open a person to record an interview or a commitment.</p>` },
+  person: { phase: 'Phase 1 · Core Group Development', read: '6 min', title: 'Interview potential members', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">An interview is a conversation, not a test. You want to hear their story and their calling, and share yours.</p>
+    <h2>Ask about the 4 C's</h2>
+    <ul><li><b>Christ:</b> where are they in their faith?</li><li><b>Character:</b> how do they treat people?</li><li><b>Chemistry:</b> do they fit the team?</li><li><b>Competency:</b> what can they do?</li></ul>
+    <p>Write short notes after the interview. Only you and your admins can read them.</p>` },
+  meetings: { phase: 'Phase 1 · Core Group Development', read: '8 min', title: 'Run your first vision meeting', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">A vision meeting is a short, warm gathering where you share why this church should exist. The goal is people who leave asking how they can help.</p>
+    <h2>Before the meeting</h2>
+    <ul><li>Ask two or three core members to host with you.</li><li>Print response cards and a guest sign-in sheet.</li><li>Plan childcare so parents can listen.</li></ul>
+    <h2>After the meeting</h2>
+    <p>Call every first-time guest within 48 hours. Everyfield creates the follow-up tasks when you finish check-in.</p>` },
+  meeting: { phase: 'Phase 1 · Core Group Development', read: '4 min', title: 'Follow up within 48 hours', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">The first two days after a meeting matter most. A short personal call shows a guest that they were noticed.</p>
+    <h2>What to say</h2>
+    <ul><li>Thank them for coming.</li><li>Ask what stood out to them.</li><li>Invite them to the next step, such as coffee or the next meeting.</li></ul>
+    <blockquote>A phone call beats an email. An email beats nothing.<cite>Launch Playbook, p. 57</cite></blockquote>
+    <p>When you close the follow-up, record how it went: contacted, tried but no contact, or no longer needed.</p>` },
+  tasks: { phase: 'All phases', read: '3 min', title: 'Keep follow-ups moving', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">Most tasks in a young church are follow-ups with people. Give each one an owner and a due date.</p>
+    <h2>Closing a follow-up</h2>
+    <p>Choose an outcome. Only “Contacted” counts as fresh contact on the person's record. “Tried but no contact” keeps them on your list.</p>` },
+  ministries: { phase: 'Phase 2 · Launch Team Formation', read: '7 min', title: 'Build your ministry teams', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">Launch needs about ten teams, from worship to kids. Start with a leader for each team, then fill the roles.</p>
+    <h2>Team health</h2>
+    <p>A team is ready when it has a leader, enough people for its roles, and has met at least twice.</p>` },
+  ministry: { phase: 'Phase 2 · Launch Team Formation', read: '5 min', title: 'Lead a worship team in a new church', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">A small team that plays well together is better than a large team that does not. Keep the set simple for the first months.</p>` },
+  launch: { phase: 'Phase 5 · Launch Sunday', read: '9 min', title: 'Get ready for Launch Sunday', body: `
+    <p style="font-size:16px;color:var(--ef-ink)">Nine milestones cover operations, the launch team and promotion. Complete them in any order, but finish all of them before the day.</p>
+    <h2>If you need to move the date</h2>
+    <p>Moving Launch Sunday is normal. Write a short reason, so your team understands why. Everyfield keeps the history of every date change.</p>` }
+};
+const HELP_PAGE_NAMES = { overview: 'Overview', communication: 'Communication', documents: 'Documents', intelligence: 'Plant Intelligence', notifications: 'Notifications', network: 'Network', wiki: 'Wiki', help: 'Help center', 'help-article': 'Help center', components: 'Components', foundations: 'Foundations', inventory: 'Inventory', mobile: 'Phone screens', import: 'Import people', duplicates: 'Possible duplicates' };
+function renderGuide() {
+  const page = document.querySelector('.page[data-active="true"]')?.dataset.page || 'overview';
+  const g = GUIDES[page], panel = document.getElementById('guide'), body = document.getElementById('guide-body');
+  panel.dataset.kind = g ? 'article' : 'help';
+  document.getElementById('guide-open-wiki').style.display = g ? '' : 'none';
+  if (g) {
+    document.getElementById('guide-sub').textContent = 'Wiki article for this page';
+    body.innerHTML = `<div class="guide-kicker"><span>${g.phase}</span><span>·</span><span>${g.read} read</span></div><h1 class="guide-title">${g.title}</h1><div class="prose">${g.body}</div>
+      <div class="guide-section-h">How to do it in Everyfield</div>
+      <div class="list"><a class="list-row" href="#/help/article" onclick="closeGuide()" style="padding:12px 0"><i class="hgi-stroke hgi-help-circle" style="color:var(--ef-text-3)"></i><div class="grow"><div class="list-title t-sm">Record attendance at the door</div><div class="list-sub t-xs">Help center · 3 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a></div>`;
+  } else {
+    document.getElementById('guide-sub').textContent = page.startsWith('help') ? 'Quick help' : 'No guide for ' + (HELP_PAGE_NAMES[page] || 'this page') + ' yet';
+    body.innerHTML = `<h1 class="guide-title" style="font-size:24px">How can we help?</h1>
+      <div class="input"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search how-tos"></div>
+      <div class="guide-section-h">Popular how-tos</div>
+      <div class="list">
+        <a class="list-row" href="#/help/article" onclick="closeGuide()" style="padding:12px 0"><div class="grow"><div class="list-title t-sm">Record attendance at the door</div><div class="list-sub t-xs">Meetings · 3 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        <a class="list-row" href="#/help/article" onclick="closeGuide()" style="padding:12px 0"><div class="grow"><div class="list-title t-sm">Import people from a spreadsheet</div><div class="list-sub t-xs">People · 4 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        <a class="list-row" href="#/help/article" onclick="closeGuide()" style="padding:12px 0"><div class="grow"><div class="list-title t-sm">Review and approve a change from Evry</div><div class="list-sub t-xs">Evry · 2 min</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+      </div>
+      <div class="guide-section-h">Questions people ask</div>
+      <details class="faq"><summary>What is the difference between the Wiki and Help?<i class="hgi-stroke hgi-add-01"></i></summary><p>The Wiki teaches the method. Help explains how to use Everyfield.</p></details>
+      <details class="faq"><summary>Can Evry change my records on its own?<i class="hgi-stroke hgi-add-01"></i></summary><p>No. Every change waits for your approval.</p></details>
+      <details class="faq"><summary>Who can see the people in my church?<i class="hgi-stroke hgi-add-01"></i></summary><p>Only people with a seat in your church.</p></details>`;
+  }
+  body.scrollTop = 0;
+}
+function openGuide() { closeEvry(); renderGuide(); document.getElementById('guide').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; document.getElementById('guide-btn').setAttribute('aria-expanded', 'true'); }
+function closeGuide() { const g = document.getElementById('guide'); if (!g || g.dataset.open !== 'true') return; g.dataset.open = 'false'; if (document.getElementById('evry').dataset.open !== 'true') document.getElementById('scrim').dataset.open = 'false'; document.getElementById('guide-btn').setAttribute('aria-expanded', 'false'); }
+function toggleGuide() { document.getElementById('guide').dataset.open === 'true' ? closeGuide() : openGuide(); }
+
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); const p = document.getElementById('evry'); p.dataset.open === 'true' ? closeEvry() : openEvry(); }
-  if (e.key === 'Escape') { closeEvry(); closePopovers(); if (document.getElementById('settings').dataset.open === 'true') leaveSettings(); }
+  if (e.key === 'Escape') { if (document.getElementById('feedback').dataset.open === 'true') { closeFeedback(); return; } closeEvry(); closeGuide(); closePopovers(); if (document.getElementById('settings').dataset.open === 'true') leaveSettings(); }
 });
 </script>
 </body>
