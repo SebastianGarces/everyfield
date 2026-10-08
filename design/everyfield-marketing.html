@@ -21,7 +21,7 @@
 
   The home hero animation is built (heroSlot, haRender). EFHero.seek(ms) renders one loop time for review.
   The week chapter (#week) and the Plant Intelligence chapter (#intelligence) share one engine (chapterSection, cxRender).
-  The week chapter pins to scroll. Plant Intelligence (Revision 10) is an auto-advancing tab list (autoSection, cxAutoGo).
+  The week chapter pins to scroll. Plant Intelligence (Revision 10) is an auto-advancing tab list (autoSection, cxAutoGo); Revision 11 dividers fill left to right.
   EFChapters.seek(id, step, ms) renders one panel frame for review.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -350,6 +350,11 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .nav-pill.on { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
 .nav-pill .wrap { height: 60px; }
 .nav-pill .nav-end .mk-btn { height: 44px; }
+/* Revision 11: concentric end. The last control sits (pill height - control height) / 2 from the right edge, the same as above and below it. */
+.nav-pill { --np-h: 60px; --np-c: 44px; }
+.nav-pill .wrap { height: var(--np-h); padding-right: calc((var(--np-h) - var(--np-c)) / 2); }
+.nav-pill .nav-end .mk-btn, .nav-pill .nav-toggle { height: var(--np-c); }
+.nav-pill .nav-toggle { width: var(--np-c); border-radius: 999px; }
 .site-nav .wrap, .nav-pill .wrap { display: flex; align-items: center; gap: 28px; }
 .site-nav .wrap { height: 70px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--logo, #181D19); text-decoration: none; flex: none; }
@@ -827,18 +832,19 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .cx-step.cx-rv .cx-txt > * { opacity: 1; transform: none; transition: none !important; }
 }
 /* Revision 10: Plant Intelligence (.cx-auto) is a compact list of tabs that advances by itself.
-   The panel is not sticky. Each step has a progress line on its left edge (scaleY, driven by cxFrame).
+   The panel is not sticky. Revision 11: a horizontal divider runs under each step; the active one fills left to right (scaleX, driven by cxFrame).
    The week chapter does not use .cx-auto and keeps the pinned scroll layout above. */
 .cx-auto .cx-head { position: static; z-index: auto; padding-bottom: 0; border-bottom: 0; margin-bottom: clamp(28px, 3vw, 44px); max-width: 640px; }
 .cx-auto .cx-head::before, .cx-auto .cx-head::after { display: none; }
 .cx-auto .cx-grid { align-items: center; }
-.cx-auto .cx-steps { display: grid; gap: 2px; }
+.cx-auto .cx-steps { display: grid; gap: 0; }
 .cx-auto .cx-step { padding: 0; border-top: 0; }
-.cx-tab { position: relative; display: block; width: 100%; padding: 14px 0 16px 26px; border: 0; border-radius: 14px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.cx-tab { position: relative; display: block; width: 100%; padding: 15px 0 17px; border: 0; border-radius: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .cx-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 .cx-tab > .cx-txt, .cx-tab .cx-txt > * { display: block; }
-.cx-bar { position: absolute; left: 0; top: 14px; bottom: 16px; width: 2px; border-radius: 2px; background: var(--mk-line); overflow: hidden; }
-.cx-bar i { position: absolute; inset: 0; border-radius: 2px; background: var(--mk-text); transform: scaleY(0); transform-origin: 50% 0; will-change: transform; }
+.cx-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
+.cx-bar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--mk-line); }
+.cx-bar i { position: absolute; inset: 0; border-radius: 2px; background: var(--mk-text); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
 .cx-auto .cx-num { display: flex; }
 .cx-auto .cx-step .h3 { margin-top: 10px; font-size: var(--cx-h3); }
 .cx-auto .cx-p { margin-top: 8px; color: var(--mk-text-2); max-width: 46ch; }
@@ -1003,8 +1009,7 @@ body.pbar-hidden { padding-bottom: 0; }
   .site-nav .wrap { height: 64px; }
   [id] { scroll-margin-top: 76px; }
   .site-nav.open .nav-links { top: 64px; }
-  .nav-pill .wrap { height: 56px; }
-  .nav-pill .nav-end .mk-btn { height: 42px; }
+  .nav-pill { --np-h: 56px; --np-c: 42px; }
   .hero .eyebrow { margin-bottom: 18px; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
   .feat-list { grid-template-columns: 1fr; }
@@ -2296,7 +2301,7 @@ function cxMeasure(I) {
 }
 
 /* ---------- Engine ---------- */
-var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, ro: null, rio: null, ticking: false };
+var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, aio: null, ro: null, rio: null, ticking: false };
 function cxInst(el) { return { el: el, kind: el.dataset.k, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: Array.prototype.slice.call(el.querySelectorAll("[data-st]")) }; }
 function cxDesk(ch) { return !!ch.vis.offsetParent; }
 function cxStill(I) { return CX_SCN[I.kind].still; }
@@ -2354,7 +2359,7 @@ function cxFrame(now) {
     if (!ch.root.isConnected) return;
     if (ch.on && cxDesk(ch)) {
       any = true;
-      if (ch.auto && !ch.hover && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
+      if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       var I = ch.insts[ch.active];
       ch.since += dt; I.t = (I.t + dt) % CX_SCN[I.kind].L;
       cxRender(ch); if (ch.auto) cxBars(ch);
@@ -2396,12 +2401,13 @@ function cxPaintAll() {
 }
 /* Revision 10 auto list. Each step's progress lasts its panel loop (CX_SCN L) plus 600 ms for the card to come in,
    so the loop plays once in full: focus 7400 ms, facts 7200 ms, evry 9000 ms, share 7200 ms.
-   Progress holds while the pointer is over the section or a tab has keyboard focus, and while the panel is off screen (cxFrame only runs in view).
+   Revision 11: no pause on hover (a pointer resting over the section while the wheel scrolls stalled the progress).
+   Progress runs while any part of the section is on screen, holds only when it is fully off screen or a tab has keyboard focus, and then resumes where it stopped.
    Reduced motion: no advance and no fill; the active line is full and clicks switch steps. */
 function cxDur(ch) { return CX_SCN[ch.insts[ch.active].kind].L + 600; }
 function cxBars(ch) {
   var p = REDUCED.matches ? 1 : haClamp(ch.prog / cxDur(ch));
-  ch.bars.forEach(function (b, i) { haSet(b, "transform", "scaleY(" + (i === ch.active ? p : 0).toFixed(4) + ")"); });
+  ch.bars.forEach(function (b, i) { haSet(b, "transform", "scaleX(" + (i === ch.active ? p : 0).toFixed(4) + ")"); });
 }
 function cxTabs(ch) {
   ch.tabs.forEach(function (b, i) { b.setAttribute("aria-selected", String(i === ch.active)); b.tabIndex = i === ch.active ? 0 : -1; });
@@ -2413,8 +2419,6 @@ function cxAutoBind(ch) {
   if (root.__bound) return;
   root.__bound = true;
   var cur = function () { return root.__auto; };
-  root.addEventListener("pointerenter", function () { cur().hover = true; });
-  root.addEventListener("pointerleave", function () { cur().hover = false; cxKick(); });
   root.addEventListener("focusin", function (e) { var c = cur(); c.kbd = !!(e.target.matches && e.target.matches(":focus-visible")); });
   root.addEventListener("focusout", function (e) { if (!root.contains(e.relatedTarget)) { cur().kbd = false; cxKick(); } });
   root.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".cx-tab"); if (b) cxAutoGo(cur(), cur().tabs.indexOf(b)); });
@@ -2428,13 +2432,13 @@ function cxAutoBind(ch) {
 function cxInit() {
   if (CX.raf) cancelAnimationFrame(CX.raf);
   CX.raf = 0; CX.lock = false;
-  [CX.io, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
+  [CX.io, CX.aio, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
   CX.list = Array.prototype.map.call(document.querySelectorAll("#view .cx"), function (root) {
     var vis = root.querySelector(".cx-vis");
     return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
       insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
       active: 0, prev: -1, since: 1e6, on: false, seen: false,
-      auto: root.classList.contains("cx-auto"), prog: 0, hover: false, kbd: false,
+      auto: root.classList.contains("cx-auto"), prog: 0, kbd: false,
       bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
   });
   CX.list.forEach(function (ch) { if (ch.auto) cxAutoBind(ch); });
@@ -2449,7 +2453,7 @@ function cxInit() {
     CX.list.forEach(function (ch) { ch.steps.forEach(function (s) { if (s.getBoundingClientRect().top < window.innerHeight * .9) return; s.classList.add("cx-rv"); CX.rio.observe(s); }); });
   }
   if (hasIO) {
-    CX.io = new IntersectionObserver(function (es) {
+    var onIO = function (es) {
       es.forEach(function (e) {
         var I = e.target.__cx;
         if (I) { if (e.isIntersecting && !I.on && !REDUCED.matches) { I.since = 0; I.t = 0; } I.on = e.isIntersecting; return; }
@@ -2458,9 +2462,12 @@ function cxInit() {
         ch.on = e.isIntersecting;
       });
       cxKick();
-    }, { threshold: 0.12 });
+    };
+    CX.io = new IntersectionObserver(onIO, { threshold: 0.12 });
+    /* Revision 11: the auto list counts as on screen while any part of it shows, so the edges of the viewport do not stall it. */
+    CX.aio = new IntersectionObserver(onIO, { threshold: 0 });
     CX.list.forEach(function (ch) {
-      var tgt = ch.auto ? ch.root : ch.vis; tgt.__ch = ch; CX.io.observe(tgt);
+      var tgt = ch.auto ? ch.root : ch.vis; tgt.__ch = ch; (ch.auto ? CX.aio : CX.io).observe(tgt);
       ch.mobs.forEach(function (M) { M.el.__cx = M; CX.io.observe(M.el); });
     });
   } else CX.list.forEach(function (ch) { ch.on = true; ch.mobs.forEach(function (M) { M.on = true; }); });
