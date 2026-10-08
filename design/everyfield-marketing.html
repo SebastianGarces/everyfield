@@ -3,181 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EveryField marketing site · switchable prototype</title>
+<title>EveryField marketing site · prototype</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 657 530%22%3E%3Cpath fill=%22%23181D19%22 d=%22M0 461.6H657V529.6H0ZM363 0V276.7L567.2 68.7L615.9 117.7L412.9 324.4H657V393.6H493.3C424.8 393.6 364.4 358.9 328.5 305.9C292.7 358.9 232.3 393.6 163.8 393.6L0 393.6V324.4H244.1L39.9 118.9L88.6 69.9L294.1 276.6V0Z%22/%3E%3C/svg%3E">
 <!--
   Prototype of the EveryField marketing site. One file, works offline from disk.
   Fonts load from Google Fonts when online and fall back to system fonts.
+  Revision 2: Signal style only. Stories A and B only.
 
-  URL hash holds the full state:  #/<page>?style=<style>&story=<story>[&at=<section id>]
-    page   home | planters | oversight | method | trust | access | privacy | terms
-    style  fieldnotes | gradientfield | signal | nightfield
-    story  journey (A) | oversight (B) | method (C)   (home page only; other pages use fixed copy)
+  URL hash holds the full state:  #/<page>?story=<story>[&at=<section id>]
+    page   home | planters | oversight | trust | access | privacy | terms
+    story  journey (A) | oversight (B)   (home page only; other pages use fixed copy)
 
   Inlined sources (re-sync with the command in the task note):
-    BEGIN/END design/marketing-styles.css   style tokens (.mk-neighborhood is in the file but unused)
-    BEGIN/END design/marketing-copy.json    copy for the three stories
-    ef-mark / ef-wordmark symbols           from design/everyfield-ui.html (round-buffalo)
+    mk-tokens                               Signal tokens from design/marketing-styles.css, with the revision 2 canvas
+    BEGIN/END design/marketing-copy.json    copy for stories A and B
+    ef-mark / ef-wordmark symbols, EvryBot  from design/everyfield-ui.html (round-buffalo)
+
+  Placeholder slots (class "slot") mark sections that later tasks rebuild:
+    hero animation, the Gather / Meet / Follow up / Commit section, the Plant Intelligence section.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
 <style id="mk-tokens">
-/* BEGIN design/marketing-styles.css */
-/*
- * Everyfield marketing site: style direction tokens.
- *
- * Put one class on <html> or <body> to switch the whole page:
- *   .mk-fieldnotes   A. Field Notes   (warm paper, editorial, map line work)
- *   .mk-signal       B. Signal        (the dashboard's own look, product-first)
- *   .mk-nightfield   C. Night Field   (dark, product UI on near-black, green signal)
- *   .mk-neighborhood D. Neighborhood  (documentary photography, deep green and cream)
- *
- * Every class sets the same variable names, so components only read --mk-*.
- * Colours come from the --ef-* ramps in design/everyfield-ui.html.
- * Contrast (WCAG 2.x) for each text pair is noted next to it.
- * Rule for all directions: never set #1CE362 (green-500) as text on a light
- * background. Use it as a fill with ink text, or as text on dark only.
- */
-
+/* Signal tokens. Derived from the .mk-signal block in design/marketing-styles.css.
+   Revision 2 changes: canvas #FCFBF8 (Calendly), white cards, secondary surface #F5F3EE.
+   Rule: never set #1CE362 (green-500) as text on a light background. Use it as a fill with ink text. */
 :root {
   --mk-font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-
-  /* Shared spacing scale (4px base, same as --ef-space-*) */
-  --mk-space-1: 4px;
-  --mk-space-2: 8px;
-  --mk-space-3: 12px;
-  --mk-space-4: 16px;
-  --mk-space-6: 24px;
-  --mk-space-8: 32px;
-  --mk-space-12: 48px;
-  --mk-space-16: 64px;
-  --mk-space-24: 96px;
-  --mk-space-32: 128px;
-
   --mk-ease: cubic-bezier(.2, .8, .2, 1);
 }
-
-/* ------------------------------------------------------------------ */
-/* A. Field Notes                                                       */
-/* Warm paper, ink type, map line work. Calm and literate.              */
-/* ------------------------------------------------------------------ */
-.mk-fieldnotes {
-  color-scheme: light;
-
-  --mk-canvas: #F6F0E9;          /* --ef-cream */
-  --mk-surface: #FFFDF9;
-  --mk-surface-2: #EFE6DA;
-  --mk-surface-inverse: #181D19; /* --ef-ink */
-  --mk-ink: #181D19;             /* 15.1:1 on canvas */
-  --mk-text: #181D19;
-  --mk-text-2: #4D5361;          /* 6.8:1 on canvas, 6.2:1 on surface-2 */
-  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
-  --mk-text-inverse: #F6F0E9;    /* 15.1:1 on surface-inverse */
-  --mk-line: rgba(24, 29, 25, .12);
-  --mk-line-strong: rgba(24, 29, 25, .24);
-
-  --mk-accent: #0F7E3C;          /* --ef-green-600, 4.6:1 on canvas */
-  --mk-accent-text: #FFFFFF;     /* 5.2:1 on accent */
-  --mk-link: #0F7E3C;
-  --mk-highlight: #1CE362;       /* marker fill behind ink text, 9.9:1 */
-  --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
-  --mk-chart-1: #0F7E3C;
-  --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
-  --mk-chart-3: #1C5BB5;         /* --ef-blue-600 */
-
-  --mk-cta-bg: #181D19;
-  --mk-cta-text: #F6F0E9;        /* 15.1:1 */
-  --mk-cta-bg-hover: #0F7E3C;
-  --mk-cta2-bg: transparent;
-  --mk-cta2-text: #181D19;
-  --mk-cta2-border: rgba(24, 29, 25, .35);
-
-  /* Type: large, tight display; generous body */
-  --mk-fs-hero: clamp(48px, 7vw, 104px);
-  --mk-fs-h1: clamp(40px, 5vw, 72px);
-  --mk-fs-h2: clamp(32px, 3.6vw, 52px);
-  --mk-fs-h3: clamp(22px, 2vw, 28px);
-  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
-  --mk-fs-body: 17px;
-  --mk-fs-small: 14px;
-  --mk-fs-eyebrow: 13px;
-  --mk-weight-display: 500;
-  --mk-weight-body: 400;
-  --mk-lh-display: 1.0;
-  --mk-lh-body: 1.6;
-  --mk-tracking-display: -0.035em;
-  --mk-tracking-eyebrow: 0.08em;
-  --mk-eyebrow-transform: uppercase;
-  --mk-display-stretch: 100%;    /* Bricolage wdth axis */
-
-  /* Layout: 12 col, wide margins, asymmetric 5/7 heroes */
-  --mk-max-width: 1280px;
-  --mk-grid-cols: 12;
-  --mk-gutter: 24px;
-  --mk-page-pad: clamp(20px, 5vw, 64px);
-  --mk-section-space: clamp(80px, 10vw, 144px);
-  --mk-measure: 62ch;
-
-  /* Shape */
-  --mk-radius-card: 6px;
-  --mk-radius-button: 999px;
-  --mk-radius-media: 4px;
-  --mk-border-card: 1px solid rgba(24, 29, 25, .12);
-  --mk-shadow-card: none;
-  --mk-shadow-media: 0 1px 2px rgba(24, 29, 25, .06), 0 18px 40px -24px rgba(24, 29, 25, .35);
-  --mk-nav-bg: rgba(246, 240, 233, .88);
-  --mk-nav-blur: 10px;
-  --mk-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cpath d='M0 120c40-30 80-30 120 0s80 30 120 0M0 160c40-30 80-30 120 0s80 30 120 0M0 80c40-30 80-30 120 0s80 30 120 0' fill='none' stroke='%23181D19' stroke-opacity='.06'/%3E%3C/svg%3E");
-}
-
-/* ------------------------------------------------------------------ */
-/* B. Signal                                                            */
-/* The dashboard's own look: grey canvas, white cards, green momentum.  */
-/* ------------------------------------------------------------------ */
 .mk-signal {
   color-scheme: light;
 
-  --mk-canvas: #E9ECF0;          /* --ef-canvas (light) */
-  --mk-surface: #FFFFFF;         /* --ef-surface-raised */
-  --mk-surface-2: #F2F4F7;       /* --ef-frame */
+  --mk-canvas: #FCFBF8;          /* Calendly canvas */
+  --mk-surface: #FFFFFF;         /* cards */
+  --mk-surface-2: #F5F3EE;       /* secondary surface */
   --mk-surface-inverse: #181D19;
-  --mk-ink: #181D19;             /* 14.4:1 on canvas */
+  --mk-ink: #181D19;             /* 16.5:1 on canvas */
   --mk-text: #181D19;
-  --mk-text-2: #4D5361;          /* 6.5:1 on canvas, 7.7:1 on white */
-  --mk-text-3: #666C78;          /* 5.3:1 on white */
-  --mk-text-inverse: #FFFFFF;    /* 17.1:1 on surface-inverse */
-  --mk-line: rgba(22, 30, 46, .075);
-  --mk-line-strong: rgba(22, 30, 46, .13);
+  --mk-text-2: #4D5361;          /* 7.6:1 on canvas */
+  --mk-text-3: #666C78;          /* 5.2:1 on canvas, 4.8:1 on surface-2 */
+  --mk-text-inverse: #FFFFFF;
+  --mk-line: rgba(24, 29, 25, .08);
+  --mk-line-strong: rgba(24, 29, 25, .14);
 
-  --mk-accent: #1CE362;          /* --ef-green-500, fill only */
-  --mk-accent-text: #111318;     /* 10.8:1 on accent */
-  --mk-link: #0F7E3C;            /* 5.2:1 on white */
-  --mk-highlight: #DCFAE7;       /* --ef-green-100 chip, text #0D6B35 at 6.0:1 */
+  --mk-accent: #1CE362;          /* fill only */
+  --mk-accent-text: #111318;
+  --mk-link: #0F7E3C;            /* 5.1:1 on canvas */
+  --mk-highlight: #DCFAE7;
   --mk-eyebrow: #4D5361;
-  --mk-chart-1: #1CE362;
-  --mk-chart-2: #6AAEFF;         /* --ef-blue-500 */
-  --mk-chart-3: #A48CF5;         /* --ef-violet-500 */
 
   --mk-cta-bg: #181D19;
-  --mk-cta-text: #FFFFFF;        /* 17.1:1 */
+  --mk-cta-text: #FFFFFF;
   --mk-cta-bg-hover: #343843;
   --mk-cta2-bg: #FFFFFF;
   --mk-cta2-text: #181D19;
-  --mk-cta2-border: rgba(22, 30, 46, .13);
+  --mk-cta2-border: rgba(24, 29, 25, .14);
 
-  /* Type: same scale family as --ef-display-* */
   --mk-fs-hero: clamp(44px, 6vw, 88px);
-  --mk-fs-h1: clamp(40px, 4.6vw, 76px);  /* --ef-display-lg */
-  --mk-fs-h2: clamp(30px, 3.4vw, 56px);  /* --ef-display-md */
-  --mk-fs-h3: clamp(22px, 1.8vw, 28px);  /* --ef-title-lg */
+  --mk-fs-h1: clamp(40px, 4.6vw, 76px);
+  --mk-fs-h2: clamp(30px, 3.4vw, 56px);
+  --mk-fs-h3: clamp(22px, 1.8vw, 28px);
   --mk-fs-lead: clamp(18px, 1.4vw, 21px);
   --mk-fs-body: 16px;
   --mk-fs-small: 14px;
   --mk-fs-eyebrow: 13px;
   --mk-weight-display: 500;
-  --mk-weight-body: 400;
   --mk-lh-display: 1.04;
   --mk-lh-body: 1.55;
   --mk-tracking-display: -0.035em;
@@ -185,240 +78,20 @@
   --mk-eyebrow-transform: none;
   --mk-display-stretch: 100%;
 
-  /* Layout: bento grid of cards, centred hero, product frame below */
   --mk-max-width: 1440px;
-  --mk-grid-cols: 12;
   --mk-gutter: 16px;
   --mk-page-pad: clamp(16px, 3vw, 40px);
   --mk-section-space: clamp(72px, 8vw, 120px);
   --mk-measure: 58ch;
 
-  /* Shape: the dashboard's soft cards and pills */
-  --mk-radius-card: 26px;        /* --ef-radius-card */
+  --mk-radius-card: 26px;
   --mk-radius-button: 999px;
-  --mk-radius-media: 34px;       /* --ef-radius-frame */
-  --mk-border-card: 0;
-  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
-  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28);
-  --mk-nav-bg: rgba(255, 255, 255, .9);
+  --mk-radius-media: 34px;
+  --mk-border-card: 1px solid rgba(24, 29, 25, .06);
+  --mk-shadow-card: 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
+  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.22);
+  --mk-nav-bg: rgba(252, 251, 248, .9);
   --mk-nav-blur: 12px;
-  --mk-texture: none;
-}
-
-/* ------------------------------------------------------------------ */
-/* C. Night Field                                                       */
-/* Near-black canvas, product UI as hero, green as the only signal.     */
-/* ------------------------------------------------------------------ */
-.mk-nightfield {
-  color-scheme: dark;
-
-  --mk-canvas: #0B0D10;          /* --ef-canvas (dark) */
-  --mk-surface: #161A1F;         /* --ef-surface (dark) */
-  --mk-surface-2: #1C2026;       /* --ef-surface-raised (dark) */
-  --mk-surface-inverse: #EEF0F4;
-  --mk-ink: #EEF0F4;             /* 17.1:1 on canvas */
-  --mk-text: #ECEEF2;
-  --mk-text-2: #B1B7C2;          /* 9.7:1 on canvas, 8.1:1 on surface-2 */
-  --mk-text-3: #8A919E;          /* 6.1:1 on canvas, 5.5:1 on surface */
-  --mk-text-inverse: #111318;
-  --mk-line: rgba(255, 255, 255, .07);
-  --mk-line-strong: rgba(255, 255, 255, .13);
-
-  --mk-accent: #1CE362;          /* 11.3:1 as text on canvas */
-  --mk-accent-text: #111318;     /* 10.8:1 on accent */
-  --mk-link: #62E897;            /* 12.5:1 on canvas */
-  --mk-highlight: rgba(28, 227, 98, .14);
-  --mk-eyebrow: #8A919E;
-  --mk-chart-1: #1CE362;
-  --mk-chart-2: #6AAEFF;
-  --mk-chart-3: #F2728A;         /* --ef-magenta-500 */
-
-  --mk-cta-bg: #1CE362;
-  --mk-cta-text: #111318;        /* 10.8:1 */
-  --mk-cta-bg-hover: #62E897;
-  --mk-cta2-bg: rgba(255, 255, 255, .06);
-  --mk-cta2-text: #EEF0F4;
-  --mk-cta2-border: rgba(255, 255, 255, .13);
-
-  /* Type: smaller, tighter, quieter headings; the product does the talking */
-  --mk-fs-hero: clamp(42px, 5.4vw, 80px);
-  --mk-fs-h1: clamp(36px, 4vw, 60px);
-  --mk-fs-h2: clamp(28px, 3vw, 44px);
-  --mk-fs-h3: clamp(20px, 1.6vw, 24px);
-  --mk-fs-lead: clamp(17px, 1.3vw, 20px);
-  --mk-fs-body: 16px;
-  --mk-fs-small: 14px;
-  --mk-fs-eyebrow: 12px;
-  --mk-weight-display: 500;
-  --mk-weight-body: 400;
-  --mk-lh-display: 1.05;
-  --mk-lh-body: 1.55;
-  --mk-tracking-display: -0.03em;
-  --mk-tracking-eyebrow: 0.06em;
-  --mk-eyebrow-transform: uppercase;
-  --mk-display-stretch: 92%;
-
-  /* Layout: left-aligned hero, full-width product frame, ruled feature lists */
-  --mk-max-width: 1280px;
-  --mk-grid-cols: 12;
-  --mk-gutter: 24px;
-  --mk-page-pad: clamp(20px, 5vw, 80px);
-  --mk-section-space: clamp(96px, 12vw, 176px);
-  --mk-measure: 56ch;
-
-  /* Shape */
-  --mk-radius-card: 14px;        /* --ef-radius-md */
-  --mk-radius-button: 10px;      /* --ef-radius-sm */
-  --mk-radius-media: 20px;       /* --ef-radius-lg */
-  --mk-border-card: 1px solid rgba(255, 255, 255, .07);
-  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
-  --mk-shadow-media: 0 0 0 1px rgba(255,255,255,.06), 0 40px 120px -40px rgba(28,227,98,.25);
-  --mk-nav-bg: rgba(11, 13, 16, .8);
-  --mk-nav-blur: 14px;
-  --mk-texture: radial-gradient(60% 50% at 50% 0%, rgba(28, 227, 98, .10), transparent 70%);
-}
-
-/* ------------------------------------------------------------------ */
-/* D. Neighborhood                                                      */
-/* Documentary photography of real places; deep green and cream bands.  */
-/* ------------------------------------------------------------------ */
-.mk-neighborhood {
-  color-scheme: light;
-
-  --mk-canvas: #F6F0E9;          /* --ef-cream for body sections */
-  --mk-surface: #FFFDF9;
-  --mk-surface-2: #EDE3D5;
-  --mk-surface-inverse: #0F2418; /* --ef-green-50 (dark ramp) for hero and bands */
-  --mk-ink: #181D19;             /* 15.1:1 on canvas */
-  --mk-text: #181D19;
-  --mk-text-2: #4D5361;          /* 6.8:1 on canvas */
-  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
-  --mk-text-inverse: #F6F0E9;    /* 14.4:1 on surface-inverse */
-  --mk-text-inverse-2: #CDD2DA;  /* 10.8:1 on surface-inverse */
-  --mk-line: rgba(24, 29, 25, .12);
-  --mk-line-strong: rgba(24, 29, 25, .24);
-
-  --mk-accent: #FFA552;          /* --ef-amber-500, 8.4:1 as text on green band */
-  --mk-accent-text: #181D19;     /* 8.8:1 on accent */
-  --mk-link: #0D6B35;            /* --ef-green-700, 5.9:1 on canvas */
-  --mk-highlight: #FFEBD6;       /* --ef-amber-100 */
-  --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
-  --mk-chart-1: #0D6B35;
-  --mk-chart-2: #D9780F;
-  --mk-chart-3: #11736A;         /* --ef-teal-600 */
-
-  --mk-cta-bg: #FFA552;
-  --mk-cta-text: #181D19;        /* 8.8:1 */
-  --mk-cta-bg-hover: #FFC68F;
-  --mk-cta2-bg: transparent;
-  --mk-cta2-text: inherit;
-  --mk-cta2-border: currentColor;
-
-  /* Type: big and warm; condensed-ish display for captions over photos */
-  --mk-fs-hero: clamp(48px, 7.5vw, 112px);
-  --mk-fs-h1: clamp(40px, 5vw, 72px);
-  --mk-fs-h2: clamp(30px, 3.4vw, 48px);
-  --mk-fs-h3: clamp(21px, 1.8vw, 26px);
-  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
-  --mk-fs-body: 17px;
-  --mk-fs-small: 14px;
-  --mk-fs-eyebrow: 13px;
-  --mk-weight-display: 600;
-  --mk-weight-body: 400;
-  --mk-lh-display: 0.98;
-  --mk-lh-body: 1.6;
-  --mk-tracking-display: -0.03em;
-  --mk-tracking-eyebrow: 0.1em;
-  --mk-eyebrow-transform: uppercase;
-  --mk-display-stretch: 85%;
-
-  /* Layout: full-bleed photo heroes, photo mosaics, text in narrow columns */
-  --mk-max-width: 1360px;
-  --mk-grid-cols: 12;
-  --mk-gutter: 12px;
-  --mk-page-pad: clamp(16px, 4vw, 56px);
-  --mk-section-space: clamp(80px, 10vw, 140px);
-  --mk-measure: 60ch;
-
-  /* Shape */
-  --mk-radius-card: 20px;
-  --mk-radius-button: 999px;
-  --mk-radius-media: 20px;
-  --mk-border-card: 0;
-  --mk-shadow-card: 0 1px 2px rgba(15, 36, 24, .06), 0 12px 32px -18px rgba(15, 36, 24, .35);
-  --mk-shadow-media: none;
-  --mk-nav-bg: rgba(15, 36, 24, .72);
-  --mk-nav-blur: 12px;
-  --mk-texture: none;
-}
-/* END design/marketing-styles.css */
-</style>
-<style id="mk-gradientfield">
-/* Gradient Field: Mercury hero atmosphere, Phantom frame. Same --mk-* names as the other directions.
-   Large surfaces reuse the dashboard InsightCard gradient (base + OKLCH mesh + grain). Text on colour stays ink. */
-.mk-gradientfield {
-  color-scheme: light;
-  --mk-canvas: #F6F0E9;          /* --ef-cream */
-  --mk-surface: #FFFDF9;
-  --mk-surface-2: #EFE6DA;
-  --mk-surface-inverse: #181D19;
-  --mk-ink: #181D19;
-  --mk-text: #181D19;
-  --mk-text-2: #3E4450;          /* 9.6:1 on cream, 4.9:1 on the field base */
-  --mk-text-3: #5A606B;          /* 5.9:1 on cream */
-  --mk-text-inverse: #F6F0E9;
-  --mk-line: rgba(24, 29, 25, .12);
-  --mk-line-strong: rgba(24, 29, 25, .26);
-
-  --mk-accent: #181D19;
-  --mk-accent-text: #F6F0E9;
-  --mk-link: #0D6B35;            /* 5.9:1 on cream */
-  --mk-highlight: #1CE362;       /* fill behind ink only */
-  --mk-eyebrow: #181D19;
-  --mk-chart-1: #0F7E3C;
-  --mk-chart-2: #D9780F;
-  --mk-chart-3: #1C5BB5;
-
-  --mk-cta-bg: #181D19;
-  --mk-cta-text: #F6F0E9;        /* 15.1:1 */
-  --mk-cta-bg-hover: #343843;
-  --mk-cta2-bg: rgba(255, 253, 249, .72);
-  --mk-cta2-text: #181D19;
-  --mk-cta2-border: rgba(24, 29, 25, .14);
-
-  --mk-fs-hero: clamp(50px, 8vw, 124px);
-  --mk-fs-h1: clamp(40px, 5.2vw, 76px);
-  --mk-fs-h2: clamp(32px, 3.8vw, 56px);
-  --mk-fs-h3: clamp(21px, 1.8vw, 26px);
-  --mk-fs-lead: clamp(18px, 1.4vw, 21px);
-  --mk-fs-body: 16.5px;
-  --mk-fs-small: 14px;
-  --mk-fs-eyebrow: 13px;
-  --mk-weight-display: 500;
-  --mk-weight-body: 400;
-  --mk-lh-display: .98;
-  --mk-lh-body: 1.58;
-  --mk-tracking-display: -0.04em;
-  --mk-tracking-eyebrow: 0.02em;
-  --mk-eyebrow-transform: none;
-  --mk-display-stretch: 100%;
-
-  --mk-max-width: 1360px;
-  --mk-grid-cols: 12;
-  --mk-gutter: 20px;
-  --mk-page-pad: clamp(16px, 4vw, 56px);
-  --mk-section-space: clamp(80px, 9vw, 136px);
-  --mk-measure: 58ch;
-
-  --mk-radius-card: 28px;
-  --mk-radius-button: 999px;
-  --mk-radius-media: 28px;
-  --mk-border-card: 0;
-  --mk-shadow-card: 0 1px 2px rgba(24,29,25,.05), 0 14px 34px -22px rgba(24,29,25,.35);
-  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 30px 60px -28px rgba(24,29,25,.45);
-  --mk-nav-bg: rgba(246, 240, 233, .72);
-  --mk-nav-blur: 14px;
-  --mk-texture: none;
 }
 </style>
 <style id="mk-site">
@@ -442,20 +115,6 @@
   --ef-hatch-w: 1.6px; --ef-hatch-gap: 5.5px;
   font-family: var(--mk-font-body); color: var(--ef-text); font-size: 14px; line-height: 1.45;
   letter-spacing: 0; text-align: left; font-stretch: 100%;
-}
-.mk-nightfield .ef {
-  --ef-ink: #EEF0F4; --ef-ink-2: #CDD2DA; --ef-text: #ECEEF2; --ef-text-2: #B1B7C2; --ef-text-3: #8A919E;
-  --ef-canvas: #0B0D10; --ef-frame: #0F1115; --ef-surface: #161A1F; --ef-surface-2: #21262D; --ef-surface-raised: #1C2026;
-  --ef-line: rgba(255,255,255,.07); --ef-line-2: rgba(255,255,255,.13); --ef-on-ink: #111318; --ef-card-edge: rgba(255,255,255,.05);
-  --ef-green-700: #A6F7C4; --ef-green-600: #62E897; --ef-green-500: #1CE362; --ef-green-300: #1F6B3E; --ef-green-100: #12301F; --ef-green-50: #0F2418;
-  --ef-blue-600: #A9CFFF; --ef-blue-500: #6AAEFF; --ef-blue-300: #2E4E7A; --ef-blue-100: #172840;
-  --ef-magenta-600: #FFA9B6; --ef-magenta-500: #F2728A; --ef-magenta-100: #3A1D24;
-  --ef-amber-display: #FFA552; --ef-amber-600: #FFC68F; --ef-amber-500: #FFA552; --ef-amber-100: #36241A; --ef-amber-50: #2A1D15;
-  --ef-violet-600: #CDBEFF; --ef-violet-500: #A48CF5; --ef-violet-100: #282245;
-  --ef-teal-600: #8EE6DB; --ef-teal-500: #4CC9BB; --ef-teal-100: #13302D;
-  --ef-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
-  --ef-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -4px rgba(0,0,0,.45);
-  --ef-shadow-pill: 0 1px 1px rgba(0,0,0,.4), 0 6px 14px -6px rgba(0,0,0,.6);
 }
 .ef *, .ef *::before, .ef *::after { box-sizing: border-box; }
 .ef svg.i { width: 18px; height: 18px; flex: none; }
@@ -610,9 +269,6 @@
 .evry-panel { background: var(--ef-surface); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); border: 1px solid var(--ef-line); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .ep-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--ef-line); }
 .ep-name { font-family: var(--mk-font-display); font-size: 18px; font-weight: 500; }
-.bot { width: 30px; height: 30px; border-radius: 10px; background: #1CE362; position: relative; flex: none; box-shadow: 0 4px 10px -6px rgba(16,120,56,.8); }
-.bot i { position: absolute; top: 38%; width: 4px; height: 7px; border-radius: 4px; background: #181D19; }
-.bot i:first-child { left: 34%; } .bot i:last-child { left: 56%; }
 .bubble { max-width: 86%; padding: 11px 14px; border-radius: 16px; font-size: 14px; line-height: 1.45; }
 .bubble.me { align-self: flex-end; background: var(--ef-ink); color: var(--ef-on-ink); border-bottom-right-radius: 6px; }
 .bubble.ai { align-self: flex-start; background: var(--ef-surface-2); border-bottom-left-radius: 6px; }
@@ -670,7 +326,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-btn:active { transform: translateY(1px); }
 .mk-btn.primary { background: var(--mk-cta-bg); color: var(--mk-cta-text); }
 .mk-btn.primary:hover { background: var(--mk-cta-bg-hover); }
-.mk-fieldnotes .mk-btn.primary:hover { color: #fff; }
 .mk-btn.secondary { background: var(--mk-cta2-bg); color: var(--mk-cta2-text); box-shadow: inset 0 0 0 1px var(--mk-cta2-border); }
 .mk-btn.secondary:hover { box-shadow: inset 0 0 0 1.5px var(--mk-text); }
 .mk-btn svg { width: 17px; height: 17px; }
@@ -690,7 +345,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .visual { position: relative; margin: 0; min-width: 0; }
 .sample-tag { position: absolute; z-index: 5; top: -12px; right: 18px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 99px; background: #181D19; color: #F6F0E9; font: 600 11.5px/1 var(--mk-font-body); letter-spacing: .02em; box-shadow: 0 4px 10px -4px rgba(0,0,0,.4); }
 .sample-tag::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(-45deg, #1CE362 0 2px, transparent 2px 4px); }
-.mk-nightfield .sample-tag { background: #EEF0F4; color: #111318; }
 .caption { margin-top: 14px; font-size: var(--mk-fs-small); color: var(--mk-text-3); }
 
 /* Navigation */
@@ -700,7 +354,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .logo .lm { width: 27px; height: 22px; }
 .logo .lw { width: 112px; height: 23px; }
 .logo.chip { background: #1CE362; color: #181D19; padding: 10px 14px; border-radius: 14px; }
-.mk-nightfield { --logo: #F6F0E9; }
 .nav-links { display: flex; gap: 4px; font-size: 14.5px; }
 .nav-links a { text-decoration: none; color: var(--mk-text-2); padding: 8px 11px; border-radius: 999px; white-space: nowrap; }
 .nav-links a:hover { color: var(--mk-text); background: var(--mk-line); }
@@ -742,7 +395,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--mk-highlight); color: var(--mk-ink); font-size: 14px; font-weight: 600; line-height: 1.3; }
 .mk-signal .chip { color: #0D6B35; }
-.mk-nightfield .chip { color: var(--mk-link); }
 .map-tile { padding: 0; overflow: hidden; flex: 1; min-height: 260px; display: flex; flex-direction: column; }
 .map-tile .map { flex: 1; min-height: 0; }
 .map-tile .sample-tag { top: 12px; }
@@ -792,22 +444,25 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .cta-box .btn-row { justify-content: center; margin-top: 8px; }
 .cta-box .lead { margin: 0 auto; }
 
-/* Footer: Phantom pattern. A coloured frame around a rounded cream card. */
-.site-footer { padding: 0 var(--mk-page-pad) var(--mk-page-pad); }
-.ft-frame { max-width: calc(var(--mk-max-width) + 80px); margin: 0 auto; border-radius: calc(var(--mk-radius-card) + 12px); padding: clamp(12px, 1.6vw, 22px); background: #1CE362; }
-.ft-card { --logo: #181D19; background: #F6F0E9; color: #181D19; border-radius: var(--mk-radius-card); padding: clamp(28px, 4vw, 56px); display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
-.ft-brand { grid-column: 1 / span 4; display: flex; flex-direction: column; gap: 18px; }
-.ft-brand p { color: #4D5361; max-width: 32ch; font-size: 15px; }
-.ft-cols { grid-column: 6 / span 7; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.ft-cols h4 { font-size: 13px; font-weight: 600; color: #181D19; margin-bottom: 12px; }
-.ft-cols li { margin: 0 0 8px; font-size: 14.5px; }
-.ft-cols a { color: #4D5361; text-decoration: none; }
-.ft-cols a:hover { color: #181D19; text-decoration: underline; }
-.ft-later { color: #666C78; font-size: 14.5px; }
-.ft-later small { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; margin-left: 4px; border: 1px solid rgba(24,29,25,.2); border-radius: 4px; padding: 0 4px; }
-.ft-bottom { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 24px; margin-top: 12px; border-top: 1px solid rgba(24,29,25,.12); font-size: 13.5px; color: #4D5361; }
-.ft-wordmark { grid-column: 1 / -1; color: #181D19; margin-top: 8px; }
-.ft-wordmark svg { width: 100%; height: auto; }
+/* Footer: Calendly pattern. A rounded dark ink card inside the page padding. */
+.site-footer { padding: clamp(24px, 4vw, 48px) var(--mk-page-pad) var(--mk-page-pad); }
+.ft-card { --logo: #FFFFFF; max-width: var(--mk-max-width); margin: 0 auto; background: #181D19; color: #FFFFFF; border-radius: calc(var(--mk-radius-card) + 6px); padding: clamp(28px, 5vw, 72px) clamp(22px, 5vw, 72px) clamp(22px, 3vw, 32px); display: grid; grid-template-columns: repeat(12, 1fr); gap: 32px 24px; }
+.ft-lead { grid-column: 1 / span 5; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+.ft-lead .ft-mark { width: 44px; height: 44px; border-radius: 13px; background: #1CE362; color: #181D19; display: grid; place-items: center; }
+.ft-lead .ft-mark svg { width: 22px; height: 18px; }
+.ft-lead h2 { font-size: clamp(26px, 2.6vw, 38px); line-height: 1.1; max-width: 16ch; }
+.ft-lead .mk-btn { background: #FFFFFF; color: #181D19; height: 46px; }
+.ft-lead .mk-btn:hover { background: #1CE362; }
+.ft-cols { grid-column: 7 / span 6; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.ft-cols h4 { font-size: 13px; font-weight: 600; color: #FFFFFF; margin-bottom: 14px; }
+.ft-cols li { margin: 0 0 10px; font-size: 14.5px; }
+.ft-cols a { color: #B1B7C2; text-decoration: none; }
+.ft-cols a:hover { color: #FFFFFF; text-decoration: underline; text-underline-offset: 3px; }
+.ft-later { color: #8A919E; font-size: 14.5px; }
+.ft-later small { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; margin-left: 4px; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; padding: 0 4px; }
+.ft-bottom { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13.5px; color: #B1B7C2; }
+.ft-bottom .logo .lm { width: 20px; height: 16px; }
+.ft-bottom .logo .lw { width: 84px; height: 18px; }
 
 /* Pages */
 .page-tag { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--mk-font-body); padding: 6px 10px; border-radius: 99px; border: 1px dashed var(--mk-line-strong); color: var(--mk-text-3); margin-bottom: 22px; letter-spacing: .02em; }
@@ -833,55 +488,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .form-msg.show { display: block; }
 .legal-body { max-width: 72ch; display: grid; gap: 18px; color: var(--mk-text-2); }
 
-/* =================== A. Field Notes: Felt, Clay, Granola =================== */
-.mk-fieldnotes .hl { background: linear-gradient(transparent 12%, #1CE362 12%, #1CE362 88%, transparent 88%); }
-.mk-fieldnotes .feat-list { grid-template-columns: 1fr; gap: 0; border-bottom: 1px solid var(--mk-line-strong); }
-.mk-fieldnotes .feat { display: grid; grid-template-columns: 70px 220px 1fr 1.25fr; align-items: baseline; gap: 24px; padding: 30px 0; border-radius: 0; background: none; box-shadow: none; border: 0; border-top: 1px solid var(--mk-line-strong); }
-.mk-fieldnotes .tile { box-shadow: none; }
-.mk-fieldnotes .tile-wide { padding: 0; background: none; border: 0; }
-.mk-fieldnotes .sec-problem { border-top: 1px solid var(--mk-line); }
-.mk-fieldnotes .sec-proof, .mk-fieldnotes .sec-evry { background: var(--mk-surface-2); }
-.mk-fieldnotes .sec-proof .tile, .mk-fieldnotes .sec-evry .limits { background: var(--mk-surface); }
-.mk-fieldnotes .cta-box { background: var(--mk-surface); border: 1px solid var(--mk-line-strong); }
-.mk-fieldnotes .hero-band .app-frame, .mk-fieldnotes .hero-band .map-hero { border-radius: 6px; }
-.mk-fieldnotes .map-hero { background: var(--mk-surface); border: 1px solid var(--mk-line-strong); }
-.mk-fieldnotes .ft-frame { background: #1CE362; }
-
-/* =================== B. Gradient Field: Mercury, Phantom =================== */
-.mk-gradientfield .sec[data-g], .mk-gradientfield .hero[data-g], .mk-gradientfield .ft-frame { position: relative; overflow: hidden; isolation: isolate; background: var(--g-base); color: #181D19; }
-.mk-gradientfield .sec[data-g]::before, .mk-gradientfield .hero[data-g]::before, .mk-gradientfield .ft-frame::before,
-.mk-gradientfield .sec[data-g]::after, .mk-gradientfield .hero[data-g]::after, .mk-gradientfield .ft-frame::after { content: ""; position: absolute; pointer-events: none; }
-.mk-gradientfield .sec[data-g]::before, .mk-gradientfield .hero[data-g]::before, .mk-gradientfield .ft-frame::before {
-  inset: -25%; z-index: -2;
-  background:
-    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
-    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
-    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
-    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
-    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
-  filter: blur(52px) saturate(1.1);
-}
-.mk-gradientfield .sec[data-g]::after, .mk-gradientfield .hero[data-g]::after, .mk-gradientfield .ft-frame::after {
-  inset: 0; z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 260px 260px; opacity: .42; mix-blend-mode: overlay;
-}
-.mk-gradientfield .ft-frame { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; }
-.mk-gradientfield .hero[data-g] { margin: 0 clamp(8px, 1.2vw, 16px); border-radius: 0 0 36px 36px; }
-.mk-gradientfield .sec[data-g] { margin: clamp(8px, 1.2vw, 16px); border-radius: 36px; }
-.mk-gradientfield .hero[data-g] .lead, .mk-gradientfield .sec[data-g] .lead, .mk-gradientfield .sec[data-g] .body-2 { color: rgba(24,29,25,.78); }
-.mk-gradientfield .hero[data-g] .hero-note, .mk-gradientfield .sec[data-g] .small, .mk-gradientfield .sec[data-g] .caption { color: rgba(24,29,25,.7); }
-.mk-gradientfield .sec[data-g] .tile, .mk-gradientfield .sec[data-g] .limits { background: #F6F0E9; border: 0; }
-.mk-gradientfield .sec[data-g] .chip { background: #181D19; color: #F6F0E9; }
-.mk-gradientfield .hero-band .app-frame, .mk-gradientfield .hero-band .map-hero { background-color: #F6F0E9; }
-.mk-gradientfield .hero-band .map-hero { border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); }
-.mk-gradientfield .feat { background: #FFFDF9; }
-.mk-gradientfield .aud { border-top-color: #181D19; }
-.mk-gradientfield .cta-box { padding-top: clamp(32px, 4vw, 56px); padding-bottom: clamp(32px, 4vw, 56px); }
-.mk-gradientfield .sec-cta .cta-box { background: #F6F0E9; box-shadow: var(--mk-shadow-card); max-width: 980px; margin: 0 auto; }
-.mk-gradientfield .trust-item .ti-icon { background: #1CE362; color: #181D19; }
-.mk-gradientfield .site-nav { border-bottom-color: transparent; }
-
 /* =================== C. Signal: the dashboard, enlarged =================== */
 .mk-signal .hero { text-align: center; }
 .mk-signal .hero-title { margin: 0 auto; max-width: 18ch; }
@@ -897,53 +503,23 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-signal .sec-cta .cta-box { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; overflow: hidden; isolation: isolate; background: var(--g-base); color: #181D19; box-shadow: 0 30px 60px -36px rgba(16,120,56,.6); }
 .mk-signal .sec-cta .cta-box .lead, .mk-signal .sec-cta .cta-box .small { color: rgba(24,29,25,.78); }
 .mk-signal .sec-cta .cta-box .mk-btn.secondary { background: rgba(255,255,255,.75); }
-.mk-signal .ft-frame { background: #E1E5EA; }
-.mk-signal .ft-card { background: #FFFFFF; }
-.mk-signal .map-hero { background: var(--mk-surface); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); }
-
-/* =================== D. Night Field: Mercury dark product sections =================== */
-.mk-nightfield .hero { background-image: radial-gradient(70% 60% at 70% 0%, rgba(28,227,98,.14), transparent 70%), radial-gradient(50% 40% at 0% 30%, rgba(106,174,255,.08), transparent 70%); }
-.mk-nightfield .hero-band { position: relative; }
-.mk-nightfield .hero-band::before { content: ""; position: absolute; inset: 10% 8% -6%; background: radial-gradient(closest-side, rgba(28,227,98,.22), transparent); filter: blur(40px); z-index: 0; }
-.mk-nightfield .hero-band > * { position: relative; z-index: 1; }
-.mk-nightfield .sec-proof, .mk-nightfield .sec-evry { background: linear-gradient(#0B0D10, #111419 18%, #111419 82%, #0B0D10); }
-.mk-nightfield .tile { background: var(--mk-surface); }
-.mk-nightfield .feat { background: transparent; box-shadow: none; border: 0; border-top: 1px solid var(--mk-line-strong); border-radius: 0; padding: 26px 0 0; }
-.mk-nightfield .feat-num { color: #1CE362; }
-.mk-nightfield .aud { border-top-color: var(--mk-line-strong); border-top-width: 1px; }
-.mk-nightfield .trust-item .ti-icon { background: rgba(28,227,98,.12); color: #62E897; }
-.mk-nightfield .sec-cta .cta-box { background: radial-gradient(60% 80% at 50% 0%, rgba(28,227,98,.16), transparent 70%), var(--mk-surface); border: 1px solid var(--mk-line-strong); }
-.mk-nightfield .ft-frame { background: #161A1F; box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; }
-.mk-nightfield .map-hero { background: var(--mk-surface); border-radius: var(--mk-radius-media); border: 1px solid var(--mk-line-strong); }
-.mk-nightfield .field input, .mk-nightfield .field select, .mk-nightfield .field textarea { background: var(--mk-surface-2); }
 
 /* =====================================================================
-   Motion (Calendly patterns). Plain CSS sticky + IntersectionObserver in JS.
-   Works in every style. prefers-reduced-motion shows static states.
+   Motion. IntersectionObserver reveals in JS. prefers-reduced-motion shows static states.
    ===================================================================== */
-/* 1. Scroll-pinned hero card over a large InsightCard gradient */
-.showcase { position: relative; padding: 0 var(--mk-page-pad); }
-.sc-track { position: relative; height: calc(var(--n, 4) * 70vh + 100vh - 70px); }
-.sc-sticky { position: sticky; top: 70px; height: calc(100vh - 70px); padding: 12px 0 18px; display: flex; }
-.sc-stage { flex: 1; max-width: calc(var(--mk-max-width) + 120px); margin: 0 auto; border-radius: calc(var(--mk-radius-card) + 10px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: clamp(16px, 3vw, 40px); min-height: 0; }
-.sc-shade { display: none; }
-.mk-nightfield .sc-shade { display: block; position: absolute; inset: 0; z-index: -1; background: radial-gradient(80% 70% at 50% 40%, rgba(11,13,16,.15), rgba(11,13,16,.7)); }
-.sc-tabs { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(255,253,249,.55); box-shadow: 0 0 0 1px rgba(24,29,25,.08) inset; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); flex-wrap: wrap; justify-content: center; }
-.sc-tab { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent; color: rgba(24,29,25,.72); font: 600 14px/1 var(--mk-font-body); cursor: pointer; transition: background-color .3s, color .3s; }
-.sc-tab:hover { color: #181D19; background: rgba(255,253,249,.5); }
-.sc-tab[aria-selected="true"] { background: #181D19; color: #F6F0E9; }
-.sc-tab svg { width: 17px; height: 17px; }
-.sc-card { position: relative; width: min(1080px, 100%); min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 0; background: var(--sc-card, #F6F0E9); border-radius: var(--mk-radius-media); box-shadow: 0 2px 6px rgba(24,29,25,.08), 0 40px 80px -40px rgba(24,29,25,.55); padding: clamp(10px, 1.4vw, 18px); overflow: hidden; }
-.mk-signal .sc-card { --sc-card: #F2F4F7; }
-.mk-nightfield .sc-card { --sc-card: #0F1115; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 40px 80px -30px rgba(0,0,0,.8); }
-.sc-card::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(transparent, var(--sc-card, #F6F0E9)); pointer-events: none; z-index: 3; }
-.sc-view { grid-area: 1 / 1; min-width: 0; align-self: start; opacity: 0; transform: translateY(14px) scale(.985); transition: opacity .45s var(--mk-ease), transform .45s var(--mk-ease); pointer-events: none; }
-.sc-view.on { opacity: 1; transform: none; pointer-events: auto; }
-.sc-view .app-frame { box-shadow: none; }
-.sc-meter { display: flex; gap: 6px; }
-.sc-meter span { width: 26px; height: 4px; border-radius: 4px; background: rgba(24,29,25,.18); overflow: hidden; position: relative; }
-.sc-meter span.on::after { content: ""; position: absolute; inset: 0; background: #181D19; }
-.sc-steps { position: absolute; inset: 0; display: grid; grid-template-rows: repeat(var(--n, 4), 1fr); pointer-events: none; visibility: hidden; }
+/* Reveal on scroll */
+.rv { opacity: 0; transform: translateY(18px); transition: opacity .4s var(--mk-ease), transform .4s var(--mk-ease); transition-delay: var(--rv-d, 0ms); }
+.rv.in { opacity: 1; transform: none; }
+body.shot .rv { opacity: 1; transform: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none !important; } }
+
+/* Placeholder slots for sections that later tasks rebuild. Fixed review colours. */
+.slot { text-align: left; border: 2px dashed #B07D00; background: repeating-linear-gradient(-45deg, #FFF8DC 0 12px, #FFF1B8 12px 24px); color: #4A3500; border-radius: var(--mk-radius-card); padding: clamp(24px, 4vw, 48px); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.slot b { font: 700 11px/1.4 var(--mk-font-body); letter-spacing: .08em; text-transform: uppercase; background: #4A3500; color: #FFF1B8; border-radius: 4px; padding: 2px 8px; }
+.slot p { font-size: 15px; max-width: 70ch; }
+.slot-hero { min-height: clamp(260px, 36vw, 480px); justify-content: center; margin-top: clamp(40px, 5vw, 72px); }
+
+/* Chart parts used by the Vision meetings card */
 .ef .bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
 .ef .bar { flex: 1; border-radius: 8px 8px 4px 4px; --hatch: var(--ef-green-500); position: relative; }
 .ef .bar.solid { background: var(--ef-green-500); }
@@ -952,98 +528,63 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ef .target-line span { position: absolute; right: 0; top: -20px; font-size: 11.5px; color: var(--ef-text-3); }
 .ef .chart-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ef-text-3); margin-top: 8px; }
 
-/* 2. Stacked workflow cards: the planter's week */
-.wk-stack { display: grid; gap: 22px; }
-.wk-card { position: sticky; top: calc(92px + var(--i, 0) * 20px); display: grid; grid-template-columns: 5fr 7fr; gap: clamp(20px, 3vw, 48px); align-items: center; min-height: 440px; padding: clamp(24px, 3vw, 44px); border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: 0 1px 2px rgba(24,29,25,.05), 0 -8px 30px -18px rgba(24,29,25,.25), 0 24px 50px -36px rgba(24,29,25,.4); overflow: hidden; isolation: isolate; }
-.mk-fieldnotes .wk-card { border: 1px solid var(--mk-line-strong); }
-.mk-nightfield .wk-card { border: 1px solid var(--mk-line-strong); }
-.wk-edge { position: absolute; inset: -20% -10% -20% 40%; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(in oklch 50% 60% at 92% 30%, var(--g1) 0%, transparent 70%),
-    radial-gradient(in oklch 40% 50% at 100% 75%, var(--g4) 0%, transparent 70%),
-    radial-gradient(in oklch 35% 40% at 80% 50%, var(--g2) 0%, transparent 70%),
-    radial-gradient(in oklch circle at 96% 12%, var(--g5) 0%, transparent 25%);
-  filter: blur(40px) saturate(1.1);
-  -webkit-mask-image: linear-gradient(to left, #000 35%, transparent 95%); mask-image: linear-gradient(to left, #000 35%, transparent 95%); }
-.mk-nightfield .wk-edge { opacity: .55; }
-.wk-copy { display: flex; flex-direction: column; gap: 14px; }
-.wk-num { font: 600 13px/1 var(--mk-font-body); color: var(--mk-text-3); letter-spacing: .04em; }
-.wk-steps { counter-reset: wk; margin-top: 8px; }
-.wk-steps li { position: relative; padding: 0 0 18px 34px; color: var(--mk-text-2); font-size: 15.5px; counter-increment: wk; }
-.wk-steps li:last-child { padding-bottom: 0; }
-.wk-steps li::before { content: counter(wk); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 11px/1 var(--mk-font-body); background: var(--mk-text); color: var(--mk-canvas); }
-.wk-steps li::after { content: ""; position: absolute; left: 10.5px; top: 26px; bottom: 4px; width: 1px; background: var(--mk-line-strong); }
-.wk-steps li:last-child::after { display: none; }
-.wk-vis { position: relative; z-index: 1; min-width: 0; }
-
-/* 3. Sticky feature chapter */
-.ch-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); }
-.ch-left { grid-column: 1 / span 5; }
-.ch-right { grid-column: 7 / span 6; }
-.ch-head { position: sticky; top: 70px; z-index: 2; padding: 24px 0 20px; background: linear-gradient(var(--mk-canvas) 82%, transparent); }
-.ch-head .eyebrow { margin-bottom: 14px; }
-.ch-panel { min-height: 62vh; display: flex; flex-direction: column; justify-content: center; gap: 14px; opacity: .3; transition: opacity .4s var(--mk-ease); padding: 24px 0; }
-.ch-panel.on { opacity: 1; }
-.ch-panel p { color: var(--mk-text-2); max-width: 46ch; }
-.ch-panel .ch-inline { display: none; }
-.ch-vis { position: sticky; top: calc(50vh - 220px); display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 24px; }
-.ch-left, .ch-right { min-width: 0; }
-.ch-view { grid-area: 1 / 1; opacity: 0; transform: translateY(14px); transition: opacity .45s var(--mk-ease), transform .45s var(--mk-ease); }
-.ch-view.on { opacity: 1; transform: none; }
-.ch-dots { display: flex; gap: 6px; margin-top: 18px; justify-content: center; }
-.ch-dots span { width: 22px; height: 4px; border-radius: 4px; background: var(--mk-line-strong); transition: background-color .3s; }
-.ch-dots span.on { background: var(--mk-text); }
-
-/* 4. Reveal on scroll */
-.rv { opacity: 0; transform: translateY(18px); transition: opacity .4s var(--mk-ease), transform .4s var(--mk-ease); transition-delay: var(--rv-d, 0ms); }
-.rv.in { opacity: 1; transform: none; }
-body.shot .rv { opacity: 1; transform: none; transition: none; }
-
-@media (max-width: 1024px) {
-  .wk-card { grid-template-columns: 1fr; position: relative; top: auto; min-height: 0; }
-  .wk-edge { inset: 40% -20% -20% -20%; -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 90%); mask-image: linear-gradient(to top, #000 30%, transparent 90%); }
-  .ch-left, .ch-right { grid-column: 1 / -1; }
-  .ch-right { display: none; }
-  .ch-head { position: static; background: none; }
-  .ch-panel { min-height: 0; opacity: 1; padding: 20px 0 32px; }
-  .ch-panel .ch-inline { display: block; margin-top: 18px; }
+.ef .kv .v, .ef .num { white-space: nowrap; }
+/* "Here is what a Monday looks like": overview dashboard, close to the mockup */
+.sec-monday .monday-frame { margin-top: 0; }
+.monday { display: grid; grid-template-columns: 1fr 1fr 1.08fr; gap: 16px; align-items: start; }
+.monday .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.monday .stat-value { font-size: 72px; }
+.af-evry { display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px 0 8px; border-radius: 999px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line); font-size: 13px; font-weight: 600; color: var(--ef-ink); white-space: nowrap; }
+@media (max-width: 1120px) {
+  .monday { grid-template-columns: 1fr 1fr; }
+  .monday .col-3 { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  .sc-tab { padding: 0 12px; height: 36px; font-size: 13px; }
-  .sc-tab span { display: none; }
-  .sc-tab[aria-selected="true"] span { display: inline; }
-  .sc-stage { padding: 12px; gap: 12px; border-radius: 24px; }
-  .sc-sticky { top: 64px; height: calc(100vh - 64px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-track { height: auto; }
-  .sc-sticky { position: static; height: auto; padding: 12px 0 0; }
-  .sc-stage { min-height: 0; }
-  .sc-card { flex: none; }
-  .sc-card::after { display: none; }
-  .sc-steps { display: none; }
-  .sc-view, .ch-view, .ch-panel, .rv { transition: none !important; }
-  .rv { opacity: 1; transform: none; }
-  .wk-card { position: relative; top: auto; }
-  .ch-panel { opacity: 1; min-height: 0; display: grid; grid-template-columns: 5fr 6fr; gap: 6px var(--mk-gutter); align-items: start; padding: 28px 0; border-top: 1px solid var(--mk-line); }
-  .ch-panel > h3, .ch-panel > p { grid-column: 1; }
-  .ch-panel .ch-inline { display: block; grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
-  .ch-left { grid-column: 1 / -1; }
-  .ch-right { display: none; }
-  .ch-head { position: static; background: none; }
-}
-@media (prefers-reduced-motion: reduce) and (max-width: 1024px) {
-  .ch-panel { grid-template-columns: 1fr; }
-  .ch-panel .ch-inline { grid-column: 1; grid-row: auto; margin-top: 12px; }
+  .monday, .monday .col-3 { grid-template-columns: 1fr; }
+  .monday .col-2 { display: none; }
+  .monday .stat-value { font-size: 56px; }
+  .af-evry span.l { display: none; }
+  .af-evry { padding: 0 6px; }
 }
 
-/* Hero visual by style. All variants are in the DOM; CSS picks one. */
-.hv { display: none; }
-.mk-fieldnotes .hv-map, .mk-gradientfield .hv-product, .mk-signal .hv-product, .mk-nightfield .hv-product { display: block; }
-.map-hero { position: relative; overflow: hidden; }
-.map-hero .map { aspect-ratio: 16 / 7; }
-.map-hero .map-card { position: absolute; right: 24px; bottom: 24px; width: min(340px, 44%); }
-.map-hero .map-card .card { box-shadow: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28); }
+/* EvryBot: Evry's animated avatar. Copied from design/everyfield-ui.html (round-buffalo). */
+.evry-bot { --s: 28px; --lx: 0px; --ly: 0px; position: relative; display: inline-block; width: var(--s); height: var(--s); flex: none; vertical-align: middle; }
+.evry-bot .eb-body {
+  position: absolute; inset: 0; background: radial-gradient(circle at 30% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%), #1CE362;
+  border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
+  box-shadow: inset 0 calc(var(--s) * -.08) 0 rgba(10,60,30,.18), 0 calc(var(--s) * .06) calc(var(--s) * .16) -0.05em rgba(10,60,30,.35);
+  animation: ebMorph 9s ease-in-out infinite;
+}
+.evry-bot .eb-face { position: absolute; inset: 0; transform: translate(var(--lx), var(--ly)); transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+.evry-bot .eb-eye {
+  position: absolute; top: 36%; width: calc(var(--s) * .13); height: calc(var(--s) * .23); border-radius: 99px; background: #181D19;
+  transform-origin: 50% 50%; animation: ebBlink var(--blink, 4.6s) infinite; animation-delay: var(--blink-delay, 0s);
+}
+.evry-bot .eb-eye:nth-child(1) { left: 31%; }
+.evry-bot .eb-eye:nth-child(2) { left: 56%; }
+.evry-bot .eb-mouth { position: absolute; left: 50%; top: 66%; width: calc(var(--s) * .16); height: calc(var(--s) * .05); margin-left: calc(var(--s) * -.08); border-radius: 99px; background: #181D19; opacity: 0; }
+.evry-bot[data-blink] .eb-eye { animation: ebBlinkNow .18s ease; }
+.evry-bot .eb-eye::after { content: ""; position: absolute; top: 18%; left: 22%; width: 34%; height: 22%; border-radius: 50%; background: rgba(255,255,255,.85); }
+.evry-bot[data-size="xs"] .eb-eye::after, .evry-bot[data-size="sm"] .eb-eye::after, .evry-bot[data-mood="happy"] .eb-eye::after { display: none; }
+@keyframes ebBlink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+@keyframes ebBlinkNow { 50% { transform: scaleY(.08); } }
+@keyframes ebMorph {
+  0%, 100% { border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; transform: rotate(0deg) scale(1); }
+  25% { border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%; transform: rotate(-4deg) scale(1.02, .98); }
+  50% { border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%; transform: rotate(3deg) scale(.98, 1.03); }
+  75% { border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%; transform: rotate(-2deg) scale(1.01); }
+}
+.evry-bot[data-mood="happy"] .eb-eye { background: transparent; border: calc(var(--s) * .055) solid #181D19; border-bottom: 0; height: calc(var(--s) * .1); width: calc(var(--s) * .17); top: 40%; border-radius: 99px 99px 0 0; animation: none; }
+.evry-bot[data-mood="happy"] .eb-eye:nth-child(1) { left: 27%; }
+.evry-bot[data-mood="happy"] .eb-body { animation: ebBounce .9s cubic-bezier(.3,1.6,.5,1) infinite alternate; }
+@keyframes ebBounce { from { transform: translateY(0) scale(1.03, .97); border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%; } to { transform: translateY(calc(var(--s) * -.08)) scale(.98, 1.03); border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; } }
+.evry-bot[data-mood="talking"] .eb-mouth { opacity: 1; animation: ebTalk .36s ease-in-out infinite alternate; }
+@keyframes ebTalk { from { height: calc(var(--s) * .04); width: calc(var(--s) * .14); } to { height: calc(var(--s) * .12); width: calc(var(--s) * .12); } }
+.evry-bot[data-size="xs"] { --s: 18px; }
+.evry-bot[data-size="sm"] { --s: 24px; }
+.evry-bot[data-size="md"] { --s: 30px; }
+.evry-bot[data-size="lg"] { --s: 40px; }
+@media (prefers-reduced-motion: reduce) { .evry-bot *, .evry-bot::after { animation: none !important; } .evry-bot .eb-face { transition: none; } }
 
 /* Prototype control bar: neutral, never styled by the --mk-* tokens */
 .pbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 16px; background: rgba(17,19,24,.95); color: #EEF0F4; font: 500 13px/1 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; box-shadow: 0 16px 40px -12px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); max-width: calc(100vw - 16px); }
@@ -1099,17 +640,14 @@ body.pbar-hidden { padding-bottom: 0; }
   .tile-side { flex-direction: row; }
   .tile-side > * { flex: 1; }
   .feat-list { grid-template-columns: 1fr 1fr; }
-  .mk-fieldnotes .feat { grid-template-columns: 56px 1fr; gap: 6px 20px; }
-  .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 2; }
   .aud-grid { grid-template-columns: 1fr; }
   .trust-grid { grid-template-columns: 1fr 1fr; }
   .split .s-copy, .split .s-vis, .split.flip .s-copy, .split.flip .s-vis { grid-column: 1 / -1; order: 0; }
   .evry-grid .e-copy, .evry-grid .e-vis { grid-column: 1 / -1; }
-  .ft-brand, .ft-cols { grid-column: 1 / -1; }
+  .ft-lead, .ft-cols { grid-column: 1 / -1; }
   .forms { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .sign-grid { grid-template-columns: repeat(3, 1fr); }
-  .map-hero .map { aspect-ratio: 4 / 3; }
 }
 @media (max-width: 900px) {
   body { padding-bottom: 118px; }
@@ -1133,8 +671,6 @@ body.pbar-hidden { padding-bottom: 0; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
   .feat-list { grid-template-columns: 1fr; }
   .feat { padding: 22px; }
-  .mk-fieldnotes .feat { grid-template-columns: 1fr; padding: 22px 0; }
-  .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 1; }
   .trust-grid, .trust-grid.three { grid-template-columns: 1fr; }
   .tile-side { flex-direction: column; }
   .dash, .dash.compact, .dash.meet, .crop { grid-template-columns: 1fr; }
@@ -1148,12 +684,10 @@ body.pbar-hidden { padding-bottom: 0; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .sign-grid { grid-template-columns: 1fr 1fr; }
   .ef .phase-labels { font-size: 9.5px; }
+  .ef th, .ef td { padding-left: 6px; padding-right: 6px; }
+  .ef .phase-mini { width: 70px; }
   .ef .hide-sm { display: none; }
-  .map-hero .map { aspect-ratio: 1 / 1; }
-  .map-hero .map-card { position: static; width: auto; padding: 0 12px 12px; }
   .ft-cols { grid-template-columns: 1fr 1fr; }
-  .mk-gradientfield .sec[data-g] { border-radius: 24px; margin: 6px; }
-  .mk-gradientfield .hero[data-g] { margin: 0 6px; border-radius: 0 0 24px 24px; }
   .sample-tag { right: 12px; }
   .pbar .pb-btn span.l { display: none; }
 }
@@ -1164,7 +698,7 @@ body.pbar-hidden { padding-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
 </style>
 </head>
-<body class="mk-fieldnotes">
+<body class="mk-signal">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <!-- BEGIN logo symbols -->
 <symbol id="ef-mark" viewBox="0 0 657 530">
@@ -1197,30 +731,93 @@ body.pbar-hidden { padding-bottom: 0; }
 <script type="application/json" id="mk-copy">
 /* BEGIN design/marketing-copy.json */
 {
-  "version": 1,
+  "version": 2,
+  "revision_note": "Revision 2 (2026-10-08): Signal style only. Story A (journey) leads the home page and story B (oversight) leads /oversight. Story C and its page are removed. Copy follows the revision 2 rules in the spec.",
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "placeholder_format": "Text inside [[double brackets]] is a placeholder. Replace it or remove it before anything is published.",
   "sample_data_rule": "Every name and number that appears inside a product visual is sample data from a demo church. Label it 'Sample data' in the visual.",
   "shared": {
-    "brand": "Everyfield",
+    "brand": "EveryField",
     "nav": [
-      { "label": "Product", "href": "#features" },
-      { "label": "For planters", "href": "#planters" },
-      { "label": "For sending churches", "href": "#sending-churches" },
-      { "label": "For networks", "href": "#networks" },
-      { "label": "The method", "href": "#method" },
-      { "label": "Privacy", "href": "#trust" }
+      {
+        "label": "Product",
+        "href": "#features"
+      },
+      {
+        "label": "For planters",
+        "href": "#planters"
+      },
+      {
+        "label": "For sending churches",
+        "href": "#sending-churches"
+      },
+      {
+        "label": "For networks",
+        "href": "#networks"
+      },
+      {
+        "label": "Privacy",
+        "href": "#trust"
+      }
     ],
     "nav_cta": "Request early access",
     "nav_signin": "Sign in",
     "footer": {
+      "headline": "Church planting software, from calling to launch Sunday.",
+      "cta": "Request early access",
       "columns": [
-        { "title": "Product", "links": ["Overview", "Plant Intelligence", "Evry", "The method"] },
-        { "title": "Who it is for", "links": ["Planters", "Sending churches", "Networks", "Coaches"] },
-        { "title": "Company", "links": ["About", "Privacy and trust", "Contact"] },
-        { "title": "Legal", "links": ["Privacy policy", "Terms"] }
+        {
+          "title": "Product",
+          "links": [
+            "Overview",
+            "Plant Intelligence",
+            "Evry"
+          ]
+        },
+        {
+          "title": "Who it is for",
+          "links": [
+            "Planters",
+            "Sending churches",
+            "Networks",
+            "Coaches"
+          ]
+        },
+        {
+          "title": "Company",
+          "links": [
+            "About",
+            "Privacy and trust",
+            "Contact"
+          ]
+        },
+        {
+          "title": "Legal",
+          "links": [
+            "Privacy policy",
+            "Terms"
+          ]
+        }
       ],
-      "fineprint": "© [[YEAR]] Everyfield. [[Legal entity name]]."
+      "fineprint": "© 2026 EveryField LLC"
+    },
+    "trust_page": {
+      "eyebrow": "Privacy and trust",
+      "headline": "Who sees what in EveryField.",
+      "subhead": "Planters own their records. Sending churches and networks see summaries, and only what each plant shares.",
+      "planter_rules": {
+        "headline": "Your records stay yours.",
+        "items": [
+          {
+            "title": "Private means private",
+            "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it."
+          },
+          {
+            "title": "You see it first",
+            "body": "Every concern in a shared summary is one you can already see in your own account. [[Confirm release timing before publishing. Open decision METH-08.]]"
+          }
+        ]
+      }
     }
   },
   "directions": [
@@ -1232,7 +829,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "hero": {
           "eyebrow": "Church planting software, phase by phase",
           "headline": "From calling to launch Sunday, one week at a time.",
-          "subhead": "Everyfield keeps your people, vision meetings, follow-ups and ministry teams in one place. It reads them against the Playbook and tells you what needs you this week.",
+          "subhead": "Everyfield keeps your people, vision meetings, follow-ups and ministry teams in one place, and tells you what needs you this week.",
           "cta_primary": "Request early access",
           "cta_secondary": "See the seven phases",
           "note": "Everyfield is in early access. [[Say how access works, for example: invites go out through sending churches and networks.]]"
@@ -1244,25 +841,44 @@ body.pbar-hidden { padding-bottom: 0; }
         "proof": {
           "eyebrow": "Phase 1 · Core Group Development",
           "headline": "Here is what a Monday looks like.",
-          "body": "Open Everyfield and the week is on one screen. Committed adults against the Playbook's benchmark of 50. Days since your last vision meeting against the 14-day rhythm. Follow-ups that are late, and who owns each one. One focus from Plant Intelligence, with the facts it used.",
-          "callouts": [
-            "34 of 50 committed adults",
-            "Last vision meeting 16 days ago",
-            "3 follow-ups overdue"
-          ],
-          "visual": "Dashboard crop from the round-buffalo mockup: TargetBar, the 'Needs you' list and one InsightCard.",
+          "body": "Committed adults against the benchmark of 50. Days since your last vision meeting against the 14-day rhythm. Late follow-ups and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "callouts": [],
+          "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you.",
           "caption": "Sample data. Harvest Point is a demo church."
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",
-          "intro": "Everyfield follows the seven phases of the Playbook. Each phase brings its own work to the front.",
           "items": [
-            { "label": "Phase 0 · Discovery", "title": "Start with the method", "body": "Read the Playbook and Wiki in order. Everyfield opens the chapter for the phase you are in." },
-            { "label": "Phase 1 · Core group", "title": "Grow a committed core group", "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks." },
-            { "label": "Phase 2 · Launch team", "title": "Set the date and fill the roles", "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it." },
-            { "label": "Phase 3 · Training", "title": "Train every team", "body": "Plan training meetings for each ministry team and see who has finished." },
-            { "label": "Phase 4 · Pre-launch", "title": "Finish the launch list", "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details." },
-            { "label": "Phases 5 and 6 · Launch and after", "title": "Launch, then keep going", "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm." }
+            {
+              "label": "Phase 0 · Discovery",
+              "title": "Start with clear guidance",
+              "body": "Everyfield opens the guidance for the phase you are in, so you read what matters now."
+            },
+            {
+              "label": "Phase 1 · Core group",
+              "title": "Grow a committed core group",
+              "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks."
+            },
+            {
+              "label": "Phase 2 · Launch team",
+              "title": "Set the date and fill the roles",
+              "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it."
+            },
+            {
+              "label": "Phase 3 · Training",
+              "title": "Train every team",
+              "body": "Plan training meetings for each ministry team and see who has finished."
+            },
+            {
+              "label": "Phase 4 · Pre-launch",
+              "title": "Finish the launch list",
+              "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details."
+            },
+            {
+              "label": "Phases 5 and 6 · Launch and after",
+              "title": "Launch, then keep going",
+              "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm."
+            }
           ]
         },
         "audiences": {
@@ -1276,7 +892,6 @@ body.pbar-hidden { padding-bottom: 0; }
               "points": [
                 "People, vision meetings, follow-ups, teams and launch tasks in one place",
                 "One focus each week from Plant Intelligence, with the facts behind it",
-                "You decide when to change phase. Nothing blocks you.",
                 "A private weekly check-in that only you can see"
               ],
               "cta": "See the planter's week"
@@ -1301,7 +916,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "points": [
                 "Each plant shows as on track, watch, launch readiness or limited visibility",
                 "Summaries only, and only what each plant chooses to share",
-                "The same method and the same rubric across every plant"
+                "The same rubric across every plant"
               ],
               "cta": "See the network view"
             }
@@ -1317,15 +932,6 @@ body.pbar-hidden { padding-bottom: 0; }
             "review": "Review 3 changes · Assign follow-up calls · Approve or Edit"
           },
           "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
-        },
-        "trust": {
-          "headline": "Built on a method, with clear rules about who sees what.",
-          "items": [
-            { "title": "A real method", "body": "The Playbook and the Plant Intelligence rubric come from church planting practitioners. [[Name the authors and how they reviewed the rubric.]]" },
-            { "title": "Your phase is your call", "body": "Plant Intelligence gives advice. It never moves your phase and never blocks a change." },
-            { "title": "Unknown stays unknown", "body": "If you have not recorded something, Everyfield says so. It does not guess." },
-            { "title": "Private means private", "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it." }
-          ]
         },
         "cta": {
           "headline": "Start with the week in front of you.",
@@ -1359,7 +965,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "proof": {
           "eyebrow": "The network view",
           "headline": "One row for each plant. One status you can act on.",
-          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read, and Everyfield says that instead of guessing.",
+          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read.",
           "callouts": [
             "On track",
             "Watch",
@@ -1371,14 +977,37 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "features": {
           "headline": "The planter's daily work is what makes your view accurate.",
-          "intro": "Everyfield does not ask planters for a report. The summary comes from the records they already keep.",
           "items": [
-            { "label": "Network", "title": "Plant directory", "body": "Every plant that shares with you, with its phase, city and launch date." },
-            { "label": "Network", "title": "Health summary", "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first." },
-            { "label": "Network", "title": "Launch readiness", "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training." },
-            { "label": "Coaching", "title": "Coach access", "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything." },
-            { "label": "Planter", "title": "The planter's tools", "body": "People, vision meetings, follow-up tasks, ministry teams, launch milestones, documents and email. All of it in one place for the plant." },
-            { "label": "Planter", "title": "Consent the planter controls", "body": "Each plant chooses what to share with you and can change that choice. Everyfield checks it on every read." }
+            {
+              "label": "Network",
+              "title": "Plant directory",
+              "body": "Every plant that shares with you, with its phase, city and launch date."
+            },
+            {
+              "label": "Network",
+              "title": "Health summary",
+              "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first."
+            },
+            {
+              "label": "Network",
+              "title": "Launch readiness",
+              "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training."
+            },
+            {
+              "label": "Coaching",
+              "title": "Coach access",
+              "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything."
+            },
+            {
+              "label": "Planter",
+              "title": "The planter's tools",
+              "body": "People, vision meetings, follow-up tasks, ministry teams, launch milestones, documents and email. All of it in one place for the plant."
+            },
+            {
+              "label": "Planter",
+              "title": "Consent the planter controls",
+              "body": "Each plant chooses what to share with you and can change that choice. Everyfield checks it on every read."
+            }
           ]
         },
         "audiences": {
@@ -1436,10 +1065,22 @@ body.pbar-hidden { padding-bottom: 0; }
         "trust": {
           "headline": "Planters trust the system, so you get true numbers.",
           "items": [
-            { "title": "Summaries, not records", "body": "Oversight never sees a person's name, contact details or notes. It sees counts and statuses." },
-            { "title": "Consent on every read", "body": "If a plant stops sharing, your view changes at once." },
-            { "title": "The planter sees it first", "body": "Every concern in your summary is one the planter can already see in their own account. [[Confirm release timing before publishing. Open decision METH-08.]]" },
-            { "title": "One rubric for every plant", "body": "Every plant is read against the same versioned rubric. [[Name the rubric authors.]]" }
+            {
+              "title": "Summaries, not records",
+              "body": "Oversight never sees a person's name, contact details or notes. It sees counts and statuses."
+            },
+            {
+              "title": "Consent on every read",
+              "body": "If a plant stops sharing, your view changes at once."
+            },
+            {
+              "title": "The planter sees it first",
+              "body": "Every concern in your summary is one the planter can already see in their own account. [[Confirm release timing before publishing. Open decision METH-08.]]"
+            },
+            {
+              "title": "One rubric for every plant",
+              "body": "Every plant is read against the same versioned rubric. [[Name the rubric authors.]]"
+            }
           ]
         },
         "cta": {
@@ -1451,119 +1092,6 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "footer": {
           "tagline": "Church planting software for planters and the churches that send them."
-        }
-      }
-    },
-    {
-      "id": "method",
-      "name": "The Playbook, put to work",
-      "angle": "The method made operational. The Playbook is the hero. Everyfield is how a planter follows it each week, and how anyone can check that they are.",
-      "sections": {
-        "hero": {
-          "eyebrow": "A church planting method you can run",
-          "headline": "The Playbook, put to work.",
-          "subhead": "Vision meetings every 14 days. Timely follow-up after each one. A core group of 50 to 100 committed adults. Eight ministry areas led before launch. Everyfield turns each step of the method into work you can see and finish.",
-          "cta_primary": "Request early access",
-          "cta_secondary": "Read about the method"
-        },
-        "problem": {
-          "headline": "A method in a binder cannot tell you that you are late.",
-          "body": "Most planters start with a good plan. Then the weeks fill up. Nobody notices that the last vision meeting was 16 days ago, or that half of Sunday's guests never got a call. The method stays right, and the plant drifts from it."
-        },
-        "proof": {
-          "eyebrow": "Plant Intelligence",
-          "headline": "Your records, read against the method.",
-          "body": "Plant Intelligence checks your plant against the eight Critical Success Factors. It gives you one focus to work on, two more things to watch and what is going well. Every finding links to the facts it used and names the rubric version.",
-          "callouts": [
-            "Focus: follow-up is slipping",
-            "Going well: vision meeting rhythm",
-            "Rubric v1"
-          ],
-          "visual": "Plant Intelligence scorecard: eight CSF tiles and one focus card, built from the mockup's InsightCard and StatusBadge.",
-          "caption": "Sample data from a demo church."
-        },
-        "features": {
-          "headline": "Each part of the method has a place in the product.",
-          "intro": "Everyfield does not add steps to the Playbook. It gives each existing step a record, an owner and a date.",
-          "items": [
-            { "label": "Vision meetings", "title": "Keep the rhythm", "body": "Plan each vision meeting, record attendance and see the days since the last one against the 14-day rhythm." },
-            { "label": "Follow-up", "title": "Follow up while it matters", "body": "Closing attendance creates a follow-up task for each new guest. Everyfield shows how many guests had contact within 48 hours of the meeting." },
-            { "label": "Commitments", "title": "Count committed adults", "body": "Record interviews against the five considerations and the 4 Cs: Committed, Compelled, Contagious, Courageous. Signed commitments count toward the benchmark of 50." },
-            { "label": "Ministry areas", "title": "Lead every area", "body": "Staff and train a team for each of the eight ministry areas, and see the gaps before launch." },
-            { "label": "Phases", "title": "Know where you are", "body": "Seven phases from Discovery to Post-Launch. You record your phase with a reason. Readiness is advice, never a gate." },
-            { "label": "Playbook and Wiki", "title": "Read the method in context", "body": "The chapter for your phase is one click from the work it describes." }
-          ]
-        },
-        "audiences": {
-          "headline": "One method, read the same way by everyone.",
-          "items": [
-            {
-              "id": "planters",
-              "label": "For planters",
-              "headline": "Follow the method without carrying it in your head.",
-              "body": "The Playbook says what to do. Everyfield shows what is done and what is next.",
-              "points": [
-                "The week's work, sorted by the method's priorities",
-                "One focus at a time, with the facts behind it",
-                "The relevant Playbook chapter beside the task"
-              ],
-              "cta": "See the planter's week"
-            },
-            {
-              "id": "sending-churches",
-              "label": "For sending churches",
-              "headline": "Know your planter has a method, and is using it.",
-              "body": "Send a planter with the same method your coaches teach, and see progress against it.",
-              "points": [
-                "Phase and health read against the shared rubric",
-                "A summary of each concern, never the planter's people",
-                "Coaches can read the plants they coach"
-              ],
-              "cta": "See what sending churches see"
-            },
-            {
-              "id": "networks",
-              "label": "For networks",
-              "headline": "One method across every plant.",
-              "body": "Every plant is read against the same benchmarks, so a watch status means the same thing in every city.",
-              "points": [
-                "Shared phases, benchmarks and rubric version",
-                "Health status across all plants that share with you",
-                "Find plants near launch with open roles or training"
-              ],
-              "cta": "See the network view"
-            }
-          ]
-        },
-        "evry": {
-          "eyebrow": "Evry, the assistant inside Everyfield",
-          "headline": "Ask the method a question. Get your own records back.",
-          "body": "Ask Evry what the Playbook says about a first-time guest, and it shows the passage. Ask why your plant is on watch, and it explains the result against the rubric, with links to the records. Ask it to act, and it prepares the change for your approval.",
-          "example": {
-            "ask": "What does the Playbook say about follow-up after a vision meeting?",
-            "answer": "The Playbook says timely follow-up is what grows the core group. Here is the passage, and here are the two guests from Thursday who have not had a call.",
-            "review": "Review 2 changes · Create follow-up tasks · Approve or Edit"
-          },
-          "limits": "Evry quotes the method. It does not invent a benchmark, write prayers, give counsel or judge a person."
-        },
-        "trust": {
-          "headline": "The software follows the method. It does not rewrite it.",
-          "items": [
-            { "title": "Written by practitioners", "body": "The Playbook and the rubric come from church planting practitioners. [[Name the authors and their review.]]" },
-            { "title": "Versioned rubric", "body": "Each Plant Intelligence result names the rubric version it used. A software update cannot change a benchmark." },
-            { "title": "Benchmarks, not verdicts", "body": "50 to 100 committed adults is this method's benchmark, not a measure of whether a church is healthy." },
-            { "title": "People judge people", "body": "Interviews and the 4 Cs are your judgment. Plant Intelligence and Evry never fill them in." }
-          ]
-        },
-        "cta": {
-          "headline": "Run your plant on a method you can see.",
-          "body": "Everyfield is in early access for planters, sending churches and networks.",
-          "cta_primary": "Request early access",
-          "cta_secondary": "Read about the method",
-          "note": "[[Say what happens after someone asks for access.]]"
-        },
-        "footer": {
-          "tagline": "The church planting Playbook, put to work."
         }
       }
     }
@@ -1582,22 +1110,14 @@ var COPY = JSON.parse(rawCopy);
 var DIR = {};
 COPY.directions.forEach(function (d) { DIR[d.id] = d; });
 
-var STYLES = [
-  { id: "fieldnotes", name: "Field Notes", cls: "mk-fieldnotes", hint: "Felt, Clay, Granola. Cream, ink, map line work." },
-  { id: "gradientfield", name: "Gradient Field", cls: "mk-gradientfield", hint: "Mercury, Phantom. Gradient surfaces with grain." },
-  { id: "signal", name: "Signal", cls: "mk-signal", hint: "The dashboard, enlarged." },
-  { id: "nightfield", name: "Night Field", cls: "mk-nightfield", hint: "Dark. Mercury-style product sections." }
-];
 var STORIES = [
   { id: "journey", key: "A", short: "Planter" },
-  { id: "oversight", key: "B", short: "Oversight" },
-  { id: "method", key: "C", short: "Method" }
+  { id: "oversight", key: "B", short: "Oversight" }
 ];
 var PAGES = [
   { id: "home", name: "Home", path: "/" },
   { id: "planters", name: "For planters", path: "/planters", story: "journey" },
   { id: "oversight", name: "Sending churches and networks", path: "/oversight", story: "oversight" },
-  { id: "method", name: "The method", path: "/method", story: "method" },
   { id: "trust", name: "Privacy and trust", path: "/trust", story: "journey" },
   { id: "access", name: "Request access", path: "/access", story: "journey" },
   { id: "privacy", name: "Privacy policy", path: "/privacy", story: "journey" },
@@ -1605,14 +1125,7 @@ var PAGES = [
 ];
 var LATER = ["Product tour", "Evry", "Pricing", "About", "Coaches", "What's new"];
 var PAGE = {}; PAGES.forEach(function (p) { PAGE[p.id] = p; });
-var STYLE = {}; STYLES.forEach(function (s) { STYLE[s.id] = s; });
 var STORY = {}; STORIES.forEach(function (s) { STORY[s.id] = s; });
-
-/* Gradient Field tone per section: one tone per section */
-var TONE = { hero: "field", proof: "sky", evry: "lilac", cta: "dawn" };
-
-/* Phrases the Field Notes highlighter marks in each hero headline (visual only, copy unchanged) */
-var HIGHLIGHT = { journey: "launch Sunday", oversight: "every plant you send", method: "put to work" };
 
 /* ---------- Helpers ---------- */
 var ICON = {
@@ -1652,11 +1165,6 @@ function t(s) {
       '"><span class="ph-tag">' + (decision ? "Open decision" : "Placeholder") + "</span>" + inner + "</span>";
   });
 }
-function hl(s, phrase) {
-  var out = t(s);
-  if (phrase) out = out.replace(esc(phrase), '<mark class="hl">' + esc(phrase) + "</mark>");
-  return out;
-}
 function logo(extra) {
   return '<span class="logo ' + (extra || "") + '"><svg class="lm" viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>' +
     '<svg class="lw" viewBox="0 0 890 186" role="img" aria-label="EveryField"><use href="#ef-wordmark"/></svg></span>';
@@ -1664,7 +1172,7 @@ function logo(extra) {
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-var state = { page: "home", style: "fieldnotes", story: "journey", at: "" };
+var state = { page: "home", story: "journey", at: "" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -1674,7 +1182,6 @@ function parseHash() {
   var params = new URLSearchParams(q);
   return {
     page: PAGE[path] ? path : "home",
-    style: STYLE[params.get("style")] ? params.get("style") : "fieldnotes",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
     at: params.get("at") || ""
   };
@@ -1682,7 +1189,6 @@ function parseHash() {
 function hrefFor(page, at, over) {
   var s = Object.assign({}, state, over || {});
   var p = new URLSearchParams();
-  p.set("style", s.style);
   p.set("story", s.story);
   if (at) p.set("at", at);
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
@@ -1696,7 +1202,6 @@ var ROUTE = {
   "Talk to us about your network": ["access", "network-form"],
   "See the seven phases": ["planters", "phases"],
   "I am a planter": ["planters", ""],
-  "Read about the method": ["method", ""],
   "See the planter's week": ["planters", ""],
   "See what sending churches see": ["oversight", "sending-churches"],
   "See the network view": ["oversight", "networks"]
@@ -1712,11 +1217,11 @@ function visual(inner, caption) {
   return '<figure class="visual"><span class="sample-tag">Sample data</span>' + inner +
     (caption ? '<figcaption class="caption">' + t(caption) + "</figcaption>" : "") + "</figure>";
 }
-function frame(active, title, sub, body, right) {
+function frame(active, title, sub, body, right, topRight) {
   var tabs = ["Overview", "People", "Meetings", "Tasks", "Network"].filter(function (x) { return active === "Network" ? x !== "Tasks" : x !== "Network"; });
   return '<div class="ef app-frame"><div class="af-top"><span class="af-brand">' + mark() + '</span><span class="af-pills">' +
     tabs.map(function (x) { return '<span class="' + (x === active ? "on" : "") + '">' + x + "</span>"; }).join("") +
-    '</span><span class="af-sp"></span><span class="avatar tone-green">DR</span></div><div class="af-body"><div class="af-head"><div><div class="af-title">' +
+    '</span><span class="af-sp"></span>' + (topRight || "") + '<span class="avatar tone-green">DR</span></div><div class="af-body"><div class="af-head"><div><div class="af-title">' +
     title + '</div><div class="af-sub">' + sub + "</div></div>" + (right || "") + "</div>" + body + "</div></div>";
 }
 function coreGroupCard(withRhythm) {
@@ -1739,14 +1244,6 @@ function needsYouCard() {
   return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Needs you</div><div class="card-description">4 things this week</div></div>' + icon("more", "faint") + "</div><div>" +
     rows.map(function (r) { return '<div class="list-row"><span class="card-icon ' + r[0] + '">' + icon(r[1]) + '</span><div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("") + "</div></div>";
 }
-function momentumCard() {
-  return '<div class="insight" data-tone="field" style="min-height:360px"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Momentum</span><span class="insight-count">Last 28 days</span></div>' +
-    '<div class="insight-metric"><span class="num">+9</span><span class="unit">committed adults in 28 days, up from +4</span></div>' +
-    '<div class="insight-title">Your core group is growing faster than in any month so far</div>' +
-    '<div class="insight-text">Six of the nine came from two vision meetings in Hyde Park. Hosts there invite more guests than any other area.</div>' +
-    '<div class="spark"><span style="height:30%"></span><span style="height:42%"></span><span style="height:36%"></span><span style="height:55%"></span><span style="height:48%"></span><span style="height:70%"></span><span style="height:100%"></span></div>' +
-    '<div class="insight-footer"><span class="btn" data-variant="light">See who joined ' + icon("arrow") + "</span></div></div>";
-}
 function focusCard() {
   return '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
     '<div class="insight-metric"><span class="num">16 d</span><span class="unit">since the last vision meeting</span></div>' +
@@ -1754,12 +1251,31 @@ function focusCard() {
     '<div class="insight-text">The rhythm is one every 14 days. Vision meeting #12 is set for Sun Oct 12.</div>' +
     '<div class="insight-footer"><span class="btn" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div></div>';
 }
-function vDashboard(compact) {
-  return frame("Overview", "Good morning, Daniel", "Harvest Point Church · Phase 1, Core Group Development · Launch target spring 2027",
-    '<div class="dash' + (compact ? " compact" : "") + '"><div class="col col-1">' + coreGroupCard(false) + '</div><div class="col col-2">' + momentumCard() + '</div><div class="col col-3">' + needsYouCard() + "</div></div>");
+function evryBot(size, mood, follow) {
+  return '<span class="evry-bot" data-size="' + size + '" data-mood="' + (mood || "idle") + '"' + (follow ? " data-follow" : "") + ' aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>';
 }
-function vMonday() {
-  return '<div class="ef crop"><div class="col">' + coreGroupCard(true) + '</div><div class="col">' + focusCard() + needsYouCard() + "</div></div>";
+function meetingsCard() {
+  var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Vision meetings</div></div><span class="faint t-sm">Attendance, last 10</span></div>' +
+    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>';
+}
+function peopleCard() {
+  var st = [["tone-ink", "Prospect", 82, 100, "var(--ef-text-3)", 1], ["tone-blue", "Attendee", 41, 50, "var(--ef-blue-500)", 1], ["tone-amber", "Following up", 23, 28, "var(--ef-amber-500)", 1], ["tone-violet", "Interviewed", 14, 17, "var(--ef-violet-500)", 1], ["tone-green", "Core group", 34, 41, "var(--ef-green-500)", 0], ["tone-teal", "Launch team", 12, 15, "var(--ef-teal-500)", 0], ["tone-ink", "Leader", 8, 10, "var(--ef-ink)", 0]];
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Where people are</div><div class="card-description">214 people across 7 stages</div></div></div><div style="display:grid;gap:14px">' +
+    st.map(function (x) { return '<div><div class="row between"><span class="stage-chip ' + x[0] + '">' + x[1] + '</span><span class="num" style="font-size:18px">' + x[2] + '</span></div><div class="meter-hatch"><span class="' + (x[5] ? "hatch" : "") + '" style="width:' + x[3] + "%;" + (x[5] ? "--hatch:" + x[4] : "background:" + x[4]) + '"></span></div></div>'; }).join("") +
+    '</div><div class="card-inset" style="margin-top:16px"><div style="font-weight:600;font-size:13.5px">14 interviewed people have not committed yet.</div><div class="faint t-sm" style="margin-top:4px">Half of them were interviewed more than 3 weeks ago.</div></div></div>';
+}
+function comingUpCard() {
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">Next 14 days</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-violet">' + icon("users") + '</span><div class="grow"><div class="list-title">Worship team training</div><div class="list-sub">Wed Oct 15 · 8 of 9 confirmed</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-blue">' + icon("compass") + '</span><div class="grow"><div class="list-title">Coach check-in</div><div class="list-sub">Fri Oct 17 · with Pastor Ruth Allen</div></div></div></div>';
+}
+/* Overview dashboard for "Here is what a Monday looks like". Layout follows the mockup's overview page. */
+function vMondayOverview() {
+  return frame("Overview", "Good morning, Daniel", "Harvest Point Church · Phase 1, Core Group Development · Launch target spring 2027",
+    '<div class="monday"><div class="col col-1">' + coreGroupCard(true) + meetingsCard() + '</div><div class="col col-2">' + peopleCard() + comingUpCard() + '</div><div class="col col-3">' + focusCard() + needsYouCard() + "</div></div>",
+    "", '<span class="af-evry">' + evryBot("sm") + '<span class="l">Ask Evry</span></span>');
 }
 var PLANTS = [
   ["Harvest Point Church", "Hyde Park, Austin", 1, "1 · Core group", "Mar 14, 2027", "positive", "On track", "tone-green"],
@@ -1820,32 +1336,6 @@ function vReadiness() {
     '<div class="kv"><span class="k">Hospitality</span><span class="row"><span class="v">5/6</span><span class="badge" data-size="sm" data-status="attention">1 open</span></span></div>' +
     '<div class="kv"><span class="k">Team training finished</span><span class="row"><span class="v">6/9</span><span class="badge" data-size="sm" data-status="attention">In progress</span></span></div></div></div>';
 }
-function vScorecard() {
-  var lenses = [
-    ["Vision casting", "positive", "Strong", "Vision meetings every 12 days on average."],
-    ["Shared ownership", "positive", "Strong", "8 core members host or lead part of a meeting."],
-    ["Critical mass", "attention", "Watch", "34 committed adults. Benchmark 50."],
-    ["Core group cohesion", "risk", "Concern", "7 committed adults have not attended in 28 days."],
-    ["Prayer", "positive", "Strong", "Weekly prayer gathering."],
-    ["Generosity and finance", "unknown", "Unknown", "No answer yet. Unknown is not the same as weak."],
-    ["Emerging leadership", "attention", "Watch", "8 leaders for 10 ministries."],
-    ["Comprehensive training", "unknown", "Not raised", "Becomes a focus in Phase 3."]
-  ];
-  return frame("Overview", "Plant Intelligence", "Harvest Point against the Playbook benchmarks. Assessed Oct 6 against rubric v1.",
-    '<div style="display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-bottom:12px" class="sc-top">' +
-    '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus</span><span class="insight-count">1 of 3</span></div><div class="insight-metric"><span class="num">71%</span><span class="unit">of new guests had contact within 48 hours</span></div><div class="insight-title">Follow-up is slipping</div><div class="insight-footer"><span class="btn" data-variant="glass">See the facts</span></div></div>' +
-    '<div class="insight" data-tone="field"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Going well</span><span class="insight-count">Rubric v1</span></div><div class="insight-metric"><span class="num">12 d</span><span class="unit">between vision meetings on average</span></div><div class="insight-title">Vision meeting rhythm</div></div></div>' +
-    '<div class="lens-grid">' + lenses.map(function (l) { return '<div class="lens"><div class="lens-head"><span class="lens-name">' + l[0] + '</span><span class="badge" data-size="sm" data-status="' + l[1] + '">' + l[2] + '</span></div><div class="lens-note">' + l[3] + "</div></div>"; }).join("") + "</div>",
-    '<span class="tag hide-sm">Rubric v1</span>');
-}
-function vPhaseCard() {
-  var signs = [["Size", "attention", "34", "30 to 40 adults"], ["Trajectory", "positive", "Up", "28-day growth"], ["Funding", "unknown", "?", "Not attested"], ["Worship", "positive", "Yes", "Leader in place"], ["Area", "positive", "Yes", "Hyde Park"]];
-  return frame("Overview", "Phase", "Declared by Daniel on Mar 2. You decide when to move on.",
-    '<div class="card">' + phaseTrack(1) + '<div class="t-sm muted" style="margin:22px 0 4px">Signs that Phase 1 is wrapping up</div><div class="sign-grid">' +
-    signs.map(function (s) { return '<div class="card-inset" style="padding:12px"><div class="row between"><span class="t-sm muted">' + s[0] + '</span><span class="badge" data-size="sm" data-status="' + s[1] + '">' + s[2] + '</span></div><div class="faint t-xs" style="margin-top:6px">' + s[3] + "</div></div>"; }).join("") +
-    '</div><div class="callout">' + icon("book") + "<span>Playbook, chapter 3: Core Group Development. Readiness is advice, never a gate.</span></div></div>",
-    '<span class="btn hide-sm" data-variant="secondary">Change phase</span>');
-}
 function vEvry(ex) {
   var parts = ex.review.split(" · ");
   var n = parseInt((parts[0].match(/\d+/) || ["1"])[0], 10);
@@ -1857,7 +1347,7 @@ function vEvry(ex) {
   }
   if (n > 3) lines += '<div class="rc-line faint">' + icon("more") + "<span>" + (n - 3) + " more calls in this change</span></div>";
   var btns = (parts[2] || "Approve or Edit").split(" or ");
-  return '<div class="ef evry-panel"><div class="ep-head"><span class="bot"><i></i><i></i></span><div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
+  return '<div class="ef evry-panel"><div class="ep-head">' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
     '<div class="bubble me">' + t(ex.ask) + '</div><div class="bubble ai">' + t(ex.answer) + "</div>" +
     '<div class="review-card"><div class="rc-head">' + icon("edit") + esc(parts[0]) + '<span class="grow"></span><span style="font-weight:500">' + esc(action) + '</span></div><div class="rc-body">' + lines + '</div><div class="rc-foot"><span class="btn" data-variant="primary">' + esc(btns[0]) + '</span><span class="btn" data-variant="ghost">' + esc(btns[1] || "Edit") + "</span></div></div></div>";
 }
@@ -1921,20 +1411,29 @@ function mapTile(story) {
 
 /* ---------- Sections ---------- */
 function heroVisual(story) {
-  var product = story === "oversight" ? vNetworkHero() : story === "method" ? vPhaseCard() : vDashboard(false);
-  var mapCard = story === "oversight" ? vPlantSummary() : '<div class="ef">' + needsYouCard() + "</div>";
-  return '<div class="hv hv-map">' + visual('<div class="map-hero"><div class="map">' + vMap(story, false) + '</div><div class="map-card">' + mapCard + "</div></div>") + "</div>" +
-    '<div class="hv hv-product">' + visual(product) + "</div>";
+  return visual(story === "oversight" ? vNetworkHero() : vMondayOverview());
+}
+/* Marked placeholder for a section that a later task rebuilds. Not final design. */
+function slot(title, text, extra) {
+  return '<div class="slot' + (extra ? " " + extra : "") + '" role="note"><b>Placeholder</b><strong>' + esc(title) + "</strong><p>" + esc(text) + "</p></div>";
+}
+function heroSlot() {
+  return slot("Hero animation", "A later task builds a looping product animation here: one person moves from first contact to the core group.", "slot-hero");
+}
+function weekSlot() {
+  return '<section class="sec sec-week" id="week"><div class="wrap">' + slot("Gather, Meet, Follow up, Commit", "A later task rebuilds this section as a scroll-driven chapter with a sticky, animated product panel.") + "</div></section>";
+}
+function intelligenceSlot() {
+  return '<section class="sec sec-intelligence" id="intelligence"><div class="wrap">' + slot("Plant Intelligence", "A later task rebuilds this section with the same scroll pattern as Gather, Meet, Follow up, Commit.") + "</div></section>";
 }
 function hero(h, story, opts) {
   opts = opts || {};
-  var tone = opts.tone || TONE.hero;
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top"' + (opts.flat ? "" : ' data-g data-tone="' + tone + '"') + '><div class="wrap">' +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top"><div class="wrap">' +
     (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
     '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
-    '<h1 class="display h-hero hero-title">' + hl(h.headline, opts.page ? null : HIGHLIGHT[story]) + "</h1>" +
-    '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + btn(h.cta_secondary, "secondary") + "</div>" +
+    '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
+    '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + (h.cta_secondary ? btn(h.cta_secondary, "secondary") : "") + "</div>" +
     (h.note ? '<p class="hero-note">' + t(h.note) + "</p>" : "") + "</div></div>" +
     (opts.visual === false ? "" : '<div class="hero-band">' + (opts.visual || heroVisual(story)) + "</div>") + "</div></section>";
 }
@@ -1942,16 +1441,20 @@ function problem(p) {
   return '<section class="sec sec-problem" id="problem"><div class="wrap"><div class="sec-head" style="margin-bottom:0"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="body-2 sh-text">' + t(p.body) + "</p></div></div></section>";
 }
 function proof(p, story) {
-  var main = story === "oversight" ? vNetwork() : story === "method" ? vScorecard() : vMonday();
-  return '<section class="sec sec-proof" id="proof" data-g data-tone="' + TONE.proof + '"><div class="wrap">' +
+  if (story !== "oversight") {
+    return '<section class="sec sec-proof sec-monday" id="proof"><div class="wrap">' +
+      '<div class="sec-head"><div class="sh-title"><span class="eyebrow">' + t(p.eyebrow) + '</span><h2 class="display h2">' + t(p.headline) + '</h2></div><p class="body-2 sh-text">' + t(p.body) + "</p></div>" +
+      '<div class="monday-frame">' + visual(vMondayOverview(), p.caption) + "</div></div></section>";
+  }
+  return '<section class="sec sec-proof" id="proof"><div class="wrap">' +
     '<div class="sec-head"><div class="sh-title"><span class="eyebrow">' + t(p.eyebrow) + '</span><h2 class="display h2">' + t(p.headline) + '</h2></div><p class="body-2 sh-text">' + t(p.body) + "</p></div>" +
-    '<div class="tiles"><div class="tile tile-wide">' + visual(main, p.caption) + "</div>" +
+    '<div class="tiles"><div class="tile tile-wide">' + visual(vNetwork(), p.caption) + "</div>" +
     '<div class="tile-side"><div class="tile"><div class="small" style="margin-bottom:10px">On this screen</div><div class="chips">' + p.callouts.map(function (c) { return '<span class="chip">' + t(c) + "</span>"; }).join("") + "</div></div>" + mapTile(story) + "</div></div></div></section>";
 }
 function features(f, opts) {
   opts = opts || {};
   return '<section class="sec sec-features" id="' + (opts.id || "features") + '"><div class="wrap">' +
-    '<div class="sec-head"><h2 class="display h2 sh-title">' + t(f.headline) + '</h2><p class="body-2 sh-text">' + t(f.intro) + "</p></div>" +
+    '<div class="sec-head' + (f.intro ? "" : " solo") + '"><h2 class="display h2 sh-title">' + t(f.headline) + "</h2>" + (f.intro ? '<p class="body-2 sh-text">' + t(f.intro) + "</p>" : "") + "</div>" +
     (opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "Sample data. The seven phases, with Harvest Point in Phase 1.") + "</div>" : "") +
     '<ol class="feat-list">' + f.items.map(function (it) {
       return '<li class="feat"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
@@ -1966,7 +1469,7 @@ function audiences(a) {
     '<div class="aud-grid">' + a.items.map(audienceCol).join("") + "</div></div></section>";
 }
 function evry(e) {
-  return '<section class="sec sec-evry" id="evry" data-g data-tone="' + TONE.evry + '"><div class="wrap"><div class="evry-grid"><div class="e-copy"><span class="eyebrow">' + t(e.eyebrow) + '</span><h2 class="display h2">' + t(e.headline) + '</h2><p class="body-2">' + t(e.body) + '</p><div class="limits">' + icon("shield") + "<span>" + t(e.limits) + "</span></div></div>" +
+  return '<section class="sec sec-evry" id="evry"><div class="wrap"><div class="evry-grid"><div class="e-copy"><span class="eyebrow">' + t(e.eyebrow) + '</span><h2 class="display h2">' + t(e.headline) + '</h2><p class="body-2">' + t(e.body) + '</p><div class="limits">' + icon("shield") + "<span>" + t(e.limits) + "</span></div></div>" +
     '<div class="e-vis">' + visual(vEvry(e.example)) + "</div></div></div></section>";
 }
 var TRUST_ICONS = ["book", "compass", "eye", "lock"];
@@ -1977,116 +1480,18 @@ function trust(tr) {
   return '<section class="sec sec-trust" id="trust"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(tr.headline) + "</h2></div>" + trustGrid(tr.items) + "</div></section>";
 }
 function cta(c) {
-  return '<section class="sec sec-cta" id="cta" data-g data-tone="' + TONE.cta + '"><div class="wrap"><div class="cta-box"><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
+  return '<section class="sec sec-cta" id="cta"><div class="wrap"><div class="cta-box"><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
     (c.note ? '<p class="small">' + t(c.note) + "</p>" : "") + "</div></div></section>";
-}
-
-/* ---------- Motion sections (Calendly patterns) ---------- */
-function vPeople() {
-  var st = [["st-prospect", "Prospect", 82, 100, "var(--ef-text-3)", true], ["st-attendee", "Attendee", 41, 50, "var(--ef-blue-500)", true], ["st-following", "Following up", 23, 28, "var(--ef-amber-500)", true], ["st-interviewed", "Interviewed", 14, 17, "var(--ef-violet-500)", true], ["st-core", "Core group", 34, 41, "var(--ef-green-500)", false], ["st-launch", "Launch team", 12, 15, "var(--ef-teal-500)", false], ["st-leader", "Leader", 8, 10, "var(--ef-ink)", false]];
-  var tint = { "st-prospect": "tone-ink", "st-attendee": "tone-blue", "st-following": "tone-amber", "st-interviewed": "tone-violet", "st-core": "tone-green", "st-launch": "tone-teal", "st-leader": "tone-ink" };
-  return frame("People", "Where people are", "214 people across 7 stages · Harvest Point Church",
-    '<div class="card"><div style="display:grid;gap:14px">' + st.map(function (s) {
-      return '<div><div class="row between"><span class="stage-chip ' + tint[s[0]] + '">' + s[1] + '</span><span class="num" style="font-size:18px">' + s[2] + '</span></div><div class="meter-hatch"><span class="' + (s[5] ? "hatch" : "") + '" style="width:' + s[3] + '%;' + (s[5] ? "--hatch:" + s[4] : "background:" + s[4]) + '"></span></div></div>';
-    }).join("") + '</div><div class="callout">' + icon("users") + "<span>14 interviewed people have not committed yet. Half of them were interviewed more than 3 weeks ago.</span></div></div>",
-    '<span class="btn hide-sm" data-variant="secondary">Add people</span>');
-}
-function vMeetings() {
-  var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
-  return frame("Meetings", "Vision meetings", "Every 14 days · Attendance for the last 10",
-    '<div class="dash compact meet"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Attendance</div><div class="card-description">Last 10 vision meetings</div></div></div>' +
-    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>' +
-    '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">Next 14 days</div></div></div>' +
-    '<div class="list-row"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div>' +
-    '<div class="list-row"><span class="card-icon tone-violet">' + icon("users") + '</span><div class="grow"><div class="list-title">Worship team training</div><div class="list-sub">Wed Oct 15 · 8 of 9 confirmed</div></div></div>' +
-    '<div class="list-row"><span class="card-icon tone-blue">' + icon("compass") + '</span><div class="grow"><div class="list-title">Coach check-in</div><div class="list-sub">Fri Oct 17 · with Pastor Ruth Allen</div></div></div></div></div>');
-}
-function vPeopleMini() {
-  var st = [["tone-ink", "Prospect", 82, 100, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 50, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 28, "var(--ef-amber-500)"], ["tone-green", "Core group", 34, 41, "var(--ef-green-500)"]];
-  return '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Where people are</div><div class="card-description">214 people across 7 stages</div></div></div><div style="display:grid;gap:14px">' +
-    st.map(function (x) { return '<div><div class="row between"><span class="stage-chip ' + x[0] + '">' + x[1] + '</span><span class="num" style="font-size:18px">' + x[2] + '</span></div><div class="meter-hatch"><span class="hatch" style="width:' + x[3] + '%;--hatch:' + x[4] + '"></span></div></div>'; }).join("") + "</div></div></div>";
-}
-function vAttendance() {
-  var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
-  return '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Vision meetings</div><div class="card-description">Attendance, last 10 · every 14 days</div></div><span class="badge" data-size="sm" data-status="positive">On rhythm</span></div>' +
-    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div>' +
-    '<div class="list-row" style="margin-top:8px"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div></div></div>';
-}
-var SC_VIEWS = [["Phases", "compass"], ["People", "users"], ["Vision meetings", "calendar"], ["Evry", "sparkle"]];
-function showcase(story) {
-  var views = [vPhaseCard(), vPeople(), vMeetings(), '<div class="ef">' + vEvry(DIR[story].sections.evry.example) + "</div>"];
-  return '<section class="showcase" id="showcase" aria-label="Product tour" style="--n:' + views.length + '"><div class="sc-track"><div class="sc-sticky"><div class="sc-stage gsurf" data-tone="field"><span class="sc-shade"></span>' +
-    '<div class="sc-tabs" role="tablist" aria-label="Product views">' + SC_VIEWS.map(function (v, i) { return '<button type="button" class="sc-tab" role="tab" data-sc="' + i + '" aria-selected="' + (i === 0) + '" aria-controls="sc-view-' + i + '">' + icon(v[1]) + "<span>" + v[0] + "</span></button>"; }).join("") + "</div>" +
-    '<div class="sc-card">' + views.map(function (v, i) { return '<div class="sc-view' + (i === 0 ? " on" : "") + '" id="sc-view-' + i + '" role="tabpanel" aria-hidden="' + (i !== 0) + '">' + (i === 3 ? '<div style="max-width:640px;margin:0 auto">' + visual(v) + "</div>" : visual(v)) + "</div>"; }).join("") + "</div>" +
-    '<div class="sc-meter" aria-hidden="true">' + views.map(function (v, i) { return '<span class="' + (i === 0 ? "on" : "") + '"></span>'; }).join("") + "</div>" +
-    '</div></div><div class="sc-steps" aria-hidden="true">' + views.map(function () { return "<div></div>"; }).join("") + "</div></div></section>";
-}
-/* Draft copy: not in marketing-copy.json. Facts come from the copy and the dashboard mockup. */
-var WEEK = [
-  ["field", "Gather", "Know everyone you are reaching.", ["Add people from a form or a spreadsheet", "See each person's stage, from prospect to core group", "Invite them to the next vision meeting"], function () { return vPeopleMini(); }],
-  ["sky", "Meet", "Hold a vision meeting every 14 days.", ["Plan the meeting and send the invitations", "Record attendance at the door", "Close attendance when the meeting ends"], function () { return vAttendance(); }],
-  ["dawn", "Follow up", "Call every new guest while it matters.", ["Closing attendance creates a follow-up task for each new guest", "Each task has an owner and a due date", "Evry can prepare the calls. You approve them."], function () { return '<div class="ef">' + needsYouCard() + "</div>"; }],
-  ["lilac", "Commit", "Count committed adults against the benchmark.", ["Record interviews against the five considerations and the 4 Cs", "Record each signed commitment", "See committed adults against the benchmark of 50"], function () { return '<div class="ef">' + coreGroupCard(false) + "</div>"; }]
-];
-function week() {
-  return '<section class="sec sec-week" id="week"><div class="wrap"><div class="sec-head"><div class="sh-title"><span class="eyebrow">The planter\'s week</span><h2 class="display h2">Gather, meet, follow up, commit.</h2></div>' +
-    '<p class="body-2 sh-text"><span class="page-tag" style="margin:0 0 12px">Draft copy · not in marketing-copy.json</span><br>Each step has its own screen in EveryField, and each one feeds the next.</p></div>' +
-    '<div class="wk-stack">' + WEEK.map(function (w, i) {
-      return '<article class="wk-card" data-tone="' + w[0] + '" style="--i:' + i + '"><span class="wk-edge" aria-hidden="true"></span><div class="wk-copy"><span class="wk-num">0' + (i + 1) + " · " + w[1] + '</span><h3 class="display h2" style="font-size:var(--mk-fs-h3);line-height:1.15">' + w[2] + '</h3><ol class="wk-steps">' +
-        w[3].map(function (s) { return "<li>" + s + "</li>"; }).join("") + '</ol></div><div class="wk-vis">' + visual(w[4]()) + "</div></article>";
-    }).join("") + "</div></div></section>";
-}
-function chapter() {
-  var C = DIR.method.sections, A = DIR.journey.sections;
-  var trustBy = {}; A.trust.items.forEach(function (x) { trustBy[x.title] = x.body; });
-  var unknownLens = '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Generosity and finance</div><div class="card-description">Critical Success Factor 6 of 8</div></div><span class="badge" data-status="unknown">Unknown</span></div><div class="muted">No giving or budget answer yet. Unknown is not the same as weak.</div><div class="callout">' + icon("eye") + '<span>Plant Intelligence does not guess. It asks.</span></div><div style="margin-top:14px"><span class="btn" data-variant="secondary">Answer 3 questions</span></div></div></div>';
-  var lensCard = '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Follow-up is slipping</div><div class="card-description">The facts this finding used · Rubric v1</div></div></div>' +
-    '<div class="kv"><span class="k">New guests, last 2 vision meetings</span><span class="v">24</span></div><div class="kv"><span class="k">Contact within 48 hours</span><span class="row"><span class="v">17</span><span class="badge" data-size="sm" data-status="attention">71%</span></span></div><div class="kv"><span class="k">No contact yet</span><span class="row"><span class="v">7</span><span class="badge" data-size="sm" data-status="risk">Open</span></span></div><div class="kv"><span class="k">Rubric version</span><span class="v">v1</span></div></div></div>';
-  var panels = [
-    ["One focus at a time", C.proof.body.split(". ").slice(0, 2).join(". ") + ".", '<div class="ef">' + focusCard() + "</div>"],
-    ["Every finding shows its facts", "Every finding links to the facts it used and names the rubric version.", lensCard],
-    ["Unknown stays unknown", trustBy["Unknown stays unknown"], unknownLens],
-    ["Your phase is your call", trustBy["Your phase is your call"], vPhaseCard()]
-  ];
-  return '<section class="sec sec-chapter" id="intelligence"><div class="wrap"><div class="ch-grid"><div class="ch-left"><div class="ch-head"><span class="eyebrow">' + t(C.proof.eyebrow) + '</span><h2 class="display h2">' + t(C.proof.headline) + "</h2></div>" +
-    panels.map(function (p, i) { return '<div class="ch-panel' + (i === 0 ? " on" : "") + '" data-ch="' + i + '"><h3 class="display h3">' + t(p[0]) + "</h3><p>" + t(p[1]) + '</p><div class="ch-inline">' + visual(p[2]) + "</div></div>"; }).join("") +
-    '</div><div class="ch-right"><div class="ch-vis">' + panels.map(function (p, i) { return '<div class="ch-view' + (i === 0 ? " on" : "") + '">' + visual(p[2]) + "</div>"; }).join("") +
-    '<div class="ch-dots" aria-hidden="true">' + panels.map(function (p, i) { return '<span class="' + (i === 0 ? "on" : "") + '"></span>'; }).join("") + "</div></div></div></div></div></section>";
 }
 
 /* Observers. Rebuilt after each render. */
 var REDUCED = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
 var observers = [];
-function setShowcase(i) {
-  var root = document.getElementById("showcase");
-  if (!root) return;
-  root.querySelectorAll(".sc-view").forEach(function (v, k) { v.classList.toggle("on", k === i); v.setAttribute("aria-hidden", k !== i); });
-  root.querySelectorAll(".sc-tab").forEach(function (b, k) { b.setAttribute("aria-selected", k === i); });
-  root.querySelectorAll(".sc-meter span").forEach(function (s, k) { s.classList.toggle("on", k <= i); });
-}
-function setChapter(i) {
-  document.querySelectorAll(".ch-panel").forEach(function (p, k) { p.classList.toggle("on", k === i); });
-  document.querySelectorAll(".ch-view").forEach(function (v, k) { v.classList.toggle("on", k === i); });
-  document.querySelectorAll(".ch-dots span").forEach(function (d, k) { d.classList.toggle("on", k === i); });
-}
 function setupMotion() {
   observers.forEach(function (o) { o.disconnect(); });
   observers = [];
   var hasIO = "IntersectionObserver" in window;
   var still = REDUCED.matches || !hasIO;
-  if (!still) {
-    var center = { rootMargin: "-50% 0px -50% 0px", threshold: 0 };
-    var steps = document.querySelectorAll(".sc-steps > div");
-    if (steps.length) {
-      var o1 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) setShowcase(Array.prototype.indexOf.call(steps, e.target)); }); }, center);
-      steps.forEach(function (s) { o1.observe(s); }); observers.push(o1);
-    }
-    var panels = document.querySelectorAll(".ch-panel");
-    if (panels.length) {
-      var o2 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) setChapter(+e.target.dataset.ch); }); }, center);
-      panels.forEach(function (p) { o2.observe(p); }); observers.push(o2);
-    }
-  }
   var sel = "#view .sec-head, #view .feat, #view .aud, #view .trust-item, #view .tile, #view .split, #view .cta-box, #view .e-copy, #view .e-vis, #view .form-card, #view .access-table-wrap, #view .hero-band";
   var els = document.querySelectorAll(sel);
   if (still) return;
@@ -2100,25 +1505,43 @@ function setupMotion() {
   });
   observers.push(o3);
 }
-function showcaseTab(i) {
-  setShowcase(i);
-  if (REDUCED.matches) return;
-  var steps = document.querySelectorAll(".sc-steps > div");
-  if (!steps[i]) return;
-  var top = steps[i].getBoundingClientRect().top + window.scrollY + 10;
-  window.scrollTo({ top: Math.max(0, top - window.innerHeight * 0.5 + 40), behavior: "smooth" });
+/* EvryBot life, copied from design/everyfield-ui.html: random blinks and glances, pointer follow. */
+function evryBots() { return Array.prototype.filter.call(document.querySelectorAll(".evry-bot"), function (b) { return b.offsetParent; }); }
+function botBlink(b) { b.setAttribute("data-blink", ""); setTimeout(function () { b.removeAttribute("data-blink"); }, 200); }
+function botGlance(b) {
+  if (b.dataset.mood !== "idle" || b.hasAttribute("data-following")) return;
+  var sz = b.getBoundingClientRect().width, r = function () { return (Math.random() * 2 - 1) * sz * 0.07; };
+  b.style.setProperty("--lx", r() + "px"); b.style.setProperty("--ly", r() * 0.7 + "px");
+  setTimeout(function () { b.style.setProperty("--lx", "0px"); b.style.setProperty("--ly", "0px"); }, 900 + Math.random() * 900);
 }
+function seedBots() {
+  document.querySelectorAll(".evry-bot").forEach(function (b) { b.style.setProperty("--blink", (3.8 + Math.random() * 3).toFixed(2) + "s"); b.style.setProperty("--blink-delay", (-Math.random() * 4).toFixed(2) + "s"); });
+}
+(function botLife() {
+  if (!REDUCED.matches) evryBots().forEach(function (b) { if (Math.random() < 0.35) botBlink(b); if (Math.random() < 0.25) botGlance(b); });
+  setTimeout(botLife, 1400 + Math.random() * 1600);
+})();
+document.addEventListener("pointermove", function (e) {
+  if (REDUCED.matches) return;
+  document.querySelectorAll(".evry-bot[data-follow]").forEach(function (b) {
+    if (b.dataset.mood !== "idle") return;
+    var r = b.getBoundingClientRect(); if (!r.width) return;
+    var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, m = Math.min(1, d / 300) * r.width * 0.09;
+    b.setAttribute("data-following", ""); b.style.setProperty("--lx", (dx / d * m) + "px"); b.style.setProperty("--ly", (dy / d * m) + "px");
+    clearTimeout(b.__ft); b.__ft = setTimeout(function () { b.removeAttribute("data-following"); b.style.setProperty("--lx", "0px"); b.style.setProperty("--ly", "0px"); }, 1600);
+  });
+});
 
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: false, flat: true }) + showcase(story) + problem(s.problem) + week() + proof(s.proof, story) + features(s.features) + chapter() + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot() }) + problem(s.problem) + weekSlot() + proof(s.proof, story) + features(s.features) + intelligenceSlot() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
   var a = s.audiences.items[0];
   return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points, tag: "Page mock · /planters · story A copy" }) +
-    problem(s.problem) + week() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+    problem(s.problem) + weekSlot() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + cta(s.cta);
 }
 function pageOversight() {
   var s = DIR.oversight.sections;
@@ -2132,13 +1555,8 @@ function pageOversight() {
     split(byId.networks, vReadiness(), false) + split(byId["sending-churches"], vPlantSummary(), true) + split(byId.planters, vConsent(), false) + "</div></section>" +
     features(s.features) + evry(s.evry) + trust(s.trust) + cta(s.cta);
 }
-function pageMethod() {
-  var s = DIR.method.sections;
-  return hero(s.hero, "method", { page: true, visual: '<div class="hv hv-map">' + visual('<div class="map-hero"><div class="map">' + vMap("method", false) + '</div><div class="map-card"><div class="ef">' + needsYouCard() + "</div></div></div>") + '</div><div class="hv hv-product">' + visual(vPhaseCard()) + "</div>", tag: "Page mock · /method · story C copy" }) +
-    problem(s.problem) + proof(s.proof, "method") + chapter() + features(s.features, { id: "phases", track: true }) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
-}
 function pageTrust() {
-  var A = DIR.journey.sections, B = DIR.oversight.sections, C = DIR.method.sections;
+  var A = DIR.journey.sections, B = DIR.oversight.sections, P = COPY.shared.trust_page;
   var Y = function (s) { return '<span class="yes">' + s + "</span>"; }, N = function (s) { return '<span class="no">' + s + "</span>"; };
   var rows = [
     ["Owner", Y("Full"), Y("Full"), Y("Full"), Y("Own only"), Y("Yes")],
@@ -2147,9 +1565,9 @@ function pageTrust() {
     ["Coach the planter invites", Y("Read"), Y("Read"), Y("Read"), N("No"), N("No")],
     ["Sending church or network", N("Never"), N("Counts only"), Y("Summary, when shared"), N("No"), N("No")]
   ];
-  var groups = [["For planters", A.trust], ["For sending churches and networks", B.trust], ["The method", C.trust]];
-  var limits = [A.evry.limits, B.evry.limits, C.evry.limits];
-  return hero({ eyebrow: "Privacy and trust", headline: A.trust.headline, subhead: C.trust.headline, cta_primary: "Request early access", cta_secondary: "Talk to us about your network" }, "journey", { page: true, visual: false, tag: "Page mock · /trust · copy from stories A, B and C" }) +
+  var groups = [["For planters", P.planter_rules], ["For sending churches and networks", B.trust]];
+  var limits = [A.evry.limits, B.evry.limits];
+  return hero({ eyebrow: P.eyebrow, headline: P.headline, subhead: P.subhead, cta_primary: "Request early access", cta_secondary: "Talk to us about your network" }, "journey", { page: true, visual: false, tag: "Page mock · /trust · copy from stories A and B" }) +
     '<section class="sec" id="who-sees-what" style="padding-top:0"><div class="wrap"><div class="sec-head"><h2 class="display h2 sh-title">Who sees what</h2><p class="body-2 sh-text">' + t("[[Confirm each cell against the access rules before publishing.]]") + "</p></div>" +
     '<div class="access-table-wrap"><table class="access-table"><thead><tr><th>Role</th><th>People and notes</th><th>Meetings and tasks</th><th>Plant Intelligence</th><th>Private check-in</th><th>Can change records</th></tr></thead><tbody>' +
     rows.map(function (r) { return "<tr><th>" + r[0] + "</th>" + r.slice(1).map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div></div></section>" +
@@ -2176,7 +1594,7 @@ function pageLegal(title) {
 }
 
 /* ---------- Chrome ---------- */
-var NAVMAP = { "Product": ["home", "features"], "For planters": ["planters", ""], "For sending churches": ["oversight", "sending-churches"], "For networks": ["oversight", "networks"], "The method": ["method", ""], "Privacy": ["trust", ""] };
+var NAVMAP = { "Product": ["home", "features"], "For planters": ["planters", ""], "For sending churches": ["oversight", "sending-churches"], "For networks": ["oversight", "networks"], "Privacy": ["trust", ""] };
 function renderNav() {
   var nav = document.getElementById("site-nav");
   nav.innerHTML = '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" style="text-decoration:none">' + logo() + "</a>" +
@@ -2188,19 +1606,17 @@ function renderNav() {
     '<div class="nav-end"><a class="signin" href="#" data-toast="Sign in is not part of the marketing prototype.">' + t(COPY.shared.nav_signin) + "</a>" + btn(COPY.shared.nav_cta) +
     '<button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false">' + icon("menu") + "</button></div></div>";
 }
-var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["method", "proof"], "Evry": ["home", "evry"], "The method": ["method", ""], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
+var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["home", "evry"], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
 function renderFooter() {
   var f = COPY.shared.footer;
-  var story = pageStory();
-  document.getElementById("site-footer").innerHTML = '<div class="ft-frame"><div class="ft-card"><div class="ft-brand">' + logo() + "<p>" + t(DIR[story].sections.footer.tagline) + "</p></div>" +
-    '<div class="ft-cols">' + f.columns.map(function (c) {
+  document.getElementById("site-footer").innerHTML = '<div class="ft-card"><div class="ft-lead"><span class="ft-mark">' + mark() + '</span><h2 class="display">' + t(f.headline) + "</h2>" + btn(f.cta) + "</div>" +
+    '<nav class="ft-cols" aria-label="Footer">' + f.columns.map(function (c) {
       return "<div><h4>" + t(c.title) + "</h4><ul>" + c.links.map(function (l) {
         var r = FOOTMAP[l];
         return "<li>" + (r ? '<a href="' + hrefFor(r[0], r[1]) + '">' + t(l) + "</a>" : '<span class="ft-later">' + t(l) + "<small>Later</small></span>") + "</li>";
       }).join("") + "</ul></div>";
-    }).join("") + "</div>" +
-    '<div class="ft-wordmark" aria-hidden="true"><svg viewBox="0 0 890 186"><use href="#ef-wordmark"/></svg></div>' +
-    '<div class="ft-bottom"><span>' + t(f.fineprint) + "</span><span>Prototype. Not a live site.</span></div></div></div>";
+    }).join("") + "</nav>" +
+    '<div class="ft-bottom">' + logo() + "<span>" + t(f.fineprint) + "</span><span>Prototype. Not a live site.</span></div></div>";
 }
 function renderBar() {
   var bar = document.getElementById("pbar");
@@ -2210,13 +1626,11 @@ function renderBar() {
     '<optgroup label="Later, not in v1">' + LATER.map(function (l) { return "<option disabled>" + l + "</option>"; }).join("") + "</optgroup>";
   bar.innerHTML = '<span class="pb-tag">Prototype</span>' +
     '<div class="pb-group sel"><select class="pb-page" aria-label="Page">' + pageOpts + "</select>" +
-    '<select class="m pb-style" aria-label="Style">' + STYLES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === state.style ? " selected" : "") + ">" + s.name + "</option>"; }).join("") + "</select>" +
     '<select class="m pb-story" aria-label="Story"' + (onHome ? "" : " disabled") + ">" + STORIES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ps ? " selected" : "") + ' title="' + esc(DIR[s.id].name) + '">Story ' + s.key + "</option>"; }).join("") + "</select></div>" +
-    '<div class="pb-group"><span class="pb-lab">Style</span><div class="seg" role="group" aria-label="Style">' + STYLES.map(function (s) { return '<button type="button" data-style="' + s.id + '" title="' + s.hint + '" aria-pressed="' + (s.id === state.style) + '">' + s.name + "</button>"; }).join("") + "</div></div>" +
     '<div class="pb-group"><span class="pb-lab">Story</span><div class="seg" role="group" aria-label="Story">' + STORIES.map(function (s) { return '<button type="button" data-story="' + s.id + '" title="' + esc(DIR[s.id].name) + '" aria-pressed="' + (s.id === ps) + '"' + (onHome ? "" : " disabled") + "><b>" + s.key + "</b>" + s.short + "</button>"; }).join("") + "</div>" +
     (onHome ? "" : '<span class="pb-note">Fixed for this page</span>') + "</div>" +
     '<div class="pb-group"><button type="button" class="pb-btn pb-ph" title="Jump to the next placeholder">[[ ]] <span class="pb-count">0</span></button>' +
-    '<button type="button" class="pb-btn pb-copy" title="Copy a link to this page, style and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
+    '<button type="button" class="pb-btn pb-copy" title="Copy a link to this page and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
     '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
 }
 function countPlaceholders() {
@@ -2228,28 +1642,26 @@ function countPlaceholders() {
 /* ---------- Apply ---------- */
 var last = {};
 function render(scrollMode) {
-  STYLES.forEach(function (s) { document.body.classList.remove(s.cls); });
-  document.body.classList.add(STYLE[state.style].cls);
   document.body.dataset.page = state.page;
-  var needView = last.page !== state.page || last.story !== state.story || last.styleForLinks !== state.style;
+  var needView = last.page !== state.page || last.story !== state.story;
   if (needView) {
     var v = document.getElementById("view");
     var html = state.page === "home" ? home(state.story) : state.page === "planters" ? pagePlanters() : state.page === "oversight" ? pageOversight() :
-      state.page === "method" ? pageMethod() : state.page === "trust" ? pageTrust() : state.page === "access" ? pageAccess() : pageLegal(PAGE[state.page].name);
+      state.page === "trust" ? pageTrust() : state.page === "access" ? pageAccess() : pageLegal(PAGE[state.page].name);
     v.innerHTML = html;
     renderNav();
     renderFooter();
   }
   renderBar();
   countPlaceholders();
-  document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · " + STYLE[state.style].name + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
+  document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
   if (scrollMode === "top") window.scrollTo({ top: 0, behavior: "auto" });
   if (scrollMode === "at" && state.at) {
     var target = document.getElementById(state.at);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) setupMotion();
-  last = { page: state.page, story: state.story, styleForLinks: state.style };
+  if (needView) { setupMotion(); seedBots(); }
+  last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
   Object.assign(state, over);
@@ -2273,11 +1685,7 @@ function toast(msg) {
 
 /* ---------- Events ---------- */
 document.addEventListener("click", function (e) {
-  var sc = e.target.closest(".sc-tab");
-  if (sc) { showcaseTab(+sc.dataset.sc); return; }
-  var b = e.target.closest("[data-style]");
-  if (b && b.closest(".pbar")) { setState({ style: b.dataset.style }); return; }
-  b = e.target.closest("[data-story]");
+  var b = e.target.closest("[data-story]");
   if (b && b.closest(".pbar") && !b.disabled) { setState({ story: b.dataset.story }); return; }
   if (e.target.closest(".pb-copy")) {
     var url = location.href;
@@ -2305,7 +1713,6 @@ document.addEventListener("click", function (e) {
 });
 document.addEventListener("change", function (e) {
   if (e.target.matches(".pb-page")) setState({ page: e.target.value, at: "" }, true);
-  else if (e.target.matches(".pb-style")) setState({ style: e.target.value });
   else if (e.target.matches(".pb-story")) setState({ story: e.target.value });
 });
 document.addEventListener("submit", function (e) {
