@@ -939,7 +939,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .task-row + .task-row, .list-row { transition: border-color .2s; }
 
 /* ---- Wiki prose (<Prose>) ---- */
-.prose { font-size: 16px; line-height: 1.7; color: var(--ef-ink-2); max-width: 700px; }
+.prose { font-size: 16px; line-height: 1.7; color: var(--ef-ink-2); max-width: 700px; width: 100%; margin-inline: auto; }
+/* Article footer keeps the same reading width as the text and centers with it. */
+.prose-foot { max-width: 700px; width: 100%; margin: 36px auto 0; padding-top: 22px; border-top: 1px solid var(--ef-line); }
 .prose h2 { font-size: 26px; color: var(--ef-ink); margin: 34px 0 10px; }
 .prose h3 { font-size: 19px; color: var(--ef-ink); margin: 26px 0 8px; }
 .prose p { margin: 0 0 14px; }
@@ -2313,7 +2315,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
         <h2 id="w-after">After the meeting</h2>
         <p>Call every first-time guest within 48 hours. Everyfield creates these follow-ups for you when you <a>finalize attendance</a>.</p>
       </div>
-      <div class="row between" style="margin-top:36px;padding-top:22px;border-top:1px solid var(--ef-line)">
+      <div class="row between prose-foot">
         <div class="row gap-3"><span class="muted">Was this helpful?</span><button class="btn" data-variant="secondary" data-size="sm"><i class="hgi-stroke hgi-thumbs-up"></i>Yes</button><button class="btn" data-variant="ghost" data-size="sm">Not really</button></div>
         <a class="btn" data-variant="outline" data-size="sm">Next: Follow up within 48 hours <i class="hgi-stroke hgi-arrow-right-01"></i></a>
       </div>
