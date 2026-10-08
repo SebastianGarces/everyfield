@@ -1752,11 +1752,36 @@ function heroVisual(story) {
    haRender(t) is a pure function of the loop time t (ms). Reduced motion renders t = HA_STILL once. */
 var HA_NAME = "Maria Lopez";
 var HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
-var HA_T = 13200, HA_STILL = 12400;
-/* Scene windows: [card in, card out]. Card 0 also fades in across the loop seam. */
-var HA_SC = [[-250, 2700], [2850, 5100], [5250, 8300], [8450, 10400], [10550, 12950]];
-/* Chip moves: [start, end, from slot, to slot] */
-var HA_MOVES = [[2750, 3400, 0, 1], [5150, 5800, 1, 2], [8350, 9000, 2, 3], [10450, 11100, 3, 4]];
+/* Revision 8 timing table: the one place to tune the hero loop (all values in ms).
+   Transitions keep their Revision 7 values: card crossfade, Maria's chip glide and the loop seam.
+   In-scene actions run `act` times slower. Each scene then holds its finished state for hold[i] before the next transition.
+   Revision 7 values: act 1, holds 380 / 1420 / 0 / 320 / 1030, loop 13200. */
+var HA_TM = {
+  act: 1.5,                             /* in-scene action scale (Revision 7: 1) */
+  hold: [1700, 1800, 1800, 1800, 3000], /* hold on each result: added, guest, sent, committed, core group */
+  lead: [700, 450, 250, 500, 150],      /* card in to first action; tied to the chip landing, so unchanged */
+  span: [1870, 380, 2800, 1130, 1220],  /* Revision 7 action length per scene, before the act scale */
+  cardIn: 380, cardOut: 250, gap: 150,  /* crossfade: new card in 380 ms ease-out, 150 ms after the old card starts 250 ms out */
+  moveAt: 50, move: 650,                /* chip glide: starts 50 ms after card out, 650 ms in-out */
+  seam: 250, chipFade: 230              /* loop seam: card 0 fades in 250 ms before the loop ends; the chip fades in 230 ms */
+};
+/* Derived: scene windows [card in, card out], action starts, chip moves [start, end, from slot, to slot], loop length, still frame.
+   Card 0 also fades in across the loop seam. */
+var HA_SC = [], HA_A = [], HA_MOVES = [], HA_T = 0, HA_STILL = 0;
+(function () {
+  var a = -HA_TM.seam;
+  for (var i = 0; i < 5; i++) {
+    var A = a + HA_TM.lead[i], b = A + HA_TM.span[i] * HA_TM.act + HA_TM.hold[i];
+    HA_SC.push([a, b]); HA_A.push(A);
+    if (i < 4) HA_MOVES.push([b + HA_TM.moveAt, b + HA_TM.moveAt + HA_TM.move, i, i + 1]);
+    a = b + HA_TM.gap;
+  }
+  HA_T = HA_SC[4][1] + HA_TM.seam;
+  HA_STILL = HA_A[4] + 1400 * HA_TM.act; /* final frame: Maria in the core group, highlight on */
+})();
+/* In-scene time: Revision 7 offset ms from scene i's action start, scaled. haD scales a Revision 7 action duration. */
+function haAt(i, ms) { return HA_A[i] + ms * HA_TM.act; }
+function haD(ms) { return ms * HA_TM.act; }
 function haChip(live) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">ML</span>' + HA_NAME + "</span>"; }
 function haSlot() { return '<span class="ha-slot">' + haChip() + "</span>"; }
 function haSk(w, cls) { return '<span class="sk' + (cls ? " " + cls : "") + '"' + (w ? ' style="width:' + w + '"' : "") + "></span>"; }
@@ -1834,7 +1859,7 @@ function haRender(t) {
   R.querySelectorAll(".ha-card").forEach(function (card, i) {
     var u = i === 0 && t >= HA_T - 300 ? t - HA_T : t;
     var a = HA_SC[i][0], b = HA_SC[i][1];
-    var pin = haOut(haP(u, a, 380)), pout = haSine(haP(u, b, 250));
+    var pin = haOut(haP(u, a, HA_TM.cardIn)), pout = haSine(haP(u, b, HA_TM.cardOut));
     haTO(card, 0, (1 - pin) * 8 - pout * 6, 1, pin * (1 - pout));
     card.querySelectorAll("[data-st]").forEach(function (el, k) {
       var p = haOut(haP(u, a + 90 + k * 75, 420));
@@ -1842,45 +1867,45 @@ function haRender(t) {
     });
   });
   /* Scene 1: type the name, press Add, the chip lands in the list */
-  var n = Math.floor(haP(t, 450, 1050) * HA_NAME.length);
+  var n = Math.floor(haP(t, haAt(0, 0), haD(1050)) * HA_NAME.length);
   haSet(q(".ha-type"), "text", HA_NAME.slice(0, n));
-  haSet(q(".ha-type"), "opacity", (1 - haP(t, 2000, 220)).toFixed(3));
-  haSet(q(".ha-card[data-scene='0'] .ha-caret"), "visibility", t < 1950 ? "visible" : "hidden");
-  haSet(q(".ha-add"), "transform", "scale(" + (1 - .05 * haBump(t, 1700, 200)).toFixed(4) + ")");
+  haSet(q(".ha-type"), "opacity", (1 - haP(t, haAt(0, 1550), haD(220))).toFixed(3));
+  haSet(q(".ha-card[data-scene='0'] .ha-caret"), "visibility", t < haAt(0, 1500) ? "visible" : "hidden");
+  haSet(q(".ha-add"), "transform", "scale(" + (1 - .05 * haBump(t, haAt(0, 1250), haD(200))).toFixed(4) + ")");
   /* Scene 2: guest count rolls when Maria joins */
-  haRoll2("guests", haInOut(haP(t, 3300, 380)));
+  haRoll2("guests", haInOut(haP(t, haAt(1, 0), haD(380))));
   /* Scene 3: Evry drafts, you approve, a check confirms it is sent */
   var bot = q(".ha .evry-bot");
-  haSet(bot, "mood", t >= 5500 && t < 7300 ? "talking" : t >= 7650 && t < 8500 ? "happy" : "idle");
-  var m = Math.floor(haP(t, 5850, 1350) * HA_DRAFT.length);
+  haSet(bot, "mood", t >= haAt(2, 0) && t < haAt(2, 1800) ? "talking" : t >= haAt(2, 2150) && t < HA_SC[2][1] + 200 ? "happy" : "idle");
+  var m = Math.floor(haP(t, haAt(2, 350), haD(1350)) * HA_DRAFT.length);
   haSet(q(".ha-dtxt"), "text", HA_DRAFT.slice(0, m));
-  haSet(q(".ha-draft .ha-caret"), "visibility", t > 5700 && t < 7350 ? "visible" : "hidden");
-  haSet(q(".ha-send"), "transform", "scale(" + (1 - .05 * haBump(t, 7320, 220)).toFixed(4) + ")");
-  var ok = haOut(haP(t, 7480, 320));
+  haSet(q(".ha-draft .ha-caret"), "visibility", t > haAt(2, 200) && t < haAt(2, 1850) ? "visible" : "hidden");
+  haSet(q(".ha-send"), "transform", "scale(" + (1 - .05 * haBump(t, haAt(2, 1820), haD(220))).toFixed(4) + ")");
+  var ok = haOut(haP(t, haAt(2, 1980), haD(320)));
   haSet(q(".ha-ok"), "opacity", ok.toFixed(3));
   haTO(q(".ha-l1"), 0, -8 * ok, 1, 1 - ok);
-  haTO(q(".ha-l2"), 0, 8 * (1 - ok), .9 + .1 * haBack(haP(t, 7480, 380)), ok);
-  haSet(q(".ha-shine"), "transform", "translate3d(" + (-120 + 400 * haInOut(haP(t, 7650, 650))).toFixed(1) + "%,0,0)");
+  haTO(q(".ha-l2"), 0, 8 * (1 - ok), .9 + .1 * haBack(haP(t, haAt(2, 1980), haD(380))), ok);
+  haSet(q(".ha-shine"), "transform", "translate3d(" + (-120 + 400 * haInOut(haP(t, haAt(2, 2150), haD(650)))).toFixed(1) + "%,0,0)");
   /* Scene 4: checks pop in, then the stage flips to Committed */
-  R.querySelectorAll(".ha-check").forEach(function (c, k) { var p = haP(t, 8950 + k * 260, 340); haTO(c, 0, 0, .4 + .6 * haBack(p), haClamp(p * 2.5)); });
-  var f = haP(t, 9700, 380), fe = haOut(f);
+  R.querySelectorAll(".ha-check").forEach(function (c, k) { var p = haP(t, haAt(3, k * 260), haD(340)); haTO(c, 0, 0, .4 + .6 * haBack(p), haClamp(p * 2.5)); });
+  var f = haP(t, haAt(3, 750), haD(380)), fe = haOut(f);
   var chips = R.querySelectorAll(".ha-flip .stage-chip");
   haTO(chips[0], 0, -7 * fe, 1, 1 - fe);
   haTO(chips[1], 0, 7 * (1 - fe), .85 + .15 * haBack(f), fe);
   /* Scene 5: bars fill, Maria joins the core group, counts roll, a short highlight */
-  var join = haInOut(haP(t, 11200, 520));
+  var join = haInOut(haP(t, haAt(4, 500), haD(520)));
   [41, 23, 34].forEach(function (v, k) {
-    var p = haOut(haP(t, 10700 + k * 90, 650)), val = v / 50 * p + (k === 2 ? join : k === 1 ? -join : 0) / 50;
+    var p = haOut(haP(t, haAt(4, k * 90), haD(650))), val = v / 50 * p + (k === 2 ? join : k === 1 ? -join : 0) / 50;
     haSet(R.querySelectorAll(".ha-meter > span")[k], "transform", "translate3d(" + (-100 + 100 * val).toFixed(2) + "%,0,0)");
   });
   haRoll2("follow", join); haRoll2("core", join);
-  haSet(q(".ha-hl"), "opacity", (haOut(haP(t, 11100, 300)) * (1 - haSine(haP(t, 12200, 600)))).toFixed(3));
+  haSet(q(".ha-hl"), "opacity", (haOut(haP(t, haAt(4, 400), haD(300))) * (1 - haSine(haP(t, HA_SC[4][1] - 1500, haD(600))))).toFixed(3));
   /* Maria's chip: pops in, then glides between slots with a small lift, fades at the seam */
   var live = q(".ha-live"), pos = HA.pos;
   if (live && pos.length === 5) {
     var x = pos[0].x, y = pos[0].y, s = 1, o = 0;
-    var pop = haP(t, 1900, 420);
-    if (t >= 1900) { o = haClamp(pop * 2); s = .6 + .4 * haBack(pop); }
+    var pop = haP(t, haAt(0, 1450), haD(420));
+    if (t >= haAt(0, 1450)) { o = haClamp(pop * 2); s = .6 + .4 * haBack(pop); }
     HA_MOVES.forEach(function (mv) {
       if (t < mv[0]) return;
       var p = haInOut(haP(t, mv[0], mv[1] - mv[0]));
@@ -1888,9 +1913,9 @@ function haRender(t) {
       y = pos[mv[2]].y + (pos[mv[3]].y - pos[mv[2]].y) * p;
       s = 1 + .06 * Math.sin(Math.PI * p);
     });
-    var fade = haSine(haP(t, 12950, 230));
+    var fade = haSine(haP(t, HA_SC[4][1], HA_TM.chipFade));
     haTO(live, x, y, s - .04 * fade, o * (1 - fade));
-    var ring = haP(t, 11120, 800);
+    var ring = haP(t, haAt(4, 420), haD(800));
     haTO(q(".ha-ring"), 0, 0, 1 + .3 * haOut(ring), ring > 0 && ring < 1 ? .8 * (1 - ring) : 0);
   }
 }
