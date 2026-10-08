@@ -121,6 +121,11 @@
   /* top bar: every pill shares one height; inner controls are 44px, chips 40px */
   --ef-topbar-h: 60px;
 
+  /* content column: capped and centered beside the rail; the top bar and rail stay full width.
+     Pages with data-width="wide" opt into the wider cap. */
+  --ef-content-max: 1536px;
+  --ef-content-max-wide: 1920px;
+
   /* motion: hover backgrounds and active indicators share one slide */
   --ef-slide-dur: .26s;
   --ef-slide-ease: cubic-bezier(.2,.8,.2,1);
@@ -387,7 +392,7 @@ button { font: inherit; color: inherit; }
 .evry-launch .spark i { color: var(--ef-on-ink); font-size: 17px; }
 .evry-launch .kbd { background: var(--ef-on-ink-soft); color: var(--ef-on-ink); box-shadow: none; }
 
-.main { padding: 18px 26px 96px 10px; min-width: 0; }
+.main { padding: 18px 26px 96px 10px; min-width: 0; width: 100%; max-width: var(--ef-content-max); justify-self: center; }
 .page { display: none; }
 .page[data-active="true"] { display: block; }
 /* Staggered reveal: the script tags the page's main blocks with .reveal and a
@@ -1141,6 +1146,10 @@ body[data-shell="bare"] .topbar, body[data-shell="bare"] .rail, body[data-shell=
 body[data-shell="bare"] .frame { grid-template-columns: minmax(0, 1fr); }
 body[data-shell="bare"] .main { padding: 0; }
 
+/* ---- Content width: default cap, wide opt-in (set by the router from the page's data-width) ---- */
+body[data-width="wide"] .main { max-width: var(--ef-content-max-wide); }
+body[data-shell="bare"] .main { max-width: none; }
+
 /* ---- Floating pop-overs (bell, user menu) ---- */
 .float-pop { position: fixed; z-index: 45; width: 360px; opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity .16s ease, transform .2s var(--ef-slide-ease); }
 .float-pop[data-open="true"] { opacity: 1; transform: none; pointer-events: auto; }
@@ -1520,6 +1529,11 @@ body[data-shell="bare"] .main { padding: 0; }
           <i class="hgi-stroke hgi-user-multiple"></i><i class="hgi-stroke hgi-calendar-03"></i><i class="hgi-stroke hgi-task-done-01"></i><i class="hgi-stroke hgi-user-group"></i><i class="hgi-stroke hgi-book-open-01"></i><i class="hgi-stroke hgi-rocket-01"></i><i class="hgi-stroke hgi-hand-prayer"></i><i class="hgi-stroke hgi-mentor"></i><i class="hgi-stroke hgi-plant-01"></i><i class="hgi-stroke hgi-mail-01"></i><i class="hgi-stroke hgi-coins-01"></i><i class="hgi-stroke hgi-music-note-01"></i>
         </div><div class="faint t-xs mt-3">20px in nav · 18px in buttons · 16px inline</div></div>
     </div>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-h"><h2>Content width</h2><code>--ef-content-max · --ef-content-max-wide · data-width="wide"</code></div>
+    <p class="doc-note">The top bar and the rail always span the full window. The content column stops at 1536px and sits in the center of the space to the right of the rail. On narrower screens it fills that space, so 1440px screens look the same as before. Dense list pages (People, Meetings, Documents) set <code>data-width="wide"</code> on their page section and can grow to 1920px. The router copies that value to <code>body[data-width]</code> on each page change. Sign-in and onboarding have no cap.</p>
   </div>
 </section>
 
@@ -2056,7 +2070,7 @@ body[data-shell="bare"] .main { padding: 0; }
 <!-- =================================================================
      PAGE: PEOPLE
      ================================================================= -->
-<section class="page" data-page="people">
+<section class="page" data-page="people" data-width="wide">
   <header class="page-header">
     <div class="titles">
       <h1 class="page-title xl">People</h1>
@@ -2940,7 +2954,7 @@ body[data-shell="bare"] .main { padding: 0; }
 <!-- =================================================================
      PAGE: DOCUMENTS
      ================================================================= -->
-<section class="page" data-page="documents">
+<section class="page" data-page="documents" data-width="wide">
   <header class="page-header">
     <div class="titles">
       <h1 class="page-title xl">Documents</h1>
@@ -3104,7 +3118,7 @@ body[data-shell="bare"] .main { padding: 0; }
 <!-- =================================================================
      PAGE: MEETINGS LIST
      ================================================================= -->
-<section class="page" data-page="meetings">
+<section class="page" data-page="meetings" data-width="wide">
   <header class="page-header">
     <div class="titles"><h1 class="page-title xl">Meetings</h1><p class="page-sub">Vision meetings, team meetings and trainings.</p></div>
     <div class="page-actions"><button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-location-01"></i>Places</button><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-calendar-add-01"></i>Plan a meeting</button></div>
@@ -3812,6 +3826,7 @@ function showPage(page, nav) {
   }
   if (!el) { el = document.querySelector('.page[data-page="overview"]'); nav = 'overview'; page = 'overview'; }
   document.body.dataset.shell = BARE.has(page) ? 'bare' : 'app';
+  document.body.dataset.width = el.dataset.width === 'wide' ? 'wide' : 'default';
   document.querySelectorAll('.page').forEach(p => p.dataset.active = p === el ? 'true' : 'false');
   document.querySelectorAll('[data-nav]').forEach(n => { if (n.dataset.nav === nav) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current'); });
   window.scrollTo(0, 0);
