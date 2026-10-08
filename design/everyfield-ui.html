@@ -266,7 +266,7 @@ button { font: inherit; color: inherit; }
 .top-icon:hover { background: var(--ef-surface-2); }
 .top-icon i { font-size: 20px; }
 .top-icon .ping { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: var(--ef-amber-500); box-shadow: 0 0 0 2px #fff; }
-.evry-chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px 0 8px; border-radius: 999px; cursor: pointer; color: var(--ef-ink); font-weight: 500;
+.evry-chip { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 16px 0 10px; border-radius: 999px; cursor: pointer; color: var(--ef-ink); font-weight: 500;
   background: var(--ef-surface-2); }
 .evry-chip:hover { background: var(--ef-surface-3); }
 .evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-raised); box-shadow: 0 1px 2px rgba(24,29,25,.08); }
@@ -741,6 +741,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .list-row:first-child, .hover-indicator + .list-row { border-top: 0; }
 .list-title { font-weight: 500; font-size: 15px; }
 .list-sub { color: var(--ef-text-3); font-size: var(--ef-text-md); margin-top: 2px; }
+.list-sub.c-magenta { color: var(--ef-magenta-600); }
 .list-row > i.chev { color: var(--ef-text-3); font-size: 16px; }
 .kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--ef-line); }
 .kv:first-child { border-top: 0; }
@@ -961,6 +962,61 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .tree-item[aria-current] { color: var(--ef-ink); font-weight: 500; }
 .tree-item .read { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
 
+
+/* ---- EvryBot  (<EvryBot size mood follow>) : Evry's animated character ----
+   A brand-green blob with ink eyes. CSS runs the shape, blink and moods; the
+   script adds random blinks, glances and pointer follow. */
+.evry-bot { --s: 28px; --lx: 0px; --ly: 0px; position: relative; display: inline-block; width: var(--s); height: var(--s); flex: none; vertical-align: middle; }
+.evry-bot .eb-body {
+  position: absolute; inset: 0; background: radial-gradient(circle at 30% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%), var(--ef-green);
+  border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
+  box-shadow: inset 0 calc(var(--s) * -.08) 0 rgba(10,60,30,.18), 0 calc(var(--s) * .06) calc(var(--s) * .16) -0.05em rgba(10,60,30,.35);
+  animation: ebMorph 9s ease-in-out infinite;
+}
+.evry-bot .eb-face { position: absolute; inset: 0; transform: translate(var(--lx), var(--ly)); transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+.evry-bot .eb-eye {
+  position: absolute; top: 36%; width: calc(var(--s) * .13); height: calc(var(--s) * .23); border-radius: 99px; background: #181D19;
+  transform-origin: 50% 50%; animation: ebBlink var(--blink, 4.6s) infinite; animation-delay: var(--blink-delay, 0s);
+}
+.evry-bot .eb-eye:nth-child(1) { left: 31%; }
+.evry-bot .eb-eye:nth-child(2) { left: 56%; }
+.evry-bot .eb-mouth { position: absolute; left: 50%; top: 66%; width: calc(var(--s) * .16); height: calc(var(--s) * .05); margin-left: calc(var(--s) * -.08); border-radius: 99px; background: #181D19; opacity: 0; }
+.evry-bot[data-blink] .eb-eye { animation: ebBlinkNow .18s ease; }
+.evry-bot .eb-eye::after { content: ""; position: absolute; top: 18%; left: 22%; width: 34%; height: 22%; border-radius: 50%; background: rgba(255,255,255,.85); }
+.evry-bot[data-size="xs"] .eb-eye::after, .evry-bot[data-size="sm"] .eb-eye::after, .evry-bot[data-mood="happy"] .eb-eye::after { display: none; }
+@keyframes ebBlink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+@keyframes ebBlinkNow { 50% { transform: scaleY(.08); } }
+@keyframes ebMorph {
+  0%, 100% { border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; transform: rotate(0deg) scale(1); }
+  25% { border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%; transform: rotate(-4deg) scale(1.02, .98); }
+  50% { border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%; transform: rotate(3deg) scale(.98, 1.03); }
+  75% { border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%; transform: rotate(-2deg) scale(1.01); }
+}
+/* thinking: squint, look up, wobble faster, orbiting dot */
+.evry-bot[data-mood="thinking"] { --lx: calc(var(--s) * .06); --ly: calc(var(--s) * -.07); }
+.evry-bot[data-mood="thinking"] .eb-body { animation-duration: 2.4s; }
+.evry-bot[data-mood="thinking"] .eb-eye { height: calc(var(--s) * .13); top: 40%; }
+.evry-bot[data-mood="thinking"]::after {
+  content: ""; position: absolute; width: calc(var(--s) * .16); height: calc(var(--s) * .16); border-radius: 50%; background: #181D19;
+  top: 50%; left: 50%; margin: calc(var(--s) * -.08); animation: ebOrbit 1.4s linear infinite;
+}
+.evry-bot[data-size="xs"][data-mood="thinking"]::after, .evry-bot[data-size="sm"][data-mood="thinking"]::after { display: none; }
+@keyframes ebOrbit { from { transform: rotate(0deg) translateX(calc(var(--s) * .66)) scale(.9); } to { transform: rotate(360deg) translateX(calc(var(--s) * .66)) scale(.9); } }
+/* happy: ^ ^ eyes, bounce */
+.evry-bot[data-mood="happy"] .eb-eye { background: transparent; border: calc(var(--s) * .055) solid #181D19; border-bottom: 0; height: calc(var(--s) * .1); width: calc(var(--s) * .17); top: 40%; border-radius: 99px 99px 0 0; animation: none; }
+.evry-bot[data-mood="happy"] .eb-eye:nth-child(1) { left: 27%; }
+.evry-bot[data-mood="happy"] .eb-body { animation: ebBounce .9s cubic-bezier(.3,1.6,.5,1) infinite alternate; }
+@keyframes ebBounce { from { transform: translateY(0) scale(1.03, .97); border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%; } to { transform: translateY(calc(var(--s) * -.08)) scale(.98, 1.03); border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; } }
+/* talking: mouth moves */
+.evry-bot[data-mood="talking"] .eb-mouth { opacity: 1; animation: ebTalk .36s ease-in-out infinite alternate; }
+@keyframes ebTalk { from { height: calc(var(--s) * .04); width: calc(var(--s) * .14); } to { height: calc(var(--s) * .12); width: calc(var(--s) * .12); } }
+.evry-bot[data-size="xs"] { --s: 18px; }
+.evry-bot[data-size="sm"] { --s: 24px; }
+.evry-bot[data-size="md"] { --s: 30px; }
+.evry-bot[data-size="lg"] { --s: 40px; }
+.evry-bot[data-size="xl"] { --s: 96px; }
+@media (prefers-reduced-motion: reduce) { .evry-bot *, .evry-bot::after { animation: none !important; } .evry-bot .eb-face { transition: none; } }
+
 /* ---- Evry companion panel (<EvryPanel>, <EvryMessage>, <ReviewCard>) ---- */
 .evry-panel {
   position: fixed; top: 20px; right: 20px; bottom: 20px; width: min(560px, calc(100vw - 40px)); z-index: 50;
@@ -977,7 +1033,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .evry-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
 .msg-user { align-self: flex-end; max-width: 85%; background: var(--ef-ink); color: var(--ef-on-ink); padding: 11px 15px; border-radius: 18px 18px 6px 18px; }
 .msg-evry { max-width: 100%; display: flex; gap: 10px; }
-.msg-evry .who { width: 28px; height: 28px; border-radius: 9px; background: var(--ef-ink); display: grid; place-items: center; flex: none; }
+.msg-evry .who { width: 30px; height: 30px; display: grid; place-items: center; flex: none; }
 .msg-evry .who i { color: var(--ef-on-ink); font-size: 15px; }
 .msg-evry .bubble { line-height: 1.55; color: var(--ef-ink-2); }
 .cite { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ef-blue-100); color: var(--ef-blue-600); font-size: 12px; font-weight: 600; vertical-align: 1px; }
@@ -1064,6 +1120,120 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .fmt.docx { background: var(--ef-blue-100); color: var(--ef-blue-600); }
 .fmt.xlsx { background: var(--ef-green-100); color: var(--ef-green-700); }
 
+
+/* ---- Bare shell (sign-in, onboarding) ---- */
+body[data-shell="bare"] .topbar, body[data-shell="bare"] .rail, body[data-shell="bare"] .doc-dock { display: none; }
+body[data-shell="bare"] .frame { grid-template-columns: minmax(0, 1fr); }
+body[data-shell="bare"] .main { padding: 0; }
+
+/* ---- Floating pop-overs (bell, user menu) ---- */
+.float-pop { position: fixed; z-index: 45; width: 360px; opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity .16s ease, transform .2s var(--ef-slide-ease); }
+.float-pop[data-open="true"] { opacity: 1; transform: none; pointer-events: auto; }
+.float-pop.menu { width: 280px; }
+.pop-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px 8px; }
+.notif-item { display: grid; grid-template-columns: 36px minmax(0,1fr) 8px; gap: 12px; align-items: start; padding: 10px; border-radius: 12px; cursor: pointer; }
+.notif-item .card-icon { width: 36px; height: 36px; }
+.notif-item .card-icon i { font-size: 17px; }
+.notif-item .unread { width: 8px; height: 8px; border-radius: 50%; background: var(--ef-blue-500); margin-top: 6px; }
+.notif-item .nt { font-size: var(--ef-text-md); line-height: 1.4; }
+.notif-item .nm { font-size: var(--ef-text-xs); color: var(--ef-text-3); margin-top: 3px; }
+
+/* ---- Settings modal  (<SettingsDialog section>) ---- */
+.modal { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 40px; background: rgba(15,17,21,.32); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.modal[data-open="true"] { opacity: 1; pointer-events: auto; }
+.modal-panel { width: min(1040px, 100%); height: min(720px, 100%); background: var(--ef-surface); border-radius: 28px; box-shadow: var(--ef-shadow-pop), 0 0 0 1px var(--ef-card-edge) inset; display: grid; grid-template-columns: 240px minmax(0,1fr); overflow: hidden; transform: translateY(10px) scale(.985); transition: transform .28s var(--ef-slide-ease); }
+.modal[data-open="true"] .modal-panel { transform: none; }
+.modal-side { background: var(--ef-frame); padding: 22px 14px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--ef-line); }
+.modal-side a { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 12px; color: var(--ef-ink-2); font-weight: 500; }
+.modal-side a i { font-size: 18px; color: var(--ef-text-3); }
+.modal-side a[aria-current] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: var(--ef-shadow-raised); }
+.modal-side a[aria-current] i { color: var(--ef-ink); }
+.modal-main { display: flex; flex-direction: column; min-height: 0; }
+.modal-body { flex: 1; overflow-y: auto; padding: 26px 32px; }
+.modal-foot { display: flex; align-items: center; gap: 10px; padding: 14px 20px 14px 32px; border-top: 1px solid var(--ef-line); background: var(--ef-surface); }
+.set-row { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 24px; padding: 18px 0; border-top: 1px solid var(--ef-line); align-items: start; }
+.set-row:first-of-type { border-top: 0; }
+.set-row .sl { font-weight: 500; }
+.set-row .sd { color: var(--ef-text-3); font-size: var(--ef-text-sm); margin-top: 4px; line-height: 1.45; }
+.pref-table { width: 100%; border-collapse: collapse; }
+.pref-table th { text-align: center; font-weight: 500; color: var(--ef-text-3); font-size: var(--ef-text-sm); padding: 0 8px 10px; }
+.pref-table th:first-child { text-align: left; }
+.pref-table td { padding: 12px 8px; border-top: 1px solid var(--ef-line); text-align: center; }
+.pref-table td:first-child { text-align: left; }
+
+
+/* ---- Auth and onboarding (bare shell). Brand moment: ink, cream and green allowed. ---- */
+.auth { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.auth-brand { position: relative; overflow: hidden; background: #181D19; color: #F6F0E9; padding: 44px 52px; display: flex; flex-direction: column; justify-content: flex-start; margin: 16px 0 16px 16px; border-radius: 30px; }
+.auth-brand::before { content: ""; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: .14; mix-blend-mode: overlay; pointer-events: none; }
+.auth-mark { position: absolute; right: -110px; bottom: -90px; width: 460px; color: #1CE362; opacity: .95; }
+.auth-quote { position: relative; z-index: 1; margin-top: 110px; }
+.auth-form { display: grid; place-items: center; padding: 40px; }
+.onb { min-height: 100vh; display: flex; flex-direction: column; }
+.onb-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 32px; }
+.onb-steps { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--ef-surface-raised); box-shadow: var(--ef-shadow-nav); }
+.onb-steps span { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border-radius: 999px; font-size: var(--ef-text-sm); color: var(--ef-text-3); font-weight: 500; }
+.onb-steps span b, .onb-steps span i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-2); font-size: 12px; font-weight: 600; }
+.onb-steps span[data-state="done"] { color: var(--ef-text-2); }
+.onb-steps span[data-state="done"] i { background: var(--ef-green-100); color: var(--ef-green-700); font-size: 13px; }
+.onb-steps span[data-state="current"] { background: var(--ef-ink); color: var(--ef-on-ink); }
+.onb-steps span[data-state="current"] b { background: var(--ef-on-ink-soft); color: var(--ef-on-ink); }
+.onb-body { flex: 1; padding: 30px 32px 60px; }
+.phase-pick { max-width: 820px; margin: 34px auto 0; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.phase-opt { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 18px; background: var(--ef-surface-raised); border: 1px solid var(--ef-line); box-shadow: var(--ef-shadow-card); cursor: pointer; position: relative; }
+.phase-opt > span:nth-child(2) { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.phase-opt > span:nth-child(2) span { color: var(--ef-text-3); font-size: var(--ef-text-sm); }
+.phase-opt .po-n { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: var(--ef-surface-2); font-family: var(--ef-font-display); font-weight: 600; flex: none; }
+.phase-opt[data-selected] { box-shadow: 0 0 0 2px var(--ef-ink), var(--ef-shadow-card); }
+.phase-opt[data-selected] .po-n { background: var(--ef-ink); color: var(--ef-on-ink); }
+.phase-opt .po-check { font-size: 18px; color: var(--ef-ink); }
+.phase-opt:last-child { grid-column: span 2; }
+
+
+/* ---- Phone frames (mobile views) ---- */
+.phones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; justify-items: center; }
+.phone-col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.phone { width: 330px; height: 680px; border-radius: 48px; background: #111318; padding: 12px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06) inset; position: relative; }
+.phone-notch { position: absolute; top: 22px; left: 50%; width: 92px; height: 26px; margin-left: -46px; border-radius: 99px; background: #111318; z-index: 2; }
+.phone-screen { height: 100%; border-radius: 38px; background: var(--ef-frame); overflow: hidden; padding: 58px 16px 16px; }
+.phone-cap { text-align: center; max-width: 300px; display: flex; flex-direction: column; gap: 4px; }
+.phone-cap span { color: var(--ef-text-3); font-size: var(--ef-text-sm); }
+.m-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; min-height: 58px; }
+.m-check { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 1.5px var(--ef-line-2) inset; }
+.m-check i { opacity: 0; transition: opacity .15s; }
+.m-row[data-here] .m-check { background: var(--ef-green-500); box-shadow: none; color: #fff; }
+.m-row[data-here] .m-check i { opacity: 1; }
+.m-row { cursor: pointer; }
+.m-row[data-here] { background: var(--ef-green-50); }
+.m-opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-radius: 14px; border: 0; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; text-align: left; cursor: pointer; }
+.m-opt i { font-size: 20px; color: var(--ef-text-3); }
+.m-opt > span { display: flex; flex-direction: column; }
+.m-opt > span span { font-size: 12px; color: var(--ef-text-3); }
+.m-opt[data-selected] { box-shadow: 0 0 0 2px var(--ef-ink); }
+.m-opt[data-selected] i { color: var(--ef-green-600); }
+.rsvp-hero { background: #181D19; color: #F6F0E9; padding: 66px 22px 26px; position: relative; overflow: hidden; }
+
+/* ---- Merge review  (<MergeReview>) ---- */
+.merge-head, .merge-row { display: grid; grid-template-columns: 110px minmax(0,1fr) minmax(0,1fr); gap: 12px; align-items: center; }
+.merge-head { padding-bottom: 14px; border-bottom: 1px solid var(--ef-line); margin-bottom: 6px; }
+.merge-row { padding: 8px 0; }
+.merge-row .mk { color: var(--ef-text-3); font-size: var(--ef-text-sm); }
+.merge-opt { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px; border-radius: 14px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; cursor: pointer; }
+.merge-opt::before { content: ""; width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ef-line-2) inset; flex: none; }
+.merge-opt[data-selected] { box-shadow: 0 0 0 2px var(--ef-ink); }
+.merge-opt[data-selected]::before { box-shadow: 0 0 0 5px var(--ef-ink) inset; }
+.merge-opt[data-empty] { color: var(--ef-text-3); }
+
+/* ---- Evry history view and proposal states ---- */
+.evry-history { display: none; flex: 1; overflow-y: auto; padding: 14px 18px; }
+.evry-panel[data-view="history"] .evry-history { display: block; }
+.evry-panel[data-view="history"] .evry-body, .evry-panel[data-view="history"] .evry-context, .evry-panel[data-view="history"] .evry-compose { display: none; }
+.review-card[data-state="approved"] .rc-head { background: var(--ef-green-50); color: var(--ef-green-700); border-bottom-color: color-mix(in srgb, var(--ef-green-500) 20%, transparent); }
+.review-card[data-state="failed"] .rc-head { background: var(--ef-magenta-50); color: var(--ef-magenta-600); border-bottom-color: color-mix(in srgb, var(--ef-magenta-500) 20%, transparent); }
+.review-card[data-state="expired"] .rc-head { background: var(--ef-surface-2); color: var(--ef-text-2); border-bottom-color: var(--ef-line); }
+.review-card[data-state="expired"] .rc-body { opacity: .55; }
+.rc-note { font-size: var(--ef-text-sm); color: var(--ef-text-2); padding: 10px 16px; background: var(--ef-surface-2); }
+
 /* =====================================================================
    5. DOC-ONLY STYLES  (design-system pages, not app components)
    ===================================================================== */
@@ -1127,10 +1297,10 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="top-cluster pill-surface">
       <span class="phase-pill" title="Phase 1 · Core Group Development">Phase 1</span>
       <button class="top-icon" title="Search (⌘K)"><i class="hgi-stroke hgi-search-01"></i></button>
-      <a class="top-icon" href="#/notifications" title="Notifications"><i class="hgi-stroke hgi-notification-03"></i><span class="ping"></span></a>
-      <span class="evry-chip" onclick="openEvry()" title="Ask Evry (⌘J)"><span class="spark"><i class="hgi-stroke hgi-ai-magic"></i></span>Ask Evry</span>
+      <button class="top-icon" title="Notifications" data-pop-anchor onclick="openPop('bell-pop', this)"><i class="hgi-stroke hgi-notification-03"></i><span class="ping"></span></button>
+      <span class="evry-chip" onclick="openEvry()" title="Ask Evry (⌘J)"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Ask Evry</span>
     </div>
-    <div class="user-pill pill-surface">
+    <div class="user-pill pill-surface" data-pop-anchor onclick="openPop('user-pop', this)">
       <span class="avatar tone-green">DR</span>
       <div class="meta"><b>Daniel Reyes</b><span>Lead planter · Harvest Point</span></div>
       <i class="hgi-stroke hgi-arrow-down-01" style="font-size:16px;color:var(--ef-text-3)"></i>
@@ -1262,7 +1432,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
         <div class="faint t-xs mt-3">Solid fill = actual or recorded</div></div>
       <div class="specimen"><div class="specimen-label">Icons · Hugeicons stroke rounded</div>
         <div class="row wrap gap-3" style="font-size:22px;color:var(--ef-ink-2)">
-          <i class="hgi-stroke hgi-user-multiple"></i><i class="hgi-stroke hgi-calendar-03"></i><i class="hgi-stroke hgi-task-done-01"></i><i class="hgi-stroke hgi-user-group"></i><i class="hgi-stroke hgi-book-open-01"></i><i class="hgi-stroke hgi-rocket-01"></i><i class="hgi-stroke hgi-hand-prayer"></i><i class="hgi-stroke hgi-ai-magic"></i><i class="hgi-stroke hgi-plant-01"></i><i class="hgi-stroke hgi-mail-01"></i><i class="hgi-stroke hgi-coins-01"></i><i class="hgi-stroke hgi-music-note-01"></i>
+          <i class="hgi-stroke hgi-user-multiple"></i><i class="hgi-stroke hgi-calendar-03"></i><i class="hgi-stroke hgi-task-done-01"></i><i class="hgi-stroke hgi-user-group"></i><i class="hgi-stroke hgi-book-open-01"></i><i class="hgi-stroke hgi-rocket-01"></i><i class="hgi-stroke hgi-hand-prayer"></i><i class="hgi-stroke hgi-mentor"></i><i class="hgi-stroke hgi-plant-01"></i><i class="hgi-stroke hgi-mail-01"></i><i class="hgi-stroke hgi-coins-01"></i><i class="hgi-stroke hgi-music-note-01"></i>
         </div><div class="faint t-xs mt-3">20px in nav · 18px in buttons · 16px inline</div></div>
     </div>
   </div>
@@ -1321,7 +1491,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
       <div class="stack gap-4">
         <div class="card" data-variant="callout">
-          <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-ai-magic"></i></span>Evry noticed</div>
+          <div class="callout-label"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Evry noticed</div>
           <p class="callout-text">Three first-time guests from Sunday have no follow-up owner yet.</p>
           <div class="mt-3"><button class="btn" data-variant="secondary" data-size="sm">Assign follow-ups</button></div>
         </div>
@@ -1353,6 +1523,19 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
         <div class="insight-footer"><button class="btn" data-variant="light">Find candidates <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass">Later</button></div>
       </div>
     </div>
+  </div>
+
+  <!-- EVRY CHARACTER -->
+  <div class="doc-section">
+    <div class="doc-h"><h2>Evry</h2><code>&lt;EvryBot size mood follow&gt;</code></div>
+    <p class="doc-note">Evry's character replaces a generic AI icon. It is the brand green with ink eyes. It blinks at random, glances around, slowly changes shape, and in the panel its eyes follow the pointer. Mood shows what Evry is doing. Reduced motion stops all movement.</p>
+    <div class="grid g-4">
+      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="idle" data-follow aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Idle</div><div class="faint t-sm mt-2">Waiting. Blinks and looks around.</div></div></div>
+      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="thinking" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Thinking</div><div class="faint t-sm mt-2">Reading records or drafting.</div></div></div>
+      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="talking" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Talking</div><div class="faint t-sm mt-2">Streaming an answer.</div></div></div>
+      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="happy" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Happy</div><div class="faint t-sm mt-2">A change was approved and saved.</div></div></div>
+    </div>
+    <div class="row gap-6 mt-4" style="align-items:center"><span class="faint t-sm">Sizes</span><span class="evry-bot" data-size="xs" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="evry-bot" data-size="md" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="evry-bot" data-size="lg" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="faint t-sm">18 · 24 · 30 · 40 · 96</span><span class="grow"></span><span class="evry-chip" style="background:var(--ef-surface-raised);box-shadow:var(--ef-shadow-raised)"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Ask Evry</span></div>
   </div>
 
   <!-- BUTTONS -->
@@ -1572,11 +1755,23 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
             <div class="menu-item" data-highlighted><span class="avatar tone-blue" data-size="xs">MS</span>Maria Santos<span class="faint t-sm" style="margin-left:auto">Interviewed</span></div>
             <div class="menu-item"><span class="avatar tone-amber" data-size="xs">MR</span>Marcus Reed<span class="faint t-sm" style="margin-left:auto">Core group</span></div>
             <div class="menu-label">Ask Evry</div>
-            <div class="menu-item"><i class="hgi-stroke hgi-ai-magic c-green"></i>Who has Maria not met yet?</div>
+            <div class="menu-item"><span class="evry-bot" data-size="xs" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Who has Maria not met yet?</div>
           </div>
           <div class="cmdk-foot"><span>↑↓ move</span><span>↵ open</span><span>⌘J ask Evry</span></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- EVRY PROPOSAL STATES -->
+  <div class="doc-section">
+    <div class="doc-h"><h2>Evry proposals</h2><code>&lt;ReviewCard state="pending|revised|approved|failed|expired"&gt;</code></div>
+    <p class="doc-note">Every change Evry prepares waits for your approval of the exact version shown. Editing makes a new revision and cancels approval of the old one.</p>
+    <div class="grid g-4" style="align-items:start">
+      <div class="review-card"><div class="rc-head"><i class="hgi-stroke hgi-edit-02" style="font-size:16px"></i>Review 2 changes<span class="grow"></span><span style="font-weight:500">Revision 2</span></div><div class="rc-note">Revision 1 was replaced because you changed the due date.</div><div class="rc-body"><div class="rc-line"><i class="hgi-stroke hgi-task-01"></i><span>Assign <b>Call Kim Wu</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class="rc-line"><i class="hgi-stroke hgi-task-01"></i><span>Assign <b>Call Sara Nunez</b> to <b>Ana</b>, due <b>Oct 10</b></span></div></div><div class="rc-foot"><button class="btn" data-variant="primary" data-size="sm">Approve</button><button class="btn" data-variant="ghost" data-size="sm">Edit</button></div></div>
+      <div class="review-card" data-state="approved"><div class="rc-head"><i class="hgi-stroke hgi-checkmark-circle-02" style="font-size:16px"></i>Saved<span class="grow"></span><span style="font-weight:500">9:14 am</span></div><div class="rc-body"><div class="rc-line"><i class="hgi-stroke hgi-tick-02"></i><span>Call Kim Wu assigned to Tom</span></div><div class="rc-line"><i class="hgi-stroke hgi-tick-02"></i><span>Call Sara Nunez assigned to Ana</span></div></div><div class="rc-foot"><span class="faint t-xs grow">Approved by Daniel</span><a class="btn" data-variant="ghost" data-size="sm" href="#/tasks">View tasks</a></div></div>
+      <div class="review-card" data-state="failed"><div class="rc-head"><i class="hgi-stroke hgi-alert-02" style="font-size:16px"></i>1 of 2 not saved</div><div class="rc-body"><div class="rc-line"><i class="hgi-stroke hgi-tick-02"></i><span>Call Kim Wu assigned to Tom</span></div><div class="rc-line"><i class="hgi-stroke hgi-cancel-01" style="color:var(--ef-magenta-500)"></i><span>Ana Lee no longer has a seat, so the second task was not assigned.</span></div></div><div class="rc-foot"><button class="btn" data-variant="secondary" data-size="sm">Choose someone else</button></div></div>
+      <div class="review-card" data-state="expired"><div class="rc-head"><i class="hgi-stroke hgi-clock-01" style="font-size:16px"></i>Expired</div><div class="rc-note">The guest list changed after this was prepared. Nothing was saved.</div><div class="rc-body"><div class="rc-line"><i class="hgi-stroke hgi-task-01"></i><span>Assign 3 follow-ups</span></div></div><div class="rc-foot"><button class="btn" data-variant="secondary" data-size="sm">Prepare again</button></div></div>
     </div>
   </div>
 
@@ -1647,7 +1842,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <a class="nav-item" ><i class="hgi-stroke hgi-file-02"></i>Documents</a>
 
     <div class="sidebar-spacer"></div>
-    <div class="evry-launch" onclick="openEvry()"><span class="spark"><i class="hgi-stroke hgi-ai-magic"></i></span><span class="grow" style="font-weight:500">Ask Evry</span><span class="kbd">⌘J</span></div>
+    <div class="evry-launch" onclick="openEvry()"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><span class="grow" style="font-weight:500">Ask Evry</span><span class="kbd">⌘J</span></div>
     <a class="nav-item" ><i class="hgi-stroke hgi-notification-03"></i>Notifications<span class="count">3</span></a>
     <a class="nav-item" ><i class="hgi-stroke hgi-settings-02"></i>Settings</a>
     <a class="nav-item" ><i class="hgi-stroke hgi-help-circle"></i>Help</a>
@@ -1782,7 +1977,8 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       <p class="page-sub">Everyone you have met, from first visit to leader.</p>
     </div>
     <div class="page-actions">
-      <button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-download-01"></i>Import CSV</button>
+      <a class="btn" data-variant="secondary" href="#/people/duplicates"><i class="hgi-stroke hgi-copy-01"></i>3 possible duplicates</a>
+      <a class="btn" data-variant="secondary" href="#/people/import"><i class="hgi-stroke hgi-download-01"></i>Import CSV</a>
       <button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Add person</button>
     </div>
   </header>
@@ -1942,7 +2138,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
     <div class="stack" style="gap:20px">
       <div class="insight" data-tone="field" data-size="sm" style="min-height:0">
-        <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-ai-magic"></i>Evry summary</span></div>
+        <div class="insight-top"><span class="insight-pill"><span class="evry-bot" data-size="xs" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Evry summary</span></div>
         <div class="insight-title" style="margin-top:16px">Maria is ready for core group. One step is left.</div>
         <div class="insight-text">She signed her commitment card on Oct 6. Record it to move her stage and offer her the open vocalist role.</div>
         <div class="insight-footer" style="padding-top:18px"><button class="btn" data-variant="light" data-size="sm">Record commitment <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm" onclick="openEvry()">Ask Evry</button></div>
@@ -2182,7 +2378,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     </div>
     <div class="page-actions">
       <button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-mail-send-01"></i>Send invites</button>
-      <button class="btn" data-variant="primary"><i class="hgi-stroke hgi-calendar-check-in-01"></i>Start check-in</button>
+      <a class="btn" data-variant="primary" href="#/mobile"><i class="hgi-stroke hgi-calendar-check-in-01"></i>Start check-in</a>
     </div>
   </header>
 
@@ -2713,6 +2909,311 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 </section>
 
 <!-- =================================================================
+     PAGE: NOTIFICATIONS
+     ================================================================= -->
+<section class="page" data-page="notifications">
+  <header class="page-header">
+    <div class="titles"><h1 class="page-title xl">Notifications</h1><p class="page-sub">Reminders and updates for you. Change what you get in settings.</p></div>
+    <div class="page-actions"><a class="btn" data-variant="secondary" href="#/settings/notifications"><i class="hgi-stroke hgi-settings-02"></i>Preferences</a><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-tick-02"></i>Mark all read</button></div>
+  </header>
+  <div class="grid" style="grid-template-columns: minmax(0,1fr) 300px; align-items:start">
+    <div class="card" style="padding:20px 18px">
+      <div class="row gap-3" style="padding:0 8px 6px"><div class="segmented"><button aria-selected="true">All</button><button>Unread <span class="faint">3</span></button></div><span class="grow"></span><span class="faint t-sm">Updated just now</span></div>
+      <div class="ms-group-label">Today</div>
+      <div>
+        <div class="notif-item"><span class="card-icon tone-magenta"><i class="hgi-stroke hgi-alert-02"></i></span><div><div class="nt"><b style="font-weight:600">3 follow-ups</b> passed the 48-hour mark: James Okafor, Kim Wu and Eli Park</div><div class="nm">Tasks · 20 min ago</div></div><span class="unread"></span></div>
+        <div class="notif-item"><span class="card-icon tone-green"><i class="hgi-stroke hgi-calendar-check-in-01"></i></span><div><div class="nt"><b style="font-weight:600">Kim Wu</b> said yes to Vision meeting #12</div><div class="nm">Meetings · 1 h ago</div></div><span class="unread"></span></div>
+        <div class="notif-item"><span class="card-icon tone-amber"><i class="hgi-stroke hgi-clock-01"></i></span><div><div class="nt">Vision meeting #12 is on Sunday at 6:30 pm. 38 people said yes.</div><div class="nm">Meetings · 7:00 am</div></div><span></span></div>
+      </div>
+      <div class="ms-group-label">Yesterday</div>
+      <div>
+        <div class="notif-item"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-user-add-01"></i></span><div><div class="nt"><b style="font-weight:600">Ana Lee</b> accepted your invitation and joined as Admin</div><div class="nm">Seats · 4:12 pm</div></div><span class="unread"></span></div>
+        <div class="notif-item"><span class="card-icon tone-violet"><i class="hgi-stroke hgi-rocket-01"></i></span><div><div class="nt"><b style="font-weight:600">Sign launch team commitments</b> was completed by Daniel</div><div class="nm">Launch · 11:30 am</div></div><span></span></div>
+      </div>
+      <div class="ms-group-label">Earlier</div>
+      <div>
+        <div class="notif-item"><span class="card-icon tone-ink"><i class="hgi-stroke hgi-chart-line-data-01"></i></span><div><div class="nt">Your Plant Intelligence assessment is ready. One finding needs attention.</div><div class="nm">Plant Intelligence · Oct 6</div></div><span></span></div>
+        <div class="notif-item"><span class="card-icon tone-green"><i class="hgi-stroke hgi-check-list"></i></span><div><div class="nt">Daily digest: 4 open follow-ups, 2 meetings this week</div><div class="nm">Digest · Oct 6</div></div><span></span></div>
+      </div>
+      <div class="row" style="justify-content:center;padding-top:12px"><button class="btn" data-variant="ghost" data-size="sm">Load older</button></div>
+    </div>
+    <div class="stack" style="gap:20px">
+      <div class="card" data-size="sm"><div class="card-title sm">By area</div><div class="list mt-3">
+        <div class="kv"><span class="k">Tasks</span><span class="badge" data-size="sm" data-status="risk">1</span></div>
+        <div class="kv"><span class="k">Meetings</span><span class="badge" data-size="sm" data-status="measured">1</span></div>
+        <div class="kv"><span class="k">Seats</span><span class="badge" data-size="sm" data-status="measured">1</span></div>
+        <div class="kv"><span class="k">Launch</span><span class="faint t-sm">All read</span></div>
+      </div></div>
+      <div class="card" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-mail-01"></i></span>Email is paused</div><p class="callout-text t-sm">Your address bounced on Sep 30. You still get updates here.</p><div class="mt-3"><a class="btn" data-variant="secondary" data-size="sm" href="#/settings/notifications">Fix in settings</a></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: SIGN IN  (bare shell)
+     ================================================================= -->
+<section class="page" data-page="signin">
+  <div class="auth">
+    <div class="auth-brand">
+      <a href="#/overview" class="row gap-3" style="color:var(--ef-cream)"><svg viewBox="0 0 657 530" width="34"><use href="#ef-mark"/></svg><svg viewBox="0 0 890 186" height="24"><use href="#ef-wordmark"/></svg></a>
+      <div class="auth-quote">
+        <div style="font-family:var(--ef-font-display);font-size:44px;line-height:1.08;letter-spacing:-.03em">Gather your people.<br>Plant your church.</div>
+        <p style="margin-top:16px;color:rgba(246,240,233,.72);max-width:420px">The Launch Playbook, your people, meetings and ministries in one place.</p>
+      </div>
+      <svg class="auth-mark" viewBox="0 0 657 530"><use href="#ef-mark"/></svg>
+    </div>
+    <div class="auth-form">
+      <div style="width:100%;max-width:400px">
+        <div class="card-inset row gap-3" style="background:var(--ef-blue-50);box-shadow:0 0 0 1px color-mix(in srgb, var(--ef-blue-500) 20%, transparent) inset;margin-bottom:28px">
+          <span class="avatar tone-green" data-size="sm">DR</span><div class="t-sm"><b style="font-weight:600">Daniel Reyes</b> invited you to <b style="font-weight:600">Harvest Point Church</b> as Admin.</div>
+        </div>
+        <h1 style="font-size:34px">Welcome back</h1>
+        <p class="muted mt-2">Sign in to accept the invitation.</p>
+        <form class="stack gap-4 mt-6" onsubmit="location.hash='#/overview'; return false">
+          <div class="field"><label class="field-label">Email</label><div class="input"><i class="hgi-stroke hgi-mail-01"></i><input value="ana@harvestpoint.org"></div></div>
+          <div class="field"><div class="row between"><label class="field-label">Password</label><a class="t-sm" style="color:var(--ef-blue-600)">Forgot password?</a></div><div class="input"><i class="hgi-stroke hgi-lock-key"></i><input type="password" value="password123" autocomplete="current-password"></div></div>
+          <button class="btn" data-variant="primary" type="submit" style="width:100%">Sign in and join</button>
+        </form>
+        <p class="muted t-sm mt-6" style="text-align:center">New to Everyfield? <a href="#/onboarding" style="color:var(--ef-ink);font-weight:600">Start your church</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: ONBOARDING  (bare shell)
+     ================================================================= -->
+<section class="page" data-page="onboarding">
+  <div class="onb">
+    <header class="onb-top">
+      <div class="row gap-3" style="color:var(--ef-ink)"><svg viewBox="0 0 657 530" width="28"><use href="#ef-mark"/></svg><svg viewBox="0 0 890 186" height="20"><use href="#ef-wordmark"/></svg></div>
+      <div class="onb-steps">
+        <span data-state="done"><i class="hgi-stroke hgi-tick-02"></i>Your church</span>
+        <span data-state="current"><b>2</b>Where you are</span>
+        <span><b>3</b>Launch date</span>
+        <span><b>4</b>Your team</span>
+      </div>
+      <a class="btn" data-variant="ghost" data-size="sm" href="#/overview">Save and finish later</a>
+    </header>
+    <div class="onb-body">
+      <div style="text-align:center;max-width:620px;margin:0 auto">
+        <span class="evry-bot" data-size="lg" data-mood="idle" data-follow aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>
+        <h1 style="font-size:44px;margin-top:18px">Where is Harvest Point today?</h1>
+        <p class="muted mt-3" style="font-size:16px">Pick the phase you are in now. We will not invent history for the phases before it, and you can change this any time.</p>
+      </div>
+      <div class="phase-pick">
+        <label class="phase-opt"><span class="po-n">0</span><span><b>Discovery</b><span>Discerning the call, values and readiness</span></span></label>
+        <label class="phase-opt" data-selected><span class="po-n">1</span><span><b>Core group development</b><span>Vision meetings, follow-up, building commitment</span></span><i class="hgi-stroke hgi-tick-02 po-check"></i></label>
+        <label class="phase-opt"><span class="po-n">2</span><span><b>Launch team formation</b><span>Launch date set, leaders filling roles</span></span></label>
+        <label class="phase-opt"><span class="po-n">3</span><span><b>Training and preparation</b><span>Training teams and testing systems</span></span></label>
+        <label class="phase-opt"><span class="po-n">4</span><span><b>Pre-launch</b><span>Pre-launch services and promotion</span></span></label>
+        <label class="phase-opt"><span class="po-n">5</span><span><b>Launch Sunday</b><span>The first public service</span></span></label>
+        <label class="phase-opt"><span class="po-n">6</span><span><b>Post-launch</b><span>Building rhythms after launch</span></span></label>
+      </div>
+      <div class="row between" style="max-width:820px;margin:30px auto 0"><button class="btn" data-variant="ghost"><i class="hgi-stroke hgi-arrow-left-01"></i>Back</button><button class="btn" data-variant="primary">Continue <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: MEETINGS LIST
+     ================================================================= -->
+<section class="page" data-page="meetings">
+  <header class="page-header">
+    <div class="titles"><h1 class="page-title xl">Meetings</h1><p class="page-sub">Vision meetings, team meetings and trainings.</p></div>
+    <div class="page-actions"><button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-location-01"></i>Places</button><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-calendar-add-01"></i>Plan a meeting</button></div>
+  </header>
+  <div class="grid" style="grid-template-columns: 2fr 1fr; align-items: stretch">
+    <div class="card" style="justify-content:center">
+      <div class="stat-strip">
+        <div><div class="stat-label">Vision meetings</div><div class="stat-value">11</div><div class="faint t-sm mt-3">every 12 days on average</div></div>
+        <div><div class="stat-label">Avg attendance</div><div class="stat-value">44</div><div class="row gap-2 mt-3"><span class="delta" data-dir="up" data-size="sm">12%</span><span class="faint t-sm">last 4</span></div></div>
+        <div><div class="stat-label">First-timers</div><div class="stat-value">23</div><div class="faint t-sm mt-3">in the last 28 days</div></div>
+        <div><div class="stat-label">Followed up in 48 h</div><div class="stat-value">71%</div><div class="row gap-2 mt-3"><span class="delta" data-dir="down" data-size="sm">8%</span></div></div>
+      </div>
+    </div>
+    <a class="card" href="#/meetings/vision-12" style="gap:14px">
+      <div class="row between"><span class="badge" data-status="measured">Next · Sunday</span><span class="faint t-sm">in 4 days</span></div>
+      <div><div class="card-title">Vision meeting #12</div><div class="muted t-sm mt-2">Sun Oct 12 · 6:30 pm · Reyes home</div></div>
+      <div class="row between"><div class="avatar-group"><span class="avatar tone-blue" data-size="sm">MS</span><span class="avatar tone-amber" data-size="sm">JO</span><span class="avatar tone-green" data-size="sm">AL</span><span class="avatar more" data-size="sm">+35</span></div><span class="t-sm"><b>38</b> <span class="muted">yes</span> · <b>20</b> <span class="muted">pending</span></span></div>
+    </a>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><div class="grow"><div class="card-title">All meetings</div></div><div class="segmented"><button aria-selected="true">Upcoming</button><button>Past</button></div><div class="segmented"><button aria-selected="true">All types</button><button>Vision</button><button>Team</button><button>Training</button></div></div>
+    <table class="table">
+      <thead><tr><th>Meeting</th><th>When</th><th>Where</th><th>RSVPs</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr onclick="location.hash='#/meetings/vision-12'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-green" style="width:38px;height:38px"><i class="hgi-stroke hgi-calendar-03" style="font-size:17px"></i></span><div><div class="cell-title">Vision meeting #12</div><div class="cell-sub">Vision</div></div></div></td><td style="white-space:nowrap">Sun Oct 12 · 6:30 pm</td><td>Reyes home</td><td><div class="delivery-bar"><span style="flex:38;background:var(--ef-green-500)"></span><span style="flex:6;background:var(--ef-magenta-500)"></span><span style="flex:20;background:var(--ef-surface-3)"></span></div><div class="cell-sub">38 yes · 6 no · 20 pending</div></td><td><span class="badge" data-size="sm" data-status="measured">Planned</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-violet" style="width:38px;height:38px"><i class="hgi-stroke hgi-music-note-01" style="font-size:17px"></i></span><div><div class="cell-title">Worship team training</div><div class="cell-sub">Training · Worship</div></div></div></td><td style="white-space:nowrap">Wed Oct 15 · 7:00 pm</td><td>Lincoln Elementary</td><td><div class="delivery-bar"><span style="flex:8;background:var(--ef-green-500)"></span><span style="flex:1;background:var(--ef-surface-3)"></span></div><div class="cell-sub">8 of 9 confirmed</div></td><td><span class="badge" data-size="sm" data-status="measured">Planned</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-blue" style="width:38px;height:38px"><i class="hgi-stroke hgi-coffee-01" style="font-size:17px"></i></span><div><div class="cell-title">Hospitality team meeting</div><div class="cell-sub">Team · Hospitality</div></div></div></td><td style="white-space:nowrap">Sat Oct 18 · 10:00 am</td><td>Lee home</td><td><div class="delivery-bar"><span style="flex:4;background:var(--ef-green-500)"></span><span style="flex:2;background:var(--ef-surface-3)"></span></div><div class="cell-sub">4 of 6 confirmed</div></td><td><span class="badge" data-size="sm" data-status="attention">Agenda missing</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-green" style="width:38px;height:38px"><i class="hgi-stroke hgi-calendar-03" style="font-size:17px"></i></span><div><div class="cell-title">Vision meeting #13</div><div class="cell-sub">Vision</div></div></div></td><td style="white-space:nowrap">Sun Oct 26 · 6:30 pm</td><td class="faint">Not set</td><td class="faint t-sm">Invitations not sent</td><td><span class="badge" data-size="sm" data-plain="true">Draft</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: MOBILE  (door check-in, public RSVP, follow-up call)
+     ================================================================= -->
+<section class="page" data-page="mobile">
+  <header class="page-header">
+    <div class="titles"><div class="breadcrumb"><a href="#/meetings/vision-12">Vision meeting #12</a><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">On a phone</span></div><h1 class="page-title xl">On a phone</h1><p class="page-sub">Screens people use standing up: at the door, from an invitation, or between calls.</p></div>
+  </header>
+  <div class="phones">
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen">
+        <div class="row between"><button class="icon-btn" data-size="sm"><i class="hgi-stroke hgi-arrow-left-01"></i></button><div style="text-align:center"><div style="font-weight:600">Check-in</div><div class="faint t-xs">Vision meeting #12</div></div><span class="badge" data-size="sm" data-status="positive">27</span></div>
+        <div class="input mt-4" style="height:46px"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Find a name"></div>
+        <div class="segmented mt-3" style="width:100%"><button aria-selected="true" style="flex:1">Expected 38</button><button style="flex:1">Here 27</button></div>
+        <div class="stack mt-3" style="gap:8px">
+          <div class="m-row" data-here><span class="avatar tone-blue" data-size="sm">MS</span><div class="grow"><div style="font-weight:500">Maria Santos</div><div class="faint t-xs">+ Lucia Santos</div></div><span class="m-check"><i class="hgi-stroke hgi-tick-02"></i></span></div>
+          <div class="m-row"><span class="avatar tone-magenta" data-size="sm">KW</span><div class="grow"><div style="font-weight:500">Kim Wu</div><div class="faint t-xs">First-timer · invited by Tom</div></div><span class="m-check"><i class="hgi-stroke hgi-tick-02"></i></span></div>
+          <div class="m-row" data-here><span class="avatar tone-amber" data-size="sm">JO</span><div class="grow"><div style="font-weight:500">James Okafor</div><div class="faint t-xs">3rd visit</div></div><span class="m-check"><i class="hgi-stroke hgi-tick-02"></i></span></div>
+          <div class="m-row"><span class="avatar tone-ink" data-size="sm">SN</span><div class="grow"><div style="font-weight:500">Sara Nunez</div><div class="faint t-xs">First-timer</div></div><span class="m-check"><i class="hgi-stroke hgi-tick-02"></i></span></div>
+          <div class="m-row"><span class="avatar tone-teal" data-size="sm">RB</span><div class="grow"><div style="font-weight:500">Rosa Bennett</div><div class="faint t-xs">Launch team</div></div><span class="m-check"><i class="hgi-stroke hgi-tick-02"></i></span></div>
+        </div>
+        <button class="btn mt-4" data-variant="primary" style="width:100%"><i class="hgi-stroke hgi-user-add-01"></i>Add a walk-in</button>
+      </div></div>
+      <div class="phone-cap"><b>Door check-in</b><span>Big tap targets, one hand, works while people arrive.</span></div>
+    </div>
+
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen" style="padding:0">
+        <div class="rsvp-hero"><svg viewBox="0 0 657 530" width="34" style="color:#1CE362"><use href="#ef-mark"/></svg><div style="font-family:var(--ef-font-display);font-size:24px;line-height:1.15;margin-top:18px">You're invited to a vision meeting</div><div style="opacity:.75;font-size:13px;margin-top:6px">Harvest Point Church · Hyde Park</div></div>
+        <div style="padding:18px">
+          <div class="list">
+            <div class="kv" style="padding:10px 0"><span class="k row gap-2"><i class="hgi-stroke hgi-calendar-03"></i>Sunday, Oct 12</span><span class="t-sm">6:30 pm</span></div>
+            <div class="kv" style="padding:10px 0"><span class="k row gap-2"><i class="hgi-stroke hgi-location-01"></i>Reyes home</span><a class="t-sm" style="color:var(--ef-blue-600)">Map</a></div>
+            <div class="kv" style="padding:10px 0"><span class="k row gap-2"><i class="hgi-stroke hgi-baby-01"></i>Childcare</span><span class="t-sm">Provided</span></div>
+          </div>
+          <div style="font-weight:600;margin-top:16px">Hi Kim, will you come?</div>
+          <div class="grid g-2 mt-3" style="gap:8px"><button class="btn" data-variant="primary">Yes, I'll come</button><button class="btn" data-variant="secondary">Can't make it</button></div>
+          <p class="faint t-xs mt-3" style="text-align:center">No account needed. This link is only for you and expires on Oct 12.</p>
+        </div>
+      </div></div>
+      <div class="phone-cap"><b>Public RSVP</b><span>Opened from the email. No sign-in. Answers only when tapped.</span></div>
+    </div>
+
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen">
+        <div class="row between"><button class="icon-btn" data-size="sm"><i class="hgi-stroke hgi-arrow-left-01"></i></button><div style="font-weight:600">Follow-up</div><span class="badge" data-size="sm" data-status="risk">22 h left</span></div>
+        <div style="text-align:center;margin-top:10px"><span class="avatar tone-magenta" data-size="lg" style="margin:0 auto">KW</span><div style="font-family:var(--ef-font-display);font-size:22px;margin-top:8px">Kim Wu</div><div class="faint t-sm">First visit Sunday · invited by Tom</div></div>
+        <div class="grid g-2 mt-3" style="gap:8px"><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-call"></i>Call</button><button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-message-01"></i>Text</button></div>
+        <div class="faint t-xs mt-3" style="margin-bottom:6px">How did it go?</div>
+        <div class="stack" style="gap:8px">
+          <button class="m-opt" data-selected><i class="hgi-stroke hgi-checkmark-circle-02"></i><span><b>We talked</b><span>Counts as contact</span></span></button>
+          <button class="m-opt"><i class="hgi-stroke hgi-call"></i><span><b>No answer</b><span>Keeps the follow-up open</span></span></button>
+          <button class="m-opt"><i class="hgi-stroke hgi-cancel-01"></i><span><b>No longer needed</b><span>Closes without contact</span></span></button>
+        </div>
+        <div class="input mt-3" style="height:44px"><input placeholder="Add a note (optional)"></div>
+        <button class="btn mt-3" data-variant="primary" style="width:100%">Save</button>
+      </div></div>
+      <div class="phone-cap"><b>Follow-up call</b><span>Records what happened, not just a tick.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: IMPORT  (#/people/import)
+     ================================================================= -->
+<section class="page" data-page="import">
+  <div class="breadcrumb"><a href="#/people">People</a><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Import</span></div>
+  <header class="page-header">
+    <div class="titles"><h1 class="page-title xl">Import people</h1><p class="page-sub">hyde-park-contacts.csv · 64 rows</p></div>
+    <div class="page-actions"><a class="btn" data-variant="ghost" href="#/people">Cancel</a><button class="btn" data-variant="primary">Import 58 people</button></div>
+  </header>
+  <div class="onb-steps" style="width:fit-content;margin-bottom:22px">
+    <span data-state="done"><i class="hgi-stroke hgi-tick-02"></i>Upload</span>
+    <span data-state="done"><i class="hgi-stroke hgi-tick-02"></i>Match columns</span>
+    <span data-state="current"><b>3</b>Review</span>
+    <span><b>4</b>Done</span>
+  </div>
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card" data-size="sm"><div class="stat-label">Ready</div><div class="stat-value c-green" style="color:var(--ef-green-600)">52</div><div class="faint t-sm mt-2">New people</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Possible duplicates</div><div class="stat-value" style="color:var(--ef-amber-600)">6</div><div class="faint t-sm mt-2">Choose for each one</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Need a fix</div><div class="stat-value" style="color:var(--ef-magenta-600)">4</div><div class="faint t-sm mt-2">Skipped unless fixed</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Empty rows</div><div class="stat-value">2</div><div class="faint t-sm mt-2">Ignored</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="grow"><div class="card-title">Rows to check</div><div class="card-description">Everything else imports as it is.</div></div><div class="segmented"><button aria-selected="true">Duplicates 6</button><button>Errors 4</button><button>All 64</button></div></div>
+    <table class="table">
+      <thead><tr><th>Row</th><th>In your file</th><th>Already in Everyfield</th><th style="width:300px">What to do</th></tr></thead>
+      <tbody>
+        <tr><td class="faint">12</td><td><div class="cell-title">Maria Santos</div><div class="cell-sub">maria.s@gmail.com · (512) 555-0142</div></td><td><div class="row gap-3"><span class="avatar tone-blue" data-size="sm">MS</span><div><div class="cell-title">Maria Santos</div><div class="cell-sub">Same phone · Interviewed</div></div></div></td><td><div class="segmented"><button aria-selected="true">Merge</button><button>Add new</button><button>Skip</button></div></td></tr>
+        <tr><td class="faint">27</td><td><div class="cell-title">Jim Okafor</div><div class="cell-sub">j.okafor@outlook.com</div></td><td><div class="row gap-3"><span class="avatar tone-amber" data-size="sm">JO</span><div><div class="cell-title">James Okafor</div><div class="cell-sub">Similar name and email</div></div></div></td><td><div class="segmented"><button>Merge</button><button>Add new</button><button aria-selected="true">Skip</button></div></td></tr>
+        <tr><td class="faint">41</td><td><div class="cell-title">Grace Kim</div><div class="cell-sub">grace@harvestpoint.org</div></td><td><div class="row gap-3"><span class="avatar tone-teal" data-size="sm">GK</span><div><div class="cell-title">Grace Kim</div><div class="cell-sub">Same email · Leader</div></div></div></td><td><div class="segmented"><button aria-selected="true">Merge</button><button>Add new</button><button>Skip</button></div></td></tr>
+        <tr><td class="faint">50</td><td><div class="cell-title">Lee Park</div><div class="cell-sub c-magenta">Email "lee.park@" is not complete</div></td><td class="faint">No match</td><td><div class="input" style="height:36px" data-invalid="true"><input value="lee.park@"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: DUPLICATES  (#/people/duplicates)
+     ================================================================= -->
+<section class="page" data-page="duplicates">
+  <div class="breadcrumb"><a href="#/people">People</a><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Possible duplicates</span></div>
+  <header class="page-header">
+    <div class="titles"><h1 class="page-title xl">Possible duplicates</h1><p class="page-sub">Everyfield never merges on its own. You choose which details to keep.</p></div>
+    <div class="page-actions"><span class="faint t-sm">Pair 1 of 3</span><button class="icon-btn"><i class="hgi-stroke hgi-arrow-left-01"></i></button><button class="icon-btn"><i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
+  </header>
+  <div class="grid" style="grid-template-columns: minmax(0,1fr) 340px; align-items:start">
+    <div class="card">
+      <div class="merge-head"><span></span><div class="row gap-3"><span class="avatar tone-amber">JO</span><div><div style="font-weight:600">James Okafor</div><div class="faint t-xs">Added Aug 20 · Following up</div></div><span class="badge" data-size="sm" data-plain="true" style="margin-left:auto">Keep</span></div><div class="row gap-3"><span class="avatar tone-ink">JO</span><div><div style="font-weight:600">Jim Okafor</div><div class="faint t-xs">Added Oct 2 · Prospect</div></div><span class="badge" data-size="sm" data-plain="true" style="margin-left:auto">Remove</span></div></div>
+      <div class="merge-row"><span class="mk">Name</span><label class="merge-opt" data-selected>James Okafor</label><label class="merge-opt">Jim Okafor</label></div>
+      <div class="merge-row"><span class="mk">Email</span><label class="merge-opt">james.okafor@gmail.com</label><label class="merge-opt" data-selected>j.okafor@outlook.com</label></div>
+      <div class="merge-row"><span class="mk">Phone</span><label class="merge-opt" data-selected>(512) 555-0188</label><label class="merge-opt" data-empty>None</label></div>
+      <div class="merge-row"><span class="mk">Stage</span><label class="merge-opt" data-selected><span class="stage-chip st-following">Following up</span></label><label class="merge-opt"><span class="stage-chip st-prospect">Prospect</span></label></div>
+      <div class="merge-row"><span class="mk">Household</span><label class="merge-opt" data-selected>Okafor household</label><label class="merge-opt" data-empty>None</label></div>
+      <div class="card" data-variant="callout" style="margin-top:20px"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-alert-02"></i></span>Cannot be undone</div><p class="callout-text t-sm">After merging, Jim Okafor's record is removed. Links to him redirect to James. You can correct details later, but you cannot split them again.</p></div>
+    </div>
+    <div class="stack" style="gap:20px">
+      <div class="card">
+        <div class="card-title sm">What moves to James</div>
+        <div class="list mt-3">
+          <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-calendar-03"></i>Meeting attendance</span><b>1</b></div>
+          <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-task-01"></i>Tasks</span><b>1</b></div>
+          <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-mail-01"></i>Emails received</span><b>2</b></div>
+          <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-note-01"></i>Notes</span><b>0</b></div>
+        </div>
+      </div>
+      <div class="card" data-size="sm"><div class="callout-label" style="--c-tone:var(--ef-green-700);--c-tint:var(--ef-green-100)"><span class="ci"><i class="hgi-stroke hgi-tick-02"></i></span>Nothing blocks this merge</div><p class="muted t-sm mt-2">Merges stop if both people sit in the same ministry role or one has a signed commitment card.</p></div>
+      <div class="row gap-2"><button class="btn" data-variant="secondary" style="flex:1">Not the same person</button><button class="btn" data-variant="primary" style="flex:1">Merge</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: NETWORK  (sending church oversight)
+     ================================================================= -->
+<section class="page" data-page="network">
+  <header class="page-header">
+    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Austin Sending Network</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">Plants you support. You only see what each plant chooses to share.</p></div>
+    <div class="page-actions"><a class="btn" data-variant="secondary" href="#/overview"><i class="hgi-stroke hgi-church"></i>Back to Harvest Point</a><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Invite a plant</button></div>
+  </header>
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card" data-size="sm"><div class="stat-label">Plants</div><div class="stat-value">5</div><div class="faint t-sm mt-2">4 sharing</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Launching this year</div><div class="stat-value">2</div><div class="faint t-sm mt-2">Mar and May 2027</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Committed adults</div><div class="stat-value">118</div><div class="faint t-sm mt-2">Across sharing plants</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Needs attention</div><div class="stat-value" style="color:var(--ef-amber-600)">1</div><div class="faint t-sm mt-2">Shared findings only</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="grow"><div class="card-title">Plants</div></div><div class="input" style="width:260px;height:40px"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search plants"></div></div>
+    <table class="table">
+      <thead><tr><th>Plant</th><th>Phase</th><th>Core group</th><th>Launch</th><th>Findings</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-green" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Harvest Point Church</div><div class="cell-sub">Hyde Park, Austin · Daniel Reyes</div></div></div></td><td><span class="tag">1 · Core group</span></td><td class="num-cell">34</td><td style="white-space:nowrap">Mar 14, 2027</td><td><span class="evidence"><i class="hgi-stroke hgi-lock-key"></i>Not shared</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-blue" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Eastside Commons</div><div class="cell-sub">East Austin · Priya Shah</div></div></div></td><td><span class="tag">3 · Training</span></td><td class="num-cell">52</td><td style="white-space:nowrap">May 2, 2027</td><td><span class="badge" data-size="sm" data-status="attention">Watch</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-violet" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Mueller Fellowship</div><div class="cell-sub">Mueller · Ben Ortiz</div></div></div></td><td><span class="tag">0 · Discovery</span></td><td class="faint">Not shared</td><td class="faint">Not set</td><td><span class="evidence"><i class="hgi-stroke hgi-lock-key"></i>Not shared</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr><td><div class="row gap-3"><span class="card-icon tone-teal" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">River City Church</div><div class="cell-sub">South Austin · Joy Lin</div></div></div></td><td><span class="tag">6 · Post-launch</span></td><td class="num-cell">32</td><td style="white-space:nowrap">Launched Jan 2026</td><td><span class="badge" data-size="sm" data-status="positive">Strong</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+      </tbody>
+    </table>
+    <div class="card mt-4" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-shield-user"></i></span>Privacy</div><p class="callout-text t-sm">Names and personal details of people in each plant are never shown here. Findings appear only after the plant has seen them.</p></div>
+  </div>
+</section>
+
+<!-- =================================================================
      PAGE: INVENTORY
      ================================================================= -->
 <section class="page" data-page="inventory">
@@ -2720,7 +3221,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
     <div class="titles">
       <div class="breadcrumb"><span>Design system</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Inventory</span></div>
       <h1 class="page-title xl">Component inventory</h1>
-      <p class="page-sub">68 components and how each one maps to React and Base UI.</p>
+      <p class="page-sub">75 components and how each one maps to React and Base UI.</p>
     </div>
   </header>
   <div class="grid g-3" style="margin-bottom:20px">
@@ -2788,6 +3289,13 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Delivery bar</td><td><code class="k">&lt;DeliveryBar&gt;</code></td><td class="muted t-sm">Opened, Delivered, Bounced</td><td class="muted t-sm">counts</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Meter</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Composer</td><td><code class="k">&lt;Composer&gt;</code> <code class=k>&lt;RecipientChip&gt;</code> <code class=k>&lt;MergeField&gt;</code> <code class=k>&lt;EmailPreview&gt;</code></td><td class="muted t-sm">To, Template, Subject, Insert, Preview, Actions</td><td class="muted t-sm">email only</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Combobox, Select</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Document card</td><td><code class="k">&lt;DocCard&gt;</code> <code class=k>&lt;DocThumb&gt;</code> <code class=k>&lt;FormatChip&gt;</code></td><td class="muted t-sm">Stage, Thumb, Use, Formats, Name, Description</td><td class="muted t-sm">thumb page/quarter/sheet/grid-sheet · selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Radio (selection)</span></td></tr>
+<tr><td class="faint t-sm">Evry</td><td class="cell-title">Evry character</td><td><code class="k">&lt;EvryBot&gt;</code></td><td class="muted t-sm">Body, Face, Eyes, Mouth</td><td class="muted t-sm">size xs/sm/md/lg/xl · mood idle/thinking/talking/happy · follow</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (CSS + small script)</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Settings dialog</td><td><code class="k">&lt;SettingsDialog section&gt;</code></td><td class="muted t-sm">Side nav, Section, Row, Footer (unsaved changes)</td><td class="muted t-sm">deep link per section</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Notification pop-over</td><td><code class="k">&lt;NotificationPopover&gt;</code> <code class=k>&lt;NotificationItem&gt;</code></td><td class="muted t-sm">Header, Item (icon, text, time, unread), Footer</td><td class="muted t-sm">unread</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Popover</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">User menu</td><td><code class="k">&lt;UserMenu&gt;</code></td><td class="muted t-sm">Identity, View switcher, Links, Sign out</td><td class="muted t-sm">current view</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Menu</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Merge review</td><td><code class="k">&lt;MergeReview&gt;</code> <code class=k>&lt;MergeOption&gt;</code></td><td class="muted t-sm">Header pair, Field rows, What moves, Blockers</td><td class="muted t-sm">selected · empty</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Phase option</td><td><code class="k">&lt;PhaseOption&gt;</code></td><td class="muted t-sm">Number, Name, Description, Check</td><td class="muted t-sm">selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Check-in row and outcome option</td><td><code class="k">&lt;CheckInRow&gt;</code> <code class=k>&lt;OutcomeOption&gt;</code></td><td class="muted t-sm">Avatar, Name, Note, Check</td><td class="muted t-sm">here · selected · touch sized (58px)</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Toggle, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Person card</td><td><code class="k">&lt;PersonCard&gt;</code></td><td class="muted t-sm">Avatar, Name, Meta, Footer</td><td class="muted t-sm">selected/dragging</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Pipeline column</td><td><code class="k">&lt;PipelineColumn&gt;</code></td><td class="muted t-sm">Header, Count, Cards, DropZone</td><td class="muted t-sm">drop target</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (dnd-kit)</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Ministry card</td><td><code class="k">&lt;MinistryCard&gt;</code></td><td class="muted t-sm">Icon, Status, Leader, Roles meter, Training</td><td class="muted t-sm">status</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -2799,7 +3307,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Wiki tree / TOC / prose</td><td><code class="k">&lt;WikiTree&gt;</code> <code class=k>&lt;Toc&gt;</code> <code class=k>&lt;Prose&gt;</code></td><td class="muted t-sm">Phase, Item, Read marker</td><td class="muted t-sm">current</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Accordion</span></td></tr>
 <tr><td class="faint t-sm">Evry</td><td class="cell-title">Companion panel</td><td><code class="k">&lt;EvryPanel&gt;</code></td><td class="muted t-sm">Header, Context, Messages, Suggestions, Composer</td><td class="muted t-sm">open</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog (non-modal) or Drawer</span></td></tr>
 <tr><td class="faint t-sm">Evry</td><td class="cell-title">Message</td><td><code class="k">&lt;EvryMessage&gt;</code></td><td class="muted t-sm">Avatar, Bubble, Citation</td><td class="muted t-sm">role user/evry</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
-<tr><td class="faint t-sm">Evry</td><td class="cell-title">Review card</td><td><code class="k">&lt;ReviewCard&gt;</code></td><td class="muted t-sm">Header, Lines, Footer (Approve, Edit, Cancel)</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Evry</td><td class="cell-title">Review card</td><td><code class="k">&lt;ReviewCard&gt;</code></td><td class="muted t-sm">Header, Note, Lines, Footer (Approve, Edit, Cancel)</td><td class="muted t-sm">state pending/revised/approved/failed/expired</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -2824,13 +3332,126 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   <a href="#/foundations" data-nav="foundations"><i class="hgi-stroke hgi-star"></i>Foundations</a>
   <a href="#/components" data-nav="components"><i class="hgi-stroke hgi-grid-view"></i>Components</a>
   <a href="#/inventory" data-nav="inventory"><i class="hgi-stroke hgi-list-view"></i>Inventory</a>
+  <a href="#/mobile" data-nav="mobile"><i class="hgi-stroke hgi-smart-phone-01"></i>Mobile</a>
 </nav>
+<!-- ================= BELL DROP-DOWN  <NotificationPopover> ================= -->
+<div class="float-pop popover" id="bell-pop" role="dialog" aria-label="Notifications">
+  <div class="pop-head"><b style="font-weight:600">Notifications</b><button class="btn" data-variant="ghost" data-size="sm">Mark all read</button></div>
+  <div>
+    <div class="notif-item"><span class="card-icon tone-magenta"><i class="hgi-stroke hgi-alert-02"></i></span><div><div class="nt"><b style="font-weight:600">3 follow-ups</b> passed the 48-hour mark</div><div class="nm">Tasks · 20 min ago</div></div><span class="unread"></span></div>
+    <div class="notif-item"><span class="card-icon tone-green"><i class="hgi-stroke hgi-calendar-check-in-01"></i></span><div><div class="nt"><b style="font-weight:600">Kim Wu</b> said yes to Vision meeting #12</div><div class="nm">Meetings · 1 h ago</div></div><span class="unread"></span></div>
+    <div class="notif-item"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-user-add-01"></i></span><div><div class="nt"><b style="font-weight:600">Ana Lee</b> accepted your invitation</div><div class="nm">Seats · Yesterday</div></div><span class="unread"></span></div>
+    <div class="notif-item"><span class="card-icon tone-ink"><i class="hgi-stroke hgi-chart-line-data-01"></i></span><div><div class="nt">New Plant Intelligence assessment is ready</div><div class="nm">Plant Intelligence · Oct 6</div></div><span></span></div>
+  </div>
+  <a class="btn" data-variant="secondary" data-size="sm" href="#/notifications" style="width:100%;margin-top:6px">See all notifications</a>
+</div>
+
+<!-- ================= USER MENU  <UserMenu> ================= -->
+<div class="float-pop popover menu" id="user-pop" role="menu">
+  <div class="row gap-3" style="padding:10px 10px 12px"><span class="avatar tone-green">DR</span><div><div style="font-weight:600">Daniel Reyes</div><div class="faint t-xs">daniel@harvestpoint.org</div></div></div>
+  <div class="menu-sep"></div>
+  <div class="menu-label">View as</div>
+  <a class="menu-item" href="#/overview" data-highlighted><i class="hgi-stroke hgi-church"></i>Harvest Point Church<i class="hgi-stroke hgi-tick-02" style="margin-left:auto;color:var(--ef-green-600)"></i></a>
+  <a class="menu-item" href="#/network"><i class="hgi-stroke hgi-hierarchy"></i>Austin Sending Network</a>
+  <div class="menu-sep"></div>
+  <a class="menu-item" href="#/settings/account"><i class="hgi-stroke hgi-user"></i>Your account</a>
+  <a class="menu-item" href="#/settings"><i class="hgi-stroke hgi-settings-02"></i>Church settings<span class="kbd">⌘,</span></a>
+  <a class="menu-item" href="#/onboarding"><i class="hgi-stroke hgi-rocket-01"></i>Onboarding preview</a>
+  <div class="menu-sep"></div>
+  <a class="menu-item" href="#/signin" data-danger><i class="hgi-stroke hgi-logout-01"></i>Sign out</a>
+</div>
+
+<!-- ================= SETTINGS MODAL  <SettingsDialog> ================= -->
+<div class="modal" id="settings" data-open="false" role="dialog" aria-label="Settings" onclick="if (event.target === this) leaveSettings()">
+  <div class="modal-panel">
+    <nav class="modal-side">
+      <div style="font-family:var(--ef-font-display);font-size:22px;padding:4px 12px 14px">Settings</div>
+      <a href="#/settings/church" data-settings-nav="church"><i class="hgi-stroke hgi-church"></i>Church profile</a>
+      <a href="#/settings/seats" data-settings-nav="seats"><i class="hgi-stroke hgi-user-multiple"></i>Seats and invitations</a>
+      <a href="#/settings/notifications" data-settings-nav="notifications"><i class="hgi-stroke hgi-notification-03"></i>Notifications</a>
+      <a href="#/settings/sharing" data-settings-nav="sharing"><i class="hgi-stroke hgi-shield-user"></i>Sharing and privacy</a>
+      <a href="#/settings/account" data-settings-nav="account"><i class="hgi-stroke hgi-user"></i>Your account</a>
+      <span class="grow"></span>
+      <div class="faint t-xs" style="padding:0 12px">Each section has its own link, so you can share it.</div>
+    </nav>
+    <div class="modal-main">
+      <div class="modal-body">
+        <button class="icon-btn" data-size="sm" style="float:right" onclick="leaveSettings()" title="Close (Esc)"><i class="hgi-stroke hgi-cancel-01"></i></button>
+
+        <section data-settings-section="church">
+          <h2 style="font-size:26px">Church profile</h2><p class="muted mt-2">Used in emails, documents and Plant Intelligence.</p>
+          <div class="mt-6">
+            <div class="set-row"><div><div class="sl">Name</div><div class="sd">Shown on every document.</div></div><div class="input"><input value="Harvest Point Church"></div></div>
+            <div class="set-row"><div><div class="sl">Area</div><div class="sd">The place you are planting in.</div></div><div class="grid g-2" style="gap:10px"><div class="input"><input value="Hyde Park"></div><div class="input"><input value="Austin, Texas"></div></div></div>
+            <div class="set-row"><div><div class="sl">Time zone</div><div class="sd">Sets due dates, reminders and the start of each week.</div></div><div class="input select"><span>Central time (Chicago)</span><i class="hgi-stroke hgi-arrow-down-01"></i></div></div>
+            <div class="set-row"><div><div class="sl">Inactive after</div><div class="sd">People with no contact for this long get an inactive badge.</div></div><div class="segmented" style="width:fit-content"><button>7 days</button><button aria-selected="true">14 days</button><button>21 days</button><button>30 days</button></div></div>
+            <div class="set-row"><div><div class="sl">Daily digest</div><div class="sd">Open items sent to each seat.</div></div><div class="row gap-3"><div class="input select" style="width:160px"><span>7:00 am</span><i class="hgi-stroke hgi-arrow-down-01"></i></div><div class="segmented"><button aria-selected="true">Weekdays</button><button>Every day</button><button>Mondays</button></div></div></div>
+          </div>
+        </section>
+
+        <section data-settings-section="seats" hidden>
+          <h2 style="font-size:26px">Seats and invitations</h2><p class="muted mt-2">People who can sign in to Harvest Point. People in your directory do not need a seat.</p>
+          <div class="card-inset mt-6" style="background:var(--ef-surface-2)"><div class="row gap-3"><div class="input grow" style="background:var(--ef-surface-raised)"><i class="hgi-stroke hgi-mail-01"></i><input placeholder="Email address"></div><div class="input select" style="width:150px;background:var(--ef-surface-raised)"><span>Member</span><i class="hgi-stroke hgi-arrow-down-01"></i></div><button class="btn" data-variant="primary">Send invitation</button></div></div>
+          <div class="list mt-4">
+            <div class="list-row"><span class="avatar tone-green" data-size="sm">DR</span><div class="grow"><div class="list-title">Daniel Reyes <span class="faint t-sm">(you)</span></div><div class="list-sub">daniel@harvestpoint.org</div></div><span class="badge" data-size="sm" data-plain="true">Owner</span></div>
+            <div class="list-row"><span class="avatar tone-blue" data-size="sm">AL</span><div class="grow"><div class="list-title">Ana Lee</div><div class="list-sub">ana@harvestpoint.org · joined yesterday</div></div><div class="input select" style="width:130px;height:34px"><span>Admin</span><i class="hgi-stroke hgi-arrow-down-01"></i></div></div>
+            <div class="list-row"><span class="avatar tone-violet" data-size="sm">TB</span><div class="grow"><div class="list-title">Tom Baker</div><div class="list-sub">tom@harvestpoint.org</div></div><div class="input select" style="width:130px;height:34px"><span>Member</span><i class="hgi-stroke hgi-arrow-down-01"></i></div></div>
+          </div>
+          <div class="ms-group-label" style="padding-left:0">Pending<span class="grow"></span><span class="faint">2</span></div>
+          <div class="list">
+            <div class="list-row"><span class="avatar" data-size="sm" style="background:transparent;border:1.5px dashed var(--ef-line-2);box-shadow:none"><i class="hgi-stroke hgi-mail-01" style="font-size:13px;color:var(--ef-text-3)"></i></span><div class="grow"><div class="list-title">chris@harvestpoint.org</div><div class="list-sub">Admin · sent Oct 3 · expires in 3 days</div></div><button class="btn" data-variant="secondary" data-size="sm">Resend</button><button class="btn" data-variant="ghost" data-size="sm">Revoke</button></div>
+            <div class="list-row"><span class="avatar" data-size="sm" style="background:transparent;border:1.5px dashed var(--ef-line-2);box-shadow:none"><i class="hgi-stroke hgi-mail-01" style="font-size:13px;color:var(--ef-text-3)"></i></span><div class="grow"><div class="list-title">rosa.bennett@gmail.com</div><div class="list-sub c-magenta">Member · expired Sep 30</div></div><button class="btn" data-variant="secondary" data-size="sm">Send again</button></div>
+          </div>
+        </section>
+
+        <section data-settings-section="notifications" hidden>
+          <h2 style="font-size:26px">Notifications</h2><p class="muted mt-2">Your choices only. Other seats set their own.</p>
+          <table class="pref-table mt-6">
+            <thead><tr><th>What</th><th style="width:110px">In Everyfield</th><th style="width:110px">Email</th></tr></thead>
+            <tbody>
+              <tr><td><div style="font-weight:500">Follow-ups due and overdue</div><div class="faint t-sm">Your own follow-up tasks</div></td><td><button class="switch" aria-checked="true"></button></td><td><button class="switch" aria-checked="true"></button></td></tr>
+              <tr><td><div style="font-weight:500">Meeting reminders</div><div class="faint t-sm">The day before and the morning of</div></td><td><button class="switch" aria-checked="true"></button></td><td><button class="switch" aria-checked="true"></button></td></tr>
+              <tr><td><div style="font-weight:500">RSVPs and new guests</div><div class="faint t-sm">When someone answers an invitation</div></td><td><button class="switch" aria-checked="true"></button></td><td><button class="switch" aria-checked="false"></button></td></tr>
+              <tr><td><div style="font-weight:500">Plant Intelligence</div><div class="faint t-sm">A new assessment is ready</div></td><td><button class="switch" aria-checked="true"></button></td><td><button class="switch" aria-checked="false"></button></td></tr>
+              <tr><td><div style="font-weight:500">Launch milestones</div><div class="faint t-sm">Completed or reopened</div></td><td><button class="switch" aria-checked="true"></button></td><td><button class="switch" aria-checked="true"></button></td></tr>
+            </tbody>
+          </table>
+          <div class="card mt-6" data-variant="callout"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-mail-01"></i></span>Email paused</div><p class="callout-text t-sm">Emails to daniel@harvestpoint.org bounced on Sep 30, so we paused them. Fix the address, then turn email back on.</p><div class="mt-3"><button class="btn" data-variant="secondary" data-size="sm">Turn email back on</button></div></div>
+        </section>
+
+        <section data-settings-section="sharing" hidden>
+          <h2 style="font-size:26px">Sharing and privacy</h2><p class="muted mt-2">Choose what connected organizations can see. Names and personal details are never shared.</p>
+          <div class="card mt-6" data-size="sm">
+            <div class="row gap-3"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-hierarchy"></i></span><div class="grow"><div style="font-weight:600">Austin Sending Network</div><div class="faint t-sm">Sending church · connected Mar 2</div></div><button class="btn" data-variant="ghost" data-size="sm">Leave</button></div>
+            <div class="list mt-4">
+              <div class="kv"><div><div style="font-weight:500">Phase and launch date</div><div class="faint t-sm">Where you are and when you launch</div></div><button class="switch" aria-checked="true"></button></div>
+              <div class="kv"><div><div style="font-weight:500">Core group size</div><div class="faint t-sm">A count only, no names</div></div><button class="switch" aria-checked="true"></button></div>
+              <div class="kv"><div><div style="font-weight:500">Plant Intelligence findings</div><div class="faint t-sm">Shown to you first, then shared</div></div><button class="switch" aria-checked="false"></button></div>
+              <div class="kv"><div><div style="font-weight:500">People and their details</div><div class="faint t-sm">Never shared</div></div><span class="badge" data-size="sm" data-plain="true"><i class="hgi-stroke hgi-lock-key" style="font-size:12px"></i>Private</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section data-settings-section="account" hidden>
+          <h2 style="font-size:26px">Your account</h2><p class="muted mt-2">Only you can change these.</p>
+          <div class="mt-6">
+            <div class="set-row"><div><div class="sl">Photo and name</div></div><div class="row gap-4"><span class="avatar tone-green" data-size="lg">DR</span><div class="input grow"><input value="Daniel Reyes"></div><button class="btn" data-variant="secondary" data-size="sm">Change photo</button></div></div>
+            <div class="set-row"><div><div class="sl">Email</div><div class="sd">We send a link to the new address to confirm it.</div></div><div class="row gap-3"><div class="input grow"><input value="daniel@harvestpoint.org"></div><button class="btn" data-variant="secondary" data-size="sm">Change</button></div></div>
+            <div class="set-row"><div><div class="sl">Password</div><div class="sd">Changing it signs out your other devices.</div></div><div><button class="btn" data-variant="secondary" data-size="sm">Change password</button></div></div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-foot"><span class="badge" data-size="sm" data-status="attention">Unsaved changes</span><span class="faint t-sm grow">Closing asks before discarding.</span><button class="btn" data-variant="ghost" onclick="leaveSettings()">Cancel</button><button class="btn" data-variant="primary">Save</button></div>
+    </div>
+  </div>
+</div>
+
 <div class="scrim" id="scrim" onclick="closeEvry()"></div>
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
-    <span class="orb"><i class="hgi-stroke hgi-ai-magic"></i></span>
+    <span class="evry-bot" data-size="lg" data-mood="idle" data-follow id="evry-head-bot" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>
     <div class="grow"><div style="font-family:var(--ef-font-display);font-size:19px;font-weight:500">Evry</div><div style="font-size:12px;color:var(--ef-text-3)">Reads and drafts. You approve every change.</div></div>
-    <button class="icon-btn" data-size="sm" title="History"><i class="hgi-stroke hgi-clock-01"></i></button>
+    <button class="icon-btn" data-size="sm" title="History" onclick="const p=document.getElementById('evry'); p.dataset.view = p.dataset.view === 'history' ? 'chat' : 'history'"><i class="hgi-stroke hgi-clock-01"></i></button>
     <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeEvry()"><i class="hgi-stroke hgi-cancel-01"></i></button>
   </div>
   <div class="evry-context">
@@ -2840,7 +3461,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
   </div>
   <div class="evry-body">
     <div class="msg-user">Who from last Sunday still needs a follow-up?</div>
-    <div class="msg-evry"><span class="who"><i class="hgi-stroke hgi-ai-magic"></i></span>
+    <div class="msg-evry"><span class="who"><span class="evry-bot" data-size="md" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span></span>
       <div class="bubble">Three of the nine first-timers have no call yet: <b>Kim Wu</b>, <b>Eli Park</b> and <b>Sara Nunez</b>. The 48-hour window closes tomorrow at 8 pm <span class="cite">Attendance · #11</span>.
         <div class="card-inset mt-3" style="padding:12px 14px">
           <div class="row gap-3"><span class="avatar tone-magenta" data-size="sm">KW</span><div class="grow"><div style="font-weight:500">Kim Wu</div><div class="faint t-xs">Invited by Tom · no owner</div></div><span class="badge" data-size="sm" data-status="risk">22 h</span></div>
@@ -2851,7 +3472,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
       </div>
     </div>
     <div class="msg-user">Yes. Give Sara to Ana.</div>
-    <div class="msg-evry"><span class="who"><i class="hgi-stroke hgi-ai-magic"></i></span>
+    <div class="msg-evry"><span class="who"><span class="evry-bot" data-size="md" data-mood="happy" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span></span>
       <div class="bubble" style="width:100%">Here is the change. Nothing is saved until you approve it.
         <div class="review-card mt-3">
           <div class="rc-head"><i class="hgi-stroke hgi-edit-02" style="font-size:16px"></i>Review 2 changes<span class="grow"></span><span style="font-weight:500">Revision 1</span></div>
@@ -2863,6 +3484,16 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
           <div class="rc-foot"><button class="btn" data-variant="primary" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Approve</button><button class="btn" data-variant="secondary" data-size="sm">Edit</button><span class="grow"></span><button class="btn" data-variant="ghost" data-size="sm">Cancel</button></div>
         </div>
       </div>
+    </div>
+  </div>
+  <div class="evry-history">
+    <div class="row between" style="margin-bottom:10px"><b style="font-weight:600">History</b><button class="btn" data-variant="ghost" data-size="sm" onclick="document.getElementById('evry').dataset.view='chat'"><i class="hgi-stroke hgi-add-01"></i>New chat</button></div>
+    <div class="list">
+      <div class="list-row" onclick="document.getElementById('evry').dataset.view='chat'"><div class="grow"><div class="list-title t-sm">Who still needs a follow-up?</div><div class="list-sub t-xs">Now · 2 changes waiting for review</div></div><span class="badge" data-size="sm" data-status="attention">Review</span></div>
+      <div class="list-row"><div class="grow"><div class="list-title t-sm">Draft thank-you email for meeting #11</div><div class="list-sub t-xs">Sep 30 · email sent to 9 people</div></div><span class="badge" data-size="sm" data-status="positive">Approved</span></div>
+      <div class="list-row"><div class="grow"><div class="list-title t-sm">Move Ana to Hospitality leader</div><div class="list-sub t-xs">Sep 26 · seat changed before approval</div></div><span class="badge" data-size="sm" data-plain="true">Expired</span></div>
+      <div class="list-row"><div class="grow"><div class="list-title t-sm">Summarize September for the network</div><div class="list-sub t-xs">Sep 25 · read only</div></div><span class="faint t-xs">Answer</span></div>
+      <div class="list-row"><div class="grow"><div class="list-title t-sm">Assign Kids check-in volunteers</div><div class="list-sub t-xs">Sep 20 · 1 of 3 could not be saved</div></div><span class="badge" data-size="sm" data-status="risk">Failed</span></div>
     </div>
   </div>
   <div class="evry-compose">
@@ -2877,18 +3508,29 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 
 <script>
 /* Router: #/page or #/page/sub. Sub-routes map to detail pages. */
-const DETAIL = { 'people/maria-santos': ['person', 'people'], 'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'] };
-const ALIAS = { meetings: ['meeting', 'meetings'] };
-const STUBS = {
-  notifications: ['Notifications', 'Reminders, digests and updates from your plant.', 'hgi-notification-03'],
-  settings: ['Settings', 'Church profile, seats, notifications and privacy.', 'hgi-settings-02'],
-  help: ['Help', 'Guides and contact for the Everyfield team.', 'hgi-help-circle']
+const DETAIL = {
+  'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
+  'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings']
 };
+const STUBS = { help: ['Help', 'Guides and contact for the Everyfield team.', 'hgi-help-circle'] };
+const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
+let lastAppHash = '#/overview';
 function route() {
   const hash = location.hash.replace(/^#\/?/, '') || 'overview';
-  let page = hash.split('/')[0], nav = page;
+  const [head, sub] = hash.split('/');
+  closePopovers();
+  if (head === 'settings') {                                 /* Settings is a modal over the current page */
+    if (!document.querySelector('.page[data-active="true"]')) showPage('overview', 'overview');
+    openSettings(sub || 'church');
+    return;
+  }
+  closeSettings();
+  lastAppHash = '#/' + hash;
+  let page = head, nav = head;
   if (DETAIL[hash]) [page, nav] = DETAIL[hash];
-  else if (ALIAS[page]) [page, nav] = ALIAS[page];
+  showPage(page, nav);
+}
+function showPage(page, nav) {
   let el = document.querySelector(`.page[data-page="${page}"]`);
   if (!el && STUBS[page]) {
     const [t, s, i] = STUBS[page];
@@ -2897,12 +3539,38 @@ function route() {
     el.querySelector('[data-stub-sub]').textContent = s;
     el.querySelector('[data-stub-icon]').className = 'hgi-stroke ' + i;
   }
-  if (!el) { el = document.querySelector('.page[data-page="overview"]'); nav = 'overview'; }
+  if (!el) { el = document.querySelector('.page[data-page="overview"]'); nav = 'overview'; page = 'overview'; }
+  document.body.dataset.shell = BARE.has(page) ? 'bare' : 'app';
   document.querySelectorAll('.page').forEach(p => p.dataset.active = p === el ? 'true' : 'false');
   document.querySelectorAll('[data-nav]').forEach(n => { if (n.dataset.nav === nav) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current'); });
   window.scrollTo(0, 0);
   staggerReveal(el);
 }
+
+/* Settings modal with deep links: #/settings/<section> */
+function openSettings(section) {
+  const m = document.getElementById('settings');
+  m.dataset.open = 'true';
+  m.querySelectorAll('[data-settings-nav]').forEach(a => a.toggleAttribute('aria-current', a.dataset.settingsNav === section));
+  m.querySelectorAll('[data-settings-section]').forEach(sec => sec.hidden = sec.dataset.settingsSection !== section);
+  requestAnimationFrame(() => { refreshHoverGroups(); refreshActiveIndicators(); });
+}
+function closeSettings() { const m = document.getElementById('settings'); if (m) m.dataset.open = 'false'; }
+function leaveSettings() { location.hash = lastAppHash; }
+
+/* Small pop-overs: bell and user menu */
+function openPop(id, anchor) {
+  const pop = document.getElementById(id), open = pop.dataset.open === 'true';
+  closePopovers();
+  if (open) return;
+  const r = anchor.getBoundingClientRect();
+  pop.style.top = (r.bottom + 10) + 'px';
+  pop.style.right = Math.max(16, innerWidth - r.right - 8) + 'px';
+  pop.dataset.open = 'true';
+  requestAnimationFrame(refreshHoverGroups);
+}
+function closePopovers() { document.querySelectorAll('.float-pop').forEach(p => p.dataset.open = 'false'); }
+document.addEventListener('click', e => { if (!e.target.closest('.float-pop, [data-pop-anchor]')) closePopovers(); });
 
 /* Staggered page reveal, top to bottom. */
 const REVEAL_SEL = '.breadcrumb, .page-header, .page > .tabs, .card, .insight, .lens, .doc-h, .doc-note, .specimen, .swatch, .brand-tile, .page > .row, .page > .grid > .stack > *, article';
@@ -2926,6 +3594,14 @@ document.addEventListener('click', e => {
   if (seg) { placeActive(seg.parentElement, false); requestAnimationFrame(refreshHoverGroups); }
   const sw = e.target.closest('.switch');
   if (sw) sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true');
+  const po = e.target.closest('.phase-opt');
+  if (po) po.parentElement.querySelectorAll('.phase-opt').forEach(o => { o.toggleAttribute('data-selected', o === po); const c = o.querySelector('.po-check'); if (c) c.remove(); if (o === po) o.insertAdjacentHTML('beforeend', '<i class="hgi-stroke hgi-tick-02 po-check"></i>'); });
+  const mo = e.target.closest('.merge-opt');
+  if (mo) mo.parentElement.querySelectorAll('.merge-opt').forEach(o => o.toggleAttribute('data-selected', o === mo));
+  const mob = e.target.closest('.m-opt');
+  if (mob) mob.parentElement.querySelectorAll('.m-opt').forEach(o => o.toggleAttribute('data-selected', o === mob));
+  const mr = e.target.closest('.m-row');
+  if (mr) mr.toggleAttribute('data-here');
   const dc = e.target.closest('.doc-card');
   if (dc) {
     dc.parentElement.querySelectorAll('.doc-card').forEach(c => c.toggleAttribute('data-selected', c === dc));
@@ -3046,12 +3722,39 @@ function setTheme(t, silent) {
   requestAnimationFrame(() => { refreshHoverGroups(); refreshActiveIndicators(); });
 }
 setTheme((() => { try { return localStorage.getItem('ef-theme') || 'light'; } catch (e) { return 'light'; } })(), true);
-function openEvry() { document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; }
+
+/* EvryBot life: random blinks and glances, pointer follow, mood on panel open. */
+function evryBots() { return [...document.querySelectorAll('.evry-bot')].filter(b => b.offsetParent || b.closest('.evry-panel[data-open="true"]')); }
+function botBlink(b) { b.setAttribute('data-blink', ''); setTimeout(() => b.removeAttribute('data-blink'), 200); }
+function botGlance(b) {
+  if (b.dataset.mood !== 'idle' || b.hasAttribute('data-following')) return;
+  const s = b.getBoundingClientRect().width, r = () => (Math.random() * 2 - 1) * s * .07;
+  b.style.setProperty('--lx', r() + 'px'); b.style.setProperty('--ly', r() * .7 + 'px');
+  setTimeout(() => { b.style.setProperty('--lx', '0px'); b.style.setProperty('--ly', '0px'); }, 900 + Math.random() * 900);
+}
+(function botLife() {
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    evryBots().forEach(b => { if (Math.random() < .35) botBlink(b); if (Math.random() < .25) botGlance(b); });
+  }
+  setTimeout(botLife, 1400 + Math.random() * 1600);
+})();
+document.querySelectorAll('.evry-bot').forEach(b => { b.style.setProperty('--blink', (3.8 + Math.random() * 3).toFixed(2) + 's'); b.style.setProperty('--blink-delay', (-Math.random() * 4).toFixed(2) + 's'); });
+document.addEventListener('pointermove', e => {
+  document.querySelectorAll('.evry-bot[data-follow]').forEach(b => {
+    if (b.dataset.mood !== 'idle') return;
+    const r = b.getBoundingClientRect(); if (!r.width) return;
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, m = Math.min(1, d / 300) * r.width * .09;
+    b.setAttribute('data-following', ''); b.style.setProperty('--lx', (dx / d * m) + 'px'); b.style.setProperty('--ly', (dy / d * m) + 'px');
+    clearTimeout(b.__ft); b.__ft = setTimeout(() => { b.removeAttribute('data-following'); b.style.setProperty('--lx', '0px'); b.style.setProperty('--ly', '0px'); }, 1600);
+  });
+});
+
+function openEvry() { document.getElementById('evry').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; const hb = document.getElementById('evry-head-bot'); if (hb) { hb.dataset.mood = 'happy'; clearTimeout(hb.__mt); hb.__mt = setTimeout(() => hb.dataset.mood = 'idle', 1400); } }
 function closeEvry() { document.getElementById('evry').dataset.open = 'false'; document.getElementById('scrim').dataset.open = 'false'; }
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); const p = document.getElementById('evry'); p.dataset.open === 'true' ? closeEvry() : openEvry(); }
-  if (e.key === 'Escape') closeEvry();
+  if (e.key === 'Escape') { closeEvry(); closePopovers(); if (document.getElementById('settings').dataset.open === 'true') leaveSettings(); }
 });
 </script>
 </body>
