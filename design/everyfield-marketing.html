@@ -19,9 +19,9 @@
     BEGIN/END design/marketing-copy.json    copy for stories A and B
     ef-mark / ef-wordmark symbols, EvryBot  from design/everyfield-ui.html (round-buffalo)
 
-  Placeholder slots (class "slot") mark sections that later tasks rebuild:
-    the Gather / Meet / Follow up / Commit section, the Plant Intelligence section.
   The home hero animation is built (heroSlot, haRender). EFHero.seek(ms) renders one loop time for review.
+  The week chapter (#week) and the Plant Intelligence chapter (#intelligence) share one engine (chapterSection, cxRender).
+  EFChapters.seek(id, step, ms) renders one panel frame for review.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -633,6 +633,158 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .ha-step i { left: 6px; right: 6px; bottom: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .ha .sk, .ha-bars i, .ha-caret { animation: none !important; } }
+
+/* =====================================================================
+   Revision 2 chapters: "Gather, meet, follow up, commit" and Plant Intelligence.
+   Pattern studied on calendly.com product chapters (2026-10-08):
+   - the heading block and the visual are both sticky at the same top line
+   - step rows are short (about 200 px), sit under the heading, and dim when inactive
+   - the visual is a tinted gradient panel, and its UI crossfades to the active step
+   Motion reuses the hero timings (see haRender): card in 380 ms ease-out with an 8 px lift,
+   card out 250 ms sine, children stagger 90 ms + 75 ms each over 420 ms, presses and pops.
+   JS drives each panel from one loop time (see cxRender). Only transform, opacity and text change per frame.
+   ===================================================================== */
+.cx { --cx-top: 110px; --cx-out: cubic-bezier(.33, 1, .68, 1); --cx-sine: cubic-bezier(.37, 0, .63, 1); }
+.cx-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: start; }
+.cx-left { grid-column: 1 / span 5; min-width: 0; }
+.cx-right { grid-column: 7 / span 6; align-self: stretch; min-width: 0; }
+.cx-head { position: sticky; top: var(--cx-top); z-index: 3; background: var(--mk-canvas); padding-bottom: 26px; border-bottom: 1px solid var(--mk-line); }
+.cx-head::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: calc(var(--cx-top) - 60px); background: var(--mk-canvas); }
+.cx-head::after { content: ""; position: absolute; left: 0; right: 0; top: calc(100% + 1px); height: 20px; background: linear-gradient(var(--mk-canvas), rgba(252, 251, 248, 0)); pointer-events: none; }
+.cx-head .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.cx-head .page-tag { margin: 0; }
+.cx-step { padding: 34px 0 36px; border-top: 1px solid var(--mk-line); }
+.cx-step:first-child { border-top: 0; }
+.cx-txt { transition: opacity .25s var(--cx-sine); }
+.cx-step:not(.on) .cx-txt { opacity: .32; }
+.cx-num { display: flex; align-items: center; gap: 10px; font: 600 13px/1 var(--mk-font-body); color: var(--mk-text-3); }
+.cx-num b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--mk-surface-2); color: var(--mk-text); font-size: 11px; transition: background-color .25s var(--cx-sine); }
+.cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
+.cx-step h3 { margin-top: 14px; }
+.cx-step p { margin-top: 10px; color: var(--mk-text-2); max-width: 46ch; }
+/* Steps rise and fade in as they enter (hero stagger: 75 ms apart, ease-out) */
+.cx-step.cx-rv .cx-txt > * { opacity: 0; transform: translateY(14px); transition: opacity .42s var(--cx-out), transform .42s var(--cx-out); }
+.cx-step.cx-rv.in .cx-txt > * { opacity: 1; transform: none; }
+.cx-step.cx-rv.in .cx-txt > :nth-child(2) { transition-delay: 75ms; }
+.cx-step.cx-rv.in .cx-txt > :nth-child(3) { transition-delay: 150ms; }
+
+/* Sticky panel */
+.cx-vis { position: sticky; top: var(--cx-top); height: min(560px, calc(100vh - var(--cx-top) - 28px)); min-height: 500px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06), 0 30px 60px -40px rgba(24, 29, 25, .3); }
+.cx-vis .sample-tag, .cx-mob .sample-tag { top: 16px; right: 16px; }
+.cx-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; will-change: opacity; }
+.cx-card { position: relative; grid-area: 1 / 1; width: min(400px, calc(100% - 48px)); padding: 18px 20px 20px; border-radius: 22px; background: #FFFFFF; opacity: 0;
+  box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); will-change: transform, opacity; }
+.cx-card.insight { background: var(--g-base); padding: 22px 24px; }
+.cx-card [data-st], .cx-card .cx-st { will-change: transform, opacity; }
+.cx-h { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.cx-h .card-icon { width: 36px; height: 36px; }
+.cx-h .card-icon svg { width: 17px; height: 17px; }
+.cx .ha-btn.cx-sm { height: 34px; padding: 0 13px; font-size: 12.5px; border-radius: 11px; }
+.cx-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 8px; border-radius: 99px; background: var(--ef-green-50); color: var(--ef-green-700); font-size: 12.5px; font-weight: 600; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(28, 227, 98, .35); opacity: 0; will-change: transform, opacity; }
+.cx-pill svg { width: 15px; height: 15px; }
+.cx-slot { height: 30px; margin: 2px 0 12px; }
+.cx-rows { display: grid; gap: 10px; }
+.cx-rows .row { min-height: 26px; }
+.cx-rows .num { font-size: 17px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.cx .ha-meter { height: 8px; margin-top: 5px; }
+.cx-ins { margin-top: 14px; font-size: 13px; font-weight: 600; opacity: 0; will-change: transform, opacity; }
+.cx-hl { position: absolute; inset: 2px -10px; border-radius: 14px; background: var(--ef-surface-2); opacity: 0; z-index: -1; }
+.cx-card .list-row { position: relative; isolation: isolate; }
+.cx-cur { position: absolute; left: 0; top: 0; z-index: 8; width: 22px; height: 22px; margin: -3px 0 0 -5px; opacity: 0; pointer-events: none; transform-origin: 5px 3px; will-change: transform, opacity; }
+.cx-cur svg { position: relative; z-index: 1; width: 22px; height: 22px; fill: #181D19; stroke: #FFFFFF; stroke-width: 1.4; filter: drop-shadow(0 2px 3px rgba(24, 29, 25, .35)); }
+.cx-ripple { position: absolute; left: -9px; top: -11px; width: 28px; height: 28px; border-radius: 50%; background: rgba(24, 29, 25, .18); opacity: 0; }
+/* Vision meetings */
+.cx .bars.cx-bars { position: relative; height: 118px; gap: 7px; margin-top: 30px; }
+.cx-bars .bar { transform-origin: 50% 100%; transform: scaleY(0); }
+.cx-bars .bar .lbl { opacity: 0; }
+.cx-goal { position: absolute; left: 0; right: 0; bottom: 83.3%; height: 0; z-index: 1; }
+.cx-goal i { position: absolute; left: 0; right: 0; top: 0; border-top: 1.5px dashed var(--ef-line-2); transform-origin: 0 0; transform: scaleX(0); }
+.cx-goal span { position: absolute; left: 0; bottom: 4px; font-size: 11.5px; color: var(--ef-text-3); }
+/* Needs you */
+.cx-views { display: grid; }
+.cx-view { grid-area: 1 / 1; align-self: start; min-width: 0; will-change: transform, opacity; }
+.cx-swap { display: inline-grid; min-width: 0; }
+.cx-swap > * { grid-area: 1 / 1; min-width: 0; will-change: transform, opacity; }
+.cx-swap > :last-child { opacity: 0; }
+.cx-ic { display: inline-grid; flex: none; }
+.cx-ic > .card-icon { grid-area: 1 / 1; will-change: transform, opacity; }
+.cx-ic > :last-child { opacity: 0; }
+.cx .ha-check { opacity: 0; }
+.cx .ha-li { height: 46px; }
+.cx .ha-li .faint { font-size: 12.5px; white-space: nowrap; }
+/* Core group */
+.cx-stat { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.cx-stat .stat-value { font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 0 100%; will-change: transform; }
+.cx-pop { display: inline-flex; opacity: 0; margin-bottom: 8px; will-change: transform, opacity; }
+.cx .target-bar .fill.cx-fill { width: calc((100% - 4px) * .5667); will-change: clip-path; }
+.cx-left-t { margin-top: 12px; }
+.cx .target-bar-legend span { white-space: nowrap; }
+/* Plant Intelligence: focus */
+.cx-rt { position: relative; height: 8px; margin-top: 16px; border-radius: 99px; background: rgba(24, 29, 25, .12); }
+.cx-rf { position: absolute; inset: 0 auto 0 0; width: 76.2%; border-radius: 99px; background: #181D19; will-change: clip-path; }
+.cx-rm { position: absolute; top: -5px; bottom: -5px; left: 66.7%; width: 2px; border-radius: 2px; background: #181D19; }
+.cx-rl { position: relative; height: 16px; margin-top: 8px; font-size: 12px; color: var(--on-3); }
+.cx-rl span { position: absolute; left: 66.7%; transform: translateX(-50%); white-space: nowrap; }
+.cx-flip2 { display: grid; margin-top: 10px; }
+.cx-flip2 > * { grid-area: 1 / 1; will-change: transform, opacity; }
+.cx-fact { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(24, 29, 25, .1); font-size: 13px; color: var(--on-2); opacity: 0; will-change: transform, opacity; }
+.cx-fact:first-child { border-top: 0; }
+.cx-fact b { color: var(--on); font-weight: 600; }
+/* Plant Intelligence: facts */
+.cx-ringrow { display: flex; align-items: center; gap: 14px; padding: 4px 0 10px; }
+.cx-ring { width: 64px; height: 64px; flex: none; transform: rotate(-90deg); }
+.cx-ring circle { fill: none; stroke-width: 7; }
+.cx-ring .bg { stroke: var(--ef-surface-2); }
+.cx-ring .fg { stroke: var(--ef-amber-500); stroke-linecap: round; stroke-dasharray: 169.65; stroke-dashoffset: 169.65; }
+.cx-pct { font-size: 30px; line-height: 1; }
+.cx-names { display: flex; flex-wrap: nowrap; gap: 6px; height: 30px; margin-top: 10px; overflow: hidden; }
+.cx-names .ha-chip { height: 28px; font-size: 12px; padding: 0 10px 0 4px; opacity: 0; will-change: transform, opacity; }
+.cx-names .ha-av { width: 20px; height: 20px; font-size: 9px; }
+/* Plant Intelligence: Evry */
+.cx-card.evry-panel { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); padding: 16px; gap: 10px; }
+.cx-tw { position: relative; display: block; }
+.cx-tw .cx-ghost { visibility: hidden; }
+.cx-tw .cx-typed { position: absolute; inset: 0; }
+.cx-card .bubble { font-size: 13px; }
+.cx-a, .cx-rvw { opacity: 0; will-change: transform, opacity; }
+.cx-card .review-card .rc-line { font-size: 12.5px; }
+/* Plant Intelligence: sharing */
+.cx-card .share-row { font-size: 13px; padding: 10px 0; position: relative; isolation: isolate; }
+.cx-sw { position: relative; width: 36px; height: 22px; flex: none; border-radius: 99px; background: var(--ef-surface-2); box-shadow: 0 0 0 1px var(--ef-line) inset; overflow: hidden; }
+.cx-sw b { position: absolute; inset: 0; border-radius: 99px; background: var(--ef-green-500); opacity: 0; }
+.cx-sw i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); will-change: transform; }
+.cx-sw[data-on] b { opacity: 1; }
+.cx-sw[data-on] i { transform: translateX(14px); }
+.cx-sw[data-lock] { opacity: .6; }
+.cx-prev { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--ef-surface-2); }
+.cx-prev .row { margin-top: 6px; font-size: 13px; font-weight: 600; }
+.cx-prev .cx-swap { justify-items: end; }
+/* Mobile and tablet: panel above each step, no sticky */
+.cx-mob { display: none; }
+@media (max-width: 900px) {
+  .cx-left { grid-column: 1 / -1; }
+  .cx-right { display: none; }
+  .cx-head { position: static; border-bottom: 0; padding-bottom: 8px; }
+  .cx-head::before, .cx-head::after { display: none; }
+  .cx-steps { padding-bottom: 0 !important; }
+  .cx-step { border-top: 0; padding: 22px 0 18px; }
+  .cx-step:not(.on) .cx-txt { opacity: 1; }
+  .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
+  .cx-mob { position: relative; display: grid; place-items: center; padding: 44px 16px 28px; margin-bottom: 22px; border-radius: 26px; overflow: hidden; isolation: isolate; box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06); }
+  .cx-mob .cx-bg { opacity: 1; }
+  .cx-mob .cx-card { width: min(400px, 100%); opacity: 1; }
+}
+@media (max-width: 640px) {
+  .cx-card { padding: 16px 16px 18px; }
+  .cx-card.insight { padding: 18px; }
+  .cx .ha-li .faint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-txt, .cx-num b { transition: none !important; }
+  .cx-step:not(.on) .cx-txt { opacity: 1; }
+  .cx-step.cx-rv .cx-txt > * { opacity: 1; transform: none; transition: none !important; }
+}
 
 /* Chart parts used by the Vision meetings card */
 .ef .bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
@@ -1765,12 +1917,413 @@ window.EFHero = {
   play: function () { HA.paused = false; haPauseBtn(); haKick(); },
   length: HA_T
 };
-function weekSlot() {
-  return '<section class="sec sec-week" id="week"><div class="wrap">' + slot("Gather, Meet, Follow up, Commit", "A later task rebuilds this section as a scroll-driven chapter with a sticky, animated product panel.") + "</div></section>";
+/* ---------- Revision 2 chapters: sticky panel on the right, rising steps on the left ----------
+   Two sections share one engine: "Gather, meet, follow up, commit" (#week) and Plant Intelligence (#intelligence).
+   Each step has one panel. Each panel loops a short action ("you do this, and this is what you see").
+   cxScene(inst, t) is a pure function of the panel's loop time t (ms), like haRender.
+   Scroll picks the active step. The panel crossfades with the hero curves. Reduced motion renders each panel at its still time. */
+function cxCur() { return '<span class="cx-cur" aria-hidden="true"><i class="cx-ripple"></i><svg viewBox="0 0 24 24"><path d="M5.5 3.5v15.2c0 .6.7.9 1.1.5l3.6-3.5 2.5 5.6c.2.4.7.6 1.1.4l1.9-.9c.4-.2.6-.7.4-1.1l-2.5-5.5 5-.3c.6 0 .8-.7.4-1.1L6.6 2.9c-.4-.4-1.1-.1-1.1.6z"/></svg></span>'; }
+function cxHead(lead, title, sub, right) { return '<div class="cx-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div>" + (right || "") + "</div>"; }
+function cxIcon(tone, name) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
+function cxBtn(cls, a, b) { return '<span class="ha-btn cx-sm ' + cls + '"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">' + a + '</span><span class="ha-l2">' + icon("check") + b + "</span></span>"; }
+function cxSwap(a, b, cls) { return '<span class="cx-swap' + (cls ? " " + cls : "") + '"><span>' + a + "</span><span>" + b + "</span></span>"; }
+var CX_PEOPLE = [["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"], ["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"], ["tone-green", "Core group", 34, 34, "var(--ef-green-500)"]];
+var CX_BARS = [38, 44, 41, 52, 55, 50, 61, 66, 70];
+var CX_Q = "Why does Plant Intelligence say my follow-up is slipping?";
+var CX_A = "17 of 24 new guests heard from you within 48 hours. 7 have had no contact yet. I prepared a call for each one.";
+function cxTw(cls, text) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
+/* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
+var CX_MARK = {
+  people: function () {
+    return cxHead(cxIcon("tone-ink", "users"), "Where people are", 'Harvest Point · <span data-n="total">0</span> people', cxBtn("cx-t0", "Import list", "Added")) +
+      '<div class="cx-slot" data-st><span class="cx-pill">' + icon("check") + "24 people added from the sign-up form</span></div>" +
+      '<div class="cx-rows">' + CX_PEOPLE.map(function (r) {
+        return '<div data-st><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span><span class="num" data-n="r">0</span></div><div class="ha-meter"><span style="background:' + r[4] + '"></span></div></div>';
+      }).join("") + "</div>" +
+      '<div data-st><div class="card-inset cx-ins">14 interviewed people have not committed yet.</div></div>';
+  },
+  meet: function () {
+    return cxHead(cxIcon("tone-blue", "calendar"), "Vision meetings", "Every 14 days · attendance, last 10", '<span class="badge" data-size="sm" data-status="positive">On rhythm</span>') +
+      '<div data-st><div class="bars cx-bars"><div class="cx-goal"><i></i><span>Goal 50</span></div>' + CX_BARS.map(function (h) { return '<div class="bar hatch" style="height:' + h + '%"></div>'; }).join("") +
+      '<div class="bar solid" style="height:78%"><span class="lbl">0</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>' +
+      '<div class="list-row" data-st><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #11</div><div class="list-sub">Reyes home · 47 checked in</div></div>' + cxBtn("cx-t0", "Close attendance", "Closed") + "</div>" +
+      '<div class="cx-slot" data-st style="margin:10px 0 0"><span class="cx-pill">' + icon("task") + "A follow-up for each new guest</span></div>";
+  },
+  needs: function () {
+    var rows = [["tone-amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"], ["tone-blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"]];
+    var a = cxHead(cxIcon("tone-ink", "alert"), "Needs you", "4 things this week") +
+      '<div class="list-row cx-t0" data-st><span class="cx-hl"></span><span class="cx-ic">' + cxIcon("tone-magenta", "alert") + cxIcon("tone-green", "check") + '</span><div class="grow">' +
+      cxSwap('<span class="list-title">3 follow-ups overdue</span><span class="list-sub" style="display:block">James Okafor is the oldest at 3 days</span>', '<span class="list-title">3 calls assigned</span><span class="list-sub" style="display:block">Tom and Ana · due Oct 10</span>') + "</div>" + icon("arrow", "chev") + "</div>" +
+      rows.map(function (r) { return '<div class="list-row" data-st>' + cxIcon(r[0], r[1]) + '<div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("");
+    var b = '<div class="cx-h cx-st">' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry prepared 3 calls</div><div class="ha-sub">Nothing is saved until you approve.</div></div></div>' +
+      [["James Okafor", "Tom"], ["Kim Wu", "Tom"], ["Sara Nunez", "Ana"]].map(function (n) { return '<div class="ha-li cx-st"><span class="ha-check">' + icon("check") + '</span><span class="grow">Call ' + n[0] + '</span><span class="faint">' + n[1] + " · Oct 10</span></div>"; }).join("") +
+      '<div class="ha-acts cx-st"><span class="faint t-sm">3 follow-up tasks</span>' + cxBtn("cx-t1", "Create 3 tasks", "Created") + "</div>";
+    return '<div class="cx-views"><div class="cx-view cx-va">' + a + '</div><div class="cx-view cx-vb">' + b + "</div></div>";
+  },
+  core: function () {
+    return cxHead(cxIcon("tone-green", "users"), "Core group", "Committed adults") +
+      '<div class="cx-stat" data-st><span class="stat-value" data-n="core">0</span><span class="cx-pop"><span class="delta" data-dir="up">2 this week</span></span></div>' +
+      '<div data-st><div class="target-bar"><span class="fill hatch cx-fill"></span><span class="mark" style="left:83.3%"></span></div><div class="target-bar-legend"><span>0</span><span style="position:absolute;left:83.3%;transform:translateX(-50%)">Benchmark 50</span><span></span></div></div>' +
+      '<div class="list-row" data-st style="margin-top:8px"><span class="card-icon tone-amber">' + icon("task") + '</span><div class="grow"><div class="list-title">2 commitments to record</div><div class="list-sub">Maria Santos signed on Oct 6</div></div>' + cxBtn("cx-t0", "Record", "Recorded") + "</div>" +
+      '<div data-st><p class="faint t-sm cx-left-t"><span data-n="left">50</span> more to reach the benchmark</p></div>';
+  },
+  focus: function () {
+    var facts = [["Last vision meeting", "#11, 16 days ago"], ["Rhythm", "Every 14 days"], ["Next", "#12, Sun Oct 12"]];
+    return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
+      '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span> d</span><span class="unit">since the last vision meeting</span></div>' +
+      '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Every 14 days</span></div></div>' +
+      '<div class="insight-title" data-st>Hold your next vision meeting this week</div>' +
+      '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">The rhythm is one every 14 days. Vision meeting #12 is set for Sun Oct 12.</div><div class="cx-facts">' +
+      facts.map(function (f) { return '<div class="cx-fact"><span>' + f[0] + "</span><b>" + f[1] + "</b></div>"; }).join("") + "</div></div>" +
+      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div>';
+  },
+  facts: function () {
+    var kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>'], ["Rubric version", "v1", ""]];
+    var names = [["JO", "James Okafor"], ["KW", "Kim Wu"], ["SN", "Sara Nunez"]];
+    return cxHead(cxIcon("tone-amber", "alert"), "Follow-up is slipping", "The facts this finding used") +
+      '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct"><span data-n="pct">0</span>%</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
+      kv.map(function (r, i) { return '<div class="kv' + (i === 2 ? " cx-t0" : "") + '" data-st style="position:relative;isolation:isolate">' + (i === 2 ? '<span class="cx-hl"></span>' : "") + '<span class="k">' + r[0] + '</span><span class="row">' + r[2] + '<span class="v" data-n="kv">' + r[1] + "</span></span></div>"; }).join("") +
+      '<div class="cx-names" data-st>' + names.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">4 more</span></div>';
+  },
+  evry: function () {
+    return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
+      '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
+      '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
+      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 7 changes<span class="grow"></span><span style="font-weight:500">Assign follow-up calls</span></div>' +
+      '<div class="rc-body"><div class="rc-line">' + icon("task") + "<span>Assign <b>Call James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>6 more calls in this change</span></div></div>" +
+      '<div class="rc-foot">' + cxBtn("cx-t0", "Approve", "Approved") + '<span class="btn" data-variant="ghost">Edit</span></div></div>';
+  },
+  share: function () {
+    var rows = [["Phase and launch date", 1, 0], ["Health summary", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]];
+    return cxHead(cxIcon("tone-violet", "eye"), "Sharing with Grace Church", "You choose what leaves your plant") +
+      rows.map(function (r, i) { return '<div class="share-row" data-st>' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<span>" + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="cx-sw' + (i === 1 ? " cx-t0" : "") + '"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "><b></b><i></i></span></div>"; }).join("") +
+      '<div class="cx-prev" data-st><div class="t-xs faint">What Grace Church sees</div><div class="row between"><span>Harvest Point · Phase 1</span>' +
+      cxSwap('<span class="badge" data-size="sm" data-status="unknown">Health not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
+  }
+};
+/* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times. */
+var CX_SCN = {
+  people: { L: 6400, still: 4200, cur: [[0, "rest"], [700, "rest"], [1500, ".cx-t0"], [2500, ".cx-t0"], [3300, "rest"]], clicks: [2000] },
+  meet: { L: 6400, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2300] },
+  needs: { L: 7600, still: 4700, cur: [[0, "rest"], [350, "rest"], [1100, ".cx-t0"], [1500, ".cx-t0"], [2700, "mid"], [3400, ".cx-t1"], [4300, ".cx-t1"], [5100, "rest"]], clicks: [1300, 3800] },
+  core: { L: 6400, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2600, ".cx-t0"], [3400, "rest"]], clicks: [2200] },
+  focus: { L: 6800, still: 4400, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
+  facts: { L: 6600, still: 4400, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
+  evry: { L: 8400, still: 6400, cur: [[0, "rest"], [3900, "rest"], [4700, ".cx-t0"], [5600, ".cx-t0"], [6400, "rest"]], clicks: [5100] },
+  share: { L: 6600, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] }
+};
+/* Draft copy: not in marketing-copy.json yet. Facts come from the copy file and the dashboard mockup. */
+var CX_DEFS = {
+  week: { eyebrow: "The planter's week", title: "Gather, meet, follow up, commit.", steps: [
+    ["people", "field", "Gather", "Know everyone you are reaching.", "Add people from a form or a spreadsheet. See each person's stage, from prospect to core group."],
+    ["meet", "sky", "Meet", "Hold a vision meeting every 14 days.", "Record attendance at the door. When you close attendance, Everyfield creates a follow-up for each new guest."],
+    ["needs", "dawn", "Follow up", "Call every new guest while it matters.", "See what is overdue and who owns it. Evry prepares the calls. You approve them."],
+    ["core", "lilac", "Commit", "Count committed adults against the benchmark.", "Record each signed commitment and see your core group move toward the benchmark of 50."]] },
+  intelligence: { eyebrow: "Plant Intelligence", title: "One focus a week, with the facts behind it.", steps: [
+    ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
+    ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
+    ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
+    ["share", "dawn", "Sharing", "You see it first.", "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."]] }
+};
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function chapterSection(id, cls) {
+  var d = CX_DEFS[id];
+  return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
+    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + '<span class="page-tag">Draft copy</span></span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
+    '<ol class="cx-steps">' + d.steps.map(function (s, i) {
+      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="sample-tag">Sample data</span><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
+        '<div class="cx-txt"><span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3><p>" + t(s[4]) + "</p></div></li>";
+    }).join("") + "</ol></div>" +
+    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true"><span class="sample-tag">Sample data</span>' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
+    d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
-function intelligenceSlot() {
-  return '<section class="sec sec-intelligence" id="intelligence"><div class="wrap">' + slot("Plant Intelligence", "A later task rebuilds this section with the same scroll pattern as Gather, Meet, Follow up, Commit.") + "</div></section>";
+function weekChapter() { return chapterSection("week", "sec-week"); }
+function intelligenceChapter() { return chapterSection("intelligence", "sec-intelligence"); }
+
+/* ---------- Panel renderers ---------- */
+var cxRst = function (t, a) { return 1 - haSine(haP(t, a, 450)); };
+function cxQ(inst, s) { var c = inst.q[s]; if (c === undefined) { c = inst.q[s] = inst.el.querySelector(s); } return c; }
+function cxQA(inst, s) { var c = inst.qa[s]; if (!c) { c = inst.qa[s] = Array.prototype.slice.call(inst.el.querySelectorAll(s)); } return c; }
+function cxPress(el, t, at, d) { haSet(el, "transform", "scale(" + (1 - (d || .05) * haBump(t, at, 200)).toFixed(4) + ")"); }
+/* Button press, then the label swaps and a check fill and shine confirm it (same as the hero's Approve and send). */
+function cxDone(inst, sel, t, at, R) {
+  var b = cxQ(inst, sel); if (!b) return;
+  cxPress(b, t, at);
+  var ok = haOut(haP(t, at + 160, 320)) * R;
+  haSet(b.querySelector(".ha-ok"), "opacity", ok.toFixed(3));
+  haTO(b.querySelector(".ha-l1"), 0, -8 * ok, 1, 1 - ok);
+  haTO(b.querySelector(".ha-l2"), 0, 8 * (1 - ok), .9 + .1 * haBack(haP(t, at + 160, 380)) * R + (1 - R) * .1, ok);
+  haSet(b.querySelector(".ha-shine"), "transform", "translate3d(" + (-120 + 400 * haInOut(haP(t, at + 330, 650))).toFixed(1) + "%,0,0)");
 }
+function cxPop(el, t, at, R) { var p = haP(t, at, 380); haTO(el, 0, 0, .7 + .3 * haBack(p), haClamp(p * 2.5) * R); }
+function cxRise(el, t, at, R) { var p = haOut(haP(t, at, 420)); haTO(el, 0, (1 - p) * 8, 1, p * R); }
+function cxFlip(sw, p) { var k = sw && sw.children; if (!k) return; haTO(k[0], 0, -7 * p, 1, 1 - p); haTO(k[1], 0, 7 * (1 - p), 1, p); }
+function cxN(el, v) { haSet(el, "text", String(Math.round(v))); }
+function cxType(el, s, p) { haSet(el, "text", s.slice(0, Math.floor(p * s.length))); }
+function cxHl(el, t, a, b, R) { haSet(el, "opacity", (haOut(haP(t, a, 250)) * (1 - haSine(haP(t, b, 300))) * (R === undefined ? 1 : R)).toFixed(3)); }
+var CX_RENDER = {
+  people: function (I, t) {
+    var R = cxRst(t, 5800), imp = haInOut(haP(t, 2350, 800)), tot = 0;
+    cxQA(I, ".cx-rows [data-n]").forEach(function (n, k) {
+      var r = CX_PEOPLE[k], p = haOut(haP(t, 300 + k * 90, 900)), v = (r[3] * p + (k === 0 ? (r[2] - r[3]) * imp : 0)) * R;
+      tot += v; cxN(n, v);
+      haSet(cxQA(I, ".ha-meter > span")[k], "transform", "translate3d(" + (-100 + v / 82 * 100).toFixed(2) + "%,0,0)");
+    });
+    cxN(cxQ(I, '[data-n="total"]'), tot + 20 * haOut(haP(t, 300, 900)) * R);
+    cxDone(I, ".cx-t0", t, 2000, R);
+    cxPop(cxQ(I, ".cx-pill"), t, 2250, R);
+    cxRise(cxQ(I, ".cx-ins"), t, 3300, R);
+  },
+  meet: function (I, t) {
+    var R = cxRst(t, 5800), bars = cxQA(I, ".cx-bars .bar");
+    haSet(cxQ(I, ".cx-goal i"), "transform", "scaleX(" + (haInOut(haP(t, 200, 700)) * R).toFixed(4) + ")");
+    bars.forEach(function (b, k) {
+      var p = k < 9 ? haOut(haP(t, 250 + k * 60, 520)) : haOut(haP(t, 2550, 600));
+      haSet(b, "transform", "scaleY(" + (p * R).toFixed(4) + ")");
+    });
+    var lbl = cxQ(I, ".cx-bars .lbl");
+    cxN(lbl, 47 * haOut(haP(t, 2600, 700)));
+    haSet(lbl, "opacity", (haP(t, 2700, 300) * R).toFixed(3));
+    cxDone(I, ".cx-t0", t, 2300, R);
+    cxPop(cxQ(I, ".cx-pill"), t, 3200, R);
+  },
+  needs: function (I, t) {
+    var a1 = haSine(haP(t, 1450, 250)), b0 = haOut(haP(t, 1600, 380)), b1 = haSine(haP(t, 5000, 250)), a0 = haOut(haP(t, 5150, 380));
+    var pre = t < 5150;
+    haTO(cxQ(I, ".cx-va"), 0, pre ? -6 * a1 : (1 - a0) * 8, 1, pre ? 1 - a1 : a0);
+    haTO(cxQ(I, ".cx-vb"), 0, (1 - b0) * 8 - 6 * b1, 1, b0 * (1 - b1));
+    cxQA(I, ".cx-vb .cx-st").forEach(function (el, k) { cxRise(el, t, 1690 + k * 75, 1); });
+    cxQA(I, ".cx-vb .ha-check").forEach(function (c, k) { cxPop(c, t, 2100 + k * 260, 1); });
+    cxHl(cxQ(I, ".cx-va .cx-hl"), t, 950, 1500);
+    cxDone(I, ".cx-t1", t, 3800, 1);
+    haSet(cxQ(I, ".cx-vb .evry-bot"), "mood", t >= 1750 && t < 2950 ? "talking" : t >= 3950 && t < 4950 ? "happy" : "idle");
+    var s = haOut(haP(t, 5300, 380)) * (1 - haSine(haP(t, 7050, 380)));
+    cxFlip(cxQ(I, ".cx-va .cx-swap"), s); cxFlip(cxQ(I, ".cx-va .cx-ic"), s);
+  },
+  core: function (I, t) {
+    var R = cxRst(t, 5800), base = 32 * haOut(haP(t, 300, 900));
+    var tick = (t >= 2550 ? 1 : 0) + (t >= 2950 ? 1 : 0), grow = haOut(haP(t, 2550, 350)) + haOut(haP(t, 2950, 350));
+    var n = Math.round((Math.round(base) + tick) * R), v = (base + grow) * R;
+    cxN(cxQ(I, '[data-n="core"]'), n);
+    cxN(cxQ(I, '[data-n="left"]'), 50 - n);
+    haSet(cxQ(I, ".cx-stat .stat-value"), "transform", "scale(" + (1 + .06 * (haBump(t, 2550, 260) + haBump(t, 2950, 260))).toFixed(4) + ")");
+    haSet(cxQ(I, ".cx-fill"), "clipPath", "inset(0 " + ((1 - v / 34) * 100).toFixed(2) + "% 0 0 round 99px)");
+    cxDone(I, ".cx-t0", t, 2200, R);
+    cxPop(cxQ(I, ".cx-pop"), t, 3200, R);
+  },
+  focus: function (I, t) {
+    var R = cxRst(t, 6200), d = 16 * haOut(haP(t, 300, 1200)) * R;
+    cxN(cxQ(I, '[data-n="days"]'), d);
+    haSet(cxQ(I, ".cx-rf"), "clipPath", "inset(0 " + ((1 - d / 16) * 100).toFixed(2) + "% 0 0 round 99px)");
+    cxPress(cxQ(I, ".cx-t0"), t, 2400);
+    var s = haOut(haP(t, 2550, 380)) * R, f = cxQ(I, ".cx-flip2").children;
+    haTO(f[0], 0, -6 * s, 1, 1 - s);
+    cxQA(I, ".cx-fact").forEach(function (el, k) { cxRise(el, t, 2640 + k * 75, R); });
+  },
+  facts: function (I, t) {
+    var R = cxRst(t, 6000), p = haOut(haP(t, 300, 1100)) * R;
+    haSet(cxQ(I, ".cx-ring .fg"), "strokeDashoffset", (169.65 * (1 - .71 * p)).toFixed(2));
+    cxN(cxQ(I, '[data-n="pct"]'), 71 * p);
+    cxQA(I, '[data-n="kv"]').forEach(function (el, k) { if (k < 3) cxN(el, [24, 17, 7][k] * haOut(haP(t, 300 + k * 90, 900)) * R); });
+    cxHl(cxQ(I, ".cx-hl"), t, 1650, 5800, R);
+    cxQA(I, ".cx-names .ha-chip").forEach(function (c, k) { cxPop(c, t, 2500 + k * 120, R); });
+  },
+  evry: function (I, t) {
+    var R = cxRst(t, 7800);
+    cxType(cxQ(I, ".cx-q"), CX_Q, haP(t, 450, 1300));
+    cxRise(cxQ(I, ".cx-a"), t, 1950, R);
+    cxType(cxQ(I, ".cx-ans"), CX_A, haP(t, 2150, 1500));
+    cxRise(cxQ(I, ".cx-rvw"), t, 3750, R);
+    cxDone(I, ".cx-t0", t, 5100, R);
+    haSet(cxQ(I, ".evry-bot"), "mood", t >= 2050 && t < 3700 ? "talking" : t >= 5300 && t < 6400 ? "happy" : "idle");
+  },
+  share: function (I, t) {
+    var R = cxRst(t, 6000), on = haP(t, 2300, 380) * R, sw = cxQ(I, ".cx-t0");
+    haSet(sw.querySelector("b"), "opacity", haOut(on).toFixed(3));
+    haSet(sw.querySelector("i"), "transform", "translate3d(" + (14 * haBack(on)).toFixed(2) + "px,0,0)");
+    cxPress(sw, t, 2200, .08);
+    cxHl(cxQ(I, ".cx-hl"), t, 1550, 3000);
+    cxFlip(cxQ(I, ".cx-prev .cx-swap"), haOut(haP(t, 2600, 380)) * R);
+  }
+};
+/* Cursor: glides between cached target points with the hero's in-out curve, presses, and leaves a short ripple. */
+function cxCursor(I, t) {
+  var S = CX_SCN[I.kind], el = cxQ(I, ".cx-cur"); if (!el || !I.pos) return;
+  var pt = function (k) { return I.pos[k] || I.pos.rest; };
+  var path = S.cur, x = pt(path[0][1]).x, y = pt(path[0][1]).y;
+  for (var i = 0; i < path.length - 1; i++) {
+    if (t < path[i][0]) break;
+    var a = pt(path[i][1]), b = pt(path[i + 1][1]), p = haInOut(haP(t, path[i][0], path[i + 1][0] - path[i][0]));
+    x = a.x + (b.x - a.x) * p; y = a.y + (b.y - a.y) * p;
+  }
+  var press = 0, rp = -1;
+  S.clicks.forEach(function (c) { press = Math.max(press, haBump(t, c, 200)); if (t >= c && t < c + 520) rp = haP(t, c, 520); });
+  var o = haOut(haP(t, 250, 300)) * (1 - haSine(haP(t, S.L - 420, 300)));
+  haTO(el, x, y, 1 - .12 * press, o);
+  haTO(el.firstChild, 0, 0, .4 + 1.1 * haOut(Math.max(rp, 0)), rp >= 0 ? .9 * (1 - rp) : 0);
+}
+function cxScene(I, t) { CX_RENDER[I.kind](I, t); cxCursor(I, t); }
+function cxMeasure(I) {
+  var card = I.el, W = card.offsetWidth, H = card.offsetHeight;
+  if (!W) return;
+  var pos = { rest: { x: W * .8, y: H - 18 }, mid: { x: W * .62, y: H * .55 } };
+  [".cx-t0", ".cx-t1"].forEach(function (s) {
+    var e = card.querySelector(s); if (!e) return;
+    var o = haOffset(e, card); pos[s] = { x: o.x + Math.min(e.offsetWidth * .5, e.offsetWidth - 18), y: o.y + e.offsetHeight * .55 };
+  });
+  I.pos = pos;
+}
+
+/* ---------- Engine ---------- */
+var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, ro: null, rio: null, ticking: false };
+function cxInst(el) { return { el: el, kind: el.dataset.k, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: Array.prototype.slice.call(el.querySelectorAll("[data-st]")) }; }
+function cxDesk(ch) { return !!ch.vis.offsetParent; }
+function cxStill(I) { return CX_SCN[I.kind].still; }
+/* Panel crossfade, with the hero's curves: old card out 250 ms sine (6 px up), new card in after 150 ms, 380 ms ease-out (8 px lift), children 75 ms apart. */
+function cxRender(ch) {
+  var s = ch.since;
+  ch.insts.forEach(function (I, i) {
+    var o = 0, y = 0;
+    if (i === ch.active) { var pin = haOut(haP(s, 150, 380)); o = pin; y = (1 - pin) * 8; }
+    else if (i === ch.prev) { var po = haSine(haP(s, 0, 250)); o = 1 - po; y = -6 * po; }
+    haTO(I.el, 0, y, 1, o);
+    haSet(I.el, "visibility", o > 0 ? "visible" : "hidden");
+    if (i === ch.active) {
+      I.st.forEach(function (el, k) { var p = haOut(haP(s, 240 + k * 75, 420)); haTO(el, 0, (1 - p) * 8, 1, p); });
+      cxScene(I, I.t);
+    }
+  });
+  ch.bgs.forEach(function (b, i) {
+    var o = i === ch.active ? haInOut(haP(s, 0, 500)) : i === ch.prev ? 1 : 0;
+    haSet(b, "opacity", o.toFixed(3)); haSet(b, "zIndex", i === ch.active ? "-1" : "-2");
+  });
+}
+function cxRenderMob(I) {
+  I.st.forEach(function (el, k) { var p = haOut(haP(I.since, 90 + k * 75, 420)); haTO(el, 0, (1 - p) * 8, 1, p); });
+  cxScene(I, I.t);
+}
+function cxSetActive(ch, k) {
+  if (k === ch.active) return;
+  ch.prev = ch.active; ch.active = k;
+  ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === k); });
+  var I = ch.insts[k];
+  if (REDUCED.matches) { ch.since = 1e6; I.t = cxStill(I); cxRender(ch); return; }
+  ch.since = 0; I.t = 0;
+  cxKick();
+}
+function cxScroll() {
+  CX.ticking = false;
+  if (CX.lock) return;
+  CX.list.forEach(function (ch) {
+    if (!cxDesk(ch)) return;
+    /* A step becomes active when its top passes half a step below the sticky heading. */
+    var line = Math.min(ch.head.getBoundingClientRect().bottom + ch.steps[0].offsetHeight * .5, window.innerHeight * .6), k = 0;
+    ch.steps.forEach(function (s, i) { if (s.getBoundingClientRect().top < line) k = i; });
+    cxSetActive(ch, k);
+  });
+}
+function cxRunning() { return !CX.paused && !document.hidden && !REDUCED.matches; }
+function cxFrame(now) {
+  CX.raf = 0;
+  if (!cxRunning()) return;
+  var dt = Math.min(now - CX.last, 50), any = false;
+  CX.last = now;
+  CX.list.forEach(function (ch) {
+    if (!ch.root.isConnected) return;
+    if (ch.on && cxDesk(ch)) {
+      any = true;
+      var I = ch.insts[ch.active];
+      ch.since += dt; I.t = (I.t + dt) % CX_SCN[I.kind].L;
+      cxRender(ch);
+    }
+    ch.mobs.forEach(function (M) {
+      if (!M.on || cxDesk(ch)) return;
+      any = true;
+      M.since += dt; M.t = (M.t + dt) % CX_SCN[M.kind].L;
+      cxRenderMob(M);
+    });
+  });
+  if (any) CX.raf = requestAnimationFrame(cxFrame);
+}
+function cxKick() {
+  if (CX.raf || !cxRunning()) return;
+  CX.last = performance.now();
+  CX.raf = requestAnimationFrame(cxFrame);
+}
+/* Pad the step list so the last step sits under the heading when the panel unpins: no long empty gap. */
+function cxMeasureAll() {
+  CX.list.forEach(function (ch) {
+    ch.insts.concat(ch.mobs).forEach(cxMeasure);
+    var ol = ch.steps[0].parentNode;
+    ol.style.paddingBottom = cxDesk(ch) ? Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight - ch.steps[ch.steps.length - 1].offsetHeight) + "px" : "";
+  });
+}
+function cxPaintAll() {
+  CX.list.forEach(function (ch) {
+    if (REDUCED.matches) { ch.since = 1e6; ch.insts[ch.active].t = cxStill(ch.insts[ch.active]); ch.mobs.forEach(function (M) { M.since = 1e6; M.t = cxStill(M); }); }
+    cxRender(ch); ch.mobs.forEach(cxRenderMob);
+  });
+}
+function cxInit() {
+  if (CX.raf) cancelAnimationFrame(CX.raf);
+  CX.raf = 0; CX.lock = false;
+  [CX.io, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
+  CX.list = Array.prototype.map.call(document.querySelectorAll("#view .cx"), function (root) {
+    var vis = root.querySelector(".cx-vis");
+    return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
+      insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
+      active: 0, prev: -1, since: 1e6, on: false, seen: false };
+  });
+  if (!CX.list.length) return;
+  cxMeasureAll();
+  CX.list.forEach(function (ch) { ch.insts.concat(ch.mobs).forEach(function (I) { I.t = REDUCED.matches ? cxStill(I) : 0; }); });
+  cxPaintAll();
+  var hasIO = "IntersectionObserver" in window;
+  /* Steps rise and fade in as they enter */
+  if (hasIO && !REDUCED.matches) {
+    CX.rio = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); CX.rio.unobserve(e.target); } }); }, { rootMargin: "0px 0px -10% 0px", threshold: 0.05 });
+    CX.list.forEach(function (ch) { ch.steps.forEach(function (s) { if (s.getBoundingClientRect().top < window.innerHeight * .9) return; s.classList.add("cx-rv"); CX.rio.observe(s); }); });
+  }
+  if (hasIO) {
+    CX.io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        var I = e.target.__cx;
+        if (I) { if (e.isIntersecting && !I.on && !REDUCED.matches) { I.since = 0; I.t = 0; } I.on = e.isIntersecting; return; }
+        var ch = e.target.__ch; if (!ch) return;
+        if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; }
+        ch.on = e.isIntersecting;
+      });
+      cxKick();
+    }, { threshold: 0.12 });
+    CX.list.forEach(function (ch) {
+      ch.vis.__ch = ch; CX.io.observe(ch.vis);
+      ch.mobs.forEach(function (M) { M.el.__cx = M; CX.io.observe(M.el); });
+    });
+  } else CX.list.forEach(function (ch) { ch.on = true; ch.mobs.forEach(function (M) { M.on = true; }); });
+  if ("ResizeObserver" in window) {
+    CX.ro = new ResizeObserver(function () { cxMeasureAll(); cxScroll(); if (!CX.raf) cxPaintAll(); });
+    CX.list.forEach(function (ch) { CX.ro.observe(ch.root); });
+  }
+  cxScroll();
+  cxKick();
+}
+window.addEventListener("scroll", function () { if (!CX.ticking && CX.list.length) { CX.ticking = true; requestAnimationFrame(cxScroll); } }, { passive: true });
+document.addEventListener("visibilitychange", cxKick);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { cxMeasureAll(); if (!CX.raf) cxPaintAll(); });
+/* Review hook for frame captures: EFChapters.seek("week", step, ms[, sinceMs, prevStep]) renders one frame and pauses. */
+window.EFChapters = {
+  seek: function (id, step, ms, since, prev) {
+    var ch = CX.list.filter(function (c) { return c.id === id; })[0]; if (!ch) return false;
+    CX.paused = true; CX.lock = true;
+    ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === step); s.classList.add("in"); });
+    ch.active = step; ch.prev = prev === undefined ? -1 : prev; ch.since = since === undefined ? 1e6 : since;
+    ch.insts[step].t = ms; cxRender(ch);
+    ch.mobs.forEach(function (M, i) { if (i === step) { M.since = 1e6; M.t = ms; cxRenderMob(M); } });
+    return true;
+  },
+  play: function () { CX.paused = false; CX.lock = false; cxScroll(); cxKick(); },
+  scenes: CX_SCN
+};
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
@@ -1880,13 +2433,13 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim" }) + problem(s.problem) + weekSlot() + proof(s.proof, story) + features(s.features) + intelligenceSlot() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim" }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
   var a = s.audiences.items[0];
   return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points, tag: "Page mock · /planters · story A copy" }) +
-    problem(s.problem) + weekSlot() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + cta(s.cta);
+    problem(s.problem) + weekChapter() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + cta(s.cta);
 }
 function pageOversight() {
   var s = DIR.oversight.sections;
@@ -2005,7 +2558,7 @@ function render(scrollMode) {
     var target = document.getElementById(state.at);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) { setupMotion(); seedBots(); haInit(); }
+  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); }
   last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
@@ -2064,7 +2617,7 @@ document.addEventListener("submit", function (e) {
   if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
 });
 window.addEventListener("hashchange", onHash);
-if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); });
+if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); cxInit(); });
 
 state = parseHash();
 history.replaceState(null, "", hrefFor(state.page, state.at));
