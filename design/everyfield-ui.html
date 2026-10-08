@@ -424,7 +424,7 @@ body[data-data="noaccess"] .page[data-states] > [data-state-view~="noaccess"],
 body[data-data="empty"]    .page[data-states] > [data-state-view~="empty"],
 body[data-data="firstweek"] .page[data-states] > [data-state-view~="firstweek"] { display: block; }
 body:not([data-data="live"]) .page[data-states] .page-actions [data-live-only] { display: none; }
-body[data-role="member"] [data-edit] { display: none !important; }
+body[data-role="member"] [data-edit], body[data-role="member"] [data-org-admin] { display: none !important; }
 body[data-role="member"] .page[data-page="people"] table tr > :first-child { display: none; }
 .role-banner { display: none; align-items: center; gap: 12px; margin: 0 0 18px; padding: 12px 16px 12px 14px; border-radius: 16px; background: var(--ef-blue-50); box-shadow: 0 0 0 1px var(--ef-blue-100) inset; color: var(--ef-ink-2); font-size: var(--ef-text-md); }
 .role-banner i { font-size: 18px; color: var(--ef-blue-600); }
@@ -1221,6 +1221,47 @@ body[data-shell="bare"] .main { max-width: none; }
 .notif-item .nt { font-size: var(--ef-text-md); line-height: 1.4; }
 .notif-item .nm { font-size: var(--ef-text-xs); color: var(--ef-text-3); margin-top: 3px; }
 
+
+
+/* ---- Wiki sources and editor (<WikiSourceBar>, <WikiEditor>, <PublishReview>) ---- */
+.source-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px 10px 10px; margin-bottom: 20px; border-radius: 18px; background: var(--ef-surface); box-shadow: var(--ef-shadow-card); }
+.source-btn { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px 0 8px; border-radius: 13px; border: 0; cursor: pointer; font: inherit; background: var(--ef-surface-2); color: var(--ef-ink); }
+.source-btn .org { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--ef-violet-100); color: var(--ef-violet-600); }
+.source-btn .org[data-kind="global"] { background: var(--ef-green-100); color: var(--ef-green-700); }
+.source-btn b { font-weight: 600; }
+.source-meta { color: var(--ef-text-2); font-size: var(--ef-text-sm); }
+.source-bar[data-view="named"] { box-shadow: var(--ef-shadow-card), 0 0 0 1.5px var(--ef-blue-300) inset; }
+.source-opt { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; cursor: pointer; }
+.source-opt:hover { background: var(--ef-surface-2); }
+.source-opt .org { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--ef-violet-100); color: var(--ef-violet-600); }
+.source-opt .org[data-kind="global"] { background: var(--ef-green-100); color: var(--ef-green-700); }
+.source-opt .so-t { font-weight: 500; color: var(--ef-ink); }
+.source-opt .so-s { font-size: var(--ef-text-xs); color: var(--ef-text-2); }
+.editor-shell { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 20px; align-items: start; }
+.editor-toolbar { position: sticky; top: 96px; z-index: 3; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 6px; border-radius: 16px; background: var(--ef-surface-raised); box-shadow: var(--ef-shadow-raised), 0 0 0 1px var(--ef-line) inset; margin-bottom: 18px; }
+.editor-toolbar button { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--ef-ink-2); cursor: pointer; display: grid; place-items: center; }
+.editor-toolbar button i { font-size: 18px; }
+.editor-toolbar button:hover, .editor-toolbar button[aria-pressed="true"] { background: var(--ef-surface-2); color: var(--ef-ink); }
+.editor-toolbar .tsep { width: 1px; height: 22px; background: var(--ef-line-2); margin: 0 6px; }
+.editor-toolbar .tblock { width: auto; padding: 0 10px; gap: 6px; display: inline-flex; align-items: center; font: inherit; font-size: 14px; font-weight: 500; }
+.editor-title { font-family: var(--ef-font-display); font-size: 38px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.12; color: var(--ef-ink); border: 0; outline: 0; background: none; width: 100%; padding: 0; margin: 0 0 14px; }
+.editor-body { min-height: 520px; outline: 0; }
+.editor-body > * { position: relative; }
+.editor-body [data-change]::before { content: ""; position: absolute; left: -22px; top: 4px; bottom: 4px; width: 3px; border-radius: 3px; background: var(--ef-blue-500); }
+.editor-body [data-change="added"]::before { background: var(--ef-green-500); }
+.editor-body .ins-block { display: flex; align-items: center; gap: 8px; color: var(--ef-text-3); font-size: 14px; padding: 8px 0; }
+.editor-body .ins-block .kbd { font-size: 11px; }
+.change-key { display: flex; gap: 14px; font-size: var(--ef-text-xs); color: var(--ef-text-2); }
+.change-key span { display: inline-flex; align-items: center; gap: 6px; }
+.change-key i { width: 3px; height: 12px; border-radius: 2px; display: inline-block; }
+.rev-row { display: grid; grid-template-columns: 10px minmax(0,1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--ef-line); font-size: var(--ef-text-sm); }
+.rev-row:first-child { border-top: 0; }
+.rev-row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: var(--ef-text-3); }
+.rev-row[data-current] .dot { background: var(--ef-green-500); }
+.rev-row[data-draft] .dot { background: var(--ef-amber-500); }
+.review-list { display: flex; flex-direction: column; gap: 8px; }
+.review-item { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--ef-surface-2); font-size: var(--ef-text-md); }
+.review-item i { font-size: 16px; }
 
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
 .modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
@@ -2766,6 +2807,13 @@ body[data-shell="bare"] .main { max-width: none; }
       <button class="icon-btn" title="Download PDF"><i class="hgi-stroke hgi-printer"></i></button>
     </div>
   </header>
+  <div class="source-bar" id="source-bar" data-view="default">
+    <button class="source-btn" data-pop-anchor onclick="openPop('source-pop', this)" aria-haspopup="dialog"><span class="org" id="src-org">AS</span><span><span class="source-meta">Source</span> <b id="src-name">Austin Sending Network</b></span><i class="hgi-stroke hgi-arrow-down-01" style="color:var(--ef-text-3)"></i></button>
+    <span class="source-meta grow" id="src-meta">Edited version 3 · published Sep 12 · your preferred source</span>
+    <button class="btn" data-variant="ghost" data-size="sm" id="src-back" style="display:none" onclick="setWikiSource('org')">Back to your preferred source</button>
+    <span class="row gap-2" data-org-admin><span class="badge" data-size="sm" data-plain="true"><i class="hgi-stroke hgi-building-03" style="font-size:12px"></i>Network admin</span><button class="btn" data-variant="ghost" data-size="sm" onclick="openDialog('hide-dialog')"><i class="hgi-stroke hgi-view-off"></i>Hide</button><a class="btn" data-variant="secondary" data-size="sm" href="#/wiki/edit"><i class="hgi-stroke hgi-edit-02"></i>Edit</a></span>
+  </div>
+
 
   <div class="grid" style="grid-template-columns: 250px minmax(0,1fr) 280px; align-items:start">
     <div class="card" data-size="sm" style="padding:14px 10px;position:sticky;top:100px">
@@ -3535,6 +3583,10 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Feedback</td><td class="cell-title">Role banner</td><td><code class="k">&lt;RoleBanner&gt;</code></td><td class="muted t-sm">Icon, Text, Action</td><td class="muted t-sm">role member</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Alert</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">Setup checklist</td><td><code class="k">&lt;SetupChecklist&gt;</code></td><td class="muted t-sm">Step: number, title, hint, action</td><td class="muted t-sm">done</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Zero metric</td><td><code class="k">&lt;Metric zero&gt;</code></td><td class="muted t-sm">Number, Explanation</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Content</td><td class="cell-title">Wiki source bar</td><td><code class="k">&lt;WikiSourceBar&gt;</code></td><td class="muted t-sm">Source menu, Meta, Back to preferred, Admin tools</td><td class="muted t-sm">view default/named</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Popover</span></td></tr>
+<tr><td class="faint t-sm">Content</td><td class="cell-title">Wiki editor</td><td><code class="k">&lt;WikiEditor&gt;</code></td><td class="muted t-sm">Toolbar, Title, Body blocks, Change marks, Side panel (version, readers, history, hide)</td><td class="muted t-sm">status draft/published</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Tiptap or Lexical (choose at build)</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Publish review</td><td><code class="k">&lt;PublishReview&gt;</code></td><td class="muted t-sm">Change list, Audience, Confirmation</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Hide dialog</td><td><code class="k">&lt;ConfirmDialog tone=danger&gt;</code></td><td class="muted t-sm">Consequences list, Action</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">AlertDialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -3683,6 +3735,88 @@ body[data-shell="bare"] .main { max-width: none; }
         <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Share a public RSVP link</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
         <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Close a follow-up with an outcome</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
         <a class="list-row" href="#/help/article" style="padding:10px 0"><div class="grow"><div class="list-title t-sm">Review possible duplicates</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =================================================================
+     PAGE: WIKI EDITOR  (#/wiki/edit) · Owners and Admins of a sending church or network (PD-017)
+     ================================================================= -->
+<section class="page" data-page="wiki-edit">
+  <header class="page-header">
+    <div class="titles">
+      <div class="breadcrumb"><a href="#/wiki">Wiki</a><i class="hgi-stroke hgi-arrow-right-01"></i><span>Phase 1 · Vision meetings</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Edit</span></div>
+      <h1 class="page-title">Editing for Austin Sending Network</h1>
+      <p class="page-sub row gap-3" style="display:flex;align-items:center"><span class="badge" data-size="sm" data-status="attention">Draft</span><span><i class="hgi-stroke hgi-cloud-saving-done-01" style="font-size:14px;vertical-align:-2px"></i> Saved 2 min ago</span><span>·</span><span>Only your network's Owners and Admins can see this draft</span></p>
+    </div>
+    <div class="page-actions">
+      <button class="btn" data-variant="ghost">Discard draft</button>
+      <button class="btn" data-variant="secondary" onclick="location.hash='#/wiki'"><i class="hgi-stroke hgi-eye"></i>Preview</button>
+      <button class="btn" data-variant="primary" onclick="openDialog('publish-dialog')">Review and publish</button>
+    </div>
+  </header>
+
+  <div class="card" data-variant="callout" data-tone="blue" style="margin-bottom:20px"><div class="row gap-3" style="align-items:center"><span class="ci" style="flex:none"><i class="hgi-stroke hgi-globe-02"></i></span><p class="callout-text t-sm grow" style="margin:0"><b style="font-weight:600">Everyfield published global version 5 on Oct 2.</b> Your edited version is unchanged. Read the global version to decide if you want to bring anything over.</p><button class="btn" data-variant="secondary" data-size="sm" onclick="location.hash='#/wiki'; setTimeout(()=>setWikiSource('global'),50)">Read global v5</button></div></div>
+
+  <div class="editor-shell">
+    <article class="card" style="padding:22px 44px 44px">
+      <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
+        <button class="tblock" title="Text style"><i class="hgi-stroke hgi-heading-02"></i>Heading 2 <i class="hgi-stroke hgi-arrow-down-01" style="font-size:14px"></i></button>
+        <span class="tsep"></span>
+        <button title="Bold (⌘B)"><i class="hgi-stroke hgi-text-bold"></i></button>
+        <button title="Italic (⌘I)"><i class="hgi-stroke hgi-text-italic"></i></button>
+        <button title="Link (⌘K)"><i class="hgi-stroke hgi-link-01"></i></button>
+        <span class="tsep"></span>
+        <button title="Bulleted list"><i class="hgi-stroke hgi-left-to-right-list-bullet"></i></button>
+        <button title="Numbered list"><i class="hgi-stroke hgi-left-to-right-list-number"></i></button>
+        <button title="Quote"><i class="hgi-stroke hgi-quote-down"></i></button>
+        <button title="Callout"><i class="hgi-stroke hgi-information-circle"></i></button>
+        <button title="Image"><i class="hgi-stroke hgi-image-01"></i></button>
+        <span class="tsep"></span>
+        <button title="Undo (⌘Z)"><i class="hgi-stroke hgi-arrow-turn-backward"></i></button>
+        <button title="Redo (⇧⌘Z)"><i class="hgi-stroke hgi-arrow-turn-forward"></i></button>
+        <span class="grow"></span>
+        <span class="change-key" style="padding-right:8px"><span><i style="background:var(--ef-blue-500)"></i>Changed from global</span><span><i style="background:var(--ef-green-500)"></i>Added by your network</span></span>
+      </div>
+      <input class="editor-title" value="Run your first vision meeting" aria-label="Article title">
+      <div class="editor-body prose" contenteditable="true" spellcheck="true" style="max-width:700px;margin:0" aria-label="Article body">
+        <p style="font-size:18px;color:var(--ef-ink)">A vision meeting is a short, warm gathering where you share why this church should exist. The goal is not a crowd. The goal is people who leave asking how they can help.</p>
+        <h2>Before the meeting</h2>
+        <p data-change="changed">Pick a home with room for about 40 adults. In Austin, many of our plants use a school cafeteria instead; book it at least six weeks ahead.</p>
+        <ul><li>Print response cards and a guest sign-in sheet.</li><li>Plan childcare so parents can listen.</li></ul>
+        <h2 data-change="added">Childcare checklist for network plants</h2>
+        <ul data-change="added"><li>Two trusted adults in every room, never one alone.</li><li>A sign-in sheet with a parent phone number.</li><li>Our network's insurance covers volunteers, not guests' homes.</li></ul>
+        <div class="ins-block" contenteditable="false"><i class="hgi-stroke hgi-add-square"></i>Type <span class="kbd">/</span> to add a heading, list, quote, callout or image</div>
+        <h2>During the meeting</h2>
+        <p>Keep it to 90 minutes: a meal, worship, a story of why this neighborhood, and a clear next step.</p>
+      </div>
+    </article>
+
+    <div class="stack" style="gap:16px;position:sticky;top:96px">
+      <div class="card" data-size="sm">
+        <div class="card-title sm">Version</div>
+        <div class="kv" style="padding:10px 0"><span class="k t-sm">Based on</span><span class="t-sm" style="font-weight:500">Everyfield global v4</span></div>
+        <div class="kv" style="padding:10px 0"><span class="k t-sm">Your edits</span><span class="t-sm" style="font-weight:500">2 changed · 1 section added</span></div>
+        <p class="faint t-xs" style="margin:6px 0 0">When Everyfield updates the global article, your edits stay as they are. You get a notice to review.</p>
+      </div>
+      <div class="card" data-size="sm">
+        <div class="card-title sm">Who reads this</div>
+        <p class="muted t-sm" style="margin:8px 0 0"><b style="font-weight:600;color:var(--ef-ink)">6 plants</b> that chose Austin Sending Network as their preferred source read your version by default. Any reader can switch to another available source, such as Everyfield global.</p>
+      </div>
+      <div class="card" data-size="sm">
+        <div class="card-title sm">History</div>
+        <div class="mt-2">
+          <div class="rev-row" data-draft><span class="dot"></span><div><div style="font-weight:500">Draft</div><div class="faint t-xs">Ruth Allen · now</div></div><span class="badge" data-size="sm" data-status="attention">Draft</span></div>
+          <div class="rev-row" data-current><span class="dot"></span><div><div style="font-weight:500">Version 3</div><div class="faint t-xs">Ruth Allen · Sep 12 · published</div></div><a class="t-xs" href="#/wiki">View</a></div>
+          <div class="rev-row"><span class="dot"></span><div><div style="font-weight:500">Version 2</div><div class="faint t-xs">Marcus Hill · Aug 3</div></div><a class="t-xs" href="#/wiki">View</a></div>
+          <div class="rev-row"><span class="dot"></span><div><div style="font-weight:500">Version 1</div><div class="faint t-xs">Edited from global v3 · Jun 20</div></div><a class="t-xs" href="#/wiki">View</a></div>
+        </div>
+      </div>
+      <div class="card" data-size="sm">
+        <div class="row between"><div class="card-title sm">Hide this article</div><button class="btn" data-variant="ghost" data-size="sm" onclick="openDialog('hide-dialog')">Hide…</button></div>
+        <p class="faint t-xs" style="margin:6px 0 0">Removes it from your network's default Wiki. Other sources stay available by name.</p>
       </div>
     </div>
   </div>
@@ -3882,6 +4016,48 @@ body[data-shell="bare"] .main { max-width: none; }
   </div>
 </aside>
 
+
+<!-- ================= WIKI SOURCE MENU, PUBLISH REVIEW, HIDE ================= -->
+<div class="float-pop popover" id="source-pop" role="dialog" aria-label="Choose a source" style="width:380px;padding:8px">
+  <div class="pop-head" style="padding:6px 10px 8px"><b style="font-weight:600">Read this article from</b></div>
+  <div class="source-opt" onclick="setWikiSource('org')"><span class="org">AS</span><div><div class="so-t">Austin Sending Network</div><div class="so-s">Edited version 3 · Sep 12 · your preferred source</div></div><i class="hgi-stroke hgi-tick-02" data-src-tick="org"></i></div>
+  <div class="source-opt" onclick="setWikiSource('hill')"><span class="org">HC</span><div><div class="so-t">Hill Country Network</div><div class="so-s">Edited version 1 · Aug 30</div></div><i class="hgi-stroke hgi-tick-02" data-src-tick="hill" style="visibility:hidden"></i></div>
+  <div class="source-opt" onclick="setWikiSource('global')"><span class="org" data-kind="global">EF</span><div><div class="so-t">Everyfield global</div><div class="so-s">Version 5 · Oct 2</div></div><i class="hgi-stroke hgi-tick-02" data-src-tick="global" style="visibility:hidden"></i></div>
+  <div class="menu-sep"></div>
+  <p class="faint t-xs" style="margin:6px 10px 6px">Choosing a source changes only what you read now. Your church's preferred source is set in <a href="#/settings/sharing" style="text-decoration:underline">Settings</a>.</p>
+</div>
+
+<div class="modal" id="publish-dialog" data-open="false" role="dialog" aria-modal="true" aria-labelledby="pub-title" onclick="if (event.target === this) closeDialog('publish-dialog')">
+  <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body">
+    <div class="modal-head"><div class="grow"><h2 id="pub-title" style="font-size:26px">Publish version 4</h2><p class="muted mt-2" style="margin-bottom:0">Run your first vision meeting · Austin Sending Network</p></div><button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeDialog('publish-dialog')"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+    <div class="guide-section-h">What changes</div>
+    <div class="review-list">
+      <div class="review-item"><i class="hgi-stroke hgi-edit-02" style="color:var(--ef-blue-600)"></i><span>Before the meeting · 1 paragraph changed</span><a class="t-sm" href="#/wiki/edit" onclick="closeDialog('publish-dialog')">Show</a></div>
+      <div class="review-item"><i class="hgi-stroke hgi-add-square" style="color:var(--ef-green-700)"></i><span>Childcare checklist for network plants · new section</span><a class="t-sm" href="#/wiki/edit" onclick="closeDialog('publish-dialog')">Show</a></div>
+      <div class="review-item"><i class="hgi-stroke hgi-text-indent" style="color:var(--ef-text-2)"></i><span>Title and other sections unchanged</span><span></span></div>
+    </div>
+    <div class="guide-section-h">Who sees it</div>
+    <p class="muted" style="margin:0">6 plants that prefer Austin Sending Network read version 4 by default from now on. Readers who chose another source keep it. Evry cites version 4 in new answers.</p>
+    <label class="row gap-3 mt-4" style="align-items:flex-start;cursor:pointer"><span class="check" data-toggle style="margin-top:2px"></span><span class="t-sm">I reviewed the changes. Version 3 stays in the history.</span></label>
+  </div>
+  <div class="modal-foot"><span class="faint t-sm grow">You can publish a new version at any time.</span><button class="btn" data-variant="ghost" onclick="closeDialog('publish-dialog')">Cancel</button><button class="btn" data-variant="primary" onclick="closeDialog('publish-dialog')">Publish</button></div>
+  </div></div>
+</div>
+
+<div class="modal" id="hide-dialog" data-open="false" role="dialog" aria-modal="true" aria-labelledby="hide-title" onclick="if (event.target === this) closeDialog('hide-dialog')">
+  <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body">
+    <div class="modal-head"><div class="grow"><h2 id="hide-title" style="font-size:26px">Hide this article?</h2><p class="muted mt-2" style="margin-bottom:0">Run your first vision meeting · Austin Sending Network</p></div><button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeDialog('hide-dialog')"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+    <div class="guide-section-h">What happens</div>
+    <ul class="muted" style="margin:0;padding-left:20px;line-height:1.7">
+      <li>Plants that prefer your network no longer see it in their Wiki, search, the Guide panel or exports.</li>
+      <li>Readers can still open it from another source by name, such as Everyfield global.</li>
+      <li>Your edited version is kept. You can show it again at any time.</li>
+    </ul>
+  </div>
+  <div class="modal-foot"><span class="grow"></span><button class="btn" data-variant="ghost" onclick="closeDialog('hide-dialog')">Cancel</button><button class="btn" data-variant="danger" onclick="closeDialog('hide-dialog')"><i class="hgi-stroke hgi-view-off"></i>Hide for my network</button></div>
+  </div></div>
+</div>
+
 <div class="scrim" id="scrim" onclick="closeEvry(); closeGuide()"></div>
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
@@ -3947,7 +4123,7 @@ body[data-shell="bare"] .main { max-width: none; }
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
   'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
-  'help/article': ['help-article', 'help']
+  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki']
 };
 const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
@@ -4346,6 +4522,27 @@ document.getElementById('preview-pop').addEventListener('click', e => {
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
 });
 document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });
+
+
+/* Wiki source view (PD-025): switching changes only what this reader sees now. */
+const WIKI_SOURCES = {
+  org: { org: 'AS', kind: '', name: 'Austin Sending Network', meta: 'Edited version 3 · published Sep 12 · your preferred source' },
+  hill: { org: 'HC', kind: '', name: 'Hill Country Network', meta: 'Edited version 1 · Aug 30 · you are reading another source' },
+  global: { org: 'EF', kind: 'global', name: 'Everyfield global', meta: 'Version 5 · Oct 2 · you are reading another source' }
+};
+function setWikiSource(k) {
+  const src = WIKI_SOURCES[k], o = document.getElementById('src-org');
+  o.textContent = src.org; if (src.kind) o.dataset.kind = src.kind; else delete o.dataset.kind;
+  document.getElementById('src-name').textContent = src.name; document.getElementById('src-meta').textContent = src.meta;
+  document.getElementById('src-back').style.display = k === 'org' ? 'none' : '';
+  document.getElementById('source-bar').dataset.view = k === 'org' ? 'default' : 'named';
+  document.querySelector('#source-bar [data-org-admin]').style.display = k === 'org' ? '' : 'none';
+  document.querySelectorAll('[data-src-tick]').forEach(t => t.style.visibility = t.dataset.srcTick === k ? 'visible' : 'hidden');
+  closePopovers();
+}
+function openDialog(id) { closePopovers(); document.getElementById(id).dataset.open = 'true'; }
+function closeDialog(id) { document.getElementById(id).dataset.open = 'false'; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ['publish-dialog', 'hide-dialog'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
