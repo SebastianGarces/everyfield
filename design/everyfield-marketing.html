@@ -336,20 +336,20 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-link:hover svg { transform: translateX(3px); }
 .btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
-/* Placeholders and sample data: fixed review colours, the same in every style */
-.ph { background: #FFF1B8; color: #4A3500; outline: 1.5px dashed #B07D00; outline-offset: 1px; border-radius: 4px; padding: 0 .3em; font-style: normal; font-weight: 500; -webkit-box-decoration-break: clone; box-decoration-break: clone; letter-spacing: 0; font-stretch: 100%; }
-.ph-tag { display: inline-block; font: 700 9.5px/1.6 var(--mk-font-body); letter-spacing: .08em; text-transform: uppercase; background: #4A3500; color: #FFF1B8; border-radius: 3px; padding: 0 .45em; margin-right: .45em; vertical-align: .2em; }
-.ph[data-kind="decision"] { background: #FFE0E6; color: #6B1028; outline-color: #B02A4A; }
-.ph[data-kind="decision"] .ph-tag { background: #6B1028; color: #FFE0E6; }
-.ph.flash { animation: phflash 1.2s ease 2; }
-@keyframes phflash { 50% { outline-width: 4px; outline-offset: 4px; } }
 .visual { position: relative; margin: 0; min-width: 0; }
-.sample-tag { position: absolute; z-index: 5; top: -12px; right: 18px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 99px; background: #181D19; color: #F6F0E9; font: 600 11.5px/1 var(--mk-font-body); letter-spacing: .02em; box-shadow: 0 4px 10px -4px rgba(0,0,0,.4); }
-.sample-tag::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(-45deg, #1CE362 0 2px, transparent 2px 4px); }
 .caption { margin-top: 14px; font-size: var(--mk-fs-small); color: var(--mk-text-3); }
 
 /* Navigation */
-.site-nav { position: sticky; top: 0; z-index: 50; background: var(--mk-nav-bg); -webkit-backdrop-filter: blur(var(--mk-nav-blur)); backdrop-filter: blur(var(--mk-nav-blur)); border-bottom: 1px solid var(--mk-line); }
+.site-nav { position: relative; z-index: 50; background: transparent; }
+/* Revision 5: Calendly-style floating pill. It slides down once the page scrolls past the in-flow nav,
+   and slides up again at the top. Transform and opacity only, hero ease-out (cubic-bezier(.33, 1, .68, 1)), 360 ms. */
+.nav-pill { position: fixed; top: 12px; left: 0; right: 0; z-index: 60; width: min(1160px, calc(100% - 24px)); margin: 0 auto; background: #FFFFFF; border: 1px solid var(--mk-line); border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(24, 29, 25, .06), 0 14px 32px -16px rgba(24, 29, 25, .3); opacity: 0; transform: translate3d(0, calc(-100% - 16px), 0); visibility: hidden;
+  transition: transform .36s cubic-bezier(.33, 1, .68, 1), opacity .36s cubic-bezier(.33, 1, .68, 1), visibility 0s linear .36s; will-change: transform, opacity; }
+.nav-pill.on { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+.nav-pill .wrap { display: flex; align-items: center; max-width: none; height: 60px; padding: 0 8px 0 22px; gap: 20px; }
+.nav-pill .signin { display: none; }
+.nav-pill .nav-end .mk-btn { height: 44px; }
 .site-nav .wrap { display: flex; align-items: center; gap: 28px; height: 70px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--logo, #181D19); text-decoration: none; flex: none; }
 .logo .lm { width: 27px; height: 22px; }
@@ -358,6 +358,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .nav-links { display: flex; gap: 4px; font-size: 14.5px; }
 .nav-links a { text-decoration: none; color: var(--mk-text-2); padding: 8px 11px; border-radius: 999px; white-space: nowrap; }
 .nav-links a:hover { color: var(--mk-text); background: var(--mk-line); }
+.nav-links a.mk-btn { color: var(--mk-cta-text); background: var(--mk-cta-bg); }
 .nav-links a[aria-current="page"] { color: var(--mk-text); font-weight: 600; }
 .nav-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .nav-end .signin { font-size: 14.5px; text-decoration: none; color: var(--mk-text-2); padding: 8px 12px; }
@@ -398,7 +399,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-signal .chip { color: #0D6B35; }
 .map-tile { padding: 0; overflow: hidden; flex: 1; min-height: 260px; display: flex; flex-direction: column; }
 .map-tile .map { flex: 1; min-height: 0; }
-.map-tile .sample-tag { top: 12px; }
 .map-tile .mt-cap { padding: 14px 18px; border-top: 1px solid var(--mk-line); font-size: 13.5px; color: var(--mk-text-2); display: flex; gap: 8px; align-items: center; }
 .map svg { width: 100%; height: 100%; }
 
@@ -466,7 +466,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ft-bottom .logo .lw { width: 84px; height: 18px; }
 
 /* Pages */
-.page-tag { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--mk-font-body); padding: 6px 10px; border-radius: 99px; border: 1px dashed var(--mk-line-strong); color: var(--mk-text-3); margin-bottom: 22px; letter-spacing: .02em; }
 .access-table-wrap { overflow-x: auto; border-radius: var(--mk-radius-card); background: var(--mk-surface); box-shadow: var(--mk-shadow-card); border: var(--mk-border-card); }
 .access-table { width: 100%; border-collapse: collapse; min-width: 720px; font-size: 15px; }
 .access-table th, .access-table td { text-align: left; padding: 16px 18px; border-bottom: 1px solid var(--mk-line); vertical-align: top; }
@@ -495,6 +494,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-signal .hero-row { display: flex; flex-direction: column; align-items: center; gap: 24px; }
 .mk-signal .hero-row .hero-lead { margin: 0 auto; }
 .mk-signal .hero-row .hero-act { align-items: center; }
+.mk-signal .hero-row .btn-row { justify-content: center; }
 .mk-signal .hero-note { margin: 0 auto; }
 .mk-signal .hero-points { text-align: left; justify-content: center; }
 .mk-signal .aud { background: var(--mk-surface); border-radius: var(--mk-radius-card); border-top: 0; padding: 30px; box-shadow: var(--mk-shadow-card); }
@@ -527,26 +527,31 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
    - skeleton bars carry a slow 2.4 s shimmer
    JS drives one timeline (see haRender). Only transform and opacity change per frame.
    ===================================================================== */
-.hero.hero-anim { background: var(--mk-canvas); padding: clamp(8px, 1.4vw, 20px) 0 clamp(32px, 5vw, 72px); }
+.hero.hero-anim { background: var(--mk-canvas); padding: 0 0 clamp(32px, 5vw, 72px); }
+/* Revision 5: the panel is wider than the nav and the sections (Calendly: 24 px side margins at 1440). */
+.hero.hero-anim > .wrap { max-width: none; padding: 0 clamp(8px, 1.67vw, 24px); }
+.hero-anim .hero-panel { padding: clamp(48px, 6vw, 88px) clamp(14px, 4vw, 64px) clamp(16px, 2.6vw, 40px); }
+.hero-anim .hero-title { max-width: 14ch; }
+.hero-anim .hero-row { margin-top: clamp(20px, 2.4vw, 32px); }
+.hero-anim .hero-band { margin-top: clamp(28px, 3.4vw, 48px); }
 .hero-panel { border-radius: var(--mk-radius-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); color: var(--on); box-shadow: 0 30px 60px -40px rgba(16, 120, 56, .6); }
 .hero-panel .eyebrow { color: var(--on); }
 .hero-panel .lead { color: rgba(24, 29, 25, .9); }
 .hero-panel .hero-note { color: rgba(24, 29, 25, .9); }
 .hero-panel .mk-btn.secondary { background: #FFFFFF; color: #181D19; box-shadow: none; }
 .hero-panel .mk-btn.secondary:hover { background: #F6F0E9; box-shadow: none; }
-.hero-panel .ha-step { color: rgba(24, 29, 25, .9); }
-.hero-panel .ha-step:hover { color: #181D19; background: rgba(255, 255, 255, .35); }
-.hero-panel .ha-step[aria-current="step"] { color: #181D19; box-shadow: 0 4px 12px -6px rgba(16, 80, 40, .45); }
 .hero-panel .ha-pause { color: #181D19; }
 .hero-panel .ha-pause:hover { background: rgba(255, 255, 255, .35); }
-.hero-panel .ha-step:focus-visible, .hero-panel .ha-pause:focus-visible { outline-color: #181D19; }
-.ha { position: relative; max-width: 1040px; margin: 0 auto; }
-.ha-stage { position: relative; height: 420px; padding-top: 44px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; align-items: start; justify-items: center;
+.ha { position: relative; max-width: 1180px; margin: 0 auto; }
+.ha-stage { position: relative; padding: 40px 0 64px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; align-items: start; justify-items: center;
   background: transparent; }
-.ha-card, .ha-shell, .ha-shadow { grid-area: 1 / 1; width: min(392px, calc(100% - 32px)); border-radius: 22px; }
-/* One white card stays on screen. Its height eases between scenes (clip-path), and the scene content crossfades on top. */
-.ha-shell { background: #FFFFFF; will-change: clip-path; }
-.ha-shadow { box-shadow: 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45); transform-origin: 50% 0; will-change: transform; }
+.hero-anim .ha-stage { padding-top: 24px; }
+.ha-card, .ha-shell, .ha-shadow { grid-area: 1 / 1; width: min(440px, calc(100% - 32px)); border-radius: 22px; }
+/* Revision 5: one white card with one fixed size. All scenes share one grid cell, so the cell (and the card)
+   takes the height of the tallest scene and never resizes. Only the scene content crossfades inside it. */
+.ha-shell, .ha-shadow { align-self: stretch; }
+.ha-shell { background: #FFFFFF; }
+.ha-shadow { box-shadow: 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45); }
 .ha-card { position: relative; padding: 18px 20px 20px; opacity: 0; will-change: transform, opacity; }
 .ha-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ha-h .card-icon { width: 36px; height: 36px; }
@@ -609,25 +614,15 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ha-meter { position: relative; height: 10px; margin-top: 6px; border-radius: 99px; background: var(--ef-surface-2); overflow: hidden; }
 .ha-meter > span { position: absolute; inset: 0; border-radius: 99px; transform: translateX(-100%); will-change: transform; }
 .ha-cap { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 12px; color: var(--mk-text-3); white-space: nowrap; }
-.ha-ctl { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 16px; }
-.ha-step { position: relative; display: inline-flex; align-items: center; height: 34px; padding: 0 13px; border: 0; border-radius: 99px; background: transparent; color: var(--mk-text-3); font: 600 13px/1 var(--mk-font-body); cursor: pointer; overflow: hidden; transition: background-color .25s var(--mk-ease), color .25s var(--mk-ease), box-shadow .25s var(--mk-ease); }
-.ha-step:hover { color: var(--mk-text); }
-.ha-step[aria-current="step"] { background: #FFFFFF; color: var(--mk-text); box-shadow: 0 0 0 1px var(--mk-line-strong), 0 4px 10px -6px rgba(24, 29, 25, .25); }
-.ha-step i { position: absolute; left: 13px; right: 13px; bottom: 6px; height: 2px; border-radius: 2px; background: var(--ef-green-500); transform: scaleX(0); transform-origin: left; opacity: 0; }
-.ha-step[aria-current="step"] i { opacity: 1; }
-.ha-pause { width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: var(--mk-text-2); cursor: pointer; margin-left: 4px; }
+.ha-pause { position: absolute; left: 50%; bottom: 14px; margin-left: -17px; z-index: 7; width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: var(--mk-text-2); cursor: pointer; }
+.ha-pause:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.ha.still .ha-pause { display: none; }
 .ha-pause:hover { background: var(--mk-line); color: var(--mk-text); }
 .ha-pause svg { width: 14px; height: 14px; }
-.ha-step:focus-visible, .ha-pause:focus-visible { outline: 2px solid var(--mk-link); outline-offset: 2px; }
-.ha.still .ha-step i, .ha.still .ha-pause { display: none; }
 @media (max-width: 640px) {
-  .ha-stage { height: 400px; padding-top: 36px; border-radius: 26px; }
+  .ha-stage { padding: 28px 0 56px; border-radius: 26px; }
   .ha-card, .ha-shell, .ha-shadow { width: calc(100% - 24px); }
   .ha-card { padding: 16px 16px 18px; }
-  .ha-step { width: 30px; padding: 0; justify-content: center; font-size: 0; height: 30px; }
-  .ha-step::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
-  .ha-step[aria-current="step"]::before { opacity: 1; }
-  .ha-step i { left: 6px; right: 6px; bottom: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .ha .sk, .ha-caret { animation: none !important; } }
 
@@ -646,10 +641,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-left { grid-column: 1 / span 5; min-width: 0; }
 .cx-right { grid-column: 7 / span 6; align-self: stretch; min-width: 0; }
 .cx-head { position: sticky; top: var(--cx-top); z-index: 3; background: var(--mk-canvas); padding-bottom: 26px; border-bottom: 1px solid var(--mk-line); }
-.cx-head::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: calc(var(--cx-top) - 60px); background: var(--mk-canvas); }
+.cx-head::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--cx-top); background: var(--mk-canvas); }
 .cx-head::after { content: ""; position: absolute; left: 0; right: 0; top: calc(100% + 1px); height: 20px; background: linear-gradient(var(--mk-canvas), rgba(252, 251, 248, 0)); pointer-events: none; }
 .cx-head .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.cx-head .page-tag { margin: 0; }
 .cx-step { padding: 34px 0 36px; border-top: 1px solid var(--mk-line); }
 .cx-step:first-child { border-top: 0; }
 .cx-txt { transition: opacity .25s var(--cx-sine); }
@@ -668,7 +662,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Sticky panel */
 .cx-vis { position: sticky; top: var(--cx-top); height: min(560px, calc(100vh - var(--cx-top) - 28px)); min-height: 500px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; place-items: center;
   box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06), 0 30px 60px -40px rgba(24, 29, 25, .3); }
-.cx-vis .sample-tag, .cx-mob .sample-tag { top: 16px; right: 16px; }
 .cx-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; will-change: opacity; }
 .cx-card { position: relative; grid-area: 1 / 1; width: min(400px, calc(100% - 48px)); padding: 18px 20px 20px; border-radius: 22px; background: #FFFFFF; opacity: 0;
   box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); will-change: transform, opacity; }
@@ -749,10 +742,10 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-fly { position: absolute; left: 0; top: 0; z-index: 7; opacity: 0; pointer-events: none; will-change: transform, opacity; }
 /* Plant Intelligence: focus */
 .cx-rt { position: relative; height: 8px; margin-top: 16px; border-radius: 99px; background: rgba(24, 29, 25, .12); }
-.cx-rf { position: absolute; inset: 0 auto 0 0; width: 76.2%; border-radius: 99px; background: #181D19; will-change: clip-path; }
-.cx-rm { position: absolute; top: -5px; bottom: -5px; left: 66.7%; width: 2px; border-radius: 2px; background: #181D19; }
+.cx-rf { position: absolute; inset: 0 auto 0 0; width: 84.2%; border-radius: 99px; background: #181D19; will-change: clip-path; }
+.cx-rm { position: absolute; top: -5px; bottom: -5px; right: 0; width: 2px; border-radius: 2px; background: #181D19; }
 .cx-rl { position: relative; height: 16px; margin-top: 8px; font-size: 12px; color: var(--on-3); }
-.cx-rl span { position: absolute; left: 66.7%; transform: translateX(-50%); white-space: nowrap; }
+.cx-rl span { position: absolute; right: 0; white-space: nowrap; }
 .cx-flip2 { display: grid; margin-top: 10px; }
 .cx-flip2 > * { grid-area: 1 / 1; will-change: transform, opacity; }
 .cx-fact { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(24, 29, 25, .1); font-size: 13px; color: var(--on-2); opacity: 0; will-change: transform, opacity; }
@@ -897,8 +890,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .pbar select.m { display: none; }
 .pbar .pb-btn { padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.07); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .pbar .pb-btn:hover { background: rgba(255,255,255,.14); }
-.pbar .pb-ph { background: #FFF1B8; color: #4A3500; font-weight: 600; }
-.pbar .pb-ph:hover { background: #FFE58A; }
 .pbar .pb-note { color: #8A919E; font-size: 11.5px; white-space: nowrap; }
 .pbar svg { width: 15px; height: 15px; }
 .pbar-show { position: fixed; right: 14px; bottom: 14px; z-index: 1000; display: none; font: 600 12.5px/1 "Instrument Sans", system-ui, sans-serif; padding: 10px 12px; border-radius: 12px; background: rgba(17,19,24,.92); color: #EEF0F4; border: 0; cursor: pointer; }
@@ -919,7 +910,8 @@ body.pbar-hidden { padding-bottom: 0; }
   .nav-links { display: none; }
   .nav-toggle { display: grid; }
   .site-nav.open .nav-links { display: flex; flex-direction: column; position: absolute; top: 70px; left: 0; right: 0; padding: 12px var(--mk-page-pad) 20px; background: var(--mk-canvas); border-bottom: 1px solid var(--mk-line); box-shadow: 0 20px 30px -20px rgba(0,0,0,.3); }
-  .site-nav.open .nav-links a { padding: 12px 8px; font-size: 16px; }
+  .nav-pill.open .nav-links { display: flex; flex-direction: column; position: absolute; top: calc(100% + 8px); left: 0; right: 0; padding: 12px 16px 16px; background: #FFFFFF; border: 1px solid var(--mk-line); border-radius: 24px; box-shadow: 0 20px 30px -20px rgba(0,0,0,.3); }
+  .site-nav.open .nav-links a, .nav-pill.open .nav-links a { padding: 12px 8px; font-size: 16px; }
   .dash { grid-template-columns: 1fr 1fr; }
   .dash .col-3 { display: none; }
   .lens-grid { grid-template-columns: repeat(2, 1fr); }
@@ -960,6 +952,8 @@ body.pbar-hidden { padding-bottom: 0; }
   .site-nav .wrap { gap: 12px; height: 64px; }
   [id] { scroll-margin-top: 76px; }
   .site-nav.open .nav-links { top: 64px; }
+  .nav-pill .wrap { height: 56px; padding: 0 6px 0 16px; gap: 10px; }
+  .nav-pill .nav-end .mk-btn { height: 42px; }
   .hero .eyebrow { margin-bottom: 18px; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
   .feat-list { grid-template-columns: 1fr; }
@@ -981,11 +975,12 @@ body.pbar-hidden { padding-bottom: 0; }
   .ef .phase-mini { width: 70px; }
   .ef .hide-sm { display: none; }
   .ft-cols { grid-template-columns: 1fr 1fr; }
-  .sample-tag { right: 12px; }
   .pbar .pb-btn span.l { display: none; }
 }
 @media (max-width: 440px) {
-  .nav-end .mk-btn { display: none; }
+  .site-nav .nav-end .mk-btn { display: none; }
+  .nav-pill .logo .lw { display: none; }
+  .nav-pill .nav-end .mk-btn { padding: 0 14px; }
   .site-nav.open .nav-links .nav-cta-m { display: inline-flex; margin-top: 8px; padding: 0 20px; color: var(--mk-cta-text); background: var(--mk-cta-bg); align-self: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
@@ -1014,6 +1009,7 @@ body.pbar-hidden { padding-bottom: 0; }
 </svg>
 
 <header class="site-nav" id="site-nav"></header>
+<div class="nav-pill" id="nav-pill" inert aria-hidden="true"></div>
 <main id="view"></main>
 <footer class="site-footer" id="site-footer"></footer>
 
@@ -1025,10 +1021,9 @@ body.pbar-hidden { padding-bottom: 0; }
 /* BEGIN design/marketing-copy.json */
 {
   "version": 2,
-  "revision_note": "Revision 2 (2026-10-08): Signal style only. Story A (journey) leads the home page and story B (oversight) leads /oversight. Story C and its page are removed. Copy follows the revision 2 rules in the spec.",
+  "revision_note": "Revision 5 (2026-10-08): shorter heroes, no sample-data or placeholder labels, and the Revision 4 wording rules site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
-  "placeholder_format": "Text inside [[double brackets]] is a placeholder. Replace it or remove it before anything is published.",
-  "sample_data_rule": "Every name and number that appears inside a product visual is sample data from a demo church. Label it 'Sample data' in the visual.",
+  "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
     "brand": "EveryField",
     "nav": [
@@ -1095,7 +1090,7 @@ body.pbar-hidden { padding-bottom: 0; }
       "fineprint": "© 2026 EveryField LLC"
     },
     "week": {
-      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and a sample-data panel (panel). No step numbers or labels.",
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and an animated panel (panel). No step numbers or labels.",
       "eyebrow": "The planter's week",
       "title": "Gather, meet, follow up, commit.",
       "steps": [
@@ -1142,7 +1137,7 @@ body.pbar-hidden { padding-bottom: 0; }
           },
           {
             "title": "You see it first",
-            "body": "Every concern in a shared summary is one you can already see in your own account. [[Confirm release timing before publishing. Open decision METH-08.]]"
+            "body": "Every concern in a shared summary is one you can already see in your own account."
           }
         ]
       }
@@ -1155,24 +1150,21 @@ body.pbar-hidden { padding-bottom: 0; }
       "angle": "The planter's journey through the seven church phases. The planter is the hero. Sending churches and networks appear as the people who walk beside the planter.",
       "sections": {
         "hero": {
-          "eyebrow": "Church planting software, phase by phase",
-          "headline": "From calling to launch Sunday, one week at a time.",
-          "subhead": "Everyfield keeps your people, vision meetings, follow-ups and ministry teams in one place, and tells you what needs you this week.",
+          "headline": "From calling to launch Sunday.",
+          "subhead": "People, gatherings, follow-ups and teams for your church plant, in one place.",
           "cta_primary": "Request early access",
-          "cta_secondary": "See the seven phases",
-          "note": "Everyfield is in early access. [[Say how access works, for example: invites go out through sending churches and networks.]]"
+          "cta_secondary": "See how it works"
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Three guests came to Thursday's vision meeting, and someone needs to call them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
+          "body": "Three guests came to Thursday's vision meeting, and someone needs to follow up with them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
         },
         "proof": {
           "eyebrow": "Phase 1 · Core Group Development",
           "headline": "Here is what a Monday looks like.",
-          "body": "Committed adults against the benchmark of 50. Days since your last vision meeting against the 14-day rhythm. Late follow-ups and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "body": "Your core team and your launch team, and how both are growing. When your last vision meeting was, and when the next one is. Late follow-ups and who owns each one. One focus from Plant Intelligence, with the facts it used.",
           "callouts": [],
-          "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you.",
-          "caption": "Sample data. Harvest Point is a demo church."
+          "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",
@@ -1240,7 +1232,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "id": "networks",
               "label": "For networks",
               "headline": "Every plant in your network on one page.",
-              "body": "Find the plants that need a call this month.",
+              "body": "Find the plants that need your attention this month.",
               "points": [
                 "Each plant shows as on track, watch, launch readiness or limited visibility",
                 "Summaries only, and only what each plant chooses to share",
@@ -1253,11 +1245,11 @@ body.pbar-hidden { padding-bottom: 0; }
         "evry": {
           "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to assign those calls, and it prepares the tasks and waits. Nothing is saved until you approve the exact change on screen.",
+          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to follow up, and it creates a task for each guest, assigns it to someone on your core team and drafts what to say. Nothing is saved until you approve the exact change on screen.",
           "example": {
             "ask": "Who from Thursday's vision meeting has no follow-up owner?",
             "answer": "Three first-time guests have no follow-up owner yet.",
-            "review": "Review 3 changes · Assign follow-up calls · Approve or Edit"
+            "review": "Review 3 changes · Assign follow-up tasks · Approve or Edit"
           },
           "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
         },
@@ -1265,8 +1257,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "headline": "Start with the week in front of you.",
           "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
           "cta_primary": "Request early access",
-          "cta_secondary": "Talk to us about your network",
-          "note": "[[Say what happens after someone asks for access, and how long it takes.]]"
+          "cta_secondary": "Talk to us about your network"
         },
         "footer": {
           "tagline": "Church planting software, from calling to launch Sunday."
@@ -1279,16 +1270,14 @@ body.pbar-hidden { padding-bottom: 0; }
       "angle": "The sending church or network that needs honest visibility into many plants. The buyer is the hero. The planter's daily tool is the reason the data is real, and consent is the reason planters accept it.",
       "sections": {
         "hero": {
-          "eyebrow": "For sending churches and networks",
           "headline": "See how every plant you send is doing.",
-          "subhead": "Planters run their launch in Everyfield every day. You see a summary of each plant that shares with you: phase, health and launch readiness. You do not see their people.",
+          "subhead": "See the phase, health and launch readiness of each plant that shares with you. Never their people.",
           "cta_primary": "Talk to us about your network",
-          "cta_secondary": "I am a planter",
-          "note": "Everyfield is in early access. [[Say how access works for networks and for planters.]]"
+          "cta_secondary": "I am a planter"
         },
         "problem": {
           "headline": "You usually hear about a struggling plant when it is already late.",
-          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each call finding out what happened."
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each meeting finding out what happened."
         },
         "proof": {
           "eyebrow": "The network view",
@@ -1300,8 +1289,7 @@ body.pbar-hidden { padding-bottom: 0; }
             "Launch readiness",
             "Limited visibility"
           ],
-          "visual": "Oversight table: plant name, phase track, launch date, status badge. Use the mockup's StatusBadge and PhaseTrack components.",
-          "caption": "Sample data. All plant names are demo churches."
+          "visual": "Oversight table: plant name, phase track, launch date, status badge. Use the mockup's StatusBadge and PhaseTrack components."
         },
         "features": {
           "headline": "The planter's daily work is what makes your view accurate.",
@@ -1345,7 +1333,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "id": "networks",
               "label": "For networks",
               "headline": "Know where your coaching time matters most.",
-              "body": "See every plant on one page and start each week with the ones that need a call.",
+              "body": "See every plant on one page and start each week with the ones that need you most.",
               "points": [
                 "Health status for each plant, from one shared rubric",
                 "Filter by phase, launch date or status",
@@ -1385,8 +1373,8 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Evry works inside the plant's account. It finds records, drafts follow-up tasks and emails, and explains a Plant Intelligence result against the rubric. Every change waits for the planter's approval, so the records your summary comes from stay the planter's own work.",
           "example": {
             "ask": "Why does Plant Intelligence say my follow-up is slipping?",
-            "answer": "Twelve people have waited longer than your 14-day window. Here they are, with the date each one was last contacted.",
-            "review": "Review 12 changes · Assign follow-up calls · Approve or Edit"
+            "answer": "Twelve people have a follow-up task that is past its due date. Here they are, with the date each one was last contacted.",
+            "review": "Review 12 changes · Assign follow-up tasks · Approve or Edit"
           },
           "limits": "Evry is for the plant team. It does not give sending churches or networks extra access, and it never reads a planter's private check-in."
         },
@@ -1403,11 +1391,11 @@ body.pbar-hidden { padding-bottom: 0; }
             },
             {
               "title": "The planter sees it first",
-              "body": "Every concern in your summary is one the planter can already see in their own account. [[Confirm release timing before publishing. Open decision METH-08.]]"
+              "body": "Every concern in your summary is one the planter can already see in their own account."
             },
             {
               "title": "One rubric for every plant",
-              "body": "Every plant is read against the same versioned rubric. [[Name the rubric authors.]]"
+              "body": "Every plant is read against the same versioned rubric."
             }
           ]
         },
@@ -1415,8 +1403,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "headline": "Bring Everyfield to your plants.",
           "body": "We are working with a small group of networks and sending churches during early access.",
           "cta_primary": "Talk to us about your network",
-          "cta_secondary": "Request early access as a planter",
-          "note": "[[Say what the first conversation covers.]]"
+          "cta_secondary": "Request early access as a planter"
         },
         "footer": {
           "tagline": "Church planting software for planters and the churches that send them."
@@ -1484,14 +1471,9 @@ function icon(name, cls) {
 function esc(s) {
   return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
 }
-/* Text renderer: escapes, applies the official brand spelling, marks [[placeholders]] */
+/* Text renderer: escapes and applies the official brand spelling */
 function t(s) {
-  return esc(s).replace(/Everyfield/g, "EveryField").replace(/\[\[(.+?)\]\]/g, function (m, inner) {
-    var decision = /METH-08/.test(inner);
-    return '<span class="ph" data-kind="' + (decision ? "decision" : "placeholder") + '" title="' +
-      (decision ? "Open decision. Resolve before publishing." : "Placeholder. Fill before publishing.") +
-      '"><span class="ph-tag">' + (decision ? "Open decision" : "Placeholder") + "</span>" + inner + "</span>";
-  });
+  return esc(s).replace(/Everyfield/g, "EveryField");
 }
 function logo(extra) {
   return '<span class="logo ' + (extra || "") + '"><svg class="lm" viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>' +
@@ -1529,6 +1511,7 @@ var ROUTE = {
   "Request early access as a planter": ["access", "planter-form"],
   "Talk to us about your network": ["access", "network-form"],
   "See the seven phases": ["planters", "phases"],
+  "See how it works": ["home", "week"],
   "I am a planter": ["planters", ""],
   "See the planter's week": ["planters", ""],
   "See what sending churches see": ["oversight", "sending-churches"],
@@ -1540,9 +1523,9 @@ function btn(label, kind) {
 }
 function more(label) { return '<a class="mk-link" href="' + routeHref(label) + '">' + t(label) + icon("arrow") + "</a>"; }
 
-/* ---------- Product visuals (all sample data) ---------- */
+/* ---------- Product visuals (demo church data, not labelled on the page) ---------- */
 function visual(inner, caption) {
-  return '<figure class="visual"><span class="sample-tag">Sample data</span>' + inner +
+  return '<figure class="visual">' + inner +
     (caption ? '<figcaption class="caption">' + t(caption) + "</figcaption>" : "") + "</figure>";
 }
 function frame(active, title, sub, body, right, topRight) {
@@ -1553,12 +1536,11 @@ function frame(active, title, sub, body, right, topRight) {
     title + '</div><div class="af-sub">' + sub + "</div></div>" + (right || "") + "</div>" + body + "</div></div>";
 }
 function coreGroupCard(withRhythm) {
-  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Core group</div><div class="card-description">Committed adults</div></div>' + icon("more", "faint") + "</div>" +
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Core team</div><div class="card-description">Committed adults</div></div>' + icon("more", "faint") + "</div>" +
     '<div class="stat-value">34</div><div class="row mt" style="margin-top:10px"><span class="delta" data-dir="up">9 people</span><span class="faint t-sm">vs prior 28 days</span></div>' +
-    '<div class="target-bar"><span class="fill hatch" style="width:56%"></span><span class="mark" style="left:83%"></span></div>' +
-    '<div class="target-bar-legend"><span>0</span><span style="position:absolute;left:83%;transform:translateX(-50%)">Benchmark 50</span><span></span></div>' +
     '<div style="margin-top:12px">' +
-    (withRhythm ? '<div class="kv"><span class="k">Last vision meeting</span><span class="row"><span class="v">16 d</span><span class="badge" data-size="sm" data-status="attention">Past 14-day rhythm</span></span></div>' : '<div class="kv"><span class="k">Vision meetings</span><span class="row"><span class="v">2</span><span class="delta" data-dir="up">on rhythm</span></span></div>') +
+    '<div class="kv"><span class="k">Launch team</span><span class="row"><span class="v">12</span><span class="delta" data-dir="up">3 people</span></span></div>' +
+    (withRhythm ? '<div class="kv"><span class="k">Last vision meeting</span><span class="row"><span class="v">16 d ago</span><span class="badge" data-size="sm" data-status="measured">Next Oct 12</span></span></div>' : '<div class="kv"><span class="k">Vision meetings</span><span class="row"><span class="v">2</span><span class="faint t-sm">this month</span></span></div>') +
     '<div class="kv"><span class="k">Avg attendance</span><span class="v">44</span></div>' +
     '<div class="kv"><span class="k">Followed up in 48 h</span><span class="row"><span class="v">71%</span><span class="delta" data-dir="down">8%</span></span></div></div></div>';
 }
@@ -1576,7 +1558,7 @@ function focusCard() {
   return '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
     '<div class="insight-metric"><span class="num">16 d</span><span class="unit">since the last vision meeting</span></div>' +
     '<div class="insight-title">Hold your next vision meeting this week</div>' +
-    '<div class="insight-text">The rhythm is one every 14 days. Vision meeting #12 is set for Sun Oct 12.</div>' +
+    '<div class="insight-text">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div>' +
     '<div class="insight-footer"><span class="btn" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div></div>';
 }
 function evryBot(size, mood, follow) {
@@ -1585,7 +1567,7 @@ function evryBot(size, mood, follow) {
 function meetingsCard() {
   var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
   return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Vision meetings</div></div><span class="faint t-sm">Attendance, last 10</span></div>' +
-    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>';
+    '<div class="bars" style="margin-top:26px">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>';
 }
 function peopleCard() {
   var st = [["tone-ink", "Prospect", 82, 100, "var(--ef-text-3)", 1], ["tone-blue", "Attendee", 41, 50, "var(--ef-blue-500)", 1], ["tone-amber", "Following up", 23, 28, "var(--ef-amber-500)", 1], ["tone-violet", "Interviewed", 14, 17, "var(--ef-violet-500)", 1], ["tone-green", "Core group", 34, 41, "var(--ef-green-500)", 0], ["tone-teal", "Launch team", 12, 15, "var(--ef-teal-500)", 0], ["tone-ink", "Leader", 8, 10, "var(--ef-ink)", 0]];
@@ -1594,7 +1576,7 @@ function peopleCard() {
     '</div><div class="card-inset" style="margin-top:16px"><div style="font-weight:600;font-size:13.5px">14 interviewed people have not committed yet.</div><div class="faint t-sm" style="margin-top:4px">Half of them were interviewed more than 3 weeks ago.</div></div></div>';
 }
 function comingUpCard() {
-  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">Next 14 days</div></div></div>' +
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">This week and next</div></div></div>' +
     '<div class="list-row"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div>' +
     '<div class="list-row"><span class="card-icon tone-violet">' + icon("users") + '</span><div class="grow"><div class="list-title">Worship team training</div><div class="list-sub">Wed Oct 15 · 8 of 9 confirmed</div></div></div>' +
     '<div class="list-row"><span class="card-icon tone-blue">' + icon("compass") + '</span><div class="grow"><div class="list-title">Coach check-in</div><div class="list-sub">Fri Oct 17 · with Pastor Ruth Allen</div></div></div></div>';
@@ -1649,7 +1631,7 @@ function vPlantSummary() {
   return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)">' +
     '<div class="card-header"><div class="grow"><div class="card-title">Harvest Point Church</div><div class="card-description">Hyde Park, Austin · Shared with Grace Church</div></div><span class="badge" data-status="positive">On track</span></div>' +
     phaseTrack(1) +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px"><div class="card-inset"><div class="t-sm muted">Launch Sunday</div><div class="num" style="font-size:22px;margin-top:4px">Mar 14, 2027</div></div><div class="card-inset"><div class="t-sm muted">Committed adults</div><div class="num" style="font-size:22px;margin-top:4px">34 <span class="faint" style="font-size:14px">of 50</span></div></div></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px"><div class="card-inset"><div class="t-sm muted">Launch Sunday</div><div class="num" style="font-size:22px;margin-top:4px">Mar 14, 2027</div></div><div class="card-inset"><div class="t-sm muted">Core team</div><div class="num" style="font-size:22px;margin-top:4px">34 <span class="faint" style="font-size:14px">adults</span></div></div></div>' +
     '<div class="callout">' + icon("eye") + "<span>Shared: phase, health and launch readiness. Not shared: people, notes and the private check-in.</span></div></div></div>";
 }
 function vConsent() {
@@ -1671,16 +1653,16 @@ function vEvry(ex) {
   var names = [["Kim Wu", "Tom"], ["Sara Nunez", "Ana"], ["James Okafor", "Tom"]];
   var lines = "";
   for (var i = 0; i < Math.min(n, 3); i++) {
-    lines += '<div class="rc-line">' + icon("task") + "<span>" + (/^Assign/.test(action) ? "Assign <b>Call " + names[i][0] + "</b> to <b>" + names[i][1] + "</b>, due <b>Oct 10</b>" : "Create <b>Call " + names[i][0] + "</b>, due <b>Oct 10</b>") + "</span></div>";
+    lines += '<div class="rc-line">' + icon("task") + "<span>" + (/^Assign/.test(action) ? "Assign <b>Follow up with " + names[i][0] + "</b> to <b>" + names[i][1] + "</b>, due <b>Oct 10</b>" : "Create <b>Follow up with " + names[i][0] + "</b>, due <b>Oct 10</b>") + "</span></div>";
   }
-  if (n > 3) lines += '<div class="rc-line faint">' + icon("more") + "<span>" + (n - 3) + " more calls in this change</span></div>";
+  if (n > 3) lines += '<div class="rc-line faint">' + icon("more") + "<span>" + (n - 3) + " more follow-ups in this change</span></div>";
   var btns = (parts[2] || "Approve or Edit").split(" or ");
   return '<div class="ef evry-panel"><div class="ep-head">' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
     '<div class="bubble me">' + t(ex.ask) + '</div><div class="bubble ai">' + t(ex.answer) + "</div>" +
     '<div class="review-card"><div class="rc-head">' + icon("edit") + esc(parts[0]) + '<span class="grow"></span><span style="font-weight:500">' + esc(action) + '</span></div><div class="rc-body">' + lines + '</div><div class="rc-foot"><span class="btn" data-variant="primary">' + esc(btns[0]) + '</span><span class="btn" data-variant="ghost">' + esc(btns[1] || "Edit") + "</span></div></div></div>";
 }
 
-/* Illustrated map (Felt / Mailchimp line work). Sample data. */
+/* Illustrated map (Felt / Mailchimp line work). Demo church data. */
 function contour(cx, cy, r, k) {
   var d = "";
   for (var i = 0; i <= 60; i++) {
@@ -1702,7 +1684,7 @@ function vMap(story, tall) {
   var W = 1200, H = tall ? 900 : 525;
   var cs = "";
   for (var k = 1; k <= 9; k++) cs += contour(W * 0.56, H * 0.52, 34 * k, k);
-  var s = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid slice" font-family="Instrument Sans, ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Illustrated map of the plant area with meetings and people (sample data)">' +
+  var s = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid slice" font-family="Instrument Sans, ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Illustrated map of the plant area with meetings and people">' +
     '<rect width="' + W + '" height="' + H + '" fill="var(--mk-surface)"/>' +
     '<g fill="none" stroke="var(--mk-line)" stroke-width="1.2">' + cs + "</g>" +
     '<path d="M-20 ' + (H * 0.86) + " C" + W * 0.2 + " " + H * 0.76 + " " + W * 0.35 + " " + H * 0.98 + " " + W * 0.55 + " " + H * 0.86 + " S" + W * 0.85 + " " + H * 0.72 + " " + (W + 20) + " " + H * 0.8 + '" fill="none" stroke="#B5D7FF" stroke-width="22" stroke-linecap="round" opacity=".75"/>' +
@@ -1734,7 +1716,7 @@ function vMap(story, tall) {
   return s + "</svg>";
 }
 function mapTile(story) {
-  return '<div class="tile map-tile"><span class="sample-tag">Sample data</span><div class="map">' + vMap(story, true) + '</div><div class="mt-cap">' + icon("pin") + (story === "oversight" ? "Plants that share with the Austin Sending Network" : "Where Harvest Point's people live and meet") + "</div></div>";
+  return '<div class="tile map-tile"><div class="map">' + vMap(story, true) + '</div><div class="mt-cap">' + icon("pin") + (story === "oversight" ? "Plants that share with the Austin Sending Network" : "Where Harvest Point's people live and meet") + "</div></div>";
 }
 
 /* ---------- Sections ---------- */
@@ -1752,7 +1734,6 @@ var HA_T = 13200, HA_STILL = 12400;
 var HA_SC = [[-250, 2700], [2850, 5100], [5250, 8300], [8450, 10400], [10550, 12950]];
 /* Chip moves: [start, end, from slot, to slot] */
 var HA_MOVES = [[2750, 3400, 0, 1], [5150, 5800, 1, 2], [8350, 9000, 2, 3], [10450, 11100, 3, 4]];
-var HA_STEPS = ["Add", "Meet", "Follow up", "Commit", "Core group"];
 function haChip(live) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">ML</span>' + HA_NAME + "</span>"; }
 function haSlot() { return '<span class="ha-slot">' + haChip() + "</span>"; }
 function haSk(w, cls) { return '<span class="sk' + (cls ? " " + cls : "") + '"' + (w ? ' style="width:' + w + '"' : "") + "></span>"; }
@@ -1763,8 +1744,9 @@ function haSkRow(w) { return '<div class="ha-li">' + haSk("", "sk-av") + haSk(w)
 function heroSlot() {
   var c0 = haHead('<span class="card-icon tone-green">' + icon("users") + "</span>", "Add person", "People") +
     '<div class="ha-field" data-st><div><span class="ha-lab">Name</span><div class="ha-input"><span class="ha-type"></span><span class="ha-caret"></span></div></div><span class="ha-btn ha-add"><span>Add</span></span></div>' +
-    '<div class="ha-list" data-st><span class="ha-lab">Recently added</span><div class="ha-li">' + haSlot() + "</div>" + haSkRow("46%") + haSkRow("34%") + "</div>";
+    '<div class="ha-list" data-st><span class="ha-lab">Recently added</span><div class="ha-li">' + haSlot() + "</div>" + haSkRow("46%") + "</div>";
   var c1 = haHead('<span class="card-icon tone-blue">' + icon("calendar") + "</span>", "Vision meeting #12", "Sun, Oct 12 · 6:00 PM") +
+    '<div class="ha-kv" data-st><span>Type</span><span class="v">Vision meeting</span></div>' +
     '<div class="ha-kv" data-st><span>Host home</span><span class="v">' + icon("pin") + "Hyde Park</span></div>" +
     '<div class="ha-kv" data-st><span>Guests</span><span class="v">' + haRoll(8, 9, "guests") + "</span></div>" +
     '<div class="ha-guests" data-st>' + haSk("", "sk-pill") + haSk("", "sk-pill") + haSlot() + "</div>";
@@ -1775,22 +1757,21 @@ function heroSlot() {
   var c3 = '<div class="ha-who" data-st>' + haSlot() + '<span class="ha-flip"><span class="stage-chip tone-amber">Following up</span><span class="stage-chip tone-green">Committed</span></span></div>' +
     [["Vision meeting #12", "Attended"], ["Follow-up from Evry", "Sent"], ["Commitment card", "Signed"]].map(function (r) {
       return '<div class="ha-li" data-st><span class="ha-check">' + icon("check") + '</span><span class="grow">' + r[0] + '</span><span class="faint">' + r[1] + "</span></div>";
-    }).join("");
+    }).join("") + '<div data-st>' + haSkRow("52%") + "</div>";
   var rows = [["tone-blue", "Attendee", "41", "var(--ef-blue-500)"], ["tone-amber", "Following up", haRoll(23, 22, "follow"), "var(--ef-amber-500)"], ["tone-green", "Core group", haRoll(34, 35, "core"), "var(--ef-green-500)"]];
   var c4 = haHead('<span class="card-icon tone-ink">' + icon("users") + "</span>", "Where people are", "Harvest Point · this week") +
     '<div class="ha-rows">' + rows.map(function (r, k) {
       return '<div class="ha-row" data-st>' + (k === 2 ? '<span class="ha-hl"></span>' : "") + '<div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + "</span>" + (k === 2 ? haSlot() : "") +
         '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>';
     }).join("") + "</div>";
-  return '<div class="ha"><span class="sample-tag">Sample data</span>' +
+  return '<div class="ha">' +
     '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.">' +
     '<div aria-hidden="true" style="display:contents"><div class="ha-shadow"></div><div class="ha-shell"></div>' +
     haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
-    '<div class="ha-ctl">' + HA_STEPS.map(function (s, i) { return '<button type="button" class="ha-step" data-step="' + i + '" aria-label="Show step: ' + s + '">' + s + "<i></i></button>"; }).join("") +
-    '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div></div>';
+    '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div>';
 }
 
-var HA = { t: 0, raf: 0, last: 0, paused: false, vis: true, root: null, io: null, ro: null, pos: [], h: [], H: 0, cache: new WeakMap() };
+var HA = { t: 0, raf: 0, last: 0, paused: false, vis: true, root: null, io: null, ro: null, pos: [], cache: new WeakMap() };
 var haClamp = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
 var haP = function (t, a, d) { return haClamp((t - a) / d); };
 var haOut = function (p) { return 1 - Math.pow(1 - p, 3); };
@@ -1821,29 +1802,11 @@ function haMeasure() {
   if (!HA.root) return;
   var stage = HA.root.querySelector(".ha-stage");
   HA.pos = Array.prototype.map.call(HA.root.querySelectorAll(".ha-card .ha-slot"), function (s) { return haOffset(s, stage); });
-  HA.h = Array.prototype.map.call(HA.root.querySelectorAll(".ha-card"), function (c) { return c.offsetHeight; });
-  HA.H = Math.max.apply(null, HA.h);
-  [".ha-shell", ".ha-shadow"].forEach(function (sel) { HA.root.querySelector(sel).style.height = HA.H + "px"; });
-}
-/* Card height at loop time t: holds per scene, eases from one scene to the next across the crossfade. */
-function haShellH(t) {
-  var h = HA.h, cur = h[0];
-  for (var k = 0; k < 4; k++) {
-    var a = HA_SC[k][1], b = HA_SC[k + 1][0] + 380;
-    if (t >= a) cur = t < b ? h[k] + (h[k + 1] - h[k]) * haInOut((t - a) / (b - a)) : h[k + 1];
-  }
-  if (t >= HA_SC[4][1]) cur = h[4] + (h[0] - h[4]) * haInOut(haP(t, HA_SC[4][1], HA_T - HA_SC[4][1]));
-  return cur;
 }
 function haRoll2(key, p) { var el = HA.root.querySelector('[data-roll="' + key + '"] > span'); haSet(el, "transform", "translate3d(0," + (-50 * p).toFixed(3) + "%,0)"); }
 function haRender(t) {
   var R = HA.root; if (!R) return;
   var q = function (s) { return R.querySelector(s); };
-  if (HA.H) {
-    var sh = haShellH(t);
-    haSet(q(".ha-shell"), "clipPath", "inset(0 0 " + (HA.H - sh).toFixed(1) + "px 0 round 22px)");
-    haSet(q(".ha-shadow"), "transform", "scaleY(" + (sh / HA.H).toFixed(4) + ")");
-  }
   /* Scene content: overlap crossfade, ease-out in with a short lift, ease-in-out out. Children stagger in. */
   R.querySelectorAll(".ha-card").forEach(function (card, i) {
     var u = i === 0 && t >= HA_T - 300 ? t - HA_T : t;
@@ -1907,15 +1870,6 @@ function haRender(t) {
     var ring = haP(t, 11120, 800);
     haTO(q(".ha-ring"), 0, 0, 1 + .3 * haOut(ring), ring > 0 && ring < 1 ? .8 * (1 - ring) : 0);
   }
-  /* Steps under the stage */
-  var starts = [0, 2800, 5200, 8380, 10500, HA_T - 250], idx = 4;
-  for (var k = 0; k < 5; k++) if (t >= starts[k] && t < starts[k + 1]) idx = k;
-  if (t >= HA_T - 250) idx = 0;
-  R.querySelectorAll(".ha-step").forEach(function (b, k) {
-    if (k === idx) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
-    var pr = k !== idx ? 0 : idx === 0 && t >= HA_T - 250 ? 0 : haClamp((t - starts[k]) / (starts[k + 1] - starts[k]));
-    haSet(b.querySelector("i"), "transform", "scaleX(" + pr.toFixed(4) + ")");
-  });
 }
 function haRunning() { return HA.root && HA.root.isConnected && !HA.paused && HA.vis && !document.hidden && !REDUCED.matches; }
 function haFrame(now) {
@@ -1963,8 +1917,6 @@ function haInit() {
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { haMeasure(); if (HA.root) haRender(HA.t); });
 document.addEventListener("visibilitychange", haKick);
 document.addEventListener("click", function (e) {
-  var st = e.target.closest(".ha-step");
-  if (st && HA.root) { HA.t = [0, 2850, 5250, 8450, 10550][+st.dataset.step]; if (REDUCED.matches) HA.t = [2400, 4600, 8200, 10200, HA_STILL][+st.dataset.step]; haRender(HA.t); return; }
   if (e.target.closest(".ha-pause") && HA.root) { HA.paused = !HA.paused; haPauseBtn(); haKick(); }
 });
 /* Review hook for frame captures: EFHero.seek(ms) renders one loop time and pauses. */
@@ -1990,7 +1942,7 @@ var CX_DRAFT = "Thank Kim for coming on Sunday. Ask what stood out to her, and o
 var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
 var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
 var CX_Q = "Why does Plant Intelligence say my follow-up is slipping?";
-var CX_A = "17 of 24 new guests heard from you within 48 hours. 7 have had no contact yet. I prepared a call for each one.";
+var CX_A = "17 of 24 new guests heard from you within 48 hours. 7 have had no contact yet. I drafted a follow-up task for each one.";
 function cxTw(cls, text) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
 /* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
 var CX_MARK = {
@@ -2030,12 +1982,12 @@ var CX_MARK = {
       CX_SIGNS.map(function (r, k) { return '<span class="ha-chip cx-fly" data-p="fly' + k + '"><span class="ha-av">' + r[0] + "</span>" + r[1] + "</span>"; }).join("");
   },
   focus: function () {
-    var facts = [["Last vision meeting", "#11, 16 days ago"], ["Rhythm", "Every 14 days"], ["Next", "#12, Sun Oct 12"]];
+    var facts = [["Last vision meeting", "#11, 16 days ago"], ["New guests at #11", "9"], ["Next", "#12, Sun Oct 12"]];
     return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
       '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span> d</span><span class="unit">since the last vision meeting</span></div>' +
-      '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Every 14 days</span></div></div>' +
+      '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Next: #12, Sun Oct 12</span></div></div>' +
       '<div class="insight-title" data-st>Hold your next vision meeting this week</div>' +
-      '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">The rhythm is one every 14 days. Vision meeting #12 is set for Sun Oct 12.</div><div class="cx-facts">' +
+      '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div><div class="cx-facts">' +
       facts.map(function (f) { return '<div class="cx-fact"><span>' + f[0] + "</span><b>" + f[1] + "</b></div>"; }).join("") + "</div></div>" +
       '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div>';
   },
@@ -2051,8 +2003,8 @@ var CX_MARK = {
     return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
       '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
       '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
-      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 7 changes<span class="grow"></span><span style="font-weight:500">Assign follow-up calls</span></div>' +
-      '<div class="rc-body"><div class="rc-line">' + icon("task") + "<span>Assign <b>Call James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>6 more calls in this change</span></div></div>" +
+      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 7 changes<span class="grow"></span><span style="font-weight:500">Assign follow-up tasks</span></div>' +
+      '<div class="rc-body"><div class="rc-line">' + icon("task") + "<span>Assign <b>Follow up with James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>6 more follow-ups in this change</span></div></div>" +
       '<div class="rc-foot">' + cxBtn("cx-t0", "Approve", "Approved") + '<span class="btn" data-variant="ghost">Edit</span></div></div>';
   },
   share: function () {
@@ -2088,13 +2040,13 @@ function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' ins
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
-    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + (d.final ? "" : '<span class="page-tag">Draft copy</span>') + '</span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
+    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + '</span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
-      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="sample-tag">Sample data</span><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
+      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
         '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :
         '<span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3>") + "<p>" + t(s[4]) + "</p></div></li>";
     }).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true"><span class="sample-tag">Sample data</span>' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
+    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
 function weekChapter() { return chapterSection("week", "sec-week"); }
@@ -2414,8 +2366,7 @@ function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
   return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel gsurf" data-tone="field">' : "") +
-    (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
-    '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
+    (h.eyebrow ? '<span class="eyebrow">' + t(h.eyebrow) + "</span>" : "") +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
     '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + (h.cta_secondary ? btn(h.cta_secondary, "secondary") : "") + "</div>" +
     (h.note ? '<p class="hero-note">' + t(h.note) + "</p>" : "") + "</div></div>" +
@@ -2439,7 +2390,7 @@ function features(f, opts) {
   opts = opts || {};
   return '<section class="sec sec-features" id="' + (opts.id || "features") + '"><div class="wrap">' +
     '<div class="sec-head' + (f.intro ? "" : " solo") + '"><h2 class="display h2 sh-title">' + t(f.headline) + "</h2>" + (f.intro ? '<p class="body-2 sh-text">' + t(f.intro) + "</p>" : "") + "</div>" +
-    (opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "Sample data. The seven phases, with Harvest Point in Phase 1.") + "</div>" : "") +
+    (opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "The seven phases of a church plant.") + "</div>" : "") +
     '<ol class="feat-list">' + f.items.map(function (it) {
       return '<li class="feat"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
     }).join("") + "</ol></div></section>";
@@ -2524,7 +2475,7 @@ function home(story) {
 function pagePlanters() {
   var s = DIR.journey.sections;
   var a = s.audiences.items[0];
-  return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points, tag: "Page mock · /planters · story A copy" }) +
+  return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points }) +
     problem(s.problem) + weekChapter() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + cta(s.cta);
 }
 function pageOversight() {
@@ -2534,7 +2485,7 @@ function pageOversight() {
     return '<div class="split' + (flip ? " flip" : "") + '" id="' + a.id + '"><div class="s-copy"><span class="eyebrow">' + t(a.label) + '</span><h3 class="display h2">' + t(a.headline) + '</h3><p class="body-2">' + t(a.body) + '</p><ul class="checks">' +
       a.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" + more(a.cta) + '</div><div class="s-vis">' + visual(vis) + "</div></div>";
   }
-  return hero(s.hero, "oversight", { page: true, tag: "Page mock · /oversight · story B copy" }) + problem(s.problem) + proof(s.proof, "oversight") +
+  return hero(s.hero, "oversight", { page: true }) + problem(s.problem) + proof(s.proof, "oversight") +
     '<section class="sec sec-aud" id="audiences"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(s.audiences.headline) + "</h2></div>" +
     split(byId.networks, vReadiness(), false) + split(byId["sending-churches"], vPlantSummary(), true) + split(byId.planters, vConsent(), false) + "</div></section>" +
     features(s.features) + evry(s.evry) + trust(s.trust) + cta(s.cta);
@@ -2551,8 +2502,8 @@ function pageTrust() {
   ];
   var groups = [["For planters", P.planter_rules], ["For sending churches and networks", B.trust]];
   var limits = [A.evry.limits, B.evry.limits];
-  return hero({ eyebrow: P.eyebrow, headline: P.headline, subhead: P.subhead, cta_primary: "Request early access", cta_secondary: "Talk to us about your network" }, "journey", { page: true, visual: false, tag: "Page mock · /trust · copy from stories A and B" }) +
-    '<section class="sec" id="who-sees-what" style="padding-top:0"><div class="wrap"><div class="sec-head"><h2 class="display h2 sh-title">Who sees what</h2><p class="body-2 sh-text">' + t("[[Confirm each cell against the access rules before publishing.]]") + "</p></div>" +
+  return hero({ eyebrow: P.eyebrow, headline: P.headline, subhead: P.subhead, cta_primary: "Request early access", cta_secondary: "Talk to us about your network" }, "journey", { page: true, visual: false }) +
+    '<section class="sec" id="who-sees-what" style="padding-top:0"><div class="wrap"><div class="sec-head"><h2 class="display h2 sh-title">Who sees what</h2><p class="body-2 sh-text">' + t("Planters own their records. Each role sees only what it needs.") + "</p></div>" +
     '<div class="access-table-wrap"><table class="access-table"><thead><tr><th>Role</th><th>People and notes</th><th>Meetings and tasks</th><th>Plant Intelligence</th><th>Private check-in</th><th>Can change records</th></tr></thead><tbody>' +
     rows.map(function (r) { return "<tr><th>" + r[0] + "</th>" + r.slice(1).map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div></div></section>" +
     '<section class="sec" style="padding-top:0"><div class="wrap rule-groups">' + groups.map(function (g) { return '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">' + g[0] + '</span><h2 class="display h3" style="margin-top:12px;font-size:var(--mk-fs-h2)">' + t(g[1].headline) + "</h2></div></div>" + trustGrid(g[1].items) + "</div>"; }).join("") +
@@ -2563,25 +2514,30 @@ function pageAccess() {
   var A = DIR.journey.sections, B = DIR.oversight.sections;
   var phases = ["0 · Discovery", "1 · Core group", "2 · Launch team", "3 · Training", "4 · Pre-launch", "5 · Launch Sunday", "6 · Post-launch"];
   function f(label, type, opt) { return '<div class="field"><label>' + label + (opt ? " <small>(optional)</small>" : "") + "</label>" + (type === "select" ? "<select>" + phases.map(function (p) { return "<option>" + p + "</option>"; }).join("") + "</select>" : type === "area" ? "<textarea></textarea>" : '<input type="' + type + '">') + "</div>"; }
-  return hero({ eyebrow: "Early access", headline: COPY.shared.nav_cta, subhead: A.cta.body, cta_primary: "Request early access", cta_secondary: "Talk to us about your network", note: A.cta.note }, "journey", { page: true, visual: false, tag: "Page mock · /access · no real submission" }) +
+  return hero({ eyebrow: "Early access", headline: COPY.shared.nav_cta, subhead: A.cta.body, cta_primary: "Request early access", cta_secondary: "Talk to us about your network", note: A.cta.note }, "journey", { page: true, visual: false }) +
     '<section class="sec" style="padding-top:0"><div class="wrap forms">' +
-    '<form class="form-card" id="planter-form" data-proto-form><span class="eyebrow">' + t(A.audiences.items[0].label) + '</span><h2 class="display h3">' + t(A.audiences.items[0].headline) + '</h2><p class="small">' + t(A.hero.note) + "</p>" +
+    '<form class="form-card" id="planter-form" data-proto-form><span class="eyebrow">' + t(A.audiences.items[0].label) + '</span><h2 class="display h3">' + t(A.audiences.items[0].headline) + '</h2><p class="small">' + t(A.audiences.items[0].body) + "</p>" +
     f("Your name", "text") + f("Email", "email") + f("Church plant name", "text") + f("City", "text") + f("Phase", "select") + f("Sending church or network", "text", true) +
     '<button class="mk-btn primary" type="submit">' + t(A.cta.cta_primary) + icon("arrow") + '</button><div class="form-msg" role="status">Prototype only. Nothing was sent.</div></form>' +
-    '<form class="form-card" id="network-form" data-proto-form><span class="eyebrow">For networks and sending churches</span><h2 class="display h3">' + t(B.cta.headline) + '</h2><p class="small">' + t(B.cta.body) + " " + t(B.cta.note) + "</p>" +
+    '<form class="form-card" id="network-form" data-proto-form><span class="eyebrow">For networks and sending churches</span><h2 class="display h3">' + t(B.cta.headline) + '</h2><p class="small">' + t(B.cta.body) + "</p>" +
     f("Your name", "text") + f("Email", "email") + f("Network or church", "text") + f("Your role", "text") + f("Plants you send or support", "number", true) + f("What would you like to talk about?", "area", true) +
     '<button class="mk-btn primary" type="submit">' + t(B.cta.cta_primary) + icon("arrow") + '</button><div class="form-msg" role="status">Prototype only. Nothing was sent.</div></form></div></section>';
 }
 function pageLegal(title) {
-  return '<section class="hero page-hero" id="top"><div class="wrap"><div class="page-tag">Stub · ' + PAGE[state.page].path + "</div><br>" +
-    '<h1 class="display hero-title" style="font-size:var(--mk-fs-h1)">' + title + '</h1><div class="legal-body" style="margin-top:36px"><p>' + t("[[" + title + " text. Needs legal review before launch.]]") + "</p><p>" + t(COPY.shared.footer.fineprint) + "</p></div></div></section>";
+  return '<section class="hero page-hero" id="top"><div class="wrap">' +
+    '<h1 class="display hero-title" style="font-size:var(--mk-fs-h1)">' + title + '</h1><div class="legal-body" style="margin-top:36px"><p>' + t("The full " + title.toLowerCase() + " will be published here before EveryField launches.") + "</p><p>" + t(COPY.shared.footer.fineprint) + "</p></div></div></section>";
 }
 
 /* ---------- Chrome ---------- */
 var NAVMAP = { "Product": ["home", "features"], "For planters": ["planters", ""], "For sending churches": ["oversight", "sending-churches"], "For networks": ["oversight", "networks"], "Privacy": ["trust", ""] };
 function renderNav() {
-  var nav = document.getElementById("site-nav");
-  nav.innerHTML = '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" style="text-decoration:none">' + logo() + "</a>" +
+  var html = navHTML();
+  document.getElementById("site-nav").innerHTML = html;
+  document.getElementById("nav-pill").innerHTML = html;
+  navPill(true);
+}
+function navHTML() {
+  return '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" style="text-decoration:none">' + logo() + "</a>" +
     '<nav class="nav-links" aria-label="Main">' + COPY.shared.nav.map(function (n) {
       var r = NAVMAP[n.label] || ["home", ""];
       var cur = r[0] === state.page && r[0] !== "home" && !r[1] ? ' aria-current="page"' : "";
@@ -2590,6 +2546,25 @@ function renderNav() {
     '<div class="nav-end"><a class="signin" href="#" data-toast="Sign in is not part of the marketing prototype.">' + t(COPY.shared.nav_signin) + "</a>" + btn(COPY.shared.nav_cta) +
     '<button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false">' + icon("menu") + "</button></div></div>";
 }
+/* Floating pill: shown once the scroll passes the in-flow nav height. One rAF per scroll burst. */
+var NAVP = { on: null, ticking: false };
+function navClose() {
+  ["site-nav", "nav-pill"].forEach(function (id) {
+    var el = document.getElementById(id); el.classList.remove("open");
+    var tg = el.querySelector(".nav-toggle"); if (tg) tg.setAttribute("aria-expanded", "false");
+  });
+}
+function navPill(force) {
+  NAVP.ticking = false;
+  var nav = document.getElementById("site-nav"), pill = document.getElementById("nav-pill");
+  var on = window.scrollY > nav.offsetHeight;
+  if (on === NAVP.on && !force) return;
+  if (on !== NAVP.on) navClose();
+  NAVP.on = on;
+  pill.classList.toggle("on", on);
+  if (on) { pill.removeAttribute("inert"); pill.setAttribute("aria-hidden", "false"); } else { pill.setAttribute("inert", ""); pill.setAttribute("aria-hidden", "true"); }
+}
+window.addEventListener("scroll", function () { if (!NAVP.ticking) { NAVP.ticking = true; requestAnimationFrame(function () { navPill(); }); } }, { passive: true });
 var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["home", "evry"], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
 function renderFooter() {
   var f = COPY.shared.footer;
@@ -2600,7 +2575,7 @@ function renderFooter() {
         return "<li>" + (r ? '<a href="' + hrefFor(r[0], r[1]) + '">' + t(l) + "</a>" : '<span class="ft-later">' + t(l) + "<small>Later</small></span>") + "</li>";
       }).join("") + "</ul></div>";
     }).join("") + "</nav>" +
-    '<div class="ft-bottom">' + logo() + "<span>" + t(f.fineprint) + "</span><span>Prototype. Not a live site.</span></div></div>";
+    '<div class="ft-bottom">' + logo() + "<span>" + t(f.fineprint) + "</span></div></div>";
 }
 function renderBar() {
   var bar = document.getElementById("pbar");
@@ -2613,14 +2588,8 @@ function renderBar() {
     '<select class="m pb-story" aria-label="Story"' + (onHome ? "" : " disabled") + ">" + STORIES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ps ? " selected" : "") + ' title="' + esc(DIR[s.id].name) + '">Story ' + s.key + "</option>"; }).join("") + "</select></div>" +
     '<div class="pb-group"><span class="pb-lab">Story</span><div class="seg" role="group" aria-label="Story">' + STORIES.map(function (s) { return '<button type="button" data-story="' + s.id + '" title="' + esc(DIR[s.id].name) + '" aria-pressed="' + (s.id === ps) + '"' + (onHome ? "" : " disabled") + "><b>" + s.key + "</b>" + s.short + "</button>"; }).join("") + "</div>" +
     (onHome ? "" : '<span class="pb-note">Fixed for this page</span>') + "</div>" +
-    '<div class="pb-group"><button type="button" class="pb-btn pb-ph" title="Jump to the next placeholder">[[ ]] <span class="pb-count">0</span></button>' +
-    '<button type="button" class="pb-btn pb-copy" title="Copy a link to this page and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
+    '<div class="pb-group"><button type="button" class="pb-btn pb-copy" title="Copy a link to this page and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
     '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
-}
-function countPlaceholders() {
-  var n = document.querySelectorAll("#view .ph, #site-footer .ph").length;
-  var el = document.querySelector(".pb-count");
-  if (el) el.textContent = n;
 }
 
 /* ---------- Apply ---------- */
@@ -2637,7 +2606,6 @@ function render(scrollMode) {
     renderFooter();
   }
   renderBar();
-  countPlaceholders();
   document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
   if (scrollMode === "top") window.scrollTo({ top: 0, behavior: "auto" });
   if (scrollMode === "at" && state.at) {
@@ -2680,20 +2648,11 @@ document.addEventListener("click", function (e) {
   }
   if (e.target.closest(".pb-hide")) { document.body.classList.add("pbar-hidden"); return; }
   if (e.target.closest("#pbar-show")) { document.body.classList.remove("pbar-hidden"); return; }
-  if (e.target.closest(".pb-ph")) {
-    var list = Array.prototype.slice.call(document.querySelectorAll("#view .ph, #site-footer .ph"));
-    if (!list.length) { toast("No placeholders on this page."); return; }
-    var y = window.scrollY + 120;
-    var next = list.find(function (el) { return el.getBoundingClientRect().top + window.scrollY > y; }) || list[0];
-    next.scrollIntoView({ behavior: "smooth", block: "center" });
-    next.classList.remove("flash"); void next.offsetWidth; next.classList.add("flash");
-    return;
-  }
   var tl = e.target.closest("[data-toast]");
   if (tl) { e.preventDefault(); toast(tl.dataset.toast); return; }
   var tg = e.target.closest(".nav-toggle");
-  if (tg) { var nav = document.getElementById("site-nav"); var open = nav.classList.toggle("open"); tg.setAttribute("aria-expanded", open); return; }
-  if (e.target.closest(".nav-links a")) document.getElementById("site-nav").classList.remove("open");
+  if (tg) { var nav = tg.closest(".site-nav, .nav-pill"); var open = nav.classList.toggle("open"); tg.setAttribute("aria-expanded", open); return; }
+  if (e.target.closest(".nav-links a")) navClose();
 });
 document.addEventListener("change", function (e) {
   if (e.target.matches(".pb-page")) setState({ page: e.target.value, at: "" }, true);
