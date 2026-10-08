@@ -1263,6 +1263,59 @@ body[data-shell="bare"] .main { max-width: none; }
 .review-item { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--ef-surface-2); font-size: var(--ef-text-md); }
 .review-item i { font-size: 16px; }
 
+
+/* ---- Email designs (<EmailLayout>): fixed light colors, 600px column, email-safe structure ---- */
+.em-page[data-w="phone"] .em-frame { width: 375px; }
+.em-index { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.em-index a { font-size: 13px; padding: 6px 12px; border-radius: 99px; background: var(--ef-surface-2); color: var(--ef-ink-2); }
+.em-index a:hover { background: var(--ef-surface-3); color: var(--ef-ink); }
+.em-row { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 28px; align-items: start; padding: 26px 0; border-top: 1px solid var(--ef-line); }
+.em-row:first-of-type { border-top: 0; }
+.em-info h3 { font-size: 20px; margin: 0 0 6px; color: var(--ef-ink); }
+.em-info .kv { padding: 8px 0; font-size: var(--ef-text-sm); }
+.em-stage { background: var(--ef-canvas); border-radius: 24px; padding: 28px; display: flex; justify-content: center; }
+.em-frame { width: 600px; max-width: 100%; transition: width .25s ease; background: #F4F2EE; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 30px -18px rgba(0,0,0,.35); font-family: var(--ef-font-body); color: #181D19; }
+.em-chrome { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #E7E4DE; font-size: 12.5px; color: #6B6F68; }
+.em-chrome b { color: #181D19; font-weight: 600; }
+.em-wrap { padding: 22px 18px 26px; }
+.em-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 16px; }
+.em-brand .church { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #181D19; color: #F6F0E9; font-weight: 700; font-size: 13px; }
+.em-brand .name { font-weight: 600; font-size: 15px; }
+.em-brand svg { height: 22px; width: auto; }
+.em-card { background: #fff; border-radius: 16px; padding: 30px 30px 28px; }
+.em-card h1 { font-family: var(--ef-font-display); font-weight: 500; font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 12px; color: #181D19; }
+.em-card p { font-size: 16px; line-height: 1.6; margin: 0 0 14px; color: #3A3F3B; }
+.em-card .lead { font-size: 17px; color: #181D19; }
+.em-btn { display: inline-block; padding: 13px 22px; border-radius: 12px; background: #181D19; color: #fff !important; font-weight: 600; font-size: 15px; text-decoration: none; }
+.em-btn.alt { background: #EFEDE8; color: #181D19 !important; }
+.em-btn.yes { background: #1CE362; color: #181D19 !important; }
+.em-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 6px; }
+.em-meta { background: #F7F5F1; border-radius: 12px; padding: 14px 16px; margin: 16px 0; font-size: 15px; line-height: 1.55; }
+.em-meta div { display: flex; gap: 10px; }
+.em-meta span:first-child { color: #6B6F68; min-width: 52px; }
+.em-hr { height: 1px; background: #ECE9E3; margin: 20px 0; }
+.em-list { margin: 8px 0 16px; }
+.em-li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #F0EDE7; font-size: 15px; }
+.em-li:first-child { border-top: 0; }
+.em-li .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: #E3EFFF; color: #1C5BB5; flex: none; }
+.em-li .tag { margin-left: auto; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: #FFE5E9; color: #B02A4A; white-space: nowrap; }
+.em-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 18px; }
+.em-stat { background: #F7F5F1; border-radius: 12px; padding: 12px 14px; }
+.em-stat b { display: block; font-family: var(--ef-font-display); font-size: 26px; font-weight: 500; color: #181D19; }
+.em-stat span { font-size: 13px; color: #6B6F68; }
+.em-note { display: flex; gap: 10px; align-items: flex-start; background: #EEE8FF; border-radius: 12px; padding: 12px 14px; font-size: 14.5px; line-height: 1.5; color: #3A3F3B; }
+.em-sig { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+.em-sig .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: #DCFAE7; color: #0D6B35; }
+.em-foot { padding: 18px 10px 0; font-size: 12.5px; line-height: 1.6; color: #7A7E78; text-align: center; }
+.em-foot a { color: #4D5361; text-decoration: underline; }
+.em-page[data-w="phone"] .em-card { padding: 24px 20px; }
+.em-page[data-w="phone"] .em-card h1 { font-size: 24px; }
+.em-page[data-w="phone"] .em-stats { grid-template-columns: 1fr 1fr; }
+.em-page[data-w="phone"] .em-btns { flex-direction: column; }
+.em-page[data-w="phone"] .em-btns .em-btn { text-align: center; }
+.em-bot { width: 22px; height: 22px; border-radius: 50%; background: #1CE362; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 1px; }
+.em-bot i { width: 3px; height: 6px; border-radius: 2px; background: #181D19; display: block; }
+
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
 .modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
 .modal-panel[data-size="sm"] .modal-body { padding: 26px 30px 22px; }
@@ -3587,6 +3640,7 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Content</td><td class="cell-title">Wiki editor</td><td><code class="k">&lt;WikiEditor&gt;</code></td><td class="muted t-sm">Toolbar, Title, Body blocks, Change marks, Side panel (version, readers, history, hide)</td><td class="muted t-sm">status draft/published</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Tiptap or Lexical (choose at build)</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Publish review</td><td><code class="k">&lt;PublishReview&gt;</code></td><td class="muted t-sm">Change list, Audience, Confirmation</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Hide dialog</td><td><code class="k">&lt;ConfirmDialog tone=danger&gt;</code></td><td class="muted t-sm">Consequences list, Action</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">AlertDialog</span></td></tr>
+<tr><td class="faint t-sm">Email</td><td class="cell-title">Email layout</td><td><code class="k">&lt;EmailLayout from&gt;</code></td><td class="muted t-sm">Brand, Card, Heading, Meta box, Buttons (RSVP), List, Stats, Signature, Footer (address, preferences)</td><td class="muted t-sm">from church/everyfield</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">React Email (choose at build)</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -3822,6 +3876,124 @@ body[data-shell="bare"] .main { max-width: none; }
   </div>
 </section>
 
+
+<!-- =================================================================
+     PAGE: EMAILS  (#/emails) · design system
+     ================================================================= -->
+<section class="page em-page" data-page="emails" data-w="desktop">
+  <header class="page-header">
+    <div class="titles">
+      <div class="breadcrumb"><span>Design system</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Emails</span></div>
+      <h1 class="page-title xl">Emails</h1>
+      <p class="page-sub">What people receive. Emails always use the light palette, a 600px column and plain structure, so they work in Gmail, Outlook and Apple Mail. Church emails show the church name; system emails show Everyfield.</p>
+    </div>
+    <div class="page-actions"><div class="segmented" role="tablist" aria-label="Width"><button role="tab" aria-selected="true" onclick="document.querySelector('.em-page').dataset.w='desktop'"><i class="hgi-stroke hgi-computer"></i>Desktop 600</button><button role="tab" aria-selected="false" onclick="document.querySelector('.em-page').dataset.w='phone'"><i class="hgi-stroke hgi-smart-phone-01"></i>Phone 375</button></div></div>
+  </header>
+  <div class="em-index"><a href="javascript:void(0)" onclick="document.getElementById('em-invite').scrollIntoView({behavior:'smooth',block:'start'})">Seat invitation</a><a href="javascript:void(0)" onclick="document.getElementById('em-meeting').scrollIntoView({behavior:'smooth',block:'start'})">Meeting invitation</a><a href="javascript:void(0)" onclick="document.getElementById('em-announce').scrollIntoView({behavior:'smooth',block:'start'})">Church announcement</a><a href="javascript:void(0)" onclick="document.getElementById('em-notify').scrollIntoView({behavior:'smooth',block:'start'})">Notification</a><a href="javascript:void(0)" onclick="document.getElementById('em-digest').scrollIntoView({behavior:'smooth',block:'start'})">Weekly digest</a><a href="javascript:void(0)" onclick="document.getElementById('em-rsvp').scrollIntoView({behavior:'smooth',block:'start'})">RSVP confirmation</a></div>
+  <div class="card" style="padding:4px 28px">
+  <div class="em-row" id="em-invite">
+    <div class="em-info">
+      <h3>Seat invitation</h3>
+      <div class="kv"><span class="k">From</span><span>Everyfield</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">Someone gives you a seat in Settings, Seats and invitations.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Accept invitation (phone)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">Expires in 7 days. One link per person.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Everyfield &lt;hello@everyfield.app&gt;</b></span><span>To: ana.lee@gmail.com</span><span>Subject: <b>Daniel invited you to Harvest Point Church</b></span></div><div class="em-wrap"><div class="em-brand" style="color:#181D19"><svg viewBox="0 0 890 186" style="height:20px"><use href="#ef-wordmark"/></svg></div><div class="em-card">
+  <h1>Daniel Reyes invited you to plan Harvest Point Church together</h1>
+  <p class="lead">You are invited as an <b>Admin</b>. You can see people, meetings and tasks, and make changes.</p>
+  <div class="em-btns"><a class="em-btn" href="#/mobile">Accept invitation</a></div>
+  <p style="font-size:14px;color:#6B6F68;margin-top:12px">This invitation expires on Oct 15. If you did not expect it, you can ignore this email.</p>
+</div><div class="em-foot">You get this email because Daniel Reyes entered your address.<br>Everyfield · church planting, one step at a time<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  <div class="em-row" id="em-meeting">
+    <div class="em-info">
+      <h3>Meeting invitation</h3>
+      <div class="kv"><span class="k">From</span><span>Church (sent from Communication)</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">A planter sends an invitation to a vision meeting.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Public RSVP (phone)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">RSVP buttons open the public RSVP page with the answer selected. No sign-in.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Daniel at Harvest Point &lt;daniel@harvestpoint.org&gt;</b></span><span>To: maria@harvestpoint.org</span><span>Subject: <b>You're invited: Vision meeting, Sun Oct 12</b></span></div><div class="em-wrap"><div class="em-brand"><span class="church">HP</span><span class="name">Harvest Point Church</span></div><div class="em-card">
+  <h1>Maria, come and hear why we are planting in Hyde Park</h1>
+  <p>We are gathering a few friends for dinner and a short story about the church we hope to start. Kids are welcome; we have childcare.</p>
+  <div class="em-meta"><div><span>When</span><b>Sunday, October 12 · 6:30 to 8 pm</b></div><div><span>Where</span><b>The Reyes home, 4410 Avenue F</b></div><div><span>Host</span><b>Daniel and Ana</b></div></div>
+  <p style="margin:0;font-weight:600">Can you come?</p>
+  <div class="em-btns"><a class="em-btn yes" href="#/mobile">Yes, I'll come</a><a class="em-btn alt" href="#/mobile">Maybe</a><a class="em-btn alt" href="#/mobile">Can't make it</a></div>
+  <p style="font-size:14px;color:#6B6F68;margin:10px 0 0"><a href="#/mobile" style="color:#4D5361">Add to calendar</a></p>
+</div><div class="em-foot">You get this email because you are part of Harvest Point Church.<br>Harvest Point Church · 2201 Hyde Park Ave, Austin, TX 78705<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  <div class="em-row" id="em-announce">
+    <div class="em-info">
+      <h3>Church announcement</h3>
+      <div class="kv"><span class="k">From</span><span>Church (composed in Communication)</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">A planter writes to a group, for example the core group.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Email preferences (phone)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">Merge fields fill in the name. Plain layout so it reads like a personal letter.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Daniel at Harvest Point &lt;daniel@harvestpoint.org&gt;</b></span><span>To: 34 people in Core group</span><span>Subject: <b>We found a place for Launch Sunday</b></span></div><div class="em-wrap"><div class="em-brand"><span class="church">HP</span><span class="name">Harvest Point Church</span></div><div class="em-card">
+  <p class="lead">Hi Maria,</p>
+  <p>Big news: Lincoln Elementary said yes. We will meet in their gym for Launch Sunday on <b>March 14</b>, and for our preview services before that.</p>
+  <p>Thank you to everyone who prayed and to Chris for three months of phone calls. Over the next weeks we need help with signs, setup and the kids' area. If you can serve, reply to this email.</p>
+  <div class="em-btns"><a class="em-btn" href="#/mobile">See how you can help</a></div>
+  <div class="em-sig"><span class="av">DR</span><div><b>Daniel Reyes</b><div style="font-size:14px;color:#6B6F68">Lead planter, Harvest Point Church</div></div></div>
+</div><div class="em-foot">You get this email because you are part of Harvest Point Church.<br>Harvest Point Church · 2201 Hyde Park Ave, Austin, TX 78705<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  <div class="em-row" id="em-notify">
+    <div class="em-info">
+      <h3>Notification</h3>
+      <div class="kv"><span class="k">From</span><span>Everyfield (your notification settings)</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">A follow-up passes 48 hours, or someone assigns you a task.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Opens the app (desktop)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">One email per event, or grouped in the daily summary if you chose that in Settings.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Everyfield &lt;notifications@everyfield.app&gt;</b></span><span>To: daniel@harvestpoint.org</span><span>Subject: <b>3 follow-ups passed the 48-hour mark</b></span></div><div class="em-wrap"><div class="em-brand" style="color:#181D19"><svg viewBox="0 0 890 186" style="height:20px"><use href="#ef-wordmark"/></svg></div><div class="em-card">
+  <h1>3 follow-ups passed the 48-hour mark</h1>
+  <p>First-time guests from Vision meeting #11 have not had a call yet.</p>
+  <div class="em-list">
+    <div class="em-li"><span class="av">KW</span><span>Kim Wu · no owner</span><span class="tag">22 h late</span></div>
+    <div class="em-li"><span class="av">EP</span><span>Eli Park · Daniel</span><span class="tag">22 h late</span></div>
+    <div class="em-li"><span class="av">SN</span><span>Sara Nunez · no owner</span><span class="tag">22 h late</span></div>
+  </div>
+  <div class="em-btns"><a class="em-btn" href="#/tasks">Open follow-ups</a></div>
+</div><div class="em-foot">You get this email because overdue follow-ups are on in your notification settings.<br>Everyfield · church planting, one step at a time<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  <div class="em-row" id="em-digest">
+    <div class="em-info">
+      <h3>Weekly digest</h3>
+      <div class="kv"><span class="k">From</span><span>Everyfield</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">Every Monday at 7 am in the church time zone, if it is turned on.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Opens the app (desktop)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">Shows only what the reader may see. Numbers that failed to load are left out, not shown as zero.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Everyfield &lt;digest@everyfield.app&gt;</b></span><span>To: daniel@harvestpoint.org</span><span>Subject: <b>Your week at Harvest Point: +2 committed, 1 meeting</b></span></div><div class="em-wrap"><div class="em-brand" style="color:#181D19"><svg viewBox="0 0 890 186" style="height:20px"><use href="#ef-wordmark"/></svg></div><div class="em-card">
+  <p style="font-size:14px;color:#6B6F68;margin:0 0 6px">Week of October 6 · Phase 1</p>
+  <h1>Your week at Harvest Point</h1>
+  <div class="em-stats"><div class="em-stat"><b>34</b><span>core group · +2</span></div><div class="em-stat"><b>38</b><span>RSVPs for Sunday</span></div><div class="em-stat"><b>3</b><span>follow-ups overdue</span></div></div>
+  <p style="font-weight:600;margin:0 0 6px">Coming up</p>
+  <div class="em-list"><div class="em-li"><span class="av" style="background:#DCFAE7;color:#0D6B35">12</span><span>Vision meeting #12 · Sun Oct 12, 6:30 pm</span></div><div class="em-li"><span class="av" style="background:#EEE8FF;color:#6244CC">15</span><span>Worship team training · Wed Oct 15</span></div></div>
+  <div class="em-note"><span class="em-bot" aria-hidden="true"><i></i><i></i></span><span><b>Evry noticed:</b> guests called within 48 hours came back twice as often this month.</span></div>
+  <div class="em-btns" style="margin-top:20px"><a class="em-btn" href="#/overview">Open Harvest Point</a></div>
+</div><div class="em-foot">You get this weekly digest because it is on in your notification settings.<br>Everyfield · church planting, one step at a time<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  <div class="em-row" id="em-rsvp">
+    <div class="em-info">
+      <h3>RSVP confirmation</h3>
+      <div class="kv"><span class="k">From</span><span>Church</span></div>
+      <div class="kv"><span class="k">Sent when</span><span style="text-align:right">Right after someone answers an RSVP.</span></div>
+      <div class="kv"><span class="k">Main link</span><span>Change RSVP (phone)</span></div>
+      <p class="faint t-sm" style="margin:10px 0 0">Lets the guest change the answer later from the same link.</p>
+    </div>
+    <div class="em-stage"><div class="em-frame"><div class="em-chrome"><span><b>Harvest Point Church &lt;hello@harvestpoint.org&gt;</b></span><span>To: kim.wu@gmail.com</span><span>Subject: <b>You're coming: Vision meeting, Sun Oct 12</b></span></div><div class="em-wrap"><div class="em-brand"><span class="church">HP</span><span class="name">Harvest Point Church</span></div><div class="em-card">
+  <h1>See you on Sunday, Kim</h1>
+  <p>Thanks for letting us know. Here are the details.</p>
+  <div class="em-meta"><div><span>When</span><b>Sunday, October 12 · 6:30 to 8 pm</b></div><div><span>Where</span><b>The Reyes home, 4410 Avenue F</b></div><div><span>You</span><b>Coming · 2 adults, 1 child</b></div></div>
+  <div class="em-btns"><a class="em-btn alt" href="#/mobile">Change my answer</a><a class="em-btn alt" href="#/mobile">Add to calendar</a></div>
+</div><div class="em-foot">You get this email because you answered an invitation from Harvest Point Church.<br>Harvest Point Church · 2201 Hyde Park Ave, Austin, TX 78705<br><a href="#/mobile">Email preferences</a> · <a href="#/mobile">Unsubscribe</a></div></div></div></div>
+  </div>
+  </div>
+</section>
+
 <section class="page" data-page="stub">
   <header class="page-header"><div class="titles"><h1 class="page-title xl" data-stub-title>Section</h1><p class="page-sub" data-stub-sub></p></div></header>
   <div class="card"><div class="empty" style="padding:70px 24px"><div class="e-art"><i data-stub-icon class="hgi-stroke hgi-rocket-01"></i></div><div class="card-title sm">Not designed in this pass</div><p class="muted" style="max-width:360px">This screen uses the same kit. It is out of scope for the first visual pass.</p><a class="btn" data-variant="primary" data-size="sm" href="#/components" style="margin-top:8px">See the components</a></div></div>
@@ -3839,6 +4011,7 @@ body[data-shell="bare"] .main { max-width: none; }
   <a href="#/components" data-nav="components"><i class="hgi-stroke hgi-grid-view"></i>Components</a>
   <a href="#/inventory" data-nav="inventory"><i class="hgi-stroke hgi-list-view"></i>Inventory</a>
   <a href="#/mobile" data-nav="mobile"><i class="hgi-stroke hgi-smart-phone-01"></i>Mobile</a>
+  <a href="#/emails" data-nav="emails"><i class="hgi-stroke hgi-mail-01"></i>Emails</a>
   <span class="sep" aria-hidden="true"></span>
   <button class="dd" id="preview-btn" aria-expanded="false" aria-controls="preview-pop" onclick="togglePreview(this)"><i class="hgi-stroke hgi-view"></i>Preview <span class="dd-val" id="preview-val">Owner · Live</span></button>
 </nav>
