@@ -620,6 +620,7 @@
 .dash { display: grid; grid-template-columns: 1fr 1.05fr 1fr; gap: 16px; align-items: start; }
 .dash.compact { grid-template-columns: 1fr 1fr; }
 .dash.compact .col-3 { display: none; }
+.dash.meet { grid-template-columns: 1.3fr 1fr; }
 .dash .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .crop { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px; background: var(--ef-frame); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); border: 1px solid var(--ef-line); }
 .crop .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -914,6 +915,126 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-nightfield .map-hero { background: var(--mk-surface); border-radius: var(--mk-radius-media); border: 1px solid var(--mk-line-strong); }
 .mk-nightfield .field input, .mk-nightfield .field select, .mk-nightfield .field textarea { background: var(--mk-surface-2); }
 
+/* =====================================================================
+   Motion (Calendly patterns). Plain CSS sticky + IntersectionObserver in JS.
+   Works in every style. prefers-reduced-motion shows static states.
+   ===================================================================== */
+/* 1. Scroll-pinned hero card over a large InsightCard gradient */
+.showcase { position: relative; padding: 0 var(--mk-page-pad); }
+.sc-track { position: relative; height: calc(var(--n, 4) * 70vh + 100vh - 70px); }
+.sc-sticky { position: sticky; top: 70px; height: calc(100vh - 70px); padding: 12px 0 18px; display: flex; }
+.sc-stage { flex: 1; max-width: calc(var(--mk-max-width) + 120px); margin: 0 auto; border-radius: calc(var(--mk-radius-card) + 10px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: clamp(16px, 3vw, 40px); min-height: 0; }
+.sc-shade { display: none; }
+.mk-nightfield .sc-shade { display: block; position: absolute; inset: 0; z-index: -1; background: radial-gradient(80% 70% at 50% 40%, rgba(11,13,16,.15), rgba(11,13,16,.7)); }
+.sc-tabs { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(255,253,249,.55); box-shadow: 0 0 0 1px rgba(24,29,25,.08) inset; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); flex-wrap: wrap; justify-content: center; }
+.sc-tab { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent; color: rgba(24,29,25,.72); font: 600 14px/1 var(--mk-font-body); cursor: pointer; transition: background-color .3s, color .3s; }
+.sc-tab:hover { color: #181D19; background: rgba(255,253,249,.5); }
+.sc-tab[aria-selected="true"] { background: #181D19; color: #F6F0E9; }
+.sc-tab svg { width: 17px; height: 17px; }
+.sc-card { position: relative; width: min(1080px, 100%); min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 0; background: var(--sc-card, #F6F0E9); border-radius: var(--mk-radius-media); box-shadow: 0 2px 6px rgba(24,29,25,.08), 0 40px 80px -40px rgba(24,29,25,.55); padding: clamp(10px, 1.4vw, 18px); overflow: hidden; }
+.mk-signal .sc-card { --sc-card: #F2F4F7; }
+.mk-nightfield .sc-card { --sc-card: #0F1115; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 40px 80px -30px rgba(0,0,0,.8); }
+.sc-card::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(transparent, var(--sc-card, #F6F0E9)); pointer-events: none; z-index: 3; }
+.sc-view { grid-area: 1 / 1; min-width: 0; align-self: start; opacity: 0; transform: translateY(14px) scale(.985); transition: opacity .45s var(--mk-ease), transform .45s var(--mk-ease); pointer-events: none; }
+.sc-view.on { opacity: 1; transform: none; pointer-events: auto; }
+.sc-view .app-frame { box-shadow: none; }
+.sc-meter { display: flex; gap: 6px; }
+.sc-meter span { width: 26px; height: 4px; border-radius: 4px; background: rgba(24,29,25,.18); overflow: hidden; position: relative; }
+.sc-meter span.on::after { content: ""; position: absolute; inset: 0; background: #181D19; }
+.sc-steps { position: absolute; inset: 0; display: grid; grid-template-rows: repeat(var(--n, 4), 1fr); pointer-events: none; visibility: hidden; }
+.ef .bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
+.ef .bar { flex: 1; border-radius: 8px 8px 4px 4px; --hatch: var(--ef-green-500); position: relative; }
+.ef .bar.solid { background: var(--ef-green-500); }
+.ef .bar .lbl { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font: 600 12px/1 var(--mk-font-body); }
+.ef .target-line { position: relative; border-top: 1.5px dashed var(--ef-line-2); margin-bottom: -1px; }
+.ef .target-line span { position: absolute; right: 0; top: -20px; font-size: 11.5px; color: var(--ef-text-3); }
+.ef .chart-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ef-text-3); margin-top: 8px; }
+
+/* 2. Stacked workflow cards: the planter's week */
+.wk-stack { display: grid; gap: 22px; }
+.wk-card { position: sticky; top: calc(92px + var(--i, 0) * 20px); display: grid; grid-template-columns: 5fr 7fr; gap: clamp(20px, 3vw, 48px); align-items: center; min-height: 440px; padding: clamp(24px, 3vw, 44px); border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: 0 1px 2px rgba(24,29,25,.05), 0 -8px 30px -18px rgba(24,29,25,.25), 0 24px 50px -36px rgba(24,29,25,.4); overflow: hidden; isolation: isolate; }
+.mk-fieldnotes .wk-card { border: 1px solid var(--mk-line-strong); }
+.mk-nightfield .wk-card { border: 1px solid var(--mk-line-strong); }
+.wk-edge { position: absolute; inset: -20% -10% -20% 40%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(in oklch 50% 60% at 92% 30%, var(--g1) 0%, transparent 70%),
+    radial-gradient(in oklch 40% 50% at 100% 75%, var(--g4) 0%, transparent 70%),
+    radial-gradient(in oklch 35% 40% at 80% 50%, var(--g2) 0%, transparent 70%),
+    radial-gradient(in oklch circle at 96% 12%, var(--g5) 0%, transparent 25%);
+  filter: blur(40px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to left, #000 35%, transparent 95%); mask-image: linear-gradient(to left, #000 35%, transparent 95%); }
+.mk-nightfield .wk-edge { opacity: .55; }
+.wk-copy { display: flex; flex-direction: column; gap: 14px; }
+.wk-num { font: 600 13px/1 var(--mk-font-body); color: var(--mk-text-3); letter-spacing: .04em; }
+.wk-steps { counter-reset: wk; margin-top: 8px; }
+.wk-steps li { position: relative; padding: 0 0 18px 34px; color: var(--mk-text-2); font-size: 15.5px; counter-increment: wk; }
+.wk-steps li:last-child { padding-bottom: 0; }
+.wk-steps li::before { content: counter(wk); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 11px/1 var(--mk-font-body); background: var(--mk-text); color: var(--mk-canvas); }
+.wk-steps li::after { content: ""; position: absolute; left: 10.5px; top: 26px; bottom: 4px; width: 1px; background: var(--mk-line-strong); }
+.wk-steps li:last-child::after { display: none; }
+.wk-vis { position: relative; z-index: 1; min-width: 0; }
+
+/* 3. Sticky feature chapter */
+.ch-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); }
+.ch-left { grid-column: 1 / span 5; }
+.ch-right { grid-column: 7 / span 6; }
+.ch-head { position: sticky; top: 70px; z-index: 2; padding: 24px 0 20px; background: linear-gradient(var(--mk-canvas) 82%, transparent); }
+.ch-head .eyebrow { margin-bottom: 14px; }
+.ch-panel { min-height: 62vh; display: flex; flex-direction: column; justify-content: center; gap: 14px; opacity: .3; transition: opacity .4s var(--mk-ease); padding: 24px 0; }
+.ch-panel.on { opacity: 1; }
+.ch-panel p { color: var(--mk-text-2); max-width: 46ch; }
+.ch-panel .ch-inline { display: none; }
+.ch-vis { position: sticky; top: calc(50vh - 220px); display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 24px; }
+.ch-left, .ch-right { min-width: 0; }
+.ch-view { grid-area: 1 / 1; opacity: 0; transform: translateY(14px); transition: opacity .45s var(--mk-ease), transform .45s var(--mk-ease); }
+.ch-view.on { opacity: 1; transform: none; }
+.ch-dots { display: flex; gap: 6px; margin-top: 18px; justify-content: center; }
+.ch-dots span { width: 22px; height: 4px; border-radius: 4px; background: var(--mk-line-strong); transition: background-color .3s; }
+.ch-dots span.on { background: var(--mk-text); }
+
+/* 4. Reveal on scroll */
+.rv { opacity: 0; transform: translateY(18px); transition: opacity .4s var(--mk-ease), transform .4s var(--mk-ease); transition-delay: var(--rv-d, 0ms); }
+.rv.in { opacity: 1; transform: none; }
+body.shot .rv { opacity: 1; transform: none; transition: none; }
+
+@media (max-width: 1024px) {
+  .wk-card { grid-template-columns: 1fr; position: relative; top: auto; min-height: 0; }
+  .wk-edge { inset: 40% -20% -20% -20%; -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 90%); mask-image: linear-gradient(to top, #000 30%, transparent 90%); }
+  .ch-left, .ch-right { grid-column: 1 / -1; }
+  .ch-right { display: none; }
+  .ch-head { position: static; background: none; }
+  .ch-panel { min-height: 0; opacity: 1; padding: 20px 0 32px; }
+  .ch-panel .ch-inline { display: block; margin-top: 18px; }
+}
+@media (max-width: 640px) {
+  .sc-tab { padding: 0 12px; height: 36px; font-size: 13px; }
+  .sc-tab span { display: none; }
+  .sc-tab[aria-selected="true"] span { display: inline; }
+  .sc-stage { padding: 12px; gap: 12px; border-radius: 24px; }
+  .sc-sticky { top: 64px; height: calc(100vh - 64px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-track { height: auto; }
+  .sc-sticky { position: static; height: auto; padding: 12px 0 0; }
+  .sc-stage { min-height: 0; }
+  .sc-card { flex: none; }
+  .sc-card::after { display: none; }
+  .sc-steps { display: none; }
+  .sc-view, .ch-view, .ch-panel, .rv { transition: none !important; }
+  .rv { opacity: 1; transform: none; }
+  .wk-card { position: relative; top: auto; }
+  .ch-panel { opacity: 1; min-height: 0; display: grid; grid-template-columns: 5fr 6fr; gap: 6px var(--mk-gutter); align-items: start; padding: 28px 0; border-top: 1px solid var(--mk-line); }
+  .ch-panel > h3, .ch-panel > p { grid-column: 1; }
+  .ch-panel .ch-inline { display: block; grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
+  .ch-left { grid-column: 1 / -1; }
+  .ch-right { display: none; }
+  .ch-head { position: static; background: none; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 1024px) {
+  .ch-panel { grid-template-columns: 1fr; }
+  .ch-panel .ch-inline { grid-column: 1; grid-row: auto; margin-top: 12px; }
+}
+
 /* Hero visual by style. All variants are in the DOM; CSS picks one. */
 .hv { display: none; }
 .mk-fieldnotes .hv-map, .mk-gradientfield .hv-product, .mk-signal .hv-product, .mk-nightfield .hv-product { display: block; }
@@ -1014,7 +1135,7 @@ body.pbar-hidden { padding-bottom: 0; }
   .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 1; }
   .trust-grid { grid-template-columns: 1fr; }
   .tile-side { flex-direction: column; }
-  .dash, .dash.compact, .crop { grid-template-columns: 1fr; }
+  .dash, .dash.compact, .dash.meet, .crop { grid-template-columns: 1fr; }
   .dash .col-2 { display: none; }
   .crop { padding: 12px; }
   .af-pills span:not(.on) { display: none; }
@@ -1807,7 +1928,7 @@ function hero(h, story, opts) {
   opts = opts || {};
   var tone = opts.tone || TONE.hero;
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top" data-g data-tone="' + tone + '"><div class="wrap">' +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top"' + (opts.flat ? "" : ' data-g data-tone="' + tone + '"') + '><div class="wrap">' +
     (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
     '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
     '<h1 class="display h-hero hero-title">' + hl(h.headline, opts.page ? null : HIGHLIGHT[story]) + "</h1>" +
@@ -1858,16 +1979,144 @@ function cta(c) {
     (c.note ? '<p class="small">' + t(c.note) + "</p>" : "") + "</div></div></section>";
 }
 
+/* ---------- Motion sections (Calendly patterns) ---------- */
+function vPeople() {
+  var st = [["st-prospect", "Prospect", 82, 100, "var(--ef-text-3)", true], ["st-attendee", "Attendee", 41, 50, "var(--ef-blue-500)", true], ["st-following", "Following up", 23, 28, "var(--ef-amber-500)", true], ["st-interviewed", "Interviewed", 14, 17, "var(--ef-violet-500)", true], ["st-core", "Core group", 34, 41, "var(--ef-green-500)", false], ["st-launch", "Launch team", 12, 15, "var(--ef-teal-500)", false], ["st-leader", "Leader", 8, 10, "var(--ef-ink)", false]];
+  var tint = { "st-prospect": "tone-ink", "st-attendee": "tone-blue", "st-following": "tone-amber", "st-interviewed": "tone-violet", "st-core": "tone-green", "st-launch": "tone-teal", "st-leader": "tone-ink" };
+  return frame("People", "Where people are", "214 people across 7 stages · Harvest Point Church",
+    '<div class="card"><div style="display:grid;gap:14px">' + st.map(function (s) {
+      return '<div><div class="row between"><span class="stage-chip ' + tint[s[0]] + '">' + s[1] + '</span><span class="num" style="font-size:18px">' + s[2] + '</span></div><div class="meter-hatch"><span class="' + (s[5] ? "hatch" : "") + '" style="width:' + s[3] + '%;' + (s[5] ? "--hatch:" + s[4] : "background:" + s[4]) + '"></span></div></div>';
+    }).join("") + '</div><div class="callout">' + icon("users") + "<span>14 interviewed people have not committed yet. Half of them were interviewed more than 3 weeks ago.</span></div></div>",
+    '<span class="btn hide-sm" data-variant="secondary">Add people</span>');
+}
+function vMeetings() {
+  var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
+  return frame("Meetings", "Vision meetings", "Every 14 days · Attendance for the last 10",
+    '<div class="dash compact meet"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Attendance</div><div class="card-description">Last 10 vision meetings</div></div></div>' +
+    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>' +
+    '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">Next 14 days</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-violet">' + icon("users") + '</span><div class="grow"><div class="list-title">Worship team training</div><div class="list-sub">Wed Oct 15 · 8 of 9 confirmed</div></div></div>' +
+    '<div class="list-row"><span class="card-icon tone-blue">' + icon("compass") + '</span><div class="grow"><div class="list-title">Coach check-in</div><div class="list-sub">Fri Oct 17 · with Pastor Ruth Allen</div></div></div></div></div>');
+}
+function vPeopleMini() {
+  var st = [["tone-ink", "Prospect", 82, 100, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 50, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 28, "var(--ef-amber-500)"], ["tone-green", "Core group", 34, 41, "var(--ef-green-500)"]];
+  return '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Where people are</div><div class="card-description">214 people across 7 stages</div></div></div><div style="display:grid;gap:14px">' +
+    st.map(function (x) { return '<div><div class="row between"><span class="stage-chip ' + x[0] + '">' + x[1] + '</span><span class="num" style="font-size:18px">' + x[2] + '</span></div><div class="meter-hatch"><span class="hatch" style="width:' + x[3] + '%;--hatch:' + x[4] + '"></span></div></div>'; }).join("") + "</div></div></div>";
+}
+function vAttendance() {
+  var h = [38, 44, 41, 52, 55, 50, 61, 66, 70];
+  return '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Vision meetings</div><div class="card-description">Attendance, last 10 · every 14 days</div></div><span class="badge" data-size="sm" data-status="positive">On rhythm</span></div>' +
+    '<div class="target-line" style="margin-top:26px"><span>Goal 50</span></div><div class="bars">' + h.map(function (x) { return '<div class="bar hatch" style="height:' + x + '%"></div>'; }).join("") + '<div class="bar solid" style="height:78%"><span class="lbl">47</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div>' +
+    '<div class="list-row" style="margin-top:8px"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div></div></div>';
+}
+var SC_VIEWS = [["Phases", "compass"], ["People", "users"], ["Vision meetings", "calendar"], ["Evry", "sparkle"]];
+function showcase(story) {
+  var views = [vPhaseCard(), vPeople(), vMeetings(), '<div class="ef">' + vEvry(DIR[story].sections.evry.example) + "</div>"];
+  return '<section class="showcase" id="showcase" aria-label="Product tour" style="--n:' + views.length + '"><div class="sc-track"><div class="sc-sticky"><div class="sc-stage gsurf" data-tone="field"><span class="sc-shade"></span>' +
+    '<div class="sc-tabs" role="tablist" aria-label="Product views">' + SC_VIEWS.map(function (v, i) { return '<button type="button" class="sc-tab" role="tab" data-sc="' + i + '" aria-selected="' + (i === 0) + '" aria-controls="sc-view-' + i + '">' + icon(v[1]) + "<span>" + v[0] + "</span></button>"; }).join("") + "</div>" +
+    '<div class="sc-card">' + views.map(function (v, i) { return '<div class="sc-view' + (i === 0 ? " on" : "") + '" id="sc-view-' + i + '" role="tabpanel" aria-hidden="' + (i !== 0) + '">' + (i === 3 ? '<div style="max-width:640px;margin:0 auto">' + visual(v) + "</div>" : visual(v)) + "</div>"; }).join("") + "</div>" +
+    '<div class="sc-meter" aria-hidden="true">' + views.map(function (v, i) { return '<span class="' + (i === 0 ? "on" : "") + '"></span>'; }).join("") + "</div>" +
+    '</div></div><div class="sc-steps" aria-hidden="true">' + views.map(function () { return "<div></div>"; }).join("") + "</div></div></section>";
+}
+/* Draft copy: not in marketing-copy.json. Facts come from the copy and the dashboard mockup. */
+var WEEK = [
+  ["field", "Gather", "Know everyone you are reaching.", ["Add people from a form or a spreadsheet", "See each person's stage, from prospect to core group", "Invite them to the next vision meeting"], function () { return vPeopleMini(); }],
+  ["sky", "Meet", "Hold a vision meeting every 14 days.", ["Plan the meeting and send the invitations", "Record attendance at the door", "Close attendance when the meeting ends"], function () { return vAttendance(); }],
+  ["dawn", "Follow up", "Call every new guest while it matters.", ["Closing attendance creates a follow-up task for each new guest", "Each task has an owner and a due date", "Evry can prepare the calls. You approve them."], function () { return '<div class="ef">' + needsYouCard() + "</div>"; }],
+  ["lilac", "Commit", "Count committed adults against the benchmark.", ["Record interviews against the five considerations and the 4 Cs", "Record each signed commitment", "See committed adults against the benchmark of 50"], function () { return '<div class="ef">' + coreGroupCard(false) + "</div>"; }]
+];
+function week() {
+  return '<section class="sec sec-week" id="week"><div class="wrap"><div class="sec-head"><div class="sh-title"><span class="eyebrow">The planter\'s week</span><h2 class="display h2">Gather, meet, follow up, commit.</h2></div>' +
+    '<p class="body-2 sh-text"><span class="page-tag" style="margin:0 0 12px">Draft copy · not in marketing-copy.json</span><br>Each step has its own screen in EveryField, and each one feeds the next.</p></div>' +
+    '<div class="wk-stack">' + WEEK.map(function (w, i) {
+      return '<article class="wk-card" data-tone="' + w[0] + '" style="--i:' + i + '"><span class="wk-edge" aria-hidden="true"></span><div class="wk-copy"><span class="wk-num">0' + (i + 1) + " · " + w[1] + '</span><h3 class="display h2" style="font-size:var(--mk-fs-h3);line-height:1.15">' + w[2] + '</h3><ol class="wk-steps">' +
+        w[3].map(function (s) { return "<li>" + s + "</li>"; }).join("") + '</ol></div><div class="wk-vis">' + visual(w[4]()) + "</div></article>";
+    }).join("") + "</div></div></section>";
+}
+function chapter() {
+  var C = DIR.method.sections, A = DIR.journey.sections;
+  var trustBy = {}; A.trust.items.forEach(function (x) { trustBy[x.title] = x.body; });
+  var unknownLens = '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Generosity and finance</div><div class="card-description">Critical Success Factor 6 of 8</div></div><span class="badge" data-status="unknown">Unknown</span></div><div class="muted">No giving or budget answer yet. Unknown is not the same as weak.</div><div class="callout">' + icon("eye") + '<span>Plant Intelligence does not guess. It asks.</span></div><div style="margin-top:14px"><span class="btn" data-variant="secondary">Answer 3 questions</span></div></div></div>';
+  var lensCard = '<div class="ef"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Follow-up is slipping</div><div class="card-description">The facts this finding used · Rubric v1</div></div></div>' +
+    '<div class="kv"><span class="k">New guests, last 2 vision meetings</span><span class="v">24</span></div><div class="kv"><span class="k">Contact within 48 hours</span><span class="row"><span class="v">17</span><span class="badge" data-size="sm" data-status="attention">71%</span></span></div><div class="kv"><span class="k">No contact yet</span><span class="row"><span class="v">7</span><span class="badge" data-size="sm" data-status="risk">Open</span></span></div><div class="kv"><span class="k">Rubric version</span><span class="v">v1</span></div></div></div>';
+  var panels = [
+    ["One focus at a time", C.proof.body.split(". ").slice(0, 2).join(". ") + ".", '<div class="ef">' + focusCard() + "</div>"],
+    ["Every finding shows its facts", "Every finding links to the facts it used and names the rubric version.", lensCard],
+    ["Unknown stays unknown", trustBy["Unknown stays unknown"], unknownLens],
+    ["Your phase is your call", trustBy["Your phase is your call"], vPhaseCard()]
+  ];
+  return '<section class="sec sec-chapter" id="intelligence"><div class="wrap"><div class="ch-grid"><div class="ch-left"><div class="ch-head"><span class="eyebrow">' + t(C.proof.eyebrow) + '</span><h2 class="display h2">' + t(C.proof.headline) + "</h2></div>" +
+    panels.map(function (p, i) { return '<div class="ch-panel' + (i === 0 ? " on" : "") + '" data-ch="' + i + '"><h3 class="display h3">' + t(p[0]) + "</h3><p>" + t(p[1]) + '</p><div class="ch-inline">' + visual(p[2]) + "</div></div>"; }).join("") +
+    '</div><div class="ch-right"><div class="ch-vis">' + panels.map(function (p, i) { return '<div class="ch-view' + (i === 0 ? " on" : "") + '">' + visual(p[2]) + "</div>"; }).join("") +
+    '<div class="ch-dots" aria-hidden="true">' + panels.map(function (p, i) { return '<span class="' + (i === 0 ? "on" : "") + '"></span>'; }).join("") + "</div></div></div></div></div></section>";
+}
+
+/* Observers. Rebuilt after each render. */
+var REDUCED = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+var observers = [];
+function setShowcase(i) {
+  var root = document.getElementById("showcase");
+  if (!root) return;
+  root.querySelectorAll(".sc-view").forEach(function (v, k) { v.classList.toggle("on", k === i); v.setAttribute("aria-hidden", k !== i); });
+  root.querySelectorAll(".sc-tab").forEach(function (b, k) { b.setAttribute("aria-selected", k === i); });
+  root.querySelectorAll(".sc-meter span").forEach(function (s, k) { s.classList.toggle("on", k <= i); });
+}
+function setChapter(i) {
+  document.querySelectorAll(".ch-panel").forEach(function (p, k) { p.classList.toggle("on", k === i); });
+  document.querySelectorAll(".ch-view").forEach(function (v, k) { v.classList.toggle("on", k === i); });
+  document.querySelectorAll(".ch-dots span").forEach(function (d, k) { d.classList.toggle("on", k === i); });
+}
+function setupMotion() {
+  observers.forEach(function (o) { o.disconnect(); });
+  observers = [];
+  var hasIO = "IntersectionObserver" in window;
+  var still = REDUCED.matches || !hasIO;
+  if (!still) {
+    var center = { rootMargin: "-50% 0px -50% 0px", threshold: 0 };
+    var steps = document.querySelectorAll(".sc-steps > div");
+    if (steps.length) {
+      var o1 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) setShowcase(Array.prototype.indexOf.call(steps, e.target)); }); }, center);
+      steps.forEach(function (s) { o1.observe(s); }); observers.push(o1);
+    }
+    var panels = document.querySelectorAll(".ch-panel");
+    if (panels.length) {
+      var o2 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) setChapter(+e.target.dataset.ch); }); }, center);
+      panels.forEach(function (p) { o2.observe(p); }); observers.push(o2);
+    }
+  }
+  var sel = "#view .sec-head, #view .feat, #view .aud, #view .trust-item, #view .tile, #view .split, #view .cta-box, #view .e-copy, #view .e-vis, #view .form-card, #view .access-table-wrap, #view .hero-band";
+  var els = document.querySelectorAll(sel);
+  if (still) return;
+  var o3 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); o3.unobserve(e.target); } }); }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  els.forEach(function (el) {
+    var sib = el.parentElement ? Array.prototype.indexOf.call(el.parentElement.children, el) : 0;
+    el.style.setProperty("--rv-d", Math.min(sib, 4) * 70 + "ms");
+    if (el.getBoundingClientRect().top < window.innerHeight * 0.92) return;
+    el.classList.add("rv");
+    o3.observe(el);
+  });
+  observers.push(o3);
+}
+function showcaseTab(i) {
+  setShowcase(i);
+  if (REDUCED.matches) return;
+  var steps = document.querySelectorAll(".sc-steps > div");
+  if (!steps[i]) return;
+  var top = steps[i].getBoundingClientRect().top + window.scrollY + 10;
+  window.scrollTo({ top: Math.max(0, top - window.innerHeight * 0.5 + 40), behavior: "smooth" });
+}
+
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story) + problem(s.problem) + proof(s.proof, story) + features(s.features) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+  return hero(s.hero, story, { visual: false, flat: true }) + showcase(story) + problem(s.problem) + week() + proof(s.proof, story) + features(s.features) + chapter() + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
   var a = s.audiences.items[0];
   return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points, tag: "Page mock · /planters · story A copy" }) +
-    problem(s.problem) + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+    problem(s.problem) + week() + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + trust(s.trust) + cta(s.cta);
 }
 function pageOversight() {
   var s = DIR.oversight.sections;
@@ -1884,7 +2133,7 @@ function pageOversight() {
 function pageMethod() {
   var s = DIR.method.sections;
   return hero(s.hero, "method", { page: true, visual: '<div class="hv hv-map">' + visual('<div class="map-hero"><div class="map">' + vMap("method", false) + '</div><div class="map-card"><div class="ef">' + needsYouCard() + "</div></div></div>") + '</div><div class="hv hv-product">' + visual(vPhaseCard()) + "</div>", tag: "Page mock · /method · story C copy" }) +
-    problem(s.problem) + proof(s.proof, "method") + features(s.features, { id: "phases", track: true }) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+    problem(s.problem) + proof(s.proof, "method") + chapter() + features(s.features, { id: "phases", track: true }) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
 }
 function pageTrust() {
   var A = DIR.journey.sections, B = DIR.oversight.sections, C = DIR.method.sections;
@@ -1997,6 +2246,7 @@ function render(scrollMode) {
     var target = document.getElementById(state.at);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
+  if (needView) setupMotion();
   last = { page: state.page, story: state.story, styleForLinks: state.style };
 }
 function setState(over, push) {
@@ -2021,6 +2271,8 @@ function toast(msg) {
 
 /* ---------- Events ---------- */
 document.addEventListener("click", function (e) {
+  var sc = e.target.closest(".sc-tab");
+  if (sc) { showcaseTab(+sc.dataset.sc); return; }
   var b = e.target.closest("[data-style]");
   if (b && b.closest(".pbar")) { setState({ style: b.dataset.style }); return; }
   b = e.target.closest("[data-story]");
@@ -2058,6 +2310,7 @@ document.addEventListener("submit", function (e) {
   if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
 });
 window.addEventListener("hashchange", onHash);
+if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); });
 
 state = parseHash();
 history.replaceState(null, "", hrefFor(state.page, state.at));
