@@ -66,6 +66,7 @@
   --ef-magenta-50:  #FEF4F1;
 
   --ef-amber-600: #B26F12;
+  --ef-amber-display: #D9780F;   /* large attention numbers only (3:1 large-text rule) */
   --ef-amber-500: #E9A23B;
   --ef-amber-300: #F4D290;
   --ef-amber-100: #FCF0D5;
@@ -164,6 +165,7 @@
   --ef-green-700: #A2E2B9; --ef-green-600: #72CF93; --ef-green-500: #4CB874; --ef-green-300: #2E6A46; --ef-green-100: #17301F; --ef-green-50: #13231A;
   --ef-blue-600: #A3B6FF;  --ef-blue-500: #6F89F3;  --ef-blue-300: #3C4C8C;  --ef-blue-100: #1B2342;  --ef-blue-50: #161C32;
   --ef-magenta-600: #FFA593; --ef-magenta-500: #EA725C; --ef-magenta-300: #7A3B31; --ef-magenta-100: #3A1E1A; --ef-magenta-50: #2B1815;
+  --ef-amber-display: #FFA552;
   --ef-amber-600: #F4C676; --ef-amber-500: #E9A23B; --ef-amber-300: #6E5322; --ef-amber-100: #33291A; --ef-amber-50: #272016;
   --ef-violet-600: #C3B5FF; --ef-violet-500: #9C85EE; --ef-violet-100: #26213F;
   --ef-teal-600: #84DBD5;  --ef-teal-500: #3AB0A9;  --ef-teal-100: #142E2D;
@@ -2067,7 +2069,7 @@ body[data-shell="bare"] .main { padding: 0; }
         <div><div class="stat-label">All people</div><div class="stat-value">214</div><div class="row gap-2 mt-3"><span class="delta" data-dir="up" data-size="sm">23</span><span class="faint t-sm">this month</span></div></div>
         <div><div class="stat-label">Core group</div><div class="stat-value c-green" style="color:var(--ef-green-600)">34</div><div class="row gap-2 mt-3"><span class="delta" data-dir="up" data-size="sm">9</span><span class="faint t-sm">of 50 benchmark</span></div></div>
         <div><div class="stat-label">Following up</div><div class="stat-value">23</div><div class="row gap-2 mt-3"><span class="badge" data-size="sm" data-status="risk">3 overdue</span></div></div>
-        <div><div class="stat-label">No contact 14 d</div><div class="stat-value" style="color:var(--ef-amber-600)">11</div><div class="row gap-2 mt-3"><span class="faint t-sm">inactive by church policy</span></div></div>
+        <div><div class="stat-label">No contact 14 d</div><div class="stat-value" style="color:var(--ef-amber-display)">11</div><div class="row gap-2 mt-3"><span class="faint t-sm">inactive by church policy</span></div></div>
       </div>
       <div class="mt-6">
         <div style="display:flex;height:14px;border-radius:99px;overflow:hidden;gap:3px">
@@ -2879,7 +2881,7 @@ body[data-shell="bare"] .main { padding: 0; }
         <div><div class="stat-label">Sent, last 30 days</div><div class="stat-value">9</div><div class="faint t-sm mt-3">412 emails to 168 people</div></div>
         <div><div class="stat-label">Delivered</div><div class="stat-value">97%</div><div class="row gap-2 mt-3"><span class="badge" data-size="sm" data-status="risk">6 bounced</span></div></div>
         <div><div class="stat-label">Opened</div><div class="stat-value">58%</div><div class="row gap-2 mt-3"><span class="delta" data-dir="up" data-size="sm">6%</span><span class="faint t-sm">vs prior 30</span></div></div>
-        <div><div class="stat-label">Unreachable</div><div class="stat-value" style="color:var(--ef-amber-600)">14</div><div class="faint t-sm mt-3">people with no email</div></div>
+        <div><div class="stat-label">Unreachable</div><div class="stat-value" style="color:var(--ef-amber-display)">14</div><div class="faint t-sm mt-3">people with no email</div></div>
       </div>
     </div>
     <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:0">
@@ -3209,7 +3211,7 @@ body[data-shell="bare"] .main { padding: 0; }
   </div>
   <div class="grid g-4" style="margin-bottom:20px">
     <div class="card" data-size="sm"><div class="stat-label">Ready</div><div class="stat-value c-green" style="color:var(--ef-green-600)">52</div><div class="faint t-sm mt-2">New people</div></div>
-    <div class="card" data-size="sm"><div class="stat-label">Possible duplicates</div><div class="stat-value" style="color:var(--ef-amber-600)">6</div><div class="faint t-sm mt-2">Choose for each one</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Possible duplicates</div><div class="stat-value" style="color:var(--ef-amber-display)">6</div><div class="faint t-sm mt-2">Choose for each one</div></div>
     <div class="card" data-size="sm"><div class="stat-label">Need a fix</div><div class="stat-value" style="color:var(--ef-magenta-600)">4</div><div class="faint t-sm mt-2">Skipped unless fixed</div></div>
     <div class="card" data-size="sm"><div class="stat-label">Empty rows</div><div class="stat-value">2</div><div class="faint t-sm mt-2">Ignored</div></div>
   </div>
@@ -3274,7 +3276,7 @@ body[data-shell="bare"] .main { padding: 0; }
     <div class="card" data-size="sm"><div class="stat-label">Plants</div><div class="stat-value">5</div><div class="faint t-sm mt-2">4 sharing</div></div>
     <div class="card" data-size="sm"><div class="stat-label">Launching this year</div><div class="stat-value">2</div><div class="faint t-sm mt-2">Mar and May 2027</div></div>
     <div class="card" data-size="sm"><div class="stat-label">Committed adults</div><div class="stat-value">118</div><div class="faint t-sm mt-2">Across sharing plants</div></div>
-    <div class="card" data-size="sm"><div class="stat-label">Needs attention</div><div class="stat-value" style="color:var(--ef-amber-600)">1</div><div class="faint t-sm mt-2">Shared findings only</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Needs attention</div><div class="stat-value" style="color:var(--ef-amber-display)">1</div><div class="faint t-sm mt-2">Shared findings only</div></div>
   </div>
   <div class="card">
     <div class="card-header"><div class="grow"><div class="card-title">Plants</div></div><div class="input" style="width:260px;height:40px"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search plants"></div></div>
