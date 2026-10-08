@@ -75,8 +75,8 @@
   --mk-lh-display: 1.04;
   --mk-lh-body: 1.55;
   --mk-tracking-display: -0.035em;
-  --mk-tracking-eyebrow: 0;
-  --mk-eyebrow-transform: none;
+  --mk-tracking-eyebrow: 0.09em;
+  --mk-eyebrow-transform: uppercase;
   --mk-display-stretch: 100%;
 
   --mk-max-width: 1440px;
@@ -413,8 +413,10 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .feat-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-gutter); counter-reset: feat; }
 .feat { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); counter-increment: feat; }
 .feat-num::before { content: counter(feat, decimal-leading-zero); }
-.feat-num { font-family: var(--mk-font-display); font-size: 15px; color: var(--mk-text-3); font-weight: 500; }
-.feat-label { font-size: 13px; font-weight: 600; color: var(--mk-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); }
+/* Revision 9: the number and the phase name share one uppercase, tracked line */
+.feat-tag { display: flex; align-items: baseline; gap: 12px; font-size: var(--mk-fs-eyebrow); font-weight: 600; line-height: 1.3; letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); }
+.feat-num { color: var(--mk-text-3); font-variant-numeric: tabular-nums; }
+.feat-label { font-size: var(--mk-fs-eyebrow); font-weight: 600; color: var(--mk-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); }
 .feat p { color: var(--mk-text-2); }
 
 /* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
@@ -670,7 +672,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
 .cx-step h3 { margin-top: 14px; }
 /* Revision 7: smaller step titles in both chapters (24 px at 1440, was 28). */
-.cx-step { --cx-h3: clamp(20px, 1.6vw, 24px); }
+.cx-step { --cx-h3: clamp(18px, 1.4vw, 21px); --cx-ti: calc(var(--cx-h3) * 1.48); }
 .cx-step h3.h3 { font-size: var(--cx-h3); }
 .cx-step p { margin-top: 10px; color: var(--mk-text-2); max-width: 46ch; }
 /* Steps rise and fade in as they enter (hero stagger: 75 ms apart, ease-out) */
@@ -710,9 +712,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Revision 4 week steps: a small rounded-square icon in the step's gradient tone before each title */
 .cx-tl { display: flex; align-items: flex-start; gap: 14px; }
 .cx-tl h3 { margin-top: 0; min-width: 0; }
-.cx-ti { width: 34px; height: 34px; flex: none; margin-top: calc((var(--cx-h3) * 1.15 - 34px) / 2); border-radius: 9px; display: grid; place-items: center; color: #181D19;
+.cx-ti { width: var(--cx-ti); height: var(--cx-ti); flex: none; margin-top: calc((var(--cx-h3) * 1.15 - var(--cx-ti)) / 2); border-radius: calc(var(--cx-ti) * .265); display: grid; place-items: center; color: #181D19;
   background: var(--g-base); box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
-.cx-ti svg { width: 17px; height: 17px; stroke-width: 1.8; }
+.cx-ti svg { width: calc(var(--cx-ti) * .5); height: calc(var(--cx-ti) * .5); stroke-width: 1.8; }
 .cx-step .cx-tl + p { margin-top: 12px; }
 /* Gatherings */
 .cx-in { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 11px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 13.5px; font-weight: 500; color: var(--ef-ink); white-space: nowrap; overflow: hidden; }
@@ -1190,32 +1192,32 @@ body.pbar-hidden { padding-bottom: 0; }
           "headline": "Everything a plant needs, in the order you need it.",
           "items": [
             {
-              "label": "Phase 0 · Discovery",
+              "label": "Discovery",
               "title": "Start with clear guidance",
               "body": "Everyfield opens the guidance for the phase you are in, so you read what matters now."
             },
             {
-              "label": "Phase 1 · Core group",
+              "label": "Core group",
               "title": "Grow a committed core group",
               "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks."
             },
             {
-              "label": "Phase 2 · Launch team",
+              "label": "Launch team",
               "title": "Set the date and fill the roles",
               "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it."
             },
             {
-              "label": "Phase 3 · Training",
+              "label": "Training",
               "title": "Train every team",
               "body": "Plan training meetings for each ministry team and see who has finished."
             },
             {
-              "label": "Phase 4 · Pre-launch",
+              "label": "Pre-launch",
               "title": "Finish the launch list",
               "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details."
             },
             {
-              "label": "Phases 5 and 6 · Launch and after",
+              "label": "Launch and after",
               "title": "Launch, then keep going",
               "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm."
             }
@@ -2440,7 +2442,7 @@ function features(f, opts) {
     '<div class="sec-head' + (f.intro ? "" : " solo") + '"><h2 class="display h2 sh-title">' + t(f.headline) + "</h2>" + (f.intro ? '<p class="body-2 sh-text">' + t(f.intro) + "</p>" : "") + "</div>" +
     (opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "The seven phases of a church plant.") + "</div>" : "") +
     '<ol class="feat-list">' + f.items.map(function (it) {
-      return '<li class="feat"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
+      return '<li class="feat"><span class="feat-tag"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span></span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
     }).join("") + "</ol></div></section>";
 }
 function audienceCol(a) {
