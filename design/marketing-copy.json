@@ -69,6 +69,41 @@
       ],
       "fineprint": "© 2026 EveryField LLC"
     },
+    "week": {
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and a sample-data panel (panel). No step numbers or labels.",
+      "eyebrow": "The planter's week",
+      "title": "Gather, meet, follow up, commit.",
+      "steps": [
+        {
+          "panel": "people",
+          "tone": "field",
+          "icon": "users",
+          "title": "Know everyone you are reaching.",
+          "body": "Add people from a form or a spreadsheet. See where each person is, from first contact to launch team."
+        },
+        {
+          "panel": "meet",
+          "tone": "sky",
+          "icon": "calendar",
+          "title": "Run every gathering from one place.",
+          "body": "Plan vision meetings, trainings, orientations and service runs. See who came to each one."
+        },
+        {
+          "panel": "follow",
+          "tone": "dawn",
+          "icon": "task",
+          "title": "No new guest slips through.",
+          "body": "Evry creates a follow-up for each new guest, assigns it to someone on your core team and drafts what to say. You approve."
+        },
+        {
+          "panel": "teams",
+          "tone": "lilac",
+          "icon": "heart",
+          "title": "Grow your core team and your launch team.",
+          "body": "Record each commitment and watch both teams grow as you get closer to launch."
+        }
+      ]
+    },
     "trust_page": {
       "eyebrow": "Privacy and trust",
       "headline": "Who sees what in EveryField.",

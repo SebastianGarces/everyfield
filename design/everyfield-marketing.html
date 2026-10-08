@@ -691,32 +691,62 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-cur { position: absolute; left: 0; top: 0; z-index: 8; width: 22px; height: 22px; margin: -3px 0 0 -5px; opacity: 0; pointer-events: none; transform-origin: 5px 3px; will-change: transform, opacity; }
 .cx-cur svg { position: relative; z-index: 1; width: 22px; height: 22px; fill: #181D19; stroke: #FFFFFF; stroke-width: 1.4; filter: drop-shadow(0 2px 3px rgba(24, 29, 25, .35)); }
 .cx-ripple { position: absolute; left: -9px; top: -11px; width: 28px; height: 28px; border-radius: 50%; background: rgba(24, 29, 25, .18); opacity: 0; }
-/* Vision meetings */
-.cx .bars.cx-bars { position: relative; height: 118px; gap: 7px; margin-top: 30px; }
-.cx-bars .bar { transform-origin: 50% 100%; transform: scaleY(0); }
-.cx-bars .bar .lbl { opacity: 0; }
-.cx-goal { position: absolute; left: 0; right: 0; bottom: 83.3%; height: 0; z-index: 1; }
-.cx-goal i { position: absolute; left: 0; right: 0; top: 0; border-top: 1.5px dashed var(--ef-line-2); transform-origin: 0 0; transform: scaleX(0); }
-.cx-goal span { position: absolute; left: 0; bottom: 4px; font-size: 11.5px; color: var(--ef-text-3); }
-/* Needs you */
-.cx-views { display: grid; }
-.cx-view { grid-area: 1 / 1; align-self: start; min-width: 0; will-change: transform, opacity; }
 .cx-swap { display: inline-grid; min-width: 0; }
 .cx-swap > * { grid-area: 1 / 1; min-width: 0; will-change: transform, opacity; }
 .cx-swap > :last-child { opacity: 0; }
-.cx-ic { display: inline-grid; flex: none; }
-.cx-ic > .card-icon { grid-area: 1 / 1; will-change: transform, opacity; }
-.cx-ic > :last-child { opacity: 0; }
-.cx .ha-check { opacity: 0; }
-.cx .ha-li { height: 46px; }
-.cx .ha-li .faint { font-size: 12.5px; white-space: nowrap; }
-/* Core group */
-.cx-stat { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.cx-stat .stat-value { font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 0 100%; will-change: transform; }
-.cx-pop { display: inline-flex; opacity: 0; margin-bottom: 8px; will-change: transform, opacity; }
-.cx .target-bar .fill.cx-fill { width: calc((100% - 4px) * .5667); will-change: clip-path; }
-.cx-left-t { margin-top: 12px; }
-.cx .target-bar-legend span { white-space: nowrap; }
+/* Revision 4 week steps: a small rounded-square icon in the step's gradient tone before each title */
+.cx-tl { display: flex; align-items: flex-start; gap: 14px; }
+.cx-tl h3 { margin-top: 0; min-width: 0; }
+.cx-ti { width: 38px; height: 38px; flex: none; margin-top: 1px; border-radius: 10px; display: grid; place-items: center; color: #181D19;
+  background: radial-gradient(circle at 80% 18%, var(--g5) 0%, transparent 40%), radial-gradient(70% 70% at 24% 30%, var(--g1) 0%, transparent 76%), radial-gradient(70% 70% at 76% 86%, var(--g4) 0%, transparent 76%), var(--g-base);
+  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
+.cx-ti svg { width: 19px; height: 19px; stroke-width: 1.8; }
+.cx-step .cx-tl + p { margin-top: 12px; }
+/* Gatherings */
+.cx-in { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 11px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 13.5px; font-weight: 500; color: var(--ef-ink); white-space: nowrap; overflow: hidden; }
+.cx-in .cx-fr { position: absolute; inset: 0; border-radius: 11px; box-shadow: inset 0 0 0 1.5px var(--ef-blue-500), 0 0 0 3px rgba(80, 150, 255, .16); opacity: 0; pointer-events: none; }
+.cx-in .cx-chev { width: 15px; height: 15px; margin-left: auto; color: var(--ef-text-3); transform: rotate(90deg); }
+.cx-in .cx-tw { flex: 1; min-width: 0; }
+.cx-roll { height: 1.3em; line-height: 1.3em; }
+.cx-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.cx-2 > div { min-width: 0; }
+.cx-att { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ef-line); }
+.cx-att > .row { justify-content: space-between; }
+.cx-att > .row > .row { gap: 8px; }
+.cx-att .ha-lab { margin: 0; }
+.cx-cnt { font-family: var(--mk-font-display); font-size: 22px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
+.cx-att .badge { opacity: 0; will-change: transform, opacity; }
+.cx-guests { margin-top: 10px; }
+/* Follow-up tasks */
+.cx-lead { display: inline-grid; flex: none; }
+.cx-lead > * { grid-area: 1 / 1; will-change: transform, opacity; }
+.cx .cx-lead > .ha-check { opacity: 0; }
+.cx-l1 { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-l2 { display: block; font-size: 11.5px; font-weight: 500; color: var(--ef-text-3); margin-top: 1px; }
+.cx .ha-li.cx-fu { height: 50px; }
+.cx-fu .grow { min-width: 0; }
+.cx-fu .cx-swap { display: grid; }
+.cx-who { height: 26px; font-size: 12px; padding: 0 9px 0 3px; opacity: 0; will-change: transform, opacity; }
+.cx-who .ha-av { width: 20px; height: 20px; font-size: 8.5px; background: var(--ef-amber-100); color: var(--ef-amber-600); }
+.cx-draft { margin: 0 0 8px 32px; padding: 10px 12px; border-radius: 12px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 12.5px; line-height: 1.45; color: var(--ef-ink-2); opacity: 0; transform-origin: 50% 0; will-change: transform, opacity; }
+.cx-draft .ha-lab { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 11.5px; color: var(--ef-text-3); }
+.cx-draft .ha-lab svg { width: 13px; height: 13px; }
+.cx-dn { will-change: transform; }
+/* The card's white shell grows with the draft (the hero's shell and shadow pattern), so the closed card has no empty space */
+.cx-card.cx-clip { background: transparent; box-shadow: none; }
+.cx-shell, .cx-shade { position: absolute; inset: 0; z-index: -1; border-radius: 22px; pointer-events: none; }
+.cx-shell { background: #FFFFFF; will-change: clip-path; }
+.cx-shade { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); transform-origin: 50% 0; will-change: transform; }
+.cx-dn .ha-acts .cx-swap { font-size: 12.5px; }
+/* Core team and launch team */
+.cx-team { margin-top: 12px; }
+.cx-team:first-of-type { margin-top: 0; }
+.cx-team .row { justify-content: space-between; min-height: 28px; }
+.cx-team .num { font-family: var(--mk-font-display); font-size: 22px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
+.cx-sublab { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ef-line); font-size: 12px; font-weight: 600; color: var(--ef-text-2); }
+.cx-sublab + .list-row { border-top: 0; padding-top: 8px; }
+.cx-card .list-row .ha-av { width: 30px; height: 30px; font-size: 10.5px; flex: none; }
+.cx-fly { position: absolute; left: 0; top: 0; z-index: 7; opacity: 0; pointer-events: none; will-change: transform, opacity; }
 /* Plant Intelligence: focus */
 .cx-rt { position: relative; height: 8px; margin-top: 16px; border-radius: 99px; background: rgba(24, 29, 25, .12); }
 .cx-rf { position: absolute; inset: 0 auto 0 0; width: 76.2%; border-radius: 99px; background: #181D19; will-change: clip-path; }
@@ -775,7 +805,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 @media (max-width: 640px) {
   .cx-card { padding: 16px 16px 18px; }
   .cx-card.insight { padding: 18px; }
-  .cx .ha-li .faint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cx-txt, .cx-num b { transition: none !important; }
@@ -1064,6 +1093,41 @@ body.pbar-hidden { padding-bottom: 0; }
         }
       ],
       "fineprint": "© 2026 EveryField LLC"
+    },
+    "week": {
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and a sample-data panel (panel). No step numbers or labels.",
+      "eyebrow": "The planter's week",
+      "title": "Gather, meet, follow up, commit.",
+      "steps": [
+        {
+          "panel": "people",
+          "tone": "field",
+          "icon": "users",
+          "title": "Know everyone you are reaching.",
+          "body": "Add people from a form or a spreadsheet. See where each person is, from first contact to launch team."
+        },
+        {
+          "panel": "meet",
+          "tone": "sky",
+          "icon": "calendar",
+          "title": "Run every gathering from one place.",
+          "body": "Plan vision meetings, trainings, orientations and service runs. See who came to each one."
+        },
+        {
+          "panel": "follow",
+          "tone": "dawn",
+          "icon": "task",
+          "title": "No new guest slips through.",
+          "body": "Evry creates a follow-up for each new guest, assigns it to someone on your core team and drafts what to say. You approve."
+        },
+        {
+          "panel": "teams",
+          "tone": "lilac",
+          "icon": "heart",
+          "title": "Grow your core team and your launch team.",
+          "body": "Record each commitment and watch both teams grow as you get closer to launch."
+        }
+      ]
     },
     "trust_page": {
       "eyebrow": "Privacy and trust",
@@ -1920,7 +1984,11 @@ function cxIcon(tone, name) { return '<span class="card-icon ' + tone + '">' + i
 function cxBtn(cls, a, b) { return '<span class="ha-btn cx-sm ' + cls + '"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">' + a + '</span><span class="ha-l2">' + icon("check") + b + "</span></span>"; }
 function cxSwap(a, b, cls) { return '<span class="cx-swap' + (cls ? " " + cls : "") + '"><span>' + a + "</span><span>" + b + "</span></span>"; }
 var CX_PEOPLE = [["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"], ["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"], ["tone-green", "Core group", 34, 34, "var(--ef-green-500)"]];
-var CX_BARS = [38, 44, 41, 52, 55, 50, 61, 66, 70];
+var CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"];
+var CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]];
+var CX_DRAFT = "Thank Kim for coming on Sunday. Ask what stood out to her, and offer to meet for coffee this week.";
+var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
+var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
 var CX_Q = "Why does Plant Intelligence say my follow-up is slipping?";
 var CX_A = "17 of 24 new guests heard from you within 48 hours. 7 have had no contact yet. I prepared a call for each one.";
 function cxTw(cls, text) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
@@ -1935,29 +2003,31 @@ var CX_MARK = {
       '<div data-st><div class="card-inset cx-ins">14 interviewed people have not committed yet.</div></div>';
   },
   meet: function () {
-    return cxHead(cxIcon("tone-blue", "calendar"), "Vision meetings", "Every 14 days · attendance, last 10", '<span class="badge" data-size="sm" data-status="positive">On rhythm</span>') +
-      '<div data-st><div class="bars cx-bars"><div class="cx-goal"><i></i><span>Goal 50</span></div>' + CX_BARS.map(function (h) { return '<div class="bar hatch" style="height:' + h + '%"></div>'; }).join("") +
-      '<div class="bar solid" style="height:78%"><span class="lbl">0</span></div></div><div class="chart-axis"><span>Jun 1</span><span>Sep 28</span></div></div>' +
-      '<div class="list-row" data-st><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #11</div><div class="list-sub">Reyes home · 47 checked in</div></div>' + cxBtn("cx-t0", "Close attendance", "Closed") + "</div>" +
-      '<div class="cx-slot" data-st style="margin:10px 0 0"><span class="cx-pill">' + icon("task") + "A follow-up for each new guest</span></div>";
+    var guests = [["KW", "Kim Wu"], ["JO", "James Okafor"]];
+    return cxHead(cxIcon("tone-blue", "calendar"), "New gathering", "Harvest Point", cxBtn("cx-t1", "Create", "Created")) +
+      '<div data-st><span class="ha-lab">Type</span><div class="cx-in cx-t0"><span class="cx-fr"></span><span class="ha-roll cx-roll"><span>' + CX_TYPES.map(function (x) { return "<i>" + x + "</i>"; }).join("") + "</span></span>" + icon("arrow", "cx-chev") + "</div></div>" +
+      '<div class="cx-2" data-st><div><span class="ha-lab">When</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-when", "Sun Oct 12, 5 pm") + '</div></div><div><span class="ha-lab">Where</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-where", "Reyes home") + "</div></div></div>" +
+      '<div class="cx-att" data-st><div class="row"><span class="row"><span class="ha-lab">Checked in</span><span class="badge" data-size="sm" data-status="measured">3 new guests</span></span><span class="cx-cnt" data-n="att">0</span></div>' +
+      '<div class="cx-names cx-guests">' + guests.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">10 more</span></div></div>';
   },
-  needs: function () {
-    var rows = [["tone-amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"], ["tone-blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"]];
-    var a = cxHead(cxIcon("tone-ink", "alert"), "Needs you", "4 things this week") +
-      '<div class="list-row cx-t0" data-st><span class="cx-hl"></span><span class="cx-ic">' + cxIcon("tone-magenta", "alert") + cxIcon("tone-green", "check") + '</span><div class="grow">' +
-      cxSwap('<span class="list-title">3 follow-ups overdue</span><span class="list-sub" style="display:block">James Okafor is the oldest at 3 days</span>', '<span class="list-title">3 calls assigned</span><span class="list-sub" style="display:block">Tom and Ana · due Oct 10</span>') + "</div>" + icon("arrow", "chev") + "</div>" +
-      rows.map(function (r) { return '<div class="list-row" data-st>' + cxIcon(r[0], r[1]) + '<div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("");
-    var b = '<div class="cx-h cx-st">' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry prepared 3 calls</div><div class="ha-sub">Nothing is saved until you approve.</div></div></div>' +
-      [["James Okafor", "Tom"], ["Kim Wu", "Tom"], ["Sara Nunez", "Ana"]].map(function (n) { return '<div class="ha-li cx-st"><span class="ha-check">' + icon("check") + '</span><span class="grow">Call ' + n[0] + '</span><span class="faint">' + n[1] + " · Oct 10</span></div>"; }).join("") +
-      '<div class="ha-acts cx-st"><span class="faint t-sm">3 follow-up tasks</span>' + cxBtn("cx-t1", "Create 3 tasks", "Created") + "</div>";
-    return '<div class="cx-views"><div class="cx-view cx-va">' + a + '</div><div class="cx-view cx-vb">' + b + "</div></div>";
+  follow: function () {
+    var row = function (n) {
+      return '<div class="ha-li cx-fu"><span class="cx-lead"><span class="ha-av">' + n[0] + '</span><span class="ha-check">' + icon("check") + '</span></span><span class="grow">' +
+        cxSwap('<span class="cx-l1">' + n[1] + '</span><span class="cx-l2">New guest</span>', '<span class="cx-l1">Follow up with ' + n[1] + '</span><span class="cx-l2">Due Oct 10</span>') + "</span>" +
+        '<span class="ha-chip cx-who"><span class="ha-av">' + n[2] + "</span>" + n[3] + "</span></div>";
+    };
+    return '<div class="cx-h" data-st>' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry</div><div class="ha-sub">3 new guests from Sunday\'s vision meeting</div></div></div>' +
+      '<div data-st>' + row(CX_GUESTS[0]) + "</div>" +
+      '<div class="cx-draft"><span class="ha-lab">' + icon("sparkle") + "Drafted for Tom</span>" + cxTw("cx-dt", CX_DRAFT) + "</div>" +
+      '<div class="cx-dn"><div data-st>' + row(CX_GUESTS[1]) + "</div><div data-st>" + row(CX_GUESTS[2]) + "</div>" +
+      '<div class="ha-acts" data-st>' + cxSwap('<span class="faint">Nothing is saved until you approve.</span>', '<span class="faint">Assigned to Tom and Ana</span>', "cx-fs") + cxBtn("cx-t0", "Approve", "Approved") + "</div></div>";
   },
-  core: function () {
-    return cxHead(cxIcon("tone-green", "users"), "Core group", "Committed adults") +
-      '<div class="cx-stat" data-st><span class="stat-value" data-n="core">0</span><span class="cx-pop"><span class="delta" data-dir="up">2 this week</span></span></div>' +
-      '<div data-st><div class="target-bar"><span class="fill hatch cx-fill"></span><span class="mark" style="left:83.3%"></span></div><div class="target-bar-legend"><span>0</span><span style="position:absolute;left:83.3%;transform:translateX(-50%)">Benchmark 50</span><span></span></div></div>' +
-      '<div class="list-row" data-st style="margin-top:8px"><span class="card-icon tone-amber">' + icon("task") + '</span><div class="grow"><div class="list-title">2 commitments to record</div><div class="list-sub">Maria Santos signed on Oct 6</div></div>' + cxBtn("cx-t0", "Record", "Recorded") + "</div>" +
-      '<div data-st><p class="faint t-sm cx-left-t"><span data-n="left">50</span> more to reach the benchmark</p></div>';
+  teams: function () {
+    return cxHead(cxIcon("tone-violet", "users"), "Your teams", "Harvest Point · committed adults") +
+      CX_TEAMS.map(function (r, k) { return '<div class="cx-team" data-st data-p="dst' + k + '"><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span><span class="num" data-n="team">0</span></div><div class="ha-meter"><span style="background:' + r[2] + '"></span></div></div>'; }).join("") +
+      '<div class="cx-sublab" data-st>To record</div>' +
+      CX_SIGNS.map(function (r, k) { return '<div class="list-row" data-st><span class="ha-av" data-p="src' + k + '">' + r[0] + '</span><div class="grow"><div class="list-title">' + r[1] + '</div><div class="list-sub">' + r[2] + "</div></div>" + cxBtn("cx-t" + k, "Record", "Recorded") + "</div>"; }).join("") +
+      CX_SIGNS.map(function (r, k) { return '<span class="ha-chip cx-fly" data-p="fly' + k + '"><span class="ha-av">' + r[0] + "</span>" + r[1] + "</span>"; }).join("");
   },
   focus: function () {
     var facts = [["Last vision meeting", "#11, 16 days ago"], ["Rhythm", "Every 14 days"], ["Next", "#12, Sun Oct 12"]];
@@ -1996,35 +2066,33 @@ var CX_MARK = {
 /* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times. */
 var CX_SCN = {
   people: { L: 6400, still: 4200, cur: [[0, "rest"], [700, "rest"], [1500, ".cx-t0"], [2500, ".cx-t0"], [3300, "rest"]], clicks: [2000] },
-  meet: { L: 6400, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2300] },
-  needs: { L: 7600, still: 4700, cur: [[0, "rest"], [350, "rest"], [1100, ".cx-t0"], [1500, ".cx-t0"], [2700, "mid"], [3400, ".cx-t1"], [4300, ".cx-t1"], [5100, "rest"]], clicks: [1300, 3800] },
-  core: { L: 6400, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2600, ".cx-t0"], [3400, "rest"]], clicks: [2200] },
+  meet: { L: 7200, still: 5600, cur: [[0, "rest"], [400, "rest"], [1000, ".cx-t0"], [2300, ".cx-t0"], [3100, ".cx-t1"], [3700, ".cx-t1"], [4500, "rest"]], clicks: [1100, 3300] },
+  follow: { L: 8600, still: 6500, cur: [[0, "mid"], [3700, "mid"], [4500, ".cx-t0"], [5400, ".cx-t0"], [6200, "mid"]], clicks: [4900] },
+  teams: { L: 7600, still: 6000, cur: [[0, "rest"], [700, "rest"], [1400, ".cx-t0"], [2100, ".cx-t0"], [2900, ".cx-t1"], [3800, ".cx-t1"], [4600, "rest"]], clicks: [1700, 3300] },
   focus: { L: 6800, still: 4400, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
   facts: { L: 6600, still: 4400, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
   evry: { L: 8400, still: 6400, cur: [[0, "rest"], [3900, "rest"], [4700, ".cx-t0"], [5600, ".cx-t0"], [6400, "rest"]], clicks: [5100] },
   share: { L: 6600, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] }
 };
-/* Draft copy: not in marketing-copy.json yet. Facts come from the copy file and the dashboard mockup. */
+/* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
+var WK = COPY.shared.week;
 var CX_DEFS = {
-  week: { eyebrow: "The planter's week", title: "Gather, meet, follow up, commit.", steps: [
-    ["people", "field", "Gather", "Know everyone you are reaching.", "Add people from a form or a spreadsheet. See each person's stage, from prospect to core group."],
-    ["meet", "sky", "Meet", "Hold a vision meeting every 14 days.", "Record attendance at the door. When you close attendance, Everyfield creates a follow-up for each new guest."],
-    ["needs", "dawn", "Follow up", "Call every new guest while it matters.", "See what is overdue and who owns it. Evry prepares the calls. You approve them."],
-    ["core", "lilac", "Commit", "Count committed adults against the benchmark.", "Record each signed commitment and see your core group move toward the benchmark of 50."]] },
+  week: { eyebrow: WK.eyebrow, title: WK.title, final: true, steps: WK.steps.map(function (s) { return [s.panel, s.tone, s.icon, s.title, s.body]; }) },
   intelligence: { eyebrow: "Plant Intelligence", title: "One focus a week, with the facts behind it.", steps: [
     ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
     ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
     ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
     ["share", "dawn", "Sharing", "You see it first.", "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."]] }
 };
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
-    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + '<span class="page-tag">Draft copy</span></span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
+    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + (d.final ? "" : '<span class="page-tag">Draft copy</span>') + '</span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="sample-tag">Sample data</span><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
-        '<div class="cx-txt"><span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3><p>" + t(s[4]) + "</p></div></li>";
+        '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :
+        '<span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3>") + "<p>" + t(s[4]) + "</p></div></li>";
     }).join("") + "</ol></div>" +
     '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true"><span class="sample-tag">Sample data</span>' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
@@ -2067,41 +2135,58 @@ var CX_RENDER = {
     cxRise(cxQ(I, ".cx-ins"), t, 3300, R);
   },
   meet: function (I, t) {
-    var R = cxRst(t, 5800), bars = cxQA(I, ".cx-bars .bar");
-    haSet(cxQ(I, ".cx-goal i"), "transform", "scaleX(" + (haInOut(haP(t, 200, 700)) * R).toFixed(4) + ")");
-    bars.forEach(function (b, k) {
-      var p = k < 9 ? haOut(haP(t, 250 + k * 60, 520)) : haOut(haP(t, 2550, 600));
-      haSet(b, "transform", "scaleY(" + (p * R).toFixed(4) + ")");
+    var R = cxRst(t, 6500), ins = cxQA(I, ".cx-in"), fr = cxQA(I, ".cx-fr");
+    /* The type picker steps through each kind of gathering, then lands on Vision meeting */
+    var k = 0; for (var i = 0; i < 4; i++) k += haInOut(haP(t, 1350 + i * 280, 200));
+    haSet(cxQ(I, ".cx-roll > span"), "transform", "translate3d(0," + (-k * 20 * R).toFixed(3) + "%,0)");
+    cxPress(ins[0], t, 1100, .03);
+    cxHl(fr[0], t, 1150, 2450, R); cxHl(fr[1], t, 2450, 2950, R); cxHl(fr[2], t, 2950, 3400, R);
+    cxType(cxQ(I, ".cx-when"), "Sun Oct 12, 5 pm", haP(t, 2500, 450)); haSet(cxQ(I, ".cx-when"), "opacity", R.toFixed(3));
+    cxType(cxQ(I, ".cx-where"), "Reyes home", haP(t, 3000, 350)); haSet(cxQ(I, ".cx-where"), "opacity", R.toFixed(3));
+    cxDone(I, ".cx-t1", t, 3300, R);
+    /* Guests drop in and the attendance count ticks up */
+    cxQA(I, ".cx-guests .ha-chip").forEach(function (c, j) { var p = haP(t, 3800 + j * 160, 420); haTO(c, 0, -16 * (1 - haBack(p)), 1, haClamp(p * 2.5) * R); });
+    var att = 12 * haOut(haP(t, 3850, 1100)) * R, cnt = cxQ(I, '[data-n="att"]');
+    cxN(cnt, att);
+    haSet(cnt, "transform", "scale(" + (1 + .06 * haBump(t, 4950, 260)).toFixed(4) + ")");
+    cxPop(cxQ(I, ".cx-att .badge"), t, 4500, R);
+  },
+  follow: function (I, t) {
+    var R = cxRst(t, 7900), rows = cxQA(I, ".cx-fu");
+    rows.forEach(function (r, k) {
+      var at = 1300 + k * 500;
+      cxFlip(r.querySelector(".cx-swap"), haOut(haP(t, at, 380)) * R);
+      cxPop(r.querySelector(".cx-who"), t, at + 150, R);
+      cxFlip(r.querySelector(".cx-lead"), haOut(haP(t, 5150 + k * 120, 380)) * R);
     });
-    var lbl = cxQ(I, ".cx-bars .lbl");
-    cxN(lbl, 47 * haOut(haP(t, 2600, 700)));
-    haSet(lbl, "opacity", (haP(t, 2700, 300) * R).toFixed(3));
-    cxDone(I, ".cx-t0", t, 2300, R);
-    cxPop(cxQ(I, ".cx-pill"), t, 3200, R);
+    /* The first task opens to show the drafted talking point. The rows under it move down to make room. */
+    var e = haOut(haP(t, 2900, 450)) * R, dh = I.dh || 0;
+    haTO(cxQ(I, ".cx-draft"), 0, 0, .96 + .04 * e, e);
+    haTO(cxQ(I, ".cx-dn"), 0, -dh * (1 - e), 1, 1);
+    var cut = dh * (1 - e), H = I.h || 1;
+    haSet(cxQ(I, ".cx-shell"), "clipPath", "inset(0 0 " + cut.toFixed(1) + "px 0 round 22px)");
+    haSet(cxQ(I, ".cx-shade"), "transform", "scaleY(" + ((H - cut) / H).toFixed(4) + ")");
+    cxType(cxQ(I, ".cx-dt"), CX_DRAFT, haP(t, 3150, 1200));
+    cxDone(I, ".cx-t0", t, 4900, R);
+    cxFlip(cxQ(I, ".cx-fs"), haOut(haP(t, 5150, 380)) * R);
+    haSet(cxQ(I, ".evry-bot"), "mood", t >= 600 && t < 4300 ? "talking" : t >= 5100 && t < 6600 ? "happy" : "idle");
   },
-  needs: function (I, t) {
-    var a1 = haSine(haP(t, 1450, 250)), b0 = haOut(haP(t, 1600, 380)), b1 = haSine(haP(t, 5000, 250)), a0 = haOut(haP(t, 5150, 380));
-    var pre = t < 5150;
-    haTO(cxQ(I, ".cx-va"), 0, pre ? -6 * a1 : (1 - a0) * 8, 1, pre ? 1 - a1 : a0);
-    haTO(cxQ(I, ".cx-vb"), 0, (1 - b0) * 8 - 6 * b1, 1, b0 * (1 - b1));
-    cxQA(I, ".cx-vb .cx-st").forEach(function (el, k) { cxRise(el, t, 1690 + k * 75, 1); });
-    cxQA(I, ".cx-vb .ha-check").forEach(function (c, k) { cxPop(c, t, 2100 + k * 260, 1); });
-    cxHl(cxQ(I, ".cx-va .cx-hl"), t, 950, 1500);
-    cxDone(I, ".cx-t1", t, 3800, 1);
-    haSet(cxQ(I, ".cx-vb .evry-bot"), "mood", t >= 1750 && t < 2950 ? "talking" : t >= 3950 && t < 4950 ? "happy" : "idle");
-    var s = haOut(haP(t, 5300, 380)) * (1 - haSine(haP(t, 7050, 380)));
-    cxFlip(cxQ(I, ".cx-va .cx-swap"), s); cxFlip(cxQ(I, ".cx-va .cx-ic"), s);
-  },
-  core: function (I, t) {
-    var R = cxRst(t, 5800), base = 32 * haOut(haP(t, 300, 900));
-    var tick = (t >= 2550 ? 1 : 0) + (t >= 2950 ? 1 : 0), grow = haOut(haP(t, 2550, 350)) + haOut(haP(t, 2950, 350));
-    var n = Math.round((Math.round(base) + tick) * R), v = (base + grow) * R;
-    cxN(cxQ(I, '[data-n="core"]'), n);
-    cxN(cxQ(I, '[data-n="left"]'), 50 - n);
-    haSet(cxQ(I, ".cx-stat .stat-value"), "transform", "scale(" + (1 + .06 * (haBump(t, 2550, 260) + haBump(t, 2950, 260))).toFixed(4) + ")");
-    haSet(cxQ(I, ".cx-fill"), "clipPath", "inset(0 " + ((1 - v / 34) * 100).toFixed(2) + "% 0 0 round 99px)");
-    cxDone(I, ".cx-t0", t, 2200, R);
-    cxPop(cxQ(I, ".cx-pop"), t, 3200, R);
+  teams: function (I, t) {
+    var R = cxRst(t, 7000), base = haOut(haP(t, 300, 900)), nums = cxQA(I, '[data-n="team"]'), bars = cxQA(I, ".cx-team .ha-meter > span"), fly = cxQA(I, ".cx-fly");
+    CX_TEAMS.forEach(function (r, k) {
+      var at = k ? 3300 : 1700, land = at + 950;
+      var n = Math.round((Math.round(r[3] * base) + (t >= land ? 1 : 0)) * R), v = (r[3] * base + haOut(haP(t, land, 400))) * R;
+      cxN(nums[k], n);
+      haSet(nums[k], "transform", "scale(" + (1 + .08 * haBump(t, land, 280)).toFixed(4) + ")");
+      haSet(bars[k], "transform", "translate3d(" + (-100 + v / 40 * 100).toFixed(2) + "%,0,0)");
+      cxDone(I, ".cx-t" + k, t, at, R);
+      /* The person chip leaves the row and moves into its team */
+      var P = I.pos, c = fly[k]; if (!P || !P["src" + k]) return;
+      var a = P["src" + k], b = P["dst" + k], w = P["fly" + k].w, m = haInOut(haP(t, at + 250, 700));
+      var x0 = a.x - 4, y0 = a.y + (a.h - 30) / 2, x1 = b.x + b.w - w - 44, y1 = b.y - 1;
+      var o = haOut(haP(t, at + 200, 200)) * (1 - haSine(haP(t, land - 50, 250)));
+      haTO(c, x0 + (x1 - x0) * m, y0 + (y1 - y0) * m - 18 * Math.sin(Math.PI * m), 1 + .06 * Math.sin(Math.PI * m), o);
+    });
   },
   focus: function (I, t) {
     var R = cxRst(t, 6200), d = 16 * haOut(haP(t, 300, 1200)) * R;
@@ -2163,6 +2248,9 @@ function cxMeasure(I) {
     var e = card.querySelector(s); if (!e) return;
     var o = haOffset(e, card); pos[s] = { x: o.x + Math.min(e.offsetWidth * .5, e.offsetWidth - 18), y: o.y + e.offsetHeight * .55 };
   });
+  Array.prototype.forEach.call(card.querySelectorAll("[data-p]"), function (e) { var o = haOffset(e, card); pos[e.dataset.p] = { x: o.x, y: o.y, w: e.offsetWidth, h: e.offsetHeight }; });
+  var dr = card.querySelector(".cx-draft"); if (dr) I.dh = dr.offsetHeight + 8;
+  I.h = H;
   I.pos = pos;
 }
 
