@@ -3,10 +3,11 @@
 
 Reads the :root and [data-theme="dark"] token blocks and the gradient-card
 tones from design/everyfield-ui.html and writes design/handoff/tokens.css.
+Also writes the brand mark and wordmark to design/handoff/assets/ as SVG.
 
 Usage:
   python3 design/handoff/extract-tokens.py          # write tokens.css
-  python3 design/handoff/extract-tokens.py --check  # fail if tokens.css is stale
+  python3 design/handoff/extract-tokens.py --check  # fail if any output is stale
 """
 import re
 import sys
@@ -15,6 +16,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parent / "everyfield-ui.html"
 TARGET = HERE / "tokens.css"
+ASSETS = HERE / "assets"
+SYMBOLS = {"ef-mark": "everyfield-mark.svg", "ef-wordmark": "everyfield-wordmark.svg"}
 
 
 def block(css, selector):
@@ -146,18 +149,31 @@ def render(css):
 """
 
 
+def symbols(html):
+    files = {}
+    for sid, name in SYMBOLS.items():
+        m = re.search(r'<symbol id="%s" viewBox="([^"]+)">(.*?)</symbol>' % sid, html, re.S)
+        body = "\n".join("  " + line.strip() for line in m.group(2).strip().splitlines())
+        files[ASSETS / name] = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{m.group(1)}" fill="none">\n'
+                                f'  <!-- Everyfield brand. Paths use currentColor: set color to ink #181D19, cream #F6F0E9 or green #1CE362. -->\n'
+                                f'{body}\n</svg>\n')
+    return files
+
+
 def main():
-    css = SOURCE.read_text(encoding="utf-8")
-    out = render(css)
+    html = SOURCE.read_text(encoding="utf-8")
+    outputs = {TARGET: render(html), **symbols(html)}
     if "--check" in sys.argv:
-        current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
-        if current != out:
-            print("tokens.css is out of date. Run: python3 design/handoff/extract-tokens.py")
+        stale = [p.name for p, text in outputs.items() if not p.exists() or p.read_text(encoding="utf-8") != text]
+        if stale:
+            print("Out of date: " + ", ".join(stale) + ". Run: python3 design/handoff/extract-tokens.py")
             return 1
-        print(f"tokens.css is up to date ({out.count('--ef-')} --ef- references).")
+        print(f"tokens.css and {len(outputs) - 1} brand assets are up to date ({outputs[TARGET].count('--ef-')} --ef- references).")
         return 0
-    TARGET.write_text(out, encoding="utf-8")
-    print(f"Wrote {TARGET.relative_to(HERE.parent.parent)}")
+    ASSETS.mkdir(exist_ok=True)
+    for path, text in outputs.items():
+        path.write_text(text, encoding="utf-8")
+        print(f"Wrote {path.relative_to(HERE.parent.parent)}")
     return 0
 
 
