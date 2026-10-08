@@ -745,6 +745,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-nightfield .chip { color: var(--mk-link); }
 .map-tile { padding: 0; overflow: hidden; flex: 1; min-height: 260px; display: flex; flex-direction: column; }
 .map-tile .map { flex: 1; min-height: 0; }
+.map-tile .sample-tag { top: 12px; }
 .map-tile .mt-cap { padding: 14px 18px; border-top: 1px solid var(--mk-line); font-size: 13.5px; color: var(--mk-text-2); display: flex; gap: 8px; align-items: center; }
 .map svg { width: 100%; height: 100%; }
 
@@ -780,6 +781,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 
 /* Trust: three or four ruled columns */
 .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(20px, 3vw, 40px); }
+.trust-grid.three { grid-template-columns: repeat(3, 1fr); }
 .trust-item { display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1px solid var(--mk-line-strong); }
 .trust-item .ti-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--mk-surface-2); color: var(--mk-text); }
 .trust-item p { color: var(--mk-text-2); font-size: 15.5px; }
@@ -818,7 +820,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .access-table tr:last-child > * { border-bottom: 0; }
 .yes { color: var(--mk-link); font-weight: 600; }
 .no { color: var(--mk-text-3); }
-.rule-groups { display: grid; gap: clamp(48px, 6vw, 88px); }
+.rule-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(48px, 6vw, 88px); }
 .forms { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-gutter); }
 .form-card { background: var(--mk-surface); border-radius: var(--mk-radius-card); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); padding: clamp(22px, 3vw, 40px); display: flex; flex-direction: column; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -1133,7 +1135,7 @@ body.pbar-hidden { padding-bottom: 0; }
   .feat { padding: 22px; }
   .mk-fieldnotes .feat { grid-template-columns: 1fr; padding: 22px 0; }
   .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 1; }
-  .trust-grid { grid-template-columns: 1fr; }
+  .trust-grid, .trust-grid.three { grid-template-columns: 1fr; }
   .tile-side { flex-direction: column; }
   .dash, .dash.compact, .dash.meet, .crop { grid-template-columns: 1fr; }
   .dash .col-2 { display: none; }
@@ -1914,7 +1916,7 @@ function vMap(story, tall) {
   return s + "</svg>";
 }
 function mapTile(story) {
-  return '<div class="tile map-tile"><div class="map">' + vMap(story, true) + '</div><div class="mt-cap">' + icon("pin") + (story === "oversight" ? "Plants that share with the Austin Sending Network" : "Where Harvest Point's people live and meet") + "</div></div>";
+  return '<div class="tile map-tile"><span class="sample-tag">Sample data</span><div class="map">' + vMap(story, true) + '</div><div class="mt-cap">' + icon("pin") + (story === "oversight" ? "Plants that share with the Austin Sending Network" : "Where Harvest Point's people live and meet") + "</div></div>";
 }
 
 /* ---------- Sections ---------- */
@@ -2152,7 +2154,7 @@ function pageTrust() {
     '<div class="access-table-wrap"><table class="access-table"><thead><tr><th>Role</th><th>People and notes</th><th>Meetings and tasks</th><th>Plant Intelligence</th><th>Private check-in</th><th>Can change records</th></tr></thead><tbody>' +
     rows.map(function (r) { return "<tr><th>" + r[0] + "</th>" + r.slice(1).map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div></div></section>" +
     '<section class="sec" style="padding-top:0"><div class="wrap rule-groups">' + groups.map(function (g) { return '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">' + g[0] + '</span><h2 class="display h3" style="margin-top:12px;font-size:var(--mk-fs-h2)">' + t(g[1].headline) + "</h2></div></div>" + trustGrid(g[1].items) + "</div>"; }).join("") +
-    '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">Evry</span></div></div><div class="trust-grid" style="grid-template-columns:repeat(3,1fr)">' + limits.map(function (l) { return '<div class="trust-item"><span class="ti-icon">' + icon("shield") + "</span><p>" + t(l) + "</p></div>"; }).join("") + "</div></div></div></section>" +
+    '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">Evry</span></div></div><div class="trust-grid three">' + limits.map(function (l) { return '<div class="trust-item"><span class="ti-icon">' + icon("shield") + "</span><p>" + t(l) + "</p></div>"; }).join("") + "</div></div></div></section>" +
     cta(A.cta);
 }
 function pageAccess() {
