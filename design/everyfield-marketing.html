@@ -515,34 +515,38 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none !important; } }
 
 /* =====================================================================
-   Revision 2 hero: a very light gradient, then a looping product animation.
+   Revision 3 hero: one rounded panel with the dashboard InsightCard field gradient
+   (.gsurf[data-tone="field"]: base, blurred OKLCH mesh, top-right highlight, grain).
+   It holds the eyebrow, headline, subtext, CTAs, the animation and its step tabs.
+   The page canvas around it stays plain. The animation card sits on the green.
    One person (Maria) goes from first contact to the core group.
    Motion studied on calendly.com (Rive hero, 2026-10-08):
    - scene crossfade about 170 to 250 ms, ease-in-out, old and new overlap, no slide on the panel
    - inner items stagger in about 60 to 90 ms apart, ease-out, and type letter by letter
    - buttons press (scale .96), swap the label with a short slide, and get a shine sweep
-   - skeleton bars carry a slow 2.4 s shimmer; side bars breathe on the tinted panel
+   - skeleton bars carry a slow 2.4 s shimmer
    JS drives one timeline (see haRender). Only transform and opacity change per frame.
    ===================================================================== */
-.hero.hero-anim {
-  background-color: var(--mk-canvas);
-  background-image:
-    radial-gradient(56% 48% at 14% 0%, rgba(28, 227, 98, .10), transparent 72%),
-    radial-gradient(52% 46% at 88% 6%, rgba(106, 174, 255, .13), transparent 72%);
-}
+.hero.hero-anim { background: var(--mk-canvas); padding: clamp(8px, 1.4vw, 20px) 0 clamp(32px, 5vw, 72px); }
+.hero-panel { border-radius: var(--mk-radius-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); color: var(--on); box-shadow: 0 30px 60px -40px rgba(16, 120, 56, .6); }
+.hero-panel .eyebrow { color: var(--on); }
+.hero-panel .lead { color: rgba(24, 29, 25, .9); }
+.hero-panel .hero-note { color: rgba(24, 29, 25, .9); }
+.hero-panel .mk-btn.secondary { background: #FFFFFF; color: #181D19; box-shadow: none; }
+.hero-panel .mk-btn.secondary:hover { background: #F6F0E9; box-shadow: none; }
+.hero-panel .ha-step { color: rgba(24, 29, 25, .9); }
+.hero-panel .ha-step:hover { color: #181D19; background: rgba(255, 255, 255, .35); }
+.hero-panel .ha-step[aria-current="step"] { color: #181D19; box-shadow: 0 4px 12px -6px rgba(16, 80, 40, .45); }
+.hero-panel .ha-pause { color: #181D19; }
+.hero-panel .ha-pause:hover { background: rgba(255, 255, 255, .35); }
+.hero-panel .ha-step:focus-visible, .hero-panel .ha-pause:focus-visible { outline-color: #181D19; }
 .ha { position: relative; max-width: 1040px; margin: 0 auto; }
 .ha-stage { position: relative; height: 420px; padding-top: 44px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; align-items: start; justify-items: center;
-  background: linear-gradient(180deg, rgba(239, 253, 244, .9) 0%, rgba(238, 246, 255, .9) 100%), #FFFFFF;
-  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06), 0 30px 60px -40px rgba(24, 29, 25, .25); }
-.ha-bars { position: absolute; top: 50%; display: flex; align-items: center; gap: 9px; height: 180px; margin-top: -90px; z-index: -1; }
-.ha-bars.l { left: 5%; } .ha-bars.r { right: 5%; }
-.ha-bars i { display: block; width: 8px; border-radius: 99px; background: rgba(28, 227, 98, .22); transform-origin: center; animation: haBreathe 2.8s ease-in-out infinite alternate; }
-.ha-bars.r i { background: rgba(106, 174, 255, .26); }
-@keyframes haBreathe { from { transform: scaleY(.55); } to { transform: scaleY(1); } }
+  background: transparent; }
 .ha-card, .ha-shell, .ha-shadow { grid-area: 1 / 1; width: min(392px, calc(100% - 32px)); border-radius: 22px; }
 /* One white card stays on screen. Its height eases between scenes (clip-path), and the scene content crossfades on top. */
 .ha-shell { background: #FFFFFF; will-change: clip-path; }
-.ha-shadow { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 22px 44px -26px rgba(24, 29, 25, .35); transform-origin: 50% 0; will-change: transform; }
+.ha-shadow { box-shadow: 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45); transform-origin: 50% 0; will-change: transform; }
 .ha-card { position: relative; padding: 18px 20px 20px; opacity: 0; will-change: transform, opacity; }
 .ha-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ha-h .card-icon { width: 36px; height: 36px; }
@@ -616,7 +620,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ha-pause svg { width: 14px; height: 14px; }
 .ha-step:focus-visible, .ha-pause:focus-visible { outline: 2px solid var(--mk-link); outline-offset: 2px; }
 .ha.still .ha-step i, .ha.still .ha-pause { display: none; }
-@media (max-width: 900px) { .ha-bars { display: none; } }
 @media (max-width: 640px) {
   .ha-stage { height: 400px; padding-top: 36px; border-radius: 26px; }
   .ha-card, .ha-shell, .ha-shadow { width: calc(100% - 24px); }
@@ -626,7 +629,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .ha-step[aria-current="step"]::before { opacity: 1; }
   .ha-step i { left: 6px; right: 6px; bottom: 4px; }
 }
-@media (prefers-reduced-motion: reduce) { .ha .sk, .ha-bars i, .ha-caret { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ha .sk, .ha-caret { animation: none !important; } }
 
 /* =====================================================================
    Revision 2 chapters: "Gather, meet, follow up, commit" and Plant Intelligence.
@@ -1715,10 +1718,9 @@ function heroSlot() {
       return '<div class="ha-row" data-st>' + (k === 2 ? '<span class="ha-hl"></span>' : "") + '<div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + "</span>" + (k === 2 ? haSlot() : "") +
         '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>';
     }).join("") + "</div>";
-  var bars = function (side) { return '<div class="ha-bars ' + side + '" aria-hidden="true">' + [46, 70, 100, 62, 84, 54, 76, 40].map(function (h, i) { return '<i style="height:' + h + "%;animation-delay:" + (-i * 0.37).toFixed(2) + 's"></i>'; }).join("") + "</div>"; };
   return '<div class="ha"><span class="sample-tag">Sample data</span>' +
     '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.">' +
-    '<div aria-hidden="true" style="display:contents">' + bars("l") + bars("r") + '<div class="ha-shadow"></div><div class="ha-shell"></div>' +
+    '<div aria-hidden="true" style="display:contents"><div class="ha-shadow"></div><div class="ha-shell"></div>' +
     haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
     '<div class="ha-ctl">' + HA_STEPS.map(function (s, i) { return '<button type="button" class="ha-step" data-step="' + i + '" aria-label="Show step: ' + s + '">' + s + "<i></i></button>"; }).join("") +
     '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div></div>';
@@ -2323,13 +2325,13 @@ window.EFChapters = {
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel gsurf" data-tone="field">' : "") +
     (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
     '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
     '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + (h.cta_secondary ? btn(h.cta_secondary, "secondary") : "") + "</div>" +
     (h.note ? '<p class="hero-note">' + t(h.note) + "</p>" : "") + "</div></div>" +
-    (opts.visual === false ? "" : '<div class="hero-band">' + (opts.visual || heroVisual(story)) + "</div>") + "</div></section>";
+    (opts.visual === false ? "" : '<div class="hero-band">' + (opts.visual || heroVisual(story)) + "</div>") + (opts.panel ? "</div>" : "") + "</div></section>";
 }
 function problem(p) {
   return '<section class="sec sec-problem" id="problem"><div class="wrap"><div class="sec-head" style="margin-bottom:0"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="body-2 sh-text">' + t(p.body) + "</p></div></div></section>";
@@ -2429,7 +2431,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim" }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
