@@ -20,7 +20,8 @@
     ef-mark / ef-wordmark symbols, EvryBot  from design/everyfield-ui.html (round-buffalo)
 
   Placeholder slots (class "slot") mark sections that later tasks rebuild:
-    hero animation, the Gather / Meet / Follow up / Commit section, the Plant Intelligence section.
+    the Gather / Meet / Follow up / Commit section, the Plant Intelligence section.
+  The home hero animation is built (heroSlot, haRender). EFHero.seek(ms) renders one loop time for review.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -518,6 +519,120 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .slot b { font: 700 11px/1.4 var(--mk-font-body); letter-spacing: .08em; text-transform: uppercase; background: #4A3500; color: #FFF1B8; border-radius: 4px; padding: 2px 8px; }
 .slot p { font-size: 15px; max-width: 70ch; }
 .slot-hero { min-height: clamp(260px, 36vw, 480px); justify-content: center; margin-top: clamp(40px, 5vw, 72px); }
+
+/* =====================================================================
+   Revision 2 hero: a very light gradient, then a looping product animation.
+   One person (Maria) goes from first contact to the core group.
+   Motion studied on calendly.com (Rive hero, 2026-10-08):
+   - scene crossfade about 170 to 250 ms, ease-in-out, old and new overlap, no slide on the panel
+   - inner items stagger in about 60 to 90 ms apart, ease-out, and type letter by letter
+   - buttons press (scale .96), swap the label with a short slide, and get a shine sweep
+   - skeleton bars carry a slow 2.4 s shimmer; side bars breathe on the tinted panel
+   JS drives one timeline (see haRender). Only transform and opacity change per frame.
+   ===================================================================== */
+.hero.hero-anim {
+  background-color: var(--mk-canvas);
+  background-image:
+    radial-gradient(56% 48% at 14% 0%, rgba(28, 227, 98, .10), transparent 72%),
+    radial-gradient(52% 46% at 88% 6%, rgba(106, 174, 255, .13), transparent 72%);
+}
+.ha { position: relative; max-width: 1040px; margin: 0 auto; }
+.ha-stage { position: relative; height: 420px; padding-top: 44px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; align-items: start; justify-items: center;
+  background: linear-gradient(180deg, rgba(239, 253, 244, .9) 0%, rgba(238, 246, 255, .9) 100%), #FFFFFF;
+  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06), 0 30px 60px -40px rgba(24, 29, 25, .25); }
+.ha-bars { position: absolute; top: 50%; display: flex; align-items: center; gap: 9px; height: 180px; margin-top: -90px; z-index: -1; }
+.ha-bars.l { left: 5%; } .ha-bars.r { right: 5%; }
+.ha-bars i { display: block; width: 8px; border-radius: 99px; background: rgba(28, 227, 98, .22); transform-origin: center; animation: haBreathe 2.8s ease-in-out infinite alternate; }
+.ha-bars.r i { background: rgba(106, 174, 255, .26); }
+@keyframes haBreathe { from { transform: scaleY(.55); } to { transform: scaleY(1); } }
+.ha-card, .ha-shell, .ha-shadow { grid-area: 1 / 1; width: min(392px, calc(100% - 32px)); border-radius: 22px; }
+/* One white card stays on screen. Its height eases between scenes (clip-path), and the scene content crossfades on top. */
+.ha-shell { background: #FFFFFF; will-change: clip-path; }
+.ha-shadow { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 22px 44px -26px rgba(24, 29, 25, .35); transform-origin: 50% 0; will-change: transform; }
+.ha-card { position: relative; padding: 18px 20px 20px; opacity: 0; will-change: transform, opacity; }
+.ha-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ha-h .card-icon { width: 36px; height: 36px; }
+.ha-h .card-icon svg { width: 17px; height: 17px; }
+.ha-title { font-family: var(--mk-font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+.ha-sub { font-size: 12.5px; color: var(--ef-text-3); margin-top: 2px; }
+.ha-lab { display: block; font-size: 12px; font-weight: 600; color: var(--ef-text-2); margin-bottom: 6px; }
+.ha [data-st] { will-change: transform, opacity; }
+.ha .sk { display: block; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #ECEFF2 0%, #F7F8FA 50%, #ECEFF2 100%); background-size: 200% 100%; animation: haWave 2.4s ease-in-out infinite; }
+.ha .sk-av { width: 24px; height: 24px; border-radius: 50%; flex: none; }
+.ha .sk-pill { display: inline-block; width: 64px; height: 30px; border-radius: 99px; flex: none; }
+@keyframes haWave { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.ha-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 4px; border-radius: 99px; background: #FFFFFF; color: var(--ef-ink); font-size: 13px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--ef-line-2), 0 4px 10px -6px rgba(24, 29, 25, .3); }
+.ha-av { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-green-100); color: var(--ef-green-700); font-size: 9.5px; font-weight: 700; letter-spacing: .02em; }
+.ha-slot { display: inline-flex; visibility: hidden; }
+.ha-live { position: absolute; left: 0; top: 0; z-index: 6; opacity: 0; transform-origin: 50% 50%; will-change: transform, opacity; pointer-events: none; }
+.ha-ring { position: absolute; inset: -1px; border-radius: 99px; box-shadow: 0 0 0 2px var(--ef-green-500); opacity: 0; }
+.ha-field { display: flex; align-items: flex-end; gap: 8px; }
+.ha-field > div { flex: 1; min-width: 0; }
+.ha-input { display: flex; align-items: center; height: 40px; padding: 0 12px; border-radius: 12px; background: #FFFFFF; font-size: 14px; color: var(--ef-ink); overflow: hidden; white-space: nowrap;
+  box-shadow: inset 0 0 0 1.5px var(--ef-green-500), 0 0 0 3px rgba(28, 227, 98, .16); }
+.ha-caret { display: inline-block; width: 1.5px; height: 18px; margin-left: 1px; background: var(--ef-ink); animation: haBlink 1s steps(1) infinite; flex: none; }
+@keyframes haBlink { 50% { opacity: 0; } }
+.ha-btn { position: relative; display: inline-grid; place-items: center; height: 40px; padding: 0 16px; border-radius: 12px; background: var(--ef-ink); color: #FFFFFF; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; flex: none;
+  box-shadow: var(--ef-shadow-pill); will-change: transform; }
+.ha-btn > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 6px; }
+.ha-btn svg { width: 15px; height: 15px; }
+.ha-btn > .ha-ok, .ha-btn > .ha-shine { grid-area: auto; }
+.ha-ok { position: absolute; inset: 0; background: linear-gradient(180deg, #2BE46C, #12C456); opacity: 0; }
+.ha-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-120%); }
+.ha-btn .ha-l2 { color: #0B3D1E; opacity: 0; }
+.ha-list { margin-top: 16px; }
+.ha-li { display: flex; align-items: center; gap: 10px; height: 44px; border-top: 1px solid var(--ef-line); }
+.ha-li:first-of-type { border-top: 0; }
+.ha-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 38px; border-top: 1px solid var(--ef-line); font-size: 13px; color: var(--ef-text-2); }
+.ha-kv .v { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ef-ink); }
+.ha-kv svg { width: 15px; height: 15px; color: var(--ef-text-3); }
+.ha-guests { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 10px; overflow: hidden; }
+.ha-roll { display: inline-block; height: 1.2em; line-height: 1.2em; overflow: hidden; vertical-align: bottom; font-variant-numeric: tabular-nums; }
+.ha-roll > span { display: block; will-change: transform; }
+.ha-roll > span > i { display: block; font-style: normal; }
+.ha-to { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ef-text-3); }
+.ha-draft { position: relative; margin-top: 12px; height: 88px; padding: 11px 13px; border-radius: 14px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 13.5px; line-height: 1.5; color: var(--ef-ink-2); overflow: hidden; }
+.ha-draft .ha-caret { height: 15px; vertical-align: -2px; }
+.ha-acts { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.ha-who { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.ha-flip { display: inline-grid; }
+.ha-flip > .stage-chip { grid-area: 1 / 1; justify-self: end; will-change: transform, opacity; }
+.ha-check { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-green-500); color: #181D19; flex: none; will-change: transform, opacity; }
+.ha-check svg { width: 13px; height: 13px; stroke-width: 2.6; }
+.ha-li .grow { font-size: 13px; font-weight: 600; }
+.ha-li .faint { font-size: 12.5px; }
+.ha-rows { display: grid; gap: 12px; }
+.ha-row { position: relative; }
+.ha-row .row { min-height: 30px; }
+.ha-row .stage-chip { flex: none; }
+.ha-row .num { font-size: 18px; margin-left: auto; }
+.ha-hl { position: absolute; inset: -6px -10px; border-radius: 14px; background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(28, 227, 98, .35); opacity: 0; z-index: -1; }
+.ha-meter { position: relative; height: 10px; margin-top: 6px; border-radius: 99px; background: var(--ef-surface-2); overflow: hidden; }
+.ha-meter > span { position: absolute; inset: 0; border-radius: 99px; transform: translateX(-100%); will-change: transform; }
+.ha-cap { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 12px; color: var(--mk-text-3); white-space: nowrap; }
+.ha-ctl { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 16px; }
+.ha-step { position: relative; display: inline-flex; align-items: center; height: 34px; padding: 0 13px; border: 0; border-radius: 99px; background: transparent; color: var(--mk-text-3); font: 600 13px/1 var(--mk-font-body); cursor: pointer; overflow: hidden; transition: background-color .25s var(--mk-ease), color .25s var(--mk-ease), box-shadow .25s var(--mk-ease); }
+.ha-step:hover { color: var(--mk-text); }
+.ha-step[aria-current="step"] { background: #FFFFFF; color: var(--mk-text); box-shadow: 0 0 0 1px var(--mk-line-strong), 0 4px 10px -6px rgba(24, 29, 25, .25); }
+.ha-step i { position: absolute; left: 13px; right: 13px; bottom: 6px; height: 2px; border-radius: 2px; background: var(--ef-green-500); transform: scaleX(0); transform-origin: left; opacity: 0; }
+.ha-step[aria-current="step"] i { opacity: 1; }
+.ha-pause { width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: var(--mk-text-2); cursor: pointer; margin-left: 4px; }
+.ha-pause:hover { background: var(--mk-line); color: var(--mk-text); }
+.ha-pause svg { width: 14px; height: 14px; }
+.ha-step:focus-visible, .ha-pause:focus-visible { outline: 2px solid var(--mk-link); outline-offset: 2px; }
+.ha.still .ha-step i, .ha.still .ha-pause { display: none; }
+@media (max-width: 900px) { .ha-bars { display: none; } }
+@media (max-width: 640px) {
+  .ha-stage { height: 400px; padding-top: 36px; border-radius: 26px; }
+  .ha-card, .ha-shell, .ha-shadow { width: calc(100% - 24px); }
+  .ha-card { padding: 16px 16px 18px; }
+  .ha-step { width: 30px; padding: 0; justify-content: center; font-size: 0; height: 30px; }
+  .ha-step::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
+  .ha-step[aria-current="step"]::before { opacity: 1; }
+  .ha-step i { left: 6px; right: 6px; bottom: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .ha .sk, .ha-bars i, .ha-caret { animation: none !important; } }
 
 /* Chart parts used by the Vision meetings card */
 .ef .bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
@@ -1417,9 +1532,239 @@ function heroVisual(story) {
 function slot(title, text, extra) {
   return '<div class="slot' + (extra ? " " + extra : "") + '" role="note"><b>Placeholder</b><strong>' + esc(title) + "</strong><p>" + esc(text) + "</p></div>";
 }
+/* ---------- Revision 2 hero: one person, from first contact to the core group ----------
+   Five cards share one grid cell and crossfade. Maria's chip is one element that glides
+   from a hidden slot in each card to the next, so the loop reads as one story.
+   haRender(t) is a pure function of the loop time t (ms). Reduced motion renders t = HA_STILL once. */
+var HA_NAME = "Maria Lopez";
+var HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
+var HA_T = 13200, HA_STILL = 12400;
+/* Scene windows: [card in, card out]. Card 0 also fades in across the loop seam. */
+var HA_SC = [[-250, 2700], [2850, 5100], [5250, 8300], [8450, 10400], [10550, 12950]];
+/* Chip moves: [start, end, from slot, to slot] */
+var HA_MOVES = [[2750, 3400, 0, 1], [5150, 5800, 1, 2], [8350, 9000, 2, 3], [10450, 11100, 3, 4]];
+var HA_STEPS = ["Add", "Meet", "Follow up", "Commit", "Core group"];
+function haChip(live) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">ML</span>' + HA_NAME + "</span>"; }
+function haSlot() { return '<span class="ha-slot">' + haChip() + "</span>"; }
+function haSk(w, cls) { return '<span class="sk' + (cls ? " " + cls : "") + '"' + (w ? ' style="width:' + w + '"' : "") + "></span>"; }
+function haRoll(a, b, key) { return '<span class="ha-roll" data-roll="' + key + '"><span><i>' + a + "</i><i>" + b + "</i></span></span>"; }
+function haHead(lead, title, sub) { return '<div class="ha-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div></div>"; }
+function haCard(i, inner) { return '<div class="ha-card" data-scene="' + i + '">' + inner + "</div>"; }
+function haSkRow(w) { return '<div class="ha-li">' + haSk("", "sk-av") + haSk(w) + "</div>"; }
 function heroSlot() {
-  return slot("Hero animation", "A later task builds a looping product animation here: one person moves from first contact to the core group.", "slot-hero");
+  var c0 = haHead('<span class="card-icon tone-green">' + icon("users") + "</span>", "Add person", "People") +
+    '<div class="ha-field" data-st><div><span class="ha-lab">Name</span><div class="ha-input"><span class="ha-type"></span><span class="ha-caret"></span></div></div><span class="ha-btn ha-add"><span>Add</span></span></div>' +
+    '<div class="ha-list" data-st><span class="ha-lab">Recently added</span><div class="ha-li">' + haSlot() + "</div>" + haSkRow("46%") + haSkRow("34%") + "</div>";
+  var c1 = haHead('<span class="card-icon tone-blue">' + icon("calendar") + "</span>", "Vision meeting #12", "Sun, Oct 12 · 6:00 PM") +
+    '<div class="ha-kv" data-st><span>Host home</span><span class="v">' + icon("pin") + "Hyde Park</span></div>" +
+    '<div class="ha-kv" data-st><span>Guests</span><span class="v">' + haRoll(8, 9, "guests") + "</span></div>" +
+    '<div class="ha-guests" data-st>' + haSk("", "sk-pill") + haSk("", "sk-pill") + haSlot() + "</div>";
+  var c2 = haHead(evryBot("lg", "talking"), "Evry drafted a follow-up", "Due today. You approve it.") +
+    '<div class="ha-to" data-st><span>To</span>' + haSlot() + "</div>" +
+    '<div class="ha-draft" data-st><span class="ha-dtxt"></span><span class="ha-caret"></span></div>' +
+    '<div class="ha-acts" data-st>' + haSk("28%") + '<span class="ha-btn ha-send"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">Approve and send</span><span class="ha-l2">' + icon("check") + "Sent</span></span></div>";
+  var c3 = '<div class="ha-who" data-st>' + haSlot() + '<span class="ha-flip"><span class="stage-chip tone-amber">Following up</span><span class="stage-chip tone-green">Committed</span></span></div>' +
+    [["Vision meeting #12", "Attended"], ["Follow-up from Evry", "Sent"], ["Commitment card", "Signed"]].map(function (r) {
+      return '<div class="ha-li" data-st><span class="ha-check">' + icon("check") + '</span><span class="grow">' + r[0] + '</span><span class="faint">' + r[1] + "</span></div>";
+    }).join("");
+  var rows = [["tone-blue", "Attendee", "41", "var(--ef-blue-500)"], ["tone-amber", "Following up", haRoll(23, 22, "follow"), "var(--ef-amber-500)"], ["tone-green", "Core group", haRoll(34, 35, "core"), "var(--ef-green-500)"]];
+  var c4 = haHead('<span class="card-icon tone-ink">' + icon("users") + "</span>", "Where people are", "Harvest Point · this week") +
+    '<div class="ha-rows">' + rows.map(function (r, k) {
+      return '<div class="ha-row" data-st>' + (k === 2 ? '<span class="ha-hl"></span>' : "") + '<div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + "</span>" + (k === 2 ? haSlot() : "") +
+        '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>';
+    }).join("") + "</div>";
+  var bars = function (side) { return '<div class="ha-bars ' + side + '" aria-hidden="true">' + [46, 70, 100, 62, 84, 54, 76, 40].map(function (h, i) { return '<i style="height:' + h + "%;animation-delay:" + (-i * 0.37).toFixed(2) + 's"></i>'; }).join("") + "</div>"; };
+  return '<div class="ha"><span class="sample-tag">Sample data</span>' +
+    '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.">' +
+    '<div aria-hidden="true" style="display:contents">' + bars("l") + bars("r") + '<div class="ha-shadow"></div><div class="ha-shell"></div>' +
+    haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
+    '<div class="ha-ctl">' + HA_STEPS.map(function (s, i) { return '<button type="button" class="ha-step" data-step="' + i + '" aria-label="Show step: ' + s + '">' + s + "<i></i></button>"; }).join("") +
+    '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div></div>';
 }
+
+var HA = { t: 0, raf: 0, last: 0, paused: false, vis: true, root: null, io: null, ro: null, pos: [], h: [], H: 0, cache: new WeakMap() };
+var haClamp = function (x) { return x < 0 ? 0 : x > 1 ? 1 : x; };
+var haP = function (t, a, d) { return haClamp((t - a) / d); };
+var haOut = function (p) { return 1 - Math.pow(1 - p, 3); };
+var haInOut = function (p) { return p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; };
+var haSine = function (p) { return -(Math.cos(Math.PI * p) - 1) / 2; };
+var haBack = function (p) { var c = 1.6; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+var haBump = function (t, a, d) { return Math.sin(Math.PI * haP(t, a, d)); };
+var HA_PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+var HA_PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+/* Write a style only when it changes, so idle frames cost nothing. */
+function haSet(el, prop, v) {
+  if (!el) return;
+  var c = HA.cache.get(el); if (!c) { c = {}; HA.cache.set(el, c); }
+  if (c[prop] === v) return;
+  c[prop] = v;
+  if (prop === "text") el.textContent = v; else if (prop === "mood") el.dataset.mood = v; else el.style[prop] = v;
+}
+function haTO(el, x, y, s, o) {
+  haSet(el, "transform", "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0)" + (s === 1 ? "" : " scale(" + s.toFixed(4) + ")"));
+  haSet(el, "opacity", o.toFixed(3));
+}
+function haOffset(el, stop) {
+  var x = 0, y = 0;
+  while (el && el !== stop) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+  return { x: x, y: y };
+}
+function haMeasure() {
+  if (!HA.root) return;
+  var stage = HA.root.querySelector(".ha-stage");
+  HA.pos = Array.prototype.map.call(HA.root.querySelectorAll(".ha-card .ha-slot"), function (s) { return haOffset(s, stage); });
+  HA.h = Array.prototype.map.call(HA.root.querySelectorAll(".ha-card"), function (c) { return c.offsetHeight; });
+  HA.H = Math.max.apply(null, HA.h);
+  [".ha-shell", ".ha-shadow"].forEach(function (sel) { HA.root.querySelector(sel).style.height = HA.H + "px"; });
+}
+/* Card height at loop time t: holds per scene, eases from one scene to the next across the crossfade. */
+function haShellH(t) {
+  var h = HA.h, cur = h[0];
+  for (var k = 0; k < 4; k++) {
+    var a = HA_SC[k][1], b = HA_SC[k + 1][0] + 380;
+    if (t >= a) cur = t < b ? h[k] + (h[k + 1] - h[k]) * haInOut((t - a) / (b - a)) : h[k + 1];
+  }
+  if (t >= HA_SC[4][1]) cur = h[4] + (h[0] - h[4]) * haInOut(haP(t, HA_SC[4][1], HA_T - HA_SC[4][1]));
+  return cur;
+}
+function haRoll2(key, p) { var el = HA.root.querySelector('[data-roll="' + key + '"] > span'); haSet(el, "transform", "translate3d(0," + (-50 * p).toFixed(3) + "%,0)"); }
+function haRender(t) {
+  var R = HA.root; if (!R) return;
+  var q = function (s) { return R.querySelector(s); };
+  if (HA.H) {
+    var sh = haShellH(t);
+    haSet(q(".ha-shell"), "clipPath", "inset(0 0 " + (HA.H - sh).toFixed(1) + "px 0 round 22px)");
+    haSet(q(".ha-shadow"), "transform", "scaleY(" + (sh / HA.H).toFixed(4) + ")");
+  }
+  /* Scene content: overlap crossfade, ease-out in with a short lift, ease-in-out out. Children stagger in. */
+  R.querySelectorAll(".ha-card").forEach(function (card, i) {
+    var u = i === 0 && t >= HA_T - 300 ? t - HA_T : t;
+    var a = HA_SC[i][0], b = HA_SC[i][1];
+    var pin = haOut(haP(u, a, 380)), pout = haSine(haP(u, b, 250));
+    haTO(card, 0, (1 - pin) * 8 - pout * 6, 1, pin * (1 - pout));
+    card.querySelectorAll("[data-st]").forEach(function (el, k) {
+      var p = haOut(haP(u, a + 90 + k * 75, 420));
+      haTO(el, 0, (1 - p) * 8, 1, p);
+    });
+  });
+  /* Scene 1: type the name, press Add, the chip lands in the list */
+  var n = Math.floor(haP(t, 450, 1050) * HA_NAME.length);
+  haSet(q(".ha-type"), "text", HA_NAME.slice(0, n));
+  haSet(q(".ha-type"), "opacity", (1 - haP(t, 2000, 220)).toFixed(3));
+  haSet(q(".ha-card[data-scene='0'] .ha-caret"), "visibility", t < 1950 ? "visible" : "hidden");
+  haSet(q(".ha-add"), "transform", "scale(" + (1 - .05 * haBump(t, 1700, 200)).toFixed(4) + ")");
+  /* Scene 2: guest count rolls when Maria joins */
+  haRoll2("guests", haInOut(haP(t, 3300, 380)));
+  /* Scene 3: Evry drafts, you approve, a check confirms it is sent */
+  var bot = q(".ha .evry-bot");
+  haSet(bot, "mood", t >= 5500 && t < 7300 ? "talking" : t >= 7650 && t < 8500 ? "happy" : "idle");
+  var m = Math.floor(haP(t, 5850, 1350) * HA_DRAFT.length);
+  haSet(q(".ha-dtxt"), "text", HA_DRAFT.slice(0, m));
+  haSet(q(".ha-draft .ha-caret"), "visibility", t > 5700 && t < 7350 ? "visible" : "hidden");
+  haSet(q(".ha-send"), "transform", "scale(" + (1 - .05 * haBump(t, 7320, 220)).toFixed(4) + ")");
+  var ok = haOut(haP(t, 7480, 320));
+  haSet(q(".ha-ok"), "opacity", ok.toFixed(3));
+  haTO(q(".ha-l1"), 0, -8 * ok, 1, 1 - ok);
+  haTO(q(".ha-l2"), 0, 8 * (1 - ok), .9 + .1 * haBack(haP(t, 7480, 380)), ok);
+  haSet(q(".ha-shine"), "transform", "translate3d(" + (-120 + 400 * haInOut(haP(t, 7650, 650))).toFixed(1) + "%,0,0)");
+  /* Scene 4: checks pop in, then the stage flips to Committed */
+  R.querySelectorAll(".ha-check").forEach(function (c, k) { var p = haP(t, 8950 + k * 260, 340); haTO(c, 0, 0, .4 + .6 * haBack(p), haClamp(p * 2.5)); });
+  var f = haP(t, 9700, 380), fe = haOut(f);
+  var chips = R.querySelectorAll(".ha-flip .stage-chip");
+  haTO(chips[0], 0, -7 * fe, 1, 1 - fe);
+  haTO(chips[1], 0, 7 * (1 - fe), .85 + .15 * haBack(f), fe);
+  /* Scene 5: bars fill, Maria joins the core group, counts roll, a short highlight */
+  var join = haInOut(haP(t, 11200, 520));
+  [41, 23, 34].forEach(function (v, k) {
+    var p = haOut(haP(t, 10700 + k * 90, 650)), val = v / 50 * p + (k === 2 ? join : k === 1 ? -join : 0) / 50;
+    haSet(R.querySelectorAll(".ha-meter > span")[k], "transform", "translate3d(" + (-100 + 100 * val).toFixed(2) + "%,0,0)");
+  });
+  haRoll2("follow", join); haRoll2("core", join);
+  haSet(q(".ha-hl"), "opacity", (haOut(haP(t, 11100, 300)) * (1 - haSine(haP(t, 12200, 600)))).toFixed(3));
+  /* Maria's chip: pops in, then glides between slots with a small lift, fades at the seam */
+  var live = q(".ha-live"), pos = HA.pos;
+  if (live && pos.length === 5) {
+    var x = pos[0].x, y = pos[0].y, s = 1, o = 0;
+    var pop = haP(t, 1900, 420);
+    if (t >= 1900) { o = haClamp(pop * 2); s = .6 + .4 * haBack(pop); }
+    HA_MOVES.forEach(function (mv) {
+      if (t < mv[0]) return;
+      var p = haInOut(haP(t, mv[0], mv[1] - mv[0]));
+      x = pos[mv[2]].x + (pos[mv[3]].x - pos[mv[2]].x) * p;
+      y = pos[mv[2]].y + (pos[mv[3]].y - pos[mv[2]].y) * p;
+      s = 1 + .06 * Math.sin(Math.PI * p);
+    });
+    var fade = haSine(haP(t, 12950, 230));
+    haTO(live, x, y, s - .04 * fade, o * (1 - fade));
+    var ring = haP(t, 11120, 800);
+    haTO(q(".ha-ring"), 0, 0, 1 + .3 * haOut(ring), ring > 0 && ring < 1 ? .8 * (1 - ring) : 0);
+  }
+  /* Steps under the stage */
+  var starts = [0, 2800, 5200, 8380, 10500, HA_T - 250], idx = 4;
+  for (var k = 0; k < 5; k++) if (t >= starts[k] && t < starts[k + 1]) idx = k;
+  if (t >= HA_T - 250) idx = 0;
+  R.querySelectorAll(".ha-step").forEach(function (b, k) {
+    if (k === idx) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+    var pr = k !== idx ? 0 : idx === 0 && t >= HA_T - 250 ? 0 : haClamp((t - starts[k]) / (starts[k + 1] - starts[k]));
+    haSet(b.querySelector("i"), "transform", "scaleX(" + pr.toFixed(4) + ")");
+  });
+}
+function haRunning() { return HA.root && HA.root.isConnected && !HA.paused && HA.vis && !document.hidden && !REDUCED.matches; }
+function haFrame(now) {
+  HA.raf = 0;
+  if (!haRunning()) return;
+  HA.t = (HA.t + Math.min(now - HA.last, 50)) % HA_T;
+  HA.last = now;
+  haRender(HA.t);
+  HA.raf = requestAnimationFrame(haFrame);
+}
+function haKick() {
+  if (HA.raf || !haRunning()) return;
+  HA.last = performance.now();
+  HA.raf = requestAnimationFrame(haFrame);
+}
+function haPauseBtn() {
+  var b = HA.root && HA.root.querySelector(".ha-pause"); if (!b) return;
+  b.innerHTML = HA.paused ? HA_PLAY_SVG : HA_PAUSE_SVG;
+  b.setAttribute("aria-label", HA.paused ? "Play animation" : "Pause animation");
+}
+function haInit() {
+  if (HA.raf) cancelAnimationFrame(HA.raf);
+  HA.raf = 0;
+  if (HA.io) HA.io.disconnect();
+  if (HA.ro) HA.ro.disconnect();
+  HA.root = document.querySelector("#view .ha");
+  if (!HA.root) return;
+  HA.cache = new WeakMap();
+  HA.root.classList.toggle("still", REDUCED.matches);
+  haMeasure();
+  if (REDUCED.matches) { HA.t = HA_STILL; haRender(HA.t); return; }
+  haPauseBtn();
+  haRender(HA.t);
+  var stage = HA.root.querySelector(".ha-stage");
+  if ("IntersectionObserver" in window) {
+    HA.io = new IntersectionObserver(function (es) { HA.vis = es[es.length - 1].isIntersecting; haKick(); });
+    HA.io.observe(stage);
+  }
+  if ("ResizeObserver" in window) {
+    HA.ro = new ResizeObserver(function () { haMeasure(); haRender(HA.t); });
+    HA.ro.observe(stage);
+  }
+  haKick();
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { haMeasure(); if (HA.root) haRender(HA.t); });
+document.addEventListener("visibilitychange", haKick);
+document.addEventListener("click", function (e) {
+  var st = e.target.closest(".ha-step");
+  if (st && HA.root) { HA.t = [0, 2850, 5250, 8450, 10550][+st.dataset.step]; if (REDUCED.matches) HA.t = [2400, 4600, 8200, 10200, HA_STILL][+st.dataset.step]; haRender(HA.t); return; }
+  if (e.target.closest(".ha-pause") && HA.root) { HA.paused = !HA.paused; haPauseBtn(); haKick(); }
+});
+/* Review hook for frame captures: EFHero.seek(ms) renders one loop time and pauses. */
+window.EFHero = {
+  seek: function (ms) { HA.paused = true; haPauseBtn(); HA.t = ((ms % HA_T) + HA_T) % HA_T; haRender(HA.t); },
+  play: function () { HA.paused = false; haPauseBtn(); haKick(); },
+  length: HA_T
+};
 function weekSlot() {
   return '<section class="sec sec-week" id="week"><div class="wrap">' + slot("Gather, Meet, Follow up, Commit", "A later task rebuilds this section as a scroll-driven chapter with a sticky, animated product panel.") + "</div></section>";
 }
@@ -1429,7 +1774,7 @@ function intelligenceSlot() {
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top"><div class="wrap">' +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' +
     (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
     '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
@@ -1535,7 +1880,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot() }) + problem(s.problem) + weekSlot() + proof(s.proof, story) + features(s.features) + intelligenceSlot() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim" }) + problem(s.problem) + weekSlot() + proof(s.proof, story) + features(s.features) + intelligenceSlot() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -1660,7 +2005,7 @@ function render(scrollMode) {
     var target = document.getElementById(state.at);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) { setupMotion(); seedBots(); }
+  if (needView) { setupMotion(); seedBots(); haInit(); }
   last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
@@ -1719,7 +2064,7 @@ document.addEventListener("submit", function (e) {
   if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
 });
 window.addEventListener("hashchange", onHash);
-if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); });
+if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); });
 
 state = parseHash();
 history.replaceState(null, "", hrefFor(state.page, state.at));
