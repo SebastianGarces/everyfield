@@ -662,7 +662,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
    card out 250 ms sine, children stagger 90 ms + 75 ms each over 420 ms, presses and pops.
    JS drives each panel from one loop time (see cxRender). Only transform, opacity and text change per frame.
    ===================================================================== */
-.cx { --cx-top: 110px; --cx-out: cubic-bezier(.33, 1, .68, 1); --cx-sine: cubic-bezier(.37, 0, .63, 1); }
+/* Revision 11: about 90 px clear below the floating nav (bottom at 72 px) at 1440, was 38 px. Sticky only applies above 900 px. */
+.cx { --cx-top: clamp(148px, 2.5vw + 126px, 162px); --cx-out: cubic-bezier(.33, 1, .68, 1); --cx-sine: cubic-bezier(.37, 0, .63, 1); }
 .cx-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: start; }
 .cx-left { grid-column: 1 / span 5; min-width: 0; }
 .cx-right { grid-column: 7 / span 6; align-self: stretch; min-width: 0; }
@@ -2343,9 +2344,15 @@ function cxScroll() {
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
     if (ch.auto || !cxDesk(ch)) return;
-    /* A step becomes active when its top passes 0.6 of a step below the sticky heading. The active title then stays in view, and the first step still gets some scroll. */
-    var line = Math.min(ch.head.getBoundingClientRect().bottom + ch.steps[0].offsetHeight * .6, window.innerHeight * .6), k = 0;
-    ch.steps.forEach(function (s, i) { if (s.getBoundingClientRect().top < line) k = i; });
+    /* Revision 11: a step becomes active when the previous step's title reaches 28 px below the sticky heading (clear of its 20 px fade),
+       so the outgoing title never slides under the heading. The line stays above 0.6 of the viewport, so the new title is in view. */
+    var hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * .6, k = 0;
+    ch.steps.forEach(function (s, i) {
+      if (!i) return;
+      var pv = ch.steps[i - 1], pr = pv.getBoundingClientRect(), tt = pv.querySelector("h3");
+      var off = tt ? tt.getBoundingClientRect().top - pr.top : 0;
+      if (s.getBoundingClientRect().top < Math.min(hb + pr.height - off + 28, cap)) k = i;
+    });
     cxSetActive(ch, k);
   });
 }
