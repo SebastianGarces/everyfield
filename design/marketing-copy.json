@@ -1,0 +1,373 @@
+{
+  "version": 1,
+  "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
+  "placeholder_format": "Text inside [[double brackets]] is a placeholder. Replace it or remove it before anything is published.",
+  "sample_data_rule": "Every name and number that appears inside a product visual is sample data from a demo church. Label it 'Sample data' in the visual.",
+  "shared": {
+    "brand": "Everyfield",
+    "nav": [
+      { "label": "Product", "href": "#features" },
+      { "label": "For planters", "href": "#planters" },
+      { "label": "For sending churches", "href": "#sending-churches" },
+      { "label": "For networks", "href": "#networks" },
+      { "label": "The method", "href": "#method" },
+      { "label": "Privacy", "href": "#trust" }
+    ],
+    "nav_cta": "Request early access",
+    "nav_signin": "Sign in",
+    "footer": {
+      "columns": [
+        { "title": "Product", "links": ["Overview", "Plant Intelligence", "Evry", "The method"] },
+        { "title": "Who it is for", "links": ["Planters", "Sending churches", "Networks", "Coaches"] },
+        { "title": "Company", "links": ["About", "Privacy and trust", "Contact"] },
+        { "title": "Legal", "links": ["Privacy policy", "Terms"] }
+      ],
+      "fineprint": "© [[YEAR]] Everyfield. [[Legal entity name]]."
+    }
+  },
+  "directions": [
+    {
+      "id": "journey",
+      "name": "From calling to launch Sunday",
+      "angle": "The planter's journey through the seven church phases. The planter is the hero. Sending churches and networks appear as the people who walk beside the planter.",
+      "sections": {
+        "hero": {
+          "eyebrow": "Church planting software, phase by phase",
+          "headline": "From calling to launch Sunday, one week at a time.",
+          "subhead": "Everyfield keeps your people, vision meetings, follow-ups and ministry teams in one place. It reads them against the Playbook and tells you what needs you this week.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "See the seven phases",
+          "note": "Everyfield is in early access. [[Say how access works, for example: invites go out through sending churches and networks.]]"
+        },
+        "problem": {
+          "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
+          "body": "Three guests came to Thursday's vision meeting, and someone needs to call them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
+        },
+        "proof": {
+          "eyebrow": "Phase 1 · Core Group Development",
+          "headline": "Here is what a Monday looks like.",
+          "body": "Open Everyfield and the week is on one screen. Committed adults against the Playbook's benchmark of 50. Days since your last vision meeting against the 14-day rhythm. Follow-ups that are late, and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "callouts": [
+            "34 of 50 committed adults",
+            "Last vision meeting 16 days ago",
+            "3 follow-ups overdue"
+          ],
+          "visual": "Dashboard crop from the round-buffalo mockup: TargetBar, the 'Needs you' list and one InsightCard.",
+          "caption": "Sample data. Harvest Point is a demo church."
+        },
+        "features": {
+          "headline": "Everything a plant needs, in the order you need it.",
+          "intro": "Everyfield follows the seven phases of the Playbook. Each phase brings its own work to the front.",
+          "items": [
+            { "label": "Phase 0 · Discovery", "title": "Start with the method", "body": "Read the Playbook and Wiki in order. Everyfield opens the chapter for the phase you are in." },
+            { "label": "Phase 1 · Core group", "title": "Grow a committed core group", "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks." },
+            { "label": "Phase 2 · Launch team", "title": "Set the date and fill the roles", "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it." },
+            { "label": "Phase 3 · Training", "title": "Train every team", "body": "Plan training meetings for each ministry team and see who has finished." },
+            { "label": "Phase 4 · Pre-launch", "title": "Finish the launch list", "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details." },
+            { "label": "Phases 5 and 6 · Launch and after", "title": "Launch, then keep going", "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm." }
+          ]
+        },
+        "audiences": {
+          "headline": "One plant. Three groups of people who care about it.",
+          "items": [
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Know what needs you this week.",
+              "body": "You do the work. Everyfield keeps the record and points at the next step.",
+              "points": [
+                "People, vision meetings, follow-ups, teams and launch tasks in one place",
+                "One focus each week from Plant Intelligence, with the facts behind it",
+                "You decide when to change phase. Nothing blocks you.",
+                "A private weekly check-in that only you can see"
+              ],
+              "cta": "See the planter's week"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Stay close to the plant you sent.",
+              "body": "See how your plant is doing without asking the planter for another report.",
+              "points": [
+                "Phase, health and launch readiness for the plant, when the planter shares them",
+                "Coaches the planter invites can read that plant and change nothing",
+                "No access to the planter's people or private notes"
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Every plant in your network on one page.",
+              "body": "Find the plants that need a call this month.",
+              "points": [
+                "Each plant shows as on track, watch, launch readiness or limited visibility",
+                "Summaries only, and only what each plant chooses to share",
+                "The same method and the same rubric across every plant"
+              ],
+              "cta": "See the network view"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
+          "headline": "Evry prepares the work. You approve it.",
+          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to assign those calls, and it prepares the tasks and waits. Nothing is saved until you approve the exact change on screen.",
+          "example": {
+            "ask": "Who from Thursday's vision meeting has no follow-up owner?",
+            "answer": "Three first-time guests have no follow-up owner yet.",
+            "review": "Review 3 changes · Assign follow-up calls · Approve or Edit"
+          },
+          "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
+        },
+        "trust": {
+          "headline": "Built on a method, with clear rules about who sees what.",
+          "items": [
+            { "title": "A real method", "body": "The Playbook and the Plant Intelligence rubric come from church planting practitioners. [[Name the authors and how they reviewed the rubric.]]" },
+            { "title": "Your phase is your call", "body": "Plant Intelligence gives advice. It never moves your phase and never blocks a change." },
+            { "title": "Unknown stays unknown", "body": "If you have not recorded something, Everyfield says so. It does not guess." },
+            { "title": "Private means private", "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it." }
+          ]
+        },
+        "cta": {
+          "headline": "Start with the week in front of you.",
+          "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Talk to us about your network",
+          "note": "[[Say what happens after someone asks for access, and how long it takes.]]"
+        },
+        "footer": {
+          "tagline": "Church planting software, from calling to launch Sunday."
+        }
+      }
+    },
+    {
+      "id": "oversight",
+      "name": "See every plant you send",
+      "angle": "The sending church or network that needs honest visibility into many plants. The buyer is the hero. The planter's daily tool is the reason the data is real, and consent is the reason planters accept it.",
+      "sections": {
+        "hero": {
+          "eyebrow": "For sending churches and networks",
+          "headline": "See how every plant you send is doing.",
+          "subhead": "Planters run their launch in Everyfield every day. You see a summary of each plant that shares with you: phase, health and launch readiness. You do not see their people.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "I am a planter",
+          "note": "Everyfield is in early access. [[Say how access works for networks and for planters.]]"
+        },
+        "problem": {
+          "headline": "You usually hear about a struggling plant when it is already late.",
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each call finding out what happened."
+        },
+        "proof": {
+          "eyebrow": "The network view",
+          "headline": "One row for each plant. One status you can act on.",
+          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read, and Everyfield says that instead of guessing.",
+          "callouts": [
+            "On track",
+            "Watch",
+            "Launch readiness",
+            "Limited visibility"
+          ],
+          "visual": "Oversight table: plant name, phase track, launch date, status badge. Use the mockup's StatusBadge and PhaseTrack components.",
+          "caption": "Sample data. All plant names are demo churches."
+        },
+        "features": {
+          "headline": "The planter's daily work is what makes your view accurate.",
+          "intro": "Everyfield does not ask planters for a report. The summary comes from the records they already keep.",
+          "items": [
+            { "label": "Network", "title": "Plant directory", "body": "Every plant that shares with you, with its phase, city and launch date." },
+            { "label": "Network", "title": "Health summary", "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first." },
+            { "label": "Network", "title": "Launch readiness", "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training." },
+            { "label": "Coaching", "title": "Coach access", "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything." },
+            { "label": "Planter", "title": "The planter's tools", "body": "People, vision meetings, follow-up tasks, ministry teams, launch milestones, documents and email. All of it in one place for the plant." },
+            { "label": "Planter", "title": "Consent the planter controls", "body": "Each plant chooses what to share with you and can change that choice. Everyfield checks it on every read." }
+          ]
+        },
+        "audiences": {
+          "headline": "Built for the network, the sending church and the planter.",
+          "items": [
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Know where your coaching time matters most.",
+              "body": "See every plant on one page and start each week with the ones that need a call.",
+              "points": [
+                "Health status for each plant, from one shared rubric",
+                "Filter by phase, launch date or status",
+                "Sending churches in your network and their plants in one view"
+              ],
+              "cta": "See the network view"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Send a planter and stay close.",
+              "body": "Your elders can see how the plant is doing without a monthly report.",
+              "points": [
+                "Phase, launch date and health for the plants you send",
+                "Invite a coach or step back, as the plant needs",
+                "Summaries only. The planter's people stay with the planter."
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Share progress without writing a report.",
+              "body": "Do your work in Everyfield. Your sending church sees what you choose to share, and nothing more.",
+              "points": [
+                "Your people, meetings and tasks are never shown to oversight",
+                "You see every concern before your sending church does",
+                "Your weekly check-in is for you only"
+              ],
+              "cta": "See the planter's week"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, for the plant team",
+          "headline": "Planters get an assistant that does the busywork.",
+          "body": "Evry works inside the plant's account. It finds records, drafts follow-up tasks and emails, and explains a Plant Intelligence result against the rubric. Every change waits for the planter's approval, so the records your summary comes from stay the planter's own work.",
+          "example": {
+            "ask": "Why does Plant Intelligence say my follow-up is slipping?",
+            "answer": "Twelve people have waited longer than your 14-day window. Here they are, with the date each one was last contacted.",
+            "review": "Review 12 changes · Assign follow-up calls · Approve or Edit"
+          },
+          "limits": "Evry is for the plant team. It does not give sending churches or networks extra access, and it never reads a planter's private check-in."
+        },
+        "trust": {
+          "headline": "Planters trust the system, so you get true numbers.",
+          "items": [
+            { "title": "Summaries, not records", "body": "Oversight never sees a person's name, contact details or notes. It sees counts and statuses." },
+            { "title": "Consent on every read", "body": "If a plant stops sharing, your view changes at once." },
+            { "title": "The planter sees it first", "body": "Every concern in your summary is one the planter can already see in their own account. [[Confirm release timing before publishing. Open decision METH-08.]]" },
+            { "title": "One rubric for every plant", "body": "Every plant is read against the same versioned rubric. [[Name the rubric authors.]]" }
+          ]
+        },
+        "cta": {
+          "headline": "Bring Everyfield to your plants.",
+          "body": "We are working with a small group of networks and sending churches during early access.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "Request early access as a planter",
+          "note": "[[Say what the first conversation covers.]]"
+        },
+        "footer": {
+          "tagline": "Church planting software for planters and the churches that send them."
+        }
+      }
+    },
+    {
+      "id": "method",
+      "name": "The Playbook, put to work",
+      "angle": "The method made operational. The Playbook is the hero. Everyfield is how a planter follows it each week, and how anyone can check that they are.",
+      "sections": {
+        "hero": {
+          "eyebrow": "A church planting method you can run",
+          "headline": "The Playbook, put to work.",
+          "subhead": "Vision meetings every 14 days. Timely follow-up after each one. A core group of 50 to 100 committed adults. Eight ministry areas led before launch. Everyfield turns each step of the method into work you can see and finish.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Read about the method"
+        },
+        "problem": {
+          "headline": "A method in a binder cannot tell you that you are late.",
+          "body": "Most planters start with a good plan. Then the weeks fill up. Nobody notices that the last vision meeting was 16 days ago, or that half of Sunday's guests never got a call. The method stays right, and the plant drifts from it."
+        },
+        "proof": {
+          "eyebrow": "Plant Intelligence",
+          "headline": "Your records, read against the method.",
+          "body": "Plant Intelligence checks your plant against the eight Critical Success Factors. It gives you one focus to work on, two more things to watch and what is going well. Every finding links to the facts it used and names the rubric version.",
+          "callouts": [
+            "Focus: follow-up is slipping",
+            "Going well: vision meeting rhythm",
+            "Rubric v1"
+          ],
+          "visual": "Plant Intelligence scorecard: eight CSF tiles and one focus card, built from the mockup's InsightCard and StatusBadge.",
+          "caption": "Sample data from a demo church."
+        },
+        "features": {
+          "headline": "Each part of the method has a place in the product.",
+          "intro": "Everyfield does not add steps to the Playbook. It gives each existing step a record, an owner and a date.",
+          "items": [
+            { "label": "Vision meetings", "title": "Keep the rhythm", "body": "Plan each vision meeting, record attendance and see the days since the last one against the 14-day rhythm." },
+            { "label": "Follow-up", "title": "Follow up while it matters", "body": "Closing attendance creates a follow-up task for each new guest. Everyfield shows how many guests had contact within 48 hours of the meeting." },
+            { "label": "Commitments", "title": "Count committed adults", "body": "Record interviews against the five considerations and the 4 Cs: Committed, Compelled, Contagious, Courageous. Signed commitments count toward the benchmark of 50." },
+            { "label": "Ministry areas", "title": "Lead every area", "body": "Staff and train a team for each of the eight ministry areas, and see the gaps before launch." },
+            { "label": "Phases", "title": "Know where you are", "body": "Seven phases from Discovery to Post-Launch. You record your phase with a reason. Readiness is advice, never a gate." },
+            { "label": "Playbook and Wiki", "title": "Read the method in context", "body": "The chapter for your phase is one click from the work it describes." }
+          ]
+        },
+        "audiences": {
+          "headline": "One method, read the same way by everyone.",
+          "items": [
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Follow the method without carrying it in your head.",
+              "body": "The Playbook says what to do. Everyfield shows what is done and what is next.",
+              "points": [
+                "The week's work, sorted by the method's priorities",
+                "One focus at a time, with the facts behind it",
+                "The relevant Playbook chapter beside the task"
+              ],
+              "cta": "See the planter's week"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Know your planter has a method, and is using it.",
+              "body": "Send a planter with the same method your coaches teach, and see progress against it.",
+              "points": [
+                "Phase and health read against the shared rubric",
+                "A summary of each concern, never the planter's people",
+                "Coaches can read the plants they coach"
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "One method across every plant.",
+              "body": "Every plant is read against the same benchmarks, so a watch status means the same thing in every city.",
+              "points": [
+                "Shared phases, benchmarks and rubric version",
+                "Health status across all plants that share with you",
+                "Find plants near launch with open roles or training"
+              ],
+              "cta": "See the network view"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
+          "headline": "Ask the method a question. Get your own records back.",
+          "body": "Ask Evry what the Playbook says about a first-time guest, and it shows the passage. Ask why your plant is on watch, and it explains the result against the rubric, with links to the records. Ask it to act, and it prepares the change for your approval.",
+          "example": {
+            "ask": "What does the Playbook say about follow-up after a vision meeting?",
+            "answer": "The Playbook says timely follow-up is what grows the core group. Here is the passage, and here are the two guests from Thursday who have not had a call.",
+            "review": "Review 2 changes · Create follow-up tasks · Approve or Edit"
+          },
+          "limits": "Evry quotes the method. It does not invent a benchmark, write prayers, give counsel or judge a person."
+        },
+        "trust": {
+          "headline": "The software follows the method. It does not rewrite it.",
+          "items": [
+            { "title": "Written by practitioners", "body": "The Playbook and the rubric come from church planting practitioners. [[Name the authors and their review.]]" },
+            { "title": "Versioned rubric", "body": "Each Plant Intelligence result names the rubric version it used. A software update cannot change a benchmark." },
+            { "title": "Benchmarks, not verdicts", "body": "50 to 100 committed adults is this method's benchmark, not a measure of whether a church is healthy." },
+            { "title": "People judge people", "body": "Interviews and the 4 Cs are your judgment. Plant Intelligence and Evry never fill them in." }
+          ]
+        },
+        "cta": {
+          "headline": "Run your plant on a method you can see.",
+          "body": "Everyfield is in early access for planters, sending churches and networks.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Read about the method",
+          "note": "[[Say what happens after someone asks for access.]]"
+        },
+        "footer": {
+          "tagline": "The church planting Playbook, put to work."
+        }
+      }
+    }
+  ]
+}
