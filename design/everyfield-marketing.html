@@ -643,7 +643,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-head { position: sticky; top: var(--cx-top); z-index: 3; background: var(--mk-canvas); padding-bottom: 26px; border-bottom: 1px solid var(--mk-line); }
 .cx-head::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--cx-top); background: var(--mk-canvas); }
 .cx-head::after { content: ""; position: absolute; left: 0; right: 0; top: calc(100% + 1px); height: 20px; background: linear-gradient(var(--mk-canvas), rgba(252, 251, 248, 0)); pointer-events: none; }
-.cx-head .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .cx-step { padding: 34px 0 36px; border-top: 1px solid var(--mk-line); }
 .cx-step:first-child { border-top: 0; }
 .cx-txt { transition: opacity .25s var(--cx-sine); }
@@ -691,8 +690,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-tl { display: flex; align-items: flex-start; gap: 14px; }
 .cx-tl h3 { margin-top: 0; min-width: 0; }
 .cx-ti { width: 38px; height: 38px; flex: none; margin-top: 1px; border-radius: 10px; display: grid; place-items: center; color: #181D19;
-  background: radial-gradient(circle at 80% 18%, var(--g5) 0%, transparent 40%), radial-gradient(70% 70% at 24% 30%, var(--g1) 0%, transparent 76%), radial-gradient(70% 70% at 76% 86%, var(--g4) 0%, transparent 76%), var(--g-base);
-  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
+  background: var(--g-base); box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
 .cx-ti svg { width: 19px; height: 19px; stroke-width: 1.8; }
 .cx-step .cx-tl + p { margin-top: 12px; }
 /* Gatherings */
@@ -1090,8 +1088,7 @@ body.pbar-hidden { padding-bottom: 0; }
       "fineprint": "© 2026 EveryField LLC"
     },
     "week": {
-      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and an animated panel (panel). No step numbers or labels.",
-      "eyebrow": "The planter's week",
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a solid-colour icon in its tone and an animated panel (panel). No step numbers, labels or section eyebrow.",
       "title": "Gather, meet, follow up, commit.",
       "steps": [
         {
@@ -2029,8 +2026,8 @@ var CX_SCN = {
 /* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
 var WK = COPY.shared.week;
 var CX_DEFS = {
-  week: { eyebrow: WK.eyebrow, title: WK.title, final: true, steps: WK.steps.map(function (s) { return [s.panel, s.tone, s.icon, s.title, s.body]; }) },
-  intelligence: { eyebrow: "Plant Intelligence", title: "One focus a week, with the facts behind it.", steps: [
+  week: { title: WK.title, final: true, steps: WK.steps.map(function (s) { return [s.panel, s.tone, s.icon, s.title, s.body]; }) },
+  intelligence: { title: "One focus a week, with the facts behind it.", steps: [
     ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
     ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
     ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
@@ -2040,7 +2037,7 @@ function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' ins
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
-    '<div class="cx-head"><span class="eyebrow">' + t(d.eyebrow) + '</span><h2 class="display h2">' + t(d.title) + "</h2></div>" +
+    '<div class="cx-head"><h2 class="display h2">' + t(d.title) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
         '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :

@@ -69,8 +69,7 @@
       "fineprint": "© 2026 EveryField LLC"
     },
     "week": {
-      "note": "Revision 4 (2026-10-08): the home week section. Each step has a gradient icon (tone) and an animated panel (panel). No step numbers or labels.",
-      "eyebrow": "The planter's week",
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a solid-colour icon in its tone and an animated panel (panel). No step numbers, labels or section eyebrow.",
       "title": "Gather, meet, follow up, commit.",
       "steps": [
         {
