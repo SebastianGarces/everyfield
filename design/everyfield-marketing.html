@@ -21,6 +21,7 @@
 
   The home hero animation is built (heroSlot, haRender). EFHero.seek(ms) renders one loop time for review.
   The week chapter (#week) and the Plant Intelligence chapter (#intelligence) share one engine (chapterSection, cxRender).
+  The week chapter pins to scroll. Plant Intelligence (Revision 10) is an auto-advancing tab list (autoSection, cxAutoGo).
   EFChapters.seek(id, step, ms) renders one panel frame for review.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -825,6 +826,33 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .cx-step:not(.on) .cx-txt { opacity: 1; }
   .cx-step.cx-rv .cx-txt > * { opacity: 1; transform: none; transition: none !important; }
 }
+/* Revision 10: Plant Intelligence (.cx-auto) is a compact list of tabs that advances by itself.
+   The panel is not sticky. Each step has a progress line on its left edge (scaleY, driven by cxFrame).
+   The week chapter does not use .cx-auto and keeps the pinned scroll layout above. */
+.cx-auto .cx-head { position: static; z-index: auto; padding-bottom: 0; border-bottom: 0; margin-bottom: clamp(28px, 3vw, 44px); max-width: 640px; }
+.cx-auto .cx-head::before, .cx-auto .cx-head::after { display: none; }
+.cx-auto .cx-grid { align-items: center; }
+.cx-auto .cx-steps { display: grid; gap: 2px; }
+.cx-auto .cx-step { padding: 0; border-top: 0; }
+.cx-tab { position: relative; display: block; width: 100%; padding: 14px 0 16px 26px; border: 0; border-radius: 14px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.cx-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.cx-tab > .cx-txt, .cx-tab .cx-txt > * { display: block; }
+.cx-bar { position: absolute; left: 0; top: 14px; bottom: 16px; width: 2px; border-radius: 2px; background: var(--mk-line); overflow: hidden; }
+.cx-bar i { position: absolute; inset: 0; border-radius: 2px; background: var(--mk-text); transform: scaleY(0); transform-origin: 50% 0; will-change: transform; }
+.cx-auto .cx-num { display: flex; }
+.cx-auto .cx-step .h3 { margin-top: 10px; font-size: var(--cx-h3); }
+.cx-auto .cx-p { margin-top: 8px; color: var(--mk-text-2); max-width: 46ch; }
+.cx-auto .cx-tab:hover .cx-txt { opacity: 1; }
+.cx-auto .cx-vis { position: relative; top: auto; height: 560px; min-height: 0; }
+@media (max-width: 900px) {
+  .cx-auto .cx-right { display: block; grid-column: 1 / -1; }
+  .cx-auto .cx-step:not(.on) .cx-txt { opacity: .32; }
+  .cx-auto .cx-num b { background: var(--mk-surface-2); color: var(--mk-text); }
+  .cx-auto .cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
+  .cx-auto .cx-vis { height: auto; min-height: 0; padding: 44px 16px 28px; border-radius: 26px; grid-template-columns: minmax(0, 1fr); }
+  .cx-auto .cx-card { width: min(400px, 100%); }
+}
+@media (prefers-reduced-motion: reduce) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .32; } }
 
 /* Chart parts used by the Vision meetings card */
 .ef .bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
@@ -2080,7 +2108,7 @@ var CX_SCN = {
 var WK = COPY.shared.week;
 var CX_DEFS = {
   week: { title: WK.title, final: true, steps: WK.steps.map(function (s) { return [s.panel, s.tone, s.icon, s.title, s.body]; }) },
-  intelligence: { title: "One focus a week, with the facts behind it.", steps: [
+  intelligence: { title: "One focus a week, with the facts behind it.", auto: true, steps: [
     ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
     ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
     ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
@@ -2089,6 +2117,7 @@ var CX_DEFS = {
 function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
+  if (d.auto) return autoSection(id, cls, d);
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
     '<div class="cx-head"><h2 class="display h2">' + t(d.title) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
@@ -2098,6 +2127,16 @@ function chapterSection(id, cls) {
     }).join("") + "</ol></div>" +
     '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
+}
+/* Revision 10: the auto-advancing list (Plant Intelligence). Same panels and cards; steps are tabs, the panel is the tab panel. */
+function autoSection(id, cls, d) {
+  return '<section class="sec cx cx-auto ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-head"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2></div>" +
+    '<div class="cx-grid"><div class="cx-left"><ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
+      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
+        '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
+    }).join("") + "</ol></div>" +
+    '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
+    d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
 }
 function weekChapter() { return chapterSection("week", "sec-week"); }
 function intelligenceChapter() { return chapterSection("intelligence", "sec-intelligence"); }
@@ -2288,6 +2327,7 @@ function cxSetActive(ch, k) {
   if (k === ch.active) return;
   ch.prev = ch.active; ch.active = k;
   ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === k); });
+  if (ch.auto) cxTabs(ch);
   var I = ch.insts[k];
   if (REDUCED.matches) { ch.since = 1e6; I.t = cxStill(I); cxRender(ch); return; }
   ch.since = 0; I.t = 0;
@@ -2297,7 +2337,7 @@ function cxScroll() {
   CX.ticking = false;
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
-    if (!cxDesk(ch)) return;
+    if (ch.auto || !cxDesk(ch)) return;
     /* A step becomes active when its top passes 0.6 of a step below the sticky heading. The active title then stays in view, and the first step still gets some scroll. */
     var line = Math.min(ch.head.getBoundingClientRect().bottom + ch.steps[0].offsetHeight * .6, window.innerHeight * .6), k = 0;
     ch.steps.forEach(function (s, i) { if (s.getBoundingClientRect().top < line) k = i; });
@@ -2314,9 +2354,10 @@ function cxFrame(now) {
     if (!ch.root.isConnected) return;
     if (ch.on && cxDesk(ch)) {
       any = true;
+      if (ch.auto && !ch.hover && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       var I = ch.insts[ch.active];
       ch.since += dt; I.t = (I.t + dt) % CX_SCN[I.kind].L;
-      cxRender(ch);
+      cxRender(ch); if (ch.auto) cxBars(ch);
     }
     ch.mobs.forEach(function (M) {
       if (!M.on || cxDesk(ch)) return;
@@ -2338,6 +2379,7 @@ function cxKick() {
 function cxMeasureAll() {
   CX.list.forEach(function (ch) {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
+    if (ch.auto) return;
     var ol = ch.steps[0].parentNode, right = ch.vis.closest(".cx-right"), grid = ch.vis.closest(".cx-grid");
     var desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
@@ -2349,7 +2391,38 @@ function cxMeasureAll() {
 function cxPaintAll() {
   CX.list.forEach(function (ch) {
     if (REDUCED.matches) { ch.since = 1e6; ch.insts[ch.active].t = cxStill(ch.insts[ch.active]); ch.mobs.forEach(function (M) { M.since = 1e6; M.t = cxStill(M); }); }
-    cxRender(ch); ch.mobs.forEach(cxRenderMob);
+    cxRender(ch); ch.mobs.forEach(cxRenderMob); if (ch.auto) cxBars(ch);
+  });
+}
+/* Revision 10 auto list. Each step's progress lasts its panel loop (CX_SCN L) plus 600 ms for the card to come in,
+   so the loop plays once in full: focus 7400 ms, facts 7200 ms, evry 9000 ms, share 7200 ms.
+   Progress holds while the pointer is over the section or a tab has keyboard focus, and while the panel is off screen (cxFrame only runs in view).
+   Reduced motion: no advance and no fill; the active line is full and clicks switch steps. */
+function cxDur(ch) { return CX_SCN[ch.insts[ch.active].kind].L + 600; }
+function cxBars(ch) {
+  var p = REDUCED.matches ? 1 : haClamp(ch.prog / cxDur(ch));
+  ch.bars.forEach(function (b, i) { haSet(b, "transform", "scaleY(" + (i === ch.active ? p : 0).toFixed(4) + ")"); });
+}
+function cxTabs(ch) {
+  ch.tabs.forEach(function (b, i) { b.setAttribute("aria-selected", String(i === ch.active)); b.tabIndex = i === ch.active ? 0 : -1; });
+  ch.vis.setAttribute("aria-labelledby", ch.tabs[ch.active].id);
+}
+function cxAutoGo(ch, k) { ch.prog = 0; cxSetActive(ch, k); cxBars(ch); cxKick(); }
+function cxAutoBind(ch) {
+  var root = ch.root; root.__auto = ch;
+  if (root.__bound) return;
+  root.__bound = true;
+  var cur = function () { return root.__auto; };
+  root.addEventListener("pointerenter", function () { cur().hover = true; });
+  root.addEventListener("pointerleave", function () { cur().hover = false; cxKick(); });
+  root.addEventListener("focusin", function (e) { var c = cur(); c.kbd = !!(e.target.matches && e.target.matches(":focus-visible")); });
+  root.addEventListener("focusout", function (e) { if (!root.contains(e.relatedTarget)) { cur().kbd = false; cxKick(); } });
+  root.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".cx-tab"); if (b) cxAutoGo(cur(), cur().tabs.indexOf(b)); });
+  root.addEventListener("keydown", function (e) {
+    var c = cur(), i = c.tabs.indexOf(e.target), n = c.tabs.length, k = -1; if (i < 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") k = (i + 1) % n; else if (e.key === "ArrowUp" || e.key === "ArrowLeft") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
+    if (k < 0) return;
+    e.preventDefault(); cxAutoGo(c, k); c.tabs[k].focus(); c.kbd = true;
   });
 }
 function cxInit() {
@@ -2360,8 +2433,11 @@ function cxInit() {
     var vis = root.querySelector(".cx-vis");
     return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
       insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
-      active: 0, prev: -1, since: 1e6, on: false, seen: false };
+      active: 0, prev: -1, since: 1e6, on: false, seen: false,
+      auto: root.classList.contains("cx-auto"), prog: 0, hover: false, kbd: false,
+      bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
   });
+  CX.list.forEach(function (ch) { if (ch.auto) cxAutoBind(ch); });
   if (!CX.list.length) return;
   cxMeasureAll();
   CX.list.forEach(function (ch) { ch.insts.concat(ch.mobs).forEach(function (I) { I.t = REDUCED.matches ? cxStill(I) : 0; }); });
@@ -2378,13 +2454,13 @@ function cxInit() {
         var I = e.target.__cx;
         if (I) { if (e.isIntersecting && !I.on && !REDUCED.matches) { I.since = 0; I.t = 0; } I.on = e.isIntersecting; return; }
         var ch = e.target.__ch; if (!ch) return;
-        if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; }
+        if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; ch.prog = 0; }
         ch.on = e.isIntersecting;
       });
       cxKick();
     }, { threshold: 0.12 });
     CX.list.forEach(function (ch) {
-      ch.vis.__ch = ch; CX.io.observe(ch.vis);
+      var tgt = ch.auto ? ch.root : ch.vis; tgt.__ch = ch; CX.io.observe(tgt);
       ch.mobs.forEach(function (M) { M.el.__cx = M; CX.io.observe(M.el); });
     });
   } else CX.list.forEach(function (ch) { ch.on = true; ch.mobs.forEach(function (M) { M.on = true; }); });
