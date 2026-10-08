@@ -357,7 +357,10 @@ svg.i { width: 18px; height: 18px; flex: none; }
 /* Revision 6: nav logo. Flex anchor (no inline baseline gap), green mark, ink wordmark. The footer logo is unchanged. */
 .nav-home { display: flex; align-items: center; text-decoration: none; flex: none; }
 .nav-logo .lm { color: #1CE362; }
-.nav-logo .lw { color: #181D19; height: 26px; }
+.nav-logo .lw { color: #181D19; height: 27.3px; }
+/* Revision 7: the nav viewBox (0 -26.4 890 216.4) keeps the cap-height centre at 81.8 and leaves 4.9 units under the "y" descender (185.1).
+   overflow: visible stops antialiased edges from clipping in the nav and the footer. */
+.logo .lw { overflow: visible; }
 .logo.chip { background: #1CE362; color: #181D19; padding: 10px 14px; border-radius: 14px; }
 .nav-links { display: flex; gap: 4px; font-size: 14.5px; }
 .nav-links a { text-decoration: none; color: var(--mk-text-2); padding: 8px 11px; border-radius: 999px; white-space: nowrap; }
@@ -538,9 +541,18 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Revision 6 spacing at 1440: 128 top, 30 headline to subtext, 40 subtext to buttons, 80 buttons to card (56 + 24 stage), 96 under the card (64 stage + 32 panel). */
 .hero-anim .hero-title { max-width: 14ch; color: #2A332C; }
 .hero-anim .hero-row { margin-top: clamp(18px, 2.1vw, 30px); gap: clamp(24px, 2.8vw, 40px); }
-.hero-anim .hero-row .lead { max-width: 620px; color: var(--hero-sub, rgba(24, 29, 25, .72)); }
+.hero-anim .hero-row .lead { max-width: 560px; font-size: clamp(16.5px, 1.25vw, 18px); color: var(--hero-sub, rgba(24, 29, 25, .72)); }
 .hero-anim .hero-band { margin-top: clamp(32px, 3.9vw, 56px); }
 .hero-panel { border-radius: var(--mk-radius-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); color: var(--on); box-shadow: 0 30px 60px -40px rgba(16, 120, 56, .6); }
+/* Revision 7: the field gradient sits on its own layer (.hero-bg) so a vertical mask can fade it to the page at the top.
+   The grain is part of the layer and fades with it. Tune with --hero-fade-from (fully transparent until here)
+   and --hero-fade-to (full gradient from here). The stops follow an ease-in curve, so the green builds toward the animation. */
+.hero-panel:has(> .hero-bg) { background: transparent; --hero-fade-from: 0%; --hero-fade-to: 58%; }
+.hero-panel:has(> .hero-bg)::before, .hero-panel:has(> .hero-bg)::after { content: none; }
+.hero-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  --hf-a: var(--hero-fade-from); --hf-d: calc(var(--hero-fade-to) - var(--hero-fade-from));
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--hf-a), rgba(0,0,0,.03) calc(var(--hf-a) + var(--hf-d) * .15), rgba(0,0,0,.1) calc(var(--hf-a) + var(--hf-d) * .3), rgba(0,0,0,.22) calc(var(--hf-a) + var(--hf-d) * .45), rgba(0,0,0,.4) calc(var(--hf-a) + var(--hf-d) * .6), rgba(0,0,0,.62) calc(var(--hf-a) + var(--hf-d) * .75), rgba(0,0,0,.85) calc(var(--hf-a) + var(--hf-d) * .9), #000 var(--hero-fade-to));
+          mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--hf-a), rgba(0,0,0,.03) calc(var(--hf-a) + var(--hf-d) * .15), rgba(0,0,0,.1) calc(var(--hf-a) + var(--hf-d) * .3), rgba(0,0,0,.22) calc(var(--hf-a) + var(--hf-d) * .45), rgba(0,0,0,.4) calc(var(--hf-a) + var(--hf-d) * .6), rgba(0,0,0,.62) calc(var(--hf-a) + var(--hf-d) * .75), rgba(0,0,0,.85) calc(var(--hf-a) + var(--hf-d) * .9), #000 var(--hero-fade-to)); }
 .hero-panel .eyebrow { color: var(--on); }
 .hero-panel .lead { color: rgba(24, 29, 25, .9); }
 .hero-panel .hero-note { color: rgba(24, 29, 25, .9); }
@@ -657,6 +669,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-num b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--mk-surface-2); color: var(--mk-text); font-size: 11px; transition: background-color .25s var(--cx-sine); }
 .cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
 .cx-step h3 { margin-top: 14px; }
+/* Revision 7: smaller step titles in both chapters (24 px at 1440, was 28). */
+.cx-step { --cx-h3: clamp(20px, 1.6vw, 24px); }
+.cx-step h3.h3 { font-size: var(--cx-h3); }
 .cx-step p { margin-top: 10px; color: var(--mk-text-2); max-width: 46ch; }
 /* Steps rise and fade in as they enter (hero stagger: 75 ms apart, ease-out) */
 .cx-step.cx-rv .cx-txt > * { opacity: 0; transform: translateY(14px); transition: opacity .42s var(--cx-out), transform .42s var(--cx-out); }
@@ -695,9 +710,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Revision 4 week steps: a small rounded-square icon in the step's gradient tone before each title */
 .cx-tl { display: flex; align-items: flex-start; gap: 14px; }
 .cx-tl h3 { margin-top: 0; min-width: 0; }
-.cx-ti { width: 38px; height: 38px; flex: none; margin-top: 1px; border-radius: 10px; display: grid; place-items: center; color: #181D19;
+.cx-ti { width: 34px; height: 34px; flex: none; margin-top: calc((var(--cx-h3) * 1.15 - 34px) / 2); border-radius: 9px; display: grid; place-items: center; color: #181D19;
   background: var(--g-base); box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
-.cx-ti svg { width: 19px; height: 19px; stroke-width: 1.8; }
+.cx-ti svg { width: 17px; height: 17px; stroke-width: 1.8; }
 .cx-step .cx-tl + p { margin-top: 12px; }
 /* Gatherings */
 .cx-in { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 11px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 13.5px; font-weight: 500; color: var(--ef-ink); white-space: nowrap; overflow: hidden; }
@@ -952,7 +967,7 @@ body.pbar-hidden { padding-bottom: 0; }
   .nav-end .signin { display: none; }
   .nav-end .mk-btn { height: 40px; padding: 0 14px; font-size: 13.5px; }
   .logo .lw { width: 96px; height: 20px; }
-  .nav-logo .lw { height: 22.3px; }
+  .nav-logo .lw { height: 23.4px; }
   .logo .lm { width: 24px; height: 19px; }
   .site-nav .wrap, .nav-pill .wrap { gap: 12px; }
   .site-nav .wrap { height: 64px; }
@@ -1480,12 +1495,12 @@ function esc(s) {
 function t(s) {
   return esc(s).replace(/Everyfield/g, "EveryField");
 }
-/* Nav logo: the wordmark viewBox is padded at the top (-21.5) so its box centre is the cap-height centre
-   (caps run 14.8 to 148.8, the "y" descender ends at 185.1). The box then lines up with the nav items. */
+/* Nav logo: the wordmark viewBox is padded at the top and bottom (-26.4 to 190) so its box centre is the cap-height centre
+   (caps run 14.8 to 148.8, the "y" descender ends at 185.14). The box then lines up with the nav items. */
 function logo(extra) {
   var nav = /nav-logo/.test(extra || "");
   return '<span class="logo ' + (extra || "") + '"><svg class="lm" viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>' +
-    '<svg class="lw" viewBox="' + (nav ? "0 -21.5 890 206.6" : "0 0 890 186") + '" role="img" aria-label="EveryField"><use href="#ef-wordmark"' + (nav ? ' width="890" height="186"' : '') + '/></svg></span>';
+    '<svg class="lw" viewBox="' + (nav ? "0 -26.4 890 216.4" : "0 0 890 186") + '" role="img" aria-label="EveryField"><use href="#ef-wordmark"' + (nav ? ' width="890" height="186"' : '') + '/></svg></span>';
 }
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
@@ -2373,7 +2388,7 @@ window.EFChapters = {
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel gsurf" data-tone="field">' : "") +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel gsurf" data-tone="field"><span class="hero-bg gsurf" data-tone="field" aria-hidden="true"></span>' : "") +
     (h.eyebrow ? '<span class="eyebrow">' + t(h.eyebrow) + "</span>" : "") +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
     '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + (h.cta_secondary ? btn(h.cta_secondary, "secondary") : "") + "</div>" +
