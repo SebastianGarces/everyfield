@@ -1,0 +1,2068 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EveryField marketing site · switchable prototype</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 657 530%22%3E%3Cpath fill=%22%23181D19%22 d=%22M0 461.6H657V529.6H0ZM363 0V276.7L567.2 68.7L615.9 117.7L412.9 324.4H657V393.6H493.3C424.8 393.6 364.4 358.9 328.5 305.9C292.7 358.9 232.3 393.6 163.8 393.6L0 393.6V324.4H244.1L39.9 118.9L88.6 69.9L294.1 276.6V0Z%22/%3E%3C/svg%3E">
+<!--
+  Prototype of the EveryField marketing site. One file, works offline from disk.
+  Fonts load from Google Fonts when online and fall back to system fonts.
+
+  URL hash holds the full state:  #/<page>?style=<style>&story=<story>[&at=<section id>]
+    page   home | planters | oversight | method | trust | access | privacy | terms
+    style  fieldnotes | gradientfield | signal | nightfield
+    story  journey (A) | oversight (B) | method (C)   (home page only; other pages use fixed copy)
+
+  Inlined sources (re-sync with the command in the task note):
+    BEGIN/END design/marketing-styles.css   style tokens (.mk-neighborhood is in the file but unused)
+    BEGIN/END design/marketing-copy.json    copy for the three stories
+    ef-mark / ef-wordmark symbols           from design/everyfield-ui.html (round-buffalo)
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style id="mk-tokens">
+/* BEGIN design/marketing-styles.css */
+/*
+ * Everyfield marketing site: style direction tokens.
+ *
+ * Put one class on <html> or <body> to switch the whole page:
+ *   .mk-fieldnotes   A. Field Notes   (warm paper, editorial, map line work)
+ *   .mk-signal       B. Signal        (the dashboard's own look, product-first)
+ *   .mk-nightfield   C. Night Field   (dark, product UI on near-black, green signal)
+ *   .mk-neighborhood D. Neighborhood  (documentary photography, deep green and cream)
+ *
+ * Every class sets the same variable names, so components only read --mk-*.
+ * Colours come from the --ef-* ramps in design/everyfield-ui.html.
+ * Contrast (WCAG 2.x) for each text pair is noted next to it.
+ * Rule for all directions: never set #1CE362 (green-500) as text on a light
+ * background. Use it as a fill with ink text, or as text on dark only.
+ */
+
+:root {
+  --mk-font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Shared spacing scale (4px base, same as --ef-space-*) */
+  --mk-space-1: 4px;
+  --mk-space-2: 8px;
+  --mk-space-3: 12px;
+  --mk-space-4: 16px;
+  --mk-space-6: 24px;
+  --mk-space-8: 32px;
+  --mk-space-12: 48px;
+  --mk-space-16: 64px;
+  --mk-space-24: 96px;
+  --mk-space-32: 128px;
+
+  --mk-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* ------------------------------------------------------------------ */
+/* A. Field Notes                                                       */
+/* Warm paper, ink type, map line work. Calm and literate.              */
+/* ------------------------------------------------------------------ */
+.mk-fieldnotes {
+  color-scheme: light;
+
+  --mk-canvas: #F6F0E9;          /* --ef-cream */
+  --mk-surface: #FFFDF9;
+  --mk-surface-2: #EFE6DA;
+  --mk-surface-inverse: #181D19; /* --ef-ink */
+  --mk-ink: #181D19;             /* 15.1:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.8:1 on canvas, 6.2:1 on surface-2 */
+  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
+  --mk-text-inverse: #F6F0E9;    /* 15.1:1 on surface-inverse */
+  --mk-line: rgba(24, 29, 25, .12);
+  --mk-line-strong: rgba(24, 29, 25, .24);
+
+  --mk-accent: #0F7E3C;          /* --ef-green-600, 4.6:1 on canvas */
+  --mk-accent-text: #FFFFFF;     /* 5.2:1 on accent */
+  --mk-link: #0F7E3C;
+  --mk-highlight: #1CE362;       /* marker fill behind ink text, 9.9:1 */
+  --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
+  --mk-chart-1: #0F7E3C;
+  --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
+  --mk-chart-3: #1C5BB5;         /* --ef-blue-600 */
+
+  --mk-cta-bg: #181D19;
+  --mk-cta-text: #F6F0E9;        /* 15.1:1 */
+  --mk-cta-bg-hover: #0F7E3C;
+  --mk-cta2-bg: transparent;
+  --mk-cta2-text: #181D19;
+  --mk-cta2-border: rgba(24, 29, 25, .35);
+
+  /* Type: large, tight display; generous body */
+  --mk-fs-hero: clamp(48px, 7vw, 104px);
+  --mk-fs-h1: clamp(40px, 5vw, 72px);
+  --mk-fs-h2: clamp(32px, 3.6vw, 52px);
+  --mk-fs-h3: clamp(22px, 2vw, 28px);
+  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
+  --mk-fs-body: 17px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.0;
+  --mk-lh-body: 1.6;
+  --mk-tracking-display: -0.035em;
+  --mk-tracking-eyebrow: 0.08em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 100%;    /* Bricolage wdth axis */
+
+  /* Layout: 12 col, wide margins, asymmetric 5/7 heroes */
+  --mk-max-width: 1280px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 24px;
+  --mk-page-pad: clamp(20px, 5vw, 64px);
+  --mk-section-space: clamp(80px, 10vw, 144px);
+  --mk-measure: 62ch;
+
+  /* Shape */
+  --mk-radius-card: 6px;
+  --mk-radius-button: 999px;
+  --mk-radius-media: 4px;
+  --mk-border-card: 1px solid rgba(24, 29, 25, .12);
+  --mk-shadow-card: none;
+  --mk-shadow-media: 0 1px 2px rgba(24, 29, 25, .06), 0 18px 40px -24px rgba(24, 29, 25, .35);
+  --mk-nav-bg: rgba(246, 240, 233, .88);
+  --mk-nav-blur: 10px;
+  --mk-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cpath d='M0 120c40-30 80-30 120 0s80 30 120 0M0 160c40-30 80-30 120 0s80 30 120 0M0 80c40-30 80-30 120 0s80 30 120 0' fill='none' stroke='%23181D19' stroke-opacity='.06'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------ */
+/* B. Signal                                                            */
+/* The dashboard's own look: grey canvas, white cards, green momentum.  */
+/* ------------------------------------------------------------------ */
+.mk-signal {
+  color-scheme: light;
+
+  --mk-canvas: #E9ECF0;          /* --ef-canvas (light) */
+  --mk-surface: #FFFFFF;         /* --ef-surface-raised */
+  --mk-surface-2: #F2F4F7;       /* --ef-frame */
+  --mk-surface-inverse: #181D19;
+  --mk-ink: #181D19;             /* 14.4:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.5:1 on canvas, 7.7:1 on white */
+  --mk-text-3: #666C78;          /* 5.3:1 on white */
+  --mk-text-inverse: #FFFFFF;    /* 17.1:1 on surface-inverse */
+  --mk-line: rgba(22, 30, 46, .075);
+  --mk-line-strong: rgba(22, 30, 46, .13);
+
+  --mk-accent: #1CE362;          /* --ef-green-500, fill only */
+  --mk-accent-text: #111318;     /* 10.8:1 on accent */
+  --mk-link: #0F7E3C;            /* 5.2:1 on white */
+  --mk-highlight: #DCFAE7;       /* --ef-green-100 chip, text #0D6B35 at 6.0:1 */
+  --mk-eyebrow: #4D5361;
+  --mk-chart-1: #1CE362;
+  --mk-chart-2: #6AAEFF;         /* --ef-blue-500 */
+  --mk-chart-3: #A48CF5;         /* --ef-violet-500 */
+
+  --mk-cta-bg: #181D19;
+  --mk-cta-text: #FFFFFF;        /* 17.1:1 */
+  --mk-cta-bg-hover: #343843;
+  --mk-cta2-bg: #FFFFFF;
+  --mk-cta2-text: #181D19;
+  --mk-cta2-border: rgba(22, 30, 46, .13);
+
+  /* Type: same scale family as --ef-display-* */
+  --mk-fs-hero: clamp(44px, 6vw, 88px);
+  --mk-fs-h1: clamp(40px, 4.6vw, 76px);  /* --ef-display-lg */
+  --mk-fs-h2: clamp(30px, 3.4vw, 56px);  /* --ef-display-md */
+  --mk-fs-h3: clamp(22px, 1.8vw, 28px);  /* --ef-title-lg */
+  --mk-fs-lead: clamp(18px, 1.4vw, 21px);
+  --mk-fs-body: 16px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.04;
+  --mk-lh-body: 1.55;
+  --mk-tracking-display: -0.035em;
+  --mk-tracking-eyebrow: 0;
+  --mk-eyebrow-transform: none;
+  --mk-display-stretch: 100%;
+
+  /* Layout: bento grid of cards, centred hero, product frame below */
+  --mk-max-width: 1440px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 16px;
+  --mk-page-pad: clamp(16px, 3vw, 40px);
+  --mk-section-space: clamp(72px, 8vw, 120px);
+  --mk-measure: 58ch;
+
+  /* Shape: the dashboard's soft cards and pills */
+  --mk-radius-card: 26px;        /* --ef-radius-card */
+  --mk-radius-button: 999px;
+  --mk-radius-media: 34px;       /* --ef-radius-frame */
+  --mk-border-card: 0;
+  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
+  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28);
+  --mk-nav-bg: rgba(255, 255, 255, .9);
+  --mk-nav-blur: 12px;
+  --mk-texture: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* C. Night Field                                                       */
+/* Near-black canvas, product UI as hero, green as the only signal.     */
+/* ------------------------------------------------------------------ */
+.mk-nightfield {
+  color-scheme: dark;
+
+  --mk-canvas: #0B0D10;          /* --ef-canvas (dark) */
+  --mk-surface: #161A1F;         /* --ef-surface (dark) */
+  --mk-surface-2: #1C2026;       /* --ef-surface-raised (dark) */
+  --mk-surface-inverse: #EEF0F4;
+  --mk-ink: #EEF0F4;             /* 17.1:1 on canvas */
+  --mk-text: #ECEEF2;
+  --mk-text-2: #B1B7C2;          /* 9.7:1 on canvas, 8.1:1 on surface-2 */
+  --mk-text-3: #8A919E;          /* 6.1:1 on canvas, 5.5:1 on surface */
+  --mk-text-inverse: #111318;
+  --mk-line: rgba(255, 255, 255, .07);
+  --mk-line-strong: rgba(255, 255, 255, .13);
+
+  --mk-accent: #1CE362;          /* 11.3:1 as text on canvas */
+  --mk-accent-text: #111318;     /* 10.8:1 on accent */
+  --mk-link: #62E897;            /* 12.5:1 on canvas */
+  --mk-highlight: rgba(28, 227, 98, .14);
+  --mk-eyebrow: #8A919E;
+  --mk-chart-1: #1CE362;
+  --mk-chart-2: #6AAEFF;
+  --mk-chart-3: #F2728A;         /* --ef-magenta-500 */
+
+  --mk-cta-bg: #1CE362;
+  --mk-cta-text: #111318;        /* 10.8:1 */
+  --mk-cta-bg-hover: #62E897;
+  --mk-cta2-bg: rgba(255, 255, 255, .06);
+  --mk-cta2-text: #EEF0F4;
+  --mk-cta2-border: rgba(255, 255, 255, .13);
+
+  /* Type: smaller, tighter, quieter headings; the product does the talking */
+  --mk-fs-hero: clamp(42px, 5.4vw, 80px);
+  --mk-fs-h1: clamp(36px, 4vw, 60px);
+  --mk-fs-h2: clamp(28px, 3vw, 44px);
+  --mk-fs-h3: clamp(20px, 1.6vw, 24px);
+  --mk-fs-lead: clamp(17px, 1.3vw, 20px);
+  --mk-fs-body: 16px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 12px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.05;
+  --mk-lh-body: 1.55;
+  --mk-tracking-display: -0.03em;
+  --mk-tracking-eyebrow: 0.06em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 92%;
+
+  /* Layout: left-aligned hero, full-width product frame, ruled feature lists */
+  --mk-max-width: 1280px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 24px;
+  --mk-page-pad: clamp(20px, 5vw, 80px);
+  --mk-section-space: clamp(96px, 12vw, 176px);
+  --mk-measure: 56ch;
+
+  /* Shape */
+  --mk-radius-card: 14px;        /* --ef-radius-md */
+  --mk-radius-button: 10px;      /* --ef-radius-sm */
+  --mk-radius-media: 20px;       /* --ef-radius-lg */
+  --mk-border-card: 1px solid rgba(255, 255, 255, .07);
+  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
+  --mk-shadow-media: 0 0 0 1px rgba(255,255,255,.06), 0 40px 120px -40px rgba(28,227,98,.25);
+  --mk-nav-bg: rgba(11, 13, 16, .8);
+  --mk-nav-blur: 14px;
+  --mk-texture: radial-gradient(60% 50% at 50% 0%, rgba(28, 227, 98, .10), transparent 70%);
+}
+
+/* ------------------------------------------------------------------ */
+/* D. Neighborhood                                                      */
+/* Documentary photography of real places; deep green and cream bands.  */
+/* ------------------------------------------------------------------ */
+.mk-neighborhood {
+  color-scheme: light;
+
+  --mk-canvas: #F6F0E9;          /* --ef-cream for body sections */
+  --mk-surface: #FFFDF9;
+  --mk-surface-2: #EDE3D5;
+  --mk-surface-inverse: #0F2418; /* --ef-green-50 (dark ramp) for hero and bands */
+  --mk-ink: #181D19;             /* 15.1:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.8:1 on canvas */
+  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
+  --mk-text-inverse: #F6F0E9;    /* 14.4:1 on surface-inverse */
+  --mk-text-inverse-2: #CDD2DA;  /* 10.8:1 on surface-inverse */
+  --mk-line: rgba(24, 29, 25, .12);
+  --mk-line-strong: rgba(24, 29, 25, .24);
+
+  --mk-accent: #FFA552;          /* --ef-amber-500, 8.4:1 as text on green band */
+  --mk-accent-text: #181D19;     /* 8.8:1 on accent */
+  --mk-link: #0D6B35;            /* --ef-green-700, 5.9:1 on canvas */
+  --mk-highlight: #FFEBD6;       /* --ef-amber-100 */
+  --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
+  --mk-chart-1: #0D6B35;
+  --mk-chart-2: #D9780F;
+  --mk-chart-3: #11736A;         /* --ef-teal-600 */
+
+  --mk-cta-bg: #FFA552;
+  --mk-cta-text: #181D19;        /* 8.8:1 */
+  --mk-cta-bg-hover: #FFC68F;
+  --mk-cta2-bg: transparent;
+  --mk-cta2-text: inherit;
+  --mk-cta2-border: currentColor;
+
+  /* Type: big and warm; condensed-ish display for captions over photos */
+  --mk-fs-hero: clamp(48px, 7.5vw, 112px);
+  --mk-fs-h1: clamp(40px, 5vw, 72px);
+  --mk-fs-h2: clamp(30px, 3.4vw, 48px);
+  --mk-fs-h3: clamp(21px, 1.8vw, 26px);
+  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
+  --mk-fs-body: 17px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 600;
+  --mk-weight-body: 400;
+  --mk-lh-display: 0.98;
+  --mk-lh-body: 1.6;
+  --mk-tracking-display: -0.03em;
+  --mk-tracking-eyebrow: 0.1em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 85%;
+
+  /* Layout: full-bleed photo heroes, photo mosaics, text in narrow columns */
+  --mk-max-width: 1360px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 12px;
+  --mk-page-pad: clamp(16px, 4vw, 56px);
+  --mk-section-space: clamp(80px, 10vw, 140px);
+  --mk-measure: 60ch;
+
+  /* Shape */
+  --mk-radius-card: 20px;
+  --mk-radius-button: 999px;
+  --mk-radius-media: 20px;
+  --mk-border-card: 0;
+  --mk-shadow-card: 0 1px 2px rgba(15, 36, 24, .06), 0 12px 32px -18px rgba(15, 36, 24, .35);
+  --mk-shadow-media: none;
+  --mk-nav-bg: rgba(15, 36, 24, .72);
+  --mk-nav-blur: 12px;
+  --mk-texture: none;
+}
+/* END design/marketing-styles.css */
+</style>
+<style id="mk-gradientfield">
+/* Gradient Field: Mercury hero atmosphere, Phantom frame. Same --mk-* names as the other directions.
+   Large surfaces reuse the dashboard InsightCard gradient (base + OKLCH mesh + grain). Text on colour stays ink. */
+.mk-gradientfield {
+  color-scheme: light;
+  --mk-canvas: #F6F0E9;          /* --ef-cream */
+  --mk-surface: #FFFDF9;
+  --mk-surface-2: #EFE6DA;
+  --mk-surface-inverse: #181D19;
+  --mk-ink: #181D19;
+  --mk-text: #181D19;
+  --mk-text-2: #3E4450;          /* 9.6:1 on cream, 4.9:1 on the field base */
+  --mk-text-3: #5A606B;          /* 5.9:1 on cream */
+  --mk-text-inverse: #F6F0E9;
+  --mk-line: rgba(24, 29, 25, .12);
+  --mk-line-strong: rgba(24, 29, 25, .26);
+
+  --mk-accent: #181D19;
+  --mk-accent-text: #F6F0E9;
+  --mk-link: #0D6B35;            /* 5.9:1 on cream */
+  --mk-highlight: #1CE362;       /* fill behind ink only */
+  --mk-eyebrow: #181D19;
+  --mk-chart-1: #0F7E3C;
+  --mk-chart-2: #D9780F;
+  --mk-chart-3: #1C5BB5;
+
+  --mk-cta-bg: #181D19;
+  --mk-cta-text: #F6F0E9;        /* 15.1:1 */
+  --mk-cta-bg-hover: #343843;
+  --mk-cta2-bg: rgba(255, 253, 249, .72);
+  --mk-cta2-text: #181D19;
+  --mk-cta2-border: rgba(24, 29, 25, .14);
+
+  --mk-fs-hero: clamp(50px, 8vw, 124px);
+  --mk-fs-h1: clamp(40px, 5.2vw, 76px);
+  --mk-fs-h2: clamp(32px, 3.8vw, 56px);
+  --mk-fs-h3: clamp(21px, 1.8vw, 26px);
+  --mk-fs-lead: clamp(18px, 1.4vw, 21px);
+  --mk-fs-body: 16.5px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: .98;
+  --mk-lh-body: 1.58;
+  --mk-tracking-display: -0.04em;
+  --mk-tracking-eyebrow: 0.02em;
+  --mk-eyebrow-transform: none;
+  --mk-display-stretch: 100%;
+
+  --mk-max-width: 1360px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 20px;
+  --mk-page-pad: clamp(16px, 4vw, 56px);
+  --mk-section-space: clamp(80px, 9vw, 136px);
+  --mk-measure: 58ch;
+
+  --mk-radius-card: 28px;
+  --mk-radius-button: 999px;
+  --mk-radius-media: 28px;
+  --mk-border-card: 0;
+  --mk-shadow-card: 0 1px 2px rgba(24,29,25,.05), 0 14px 34px -22px rgba(24,29,25,.35);
+  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 30px 60px -28px rgba(24,29,25,.45);
+  --mk-nav-bg: rgba(246, 240, 233, .72);
+  --mk-nav-blur: 14px;
+  --mk-texture: none;
+}
+</style>
+<style id="mk-site">
+/* =====================================================================
+   Dashboard component kit, scoped to .ef (product visuals).
+   Values copied from design/everyfield-ui.html. Night Field shows the dashboard's dark mode.
+   ===================================================================== */
+.ef {
+  --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text: #181D19; --ef-text-2: #4D5361; --ef-text-3: #666C78;
+  --ef-canvas: #E9ECF0; --ef-frame: #F2F4F7; --ef-surface: #FAFBFC; --ef-surface-2: #EDF0F4; --ef-surface-raised: #FFFFFF;
+  --ef-line: rgba(22,30,46,.075); --ef-line-2: rgba(22,30,46,.13); --ef-on-ink: #FFFFFF; --ef-card-edge: rgba(255,255,255,.85);
+  --ef-green-700: #0D6B35; --ef-green-600: #0F7E3C; --ef-green-500: #1CE362; --ef-green-300: #8EF0B2; --ef-green-100: #DCFAE7; --ef-green-50: #EFFDF4;
+  --ef-blue-600: #1C5BB5; --ef-blue-500: #6AAEFF; --ef-blue-300: #B5D7FF; --ef-blue-100: #E3EFFF;
+  --ef-magenta-600: #B02A4A; --ef-magenta-500: #F2728A; --ef-magenta-100: #FFE5E9;
+  --ef-amber-600: #9A4A0C; --ef-amber-display: #D9780F; --ef-amber-500: #FFA552; --ef-amber-100: #FFEBD6; --ef-amber-50: #FFF6EC;
+  --ef-violet-600: #6244CC; --ef-violet-500: #A48CF5; --ef-violet-100: #EEE8FF;
+  --ef-teal-600: #11736A; --ef-teal-500: #4CC9BB; --ef-teal-100: #DCF7F3;
+  --ef-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
+  --ef-shadow-raised: 0 1px 2px rgba(24,29,25,.06), 0 4px 12px -4px rgba(24,29,25,.10);
+  --ef-shadow-pill: 0 1px 1px rgba(24,29,25,.08), 0 6px 14px -6px rgba(24,29,25,.45);
+  --ef-hatch-w: 1.6px; --ef-hatch-gap: 5.5px;
+  font-family: var(--mk-font-body); color: var(--ef-text); font-size: 14px; line-height: 1.45;
+  letter-spacing: 0; text-align: left; font-stretch: 100%;
+}
+.mk-nightfield .ef {
+  --ef-ink: #EEF0F4; --ef-ink-2: #CDD2DA; --ef-text: #ECEEF2; --ef-text-2: #B1B7C2; --ef-text-3: #8A919E;
+  --ef-canvas: #0B0D10; --ef-frame: #0F1115; --ef-surface: #161A1F; --ef-surface-2: #21262D; --ef-surface-raised: #1C2026;
+  --ef-line: rgba(255,255,255,.07); --ef-line-2: rgba(255,255,255,.13); --ef-on-ink: #111318; --ef-card-edge: rgba(255,255,255,.05);
+  --ef-green-700: #A6F7C4; --ef-green-600: #62E897; --ef-green-500: #1CE362; --ef-green-300: #1F6B3E; --ef-green-100: #12301F; --ef-green-50: #0F2418;
+  --ef-blue-600: #A9CFFF; --ef-blue-500: #6AAEFF; --ef-blue-300: #2E4E7A; --ef-blue-100: #172840;
+  --ef-magenta-600: #FFA9B6; --ef-magenta-500: #F2728A; --ef-magenta-100: #3A1D24;
+  --ef-amber-display: #FFA552; --ef-amber-600: #FFC68F; --ef-amber-500: #FFA552; --ef-amber-100: #36241A; --ef-amber-50: #2A1D15;
+  --ef-violet-600: #CDBEFF; --ef-violet-500: #A48CF5; --ef-violet-100: #282245;
+  --ef-teal-600: #8EE6DB; --ef-teal-500: #4CC9BB; --ef-teal-100: #13302D;
+  --ef-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
+  --ef-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -4px rgba(0,0,0,.45);
+  --ef-shadow-pill: 0 1px 1px rgba(0,0,0,.4), 0 6px 14px -6px rgba(0,0,0,.6);
+}
+.ef *, .ef *::before, .ef *::after { box-sizing: border-box; }
+.ef svg.i { width: 18px; height: 18px; flex: none; }
+.ef .hatch {
+  background-color: color-mix(in srgb, var(--hatch, var(--ef-blue-300)) 16%, transparent);
+  background-image: repeating-linear-gradient(-45deg, var(--hatch, var(--ef-blue-300)) 0, var(--hatch, var(--ef-blue-300)) var(--ef-hatch-w), transparent calc(var(--ef-hatch-w) + 1px), transparent var(--ef-hatch-gap));
+}
+.ef .row { display: flex; align-items: center; gap: 8px; }
+.ef .between { justify-content: space-between; }
+.ef .grow { flex: 1; min-width: 0; }
+.ef .faint { color: var(--ef-text-3); }
+.ef .muted { color: var(--ef-text-2); }
+.ef .t-sm { font-size: 13px; }
+.ef .t-xs { font-size: 12px; }
+.ef .num, .ef .disp { font-family: var(--mk-font-display); font-weight: 500; letter-spacing: -0.03em; font-stretch: 100%; }
+
+.app-frame { background: var(--ef-frame); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); overflow: hidden; border: 1px solid var(--ef-line); }
+.af-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.af-brand { width: 40px; height: 40px; border-radius: 12px; background: var(--ef-green-500); display: grid; place-items: center; color: #181D19; flex: none; }
+.af-brand svg { width: 20px; height: 16px; }
+.af-pills { display: flex; gap: 2px; background: var(--ef-surface-raised); border-radius: 999px; padding: 4px; box-shadow: 0 0 0 1px var(--ef-line); }
+.af-pills span { padding: 7px 13px; border-radius: 999px; font-size: 13px; color: var(--ef-text-2); font-weight: 500; white-space: nowrap; }
+.af-pills span.on { background: var(--ef-ink); color: var(--ef-on-ink); }
+.af-sp { flex: 1; }
+.af-body { padding: 8px 20px 22px; }
+.af-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 6px 4px 18px; }
+.af-title { font-family: var(--mk-font-display); font-size: 30px; font-weight: 500; letter-spacing: -0.035em; line-height: 1.05; }
+.af-sub { color: var(--ef-text-3); font-size: 13px; margin-top: 6px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--tint); color: var(--tone); flex: none; }
+
+.ef .card { background: var(--ef-surface); border-radius: 22px; box-shadow: var(--ef-shadow-card); border: 1px solid var(--ef-card-edge); padding: 20px 22px; display: flex; flex-direction: column; min-width: 0; position: relative; }
+.ef .card-inset { background: var(--ef-surface-raised); border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(24,29,25,.04); }
+.ef .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.ef .card-title { font-family: var(--mk-font-display); font-size: 19px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+.ef .card-description { color: var(--ef-text-3); margin-top: 3px; font-size: 13px; }
+.ef .card-icon { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--tint, var(--ef-surface-2)); color: var(--tone, var(--ef-ink-2)); }
+.tone-green { --tint: var(--ef-green-100); --tone: var(--ef-green-700); }
+.tone-blue { --tint: var(--ef-blue-100); --tone: var(--ef-blue-600); }
+.tone-magenta { --tint: var(--ef-magenta-100); --tone: var(--ef-magenta-600); }
+.tone-amber { --tint: var(--ef-amber-100); --tone: var(--ef-amber-600); }
+.tone-violet { --tint: var(--ef-violet-100); --tone: var(--ef-violet-600); }
+.tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
+.tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
+.ef .stat-value { font-family: var(--mk-font-display); font-size: 64px; line-height: 1; letter-spacing: -0.05em; font-weight: 500; }
+.ef .stat-value.md { font-size: 38px; letter-spacing: -0.04em; }
+.ef .stat-label { font-size: 13px; color: var(--ef-text-2); }
+.ef .target-bar { position: relative; height: 14px; border-radius: 99px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; margin-top: 18px; }
+.ef .target-bar .fill { position: absolute; inset: 2px auto 2px 2px; border-radius: 99px; --hatch: var(--ef-green-500); }
+.ef .target-bar .mark { position: absolute; top: -7px; bottom: -7px; width: 2px; background: var(--ef-ink); border-radius: 2px; }
+.ef .target-bar-legend { position: relative; display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--ef-text-3); height: 16px; }
+.ef .kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--ef-line); }
+.ef .kv:first-child { border-top: 0; }
+.ef .kv .k { color: var(--ef-text-2); font-size: 13px; }
+.ef .kv .v { font-family: var(--mk-font-display); font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+.ef .delta { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--ef-surface-raised); font-weight: 600; font-size: 12.5px; box-shadow: 0 0 0 1px var(--ef-line) inset; white-space: nowrap; }
+.ef .delta::before { content: ""; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.ef .delta[data-dir="up"]::before { border-bottom: 7px solid var(--ef-green-500); }
+.ef .delta[data-dir="down"]::before { border-top: 7px solid var(--ef-magenta-500); }
+.ef .badge { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset, 0 1px 2px rgba(24,29,25,.05); color: var(--ef-text); }
+.ef .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--dot, var(--ef-text-3)); }
+.ef .badge[data-status="positive"] { --dot: var(--ef-green-500); }
+.ef .badge[data-status="measured"] { --dot: var(--ef-blue-500); }
+.ef .badge[data-status="risk"] { --dot: var(--ef-magenta-500); }
+.ef .badge[data-status="attention"] { --dot: var(--ef-amber-500); }
+.ef .badge[data-status="unknown"] { --dot: transparent; }
+.ef .badge[data-status="unknown"]::before { box-shadow: 0 0 0 1.5px var(--ef-text-3) inset; }
+.ef .badge[data-size="sm"] { height: 22px; padding: 0 8px; font-size: 11.5px; }
+.ef .tag { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 500; background: var(--tint, var(--ef-surface-2)); color: var(--tone, var(--ef-ink-2)); white-space: nowrap; }
+.ef .list-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--ef-line); }
+.ef .list-row:first-child { border-top: 0; }
+.ef .list-title { font-weight: 600; font-size: 14px; }
+.ef .list-sub { color: var(--ef-text-3); font-size: 12.5px; margin-top: 2px; }
+.ef .chev { color: var(--ef-text-3); width: 16px; height: 16px; }
+.ef .stage-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--tint); color: var(--tone); }
+.ef .stage-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ef .meter-hatch { height: 10px; border-radius: 99px; background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; position: relative; overflow: hidden; margin-top: 6px; }
+.ef .meter-hatch > span { position: absolute; inset: 2px auto 2px 2px; border-radius: 99px; }
+.ef .phase-track { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.ef .phase-seg { height: 10px; border-radius: 99px; background-color: var(--ef-surface-2); }
+.ef .phase-seg[data-state="done"] { background-color: var(--ef-ink); }
+.ef .phase-seg[data-state="current"] { --hatch: var(--ef-green-600); background-color: var(--ef-green-100); }
+.ef .phase-labels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; font-size: 11.5px; color: var(--ef-text-3); line-height: 1.25; }
+.ef .phase-labels b { color: var(--ef-ink); font-weight: 600; }
+.ef .phase-mini { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; width: 92px; }
+.ef .phase-mini span { height: 6px; border-radius: 9px; background: var(--ef-surface-2); }
+.ef .phase-mini span[data-state="done"] { background: var(--ef-ink); }
+.ef .phase-mini span[data-state="current"] { background: var(--ef-green-500); }
+.ef .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 12px; border: 0; font: 600 13px/1 var(--mk-font-body); white-space: nowrap; cursor: default; }
+.ef .btn[data-variant="primary"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pill); }
+.ef .btn[data-variant="ghost"] { background: transparent; color: var(--ef-ink); }
+.ef .btn[data-variant="secondary"] { background: var(--ef-surface-2); color: var(--ef-ink); }
+.ef table { width: 100%; border-collapse: collapse; }
+.ef th { font-size: 12px; color: var(--ef-text-3); font-weight: 500; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ef-line); white-space: nowrap; }
+.ef td { padding: 12px 10px; border-bottom: 1px solid var(--ef-line); vertical-align: middle; font-size: 13.5px; }
+.ef tr:last-child td { border-bottom: 0; }
+.ef .cell-title { font-weight: 600; }
+.ef .cell-sub { font-size: 12px; color: var(--ef-text-3); margin-top: 2px; }
+.ef .callout { display: flex; gap: 10px; align-items: flex-start; background: var(--ef-surface-raised); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: var(--ef-ink-2); box-shadow: 0 0 0 1px var(--ef-line) inset; margin-top: 14px; }
+.ef .lens { background: var(--ef-surface-raised); border-radius: 14px; padding: 13px 14px; box-shadow: 0 0 0 1px var(--ef-line) inset; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ef .lens-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ef .lens-name { font-weight: 600; font-size: 13px; }
+.ef .lens-note { font-size: 12px; color: var(--ef-text-3); line-height: 1.35; }
+
+/* InsightCard: copied from the dashboard (base colour + blurred OKLCH mesh + film grain) */
+.insight, .gsurf { position: relative; overflow: hidden; isolation: isolate; background: var(--g-base); }
+.insight { border-radius: 22px; padding: 22px 24px; color: var(--on); display: flex; flex-direction: column; box-shadow: 0 18px 36px -24px rgba(24,29,25,.45); }
+.insight::before, .gsurf::before, .mk-signal .sec-cta .cta-box::before {
+  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px) saturate(1.1);
+}
+.insight::after, .gsurf::after, .mk-signal .sec-cta .cta-box::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 260px 260px; opacity: var(--grain, .42); mix-blend-mode: overlay;
+}
+.insight, .gsurf, .mk-signal .sec-cta .cta-box { --on: #181D19; --on-2: rgba(24,29,25,.74); --on-3: rgba(24,29,25,.6); --pill-bg: rgba(24,29,25,.07); --pill-edge: rgba(24,29,25,.16); --spark: rgba(24,29,25,.16); --spark-hi: #181D19; --grain: .42; }
+[data-tone="field"] { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; }
+[data-tone="sky"] { --g-base: #93C6FF; --g1: #A6D1FF; --g2: #7DB6FF; --g3: #C5E3FF; --g4: #6AA6F7; --g5: #F5FAFF; }
+[data-tone="dawn"] { --g-base: #FFC48A; --g1: #FFD2A1; --g2: #FFB26A; --g3: #FFE4C4; --g4: #F7A05A; --g5: #FFF7EC; }
+[data-tone="lilac"] { --g-base: #C3B2FF; --g1: #D2C4FF; --g2: #B09AFF; --g3: #E4DBFF; --g4: #A48CF5; --g5: #F8F5FF; }
+.insight[data-tone="field"] { box-shadow: 0 18px 36px -24px rgba(16,120,56,.55); }
+.insight[data-tone="sky"] { box-shadow: 0 18px 36px -24px rgba(40,90,170,.45); }
+.insight[data-tone="dawn"] { box-shadow: 0 18px 36px -24px rgba(190,110,40,.5); }
+.insight[data-tone="lilac"] { box-shadow: 0 18px 36px -24px rgba(110,80,200,.45); }
+.insight-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.insight-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--pill-bg); box-shadow: 0 0 0 1px var(--pill-edge) inset; font-weight: 600; font-size: 13px; }
+.insight-count { font-size: 12.5px; color: var(--on-3); }
+.insight-metric { display: flex; align-items: flex-end; gap: 12px; margin-top: 20px; }
+.insight-metric .num { font-size: 52px; line-height: .95; }
+.insight-metric .unit { font-size: 13.5px; color: var(--on-2); max-width: 180px; line-height: 1.3; padding-bottom: 3px; }
+.insight-title { font-family: var(--mk-font-display); font-size: 23px; line-height: 1.18; font-weight: 500; margin-top: 14px; letter-spacing: -0.02em; }
+.insight-text { color: var(--on-2); margin-top: 10px; font-size: 14px; }
+.insight-footer { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.insight .btn[data-variant="light"] { background: #181D19; color: #F6F0E9; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
+.insight .btn[data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: 0 0 0 1px var(--pill-edge) inset; }
+.insight .spark { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 16px; max-width: 62%; }
+.insight .spark span { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--spark); }
+.insight .spark span:last-child { background: var(--spark-hi); }
+
+.review-card { background: var(--ef-surface-raised); border-radius: 18px; box-shadow: 0 0 0 1px var(--ef-line) inset, var(--ef-shadow-raised); overflow: hidden; }
+.review-card .rc-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--ef-amber-50); border-bottom: 1px solid rgba(255,165,82,.18); font-weight: 600; font-size: 13px; color: var(--ef-amber-600); }
+.review-card .rc-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; }
+.review-card .rc-line { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.review-card .rc-line svg { color: var(--ef-text-3); margin-top: 1px; width: 16px; height: 16px; flex: none; }
+.review-card .rc-foot { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--ef-line); }
+.evry-panel { background: var(--ef-surface); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); border: 1px solid var(--ef-line); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.ep-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--ef-line); }
+.ep-name { font-family: var(--mk-font-display); font-size: 18px; font-weight: 500; }
+.bot { width: 30px; height: 30px; border-radius: 10px; background: #1CE362; position: relative; flex: none; box-shadow: 0 4px 10px -6px rgba(16,120,56,.8); }
+.bot i { position: absolute; top: 38%; width: 4px; height: 7px; border-radius: 4px; background: #181D19; }
+.bot i:first-child { left: 34%; } .bot i:last-child { left: 56%; }
+.bubble { max-width: 86%; padding: 11px 14px; border-radius: 16px; font-size: 14px; line-height: 1.45; }
+.bubble.me { align-self: flex-end; background: var(--ef-ink); color: var(--ef-on-ink); border-bottom-right-radius: 6px; }
+.bubble.ai { align-self: flex-start; background: var(--ef-surface-2); border-bottom-left-radius: 6px; }
+
+.dash { display: grid; grid-template-columns: 1fr 1.05fr 1fr; gap: 16px; align-items: start; }
+.dash.compact { grid-template-columns: 1fr 1fr; }
+.dash.compact .col-3 { display: none; }
+.dash .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.crop { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px; background: var(--ef-frame); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); border: 1px solid var(--ef-line); }
+.crop .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.lens-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.sign-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; }
+.share-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--ef-line); font-size: 13.5px; }
+.share-row:first-child { border-top: 0; }
+.sw { width: 36px; height: 22px; border-radius: 99px; background: var(--ef-surface-2); position: relative; flex: none; box-shadow: 0 0 0 1px var(--ef-line) inset; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.sw[data-on] { background: var(--ef-green-500); }
+.sw[data-on]::after { left: 17px; }
+.sw[data-lock] { opacity: .6; }
+
+/* =====================================================================
+   Marketing site. Reads only --mk-* tokens, so one body class restyles it.
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--mk-canvas); color: var(--mk-text);
+  font-family: var(--mk-font-body); font-size: var(--mk-fs-body); line-height: var(--mk-lh-body);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; padding-bottom: 88px;
+  transition: background-color .3s;
+}
+img, svg { display: block; }
+a { color: inherit; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+h1, h2, h3, h4 { margin: 0; font-weight: inherit; }
+[id] { scroll-margin-top: 88px; }
+.wrap { max-width: var(--mk-max-width); margin: 0 auto; padding: 0 var(--mk-page-pad); }
+.sec { padding: var(--mk-section-space) 0; position: relative; }
+.display { font-family: var(--mk-font-display); font-weight: var(--mk-weight-display); letter-spacing: var(--mk-tracking-display); line-height: var(--mk-lh-display); font-stretch: var(--mk-display-stretch); text-wrap: balance; }
+.h-hero { font-size: var(--mk-fs-hero); }
+.h1 { font-size: var(--mk-fs-h1); }
+.h2 { font-size: var(--mk-fs-h2); line-height: calc(var(--mk-lh-display) + .04); }
+.h3 { font-size: var(--mk-fs-h3); line-height: 1.15; letter-spacing: -0.02em; }
+.eyebrow { display: inline-block; font-size: var(--mk-fs-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); color: var(--mk-eyebrow); font-weight: 600; line-height: 1.3; }
+.lead { font-size: var(--mk-fs-lead); color: var(--mk-text-2); max-width: var(--mk-measure); line-height: 1.5; }
+.body-2 { color: var(--mk-text-2); max-width: var(--mk-measure); }
+.small { font-size: var(--mk-fs-small); color: var(--mk-text-3); }
+svg.i { width: 18px; height: 18px; flex: none; }
+.hl { background: transparent; color: inherit; padding: 0 .06em; border-radius: .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+.mk-btn { display: inline-flex; align-items: center; gap: 10px; height: 50px; padding: 0 24px; border-radius: var(--mk-radius-button); font-weight: 600; font-size: 15.5px; text-decoration: none; border: 0; cursor: pointer; transition: background-color .2s, transform .12s, color .2s; white-space: nowrap; font-family: var(--mk-font-body); }
+.mk-btn:active { transform: translateY(1px); }
+.mk-btn.primary { background: var(--mk-cta-bg); color: var(--mk-cta-text); }
+.mk-btn.primary:hover { background: var(--mk-cta-bg-hover); }
+.mk-fieldnotes .mk-btn.primary:hover { color: #fff; }
+.mk-btn.secondary { background: var(--mk-cta2-bg); color: var(--mk-cta2-text); box-shadow: inset 0 0 0 1px var(--mk-cta2-border); }
+.mk-btn.secondary:hover { box-shadow: inset 0 0 0 1.5px var(--mk-text); }
+.mk-btn svg { width: 17px; height: 17px; }
+.mk-link { display: inline-flex; align-items: center; gap: 8px; color: var(--mk-link); font-weight: 600; text-decoration: none; }
+.mk-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.mk-link svg { width: 16px; height: 16px; transition: transform .2s; }
+.mk-link:hover svg { transform: translateX(3px); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* Placeholders and sample data: fixed review colours, the same in every style */
+.ph { background: #FFF1B8; color: #4A3500; outline: 1.5px dashed #B07D00; outline-offset: 1px; border-radius: 4px; padding: 0 .3em; font-style: normal; font-weight: 500; -webkit-box-decoration-break: clone; box-decoration-break: clone; letter-spacing: 0; font-stretch: 100%; }
+.ph-tag { display: inline-block; font: 700 9.5px/1.6 var(--mk-font-body); letter-spacing: .08em; text-transform: uppercase; background: #4A3500; color: #FFF1B8; border-radius: 3px; padding: 0 .45em; margin-right: .45em; vertical-align: .2em; }
+.ph[data-kind="decision"] { background: #FFE0E6; color: #6B1028; outline-color: #B02A4A; }
+.ph[data-kind="decision"] .ph-tag { background: #6B1028; color: #FFE0E6; }
+.ph.flash { animation: phflash 1.2s ease 2; }
+@keyframes phflash { 50% { outline-width: 4px; outline-offset: 4px; } }
+.visual { position: relative; margin: 0; min-width: 0; }
+.sample-tag { position: absolute; z-index: 5; top: -12px; right: 18px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 99px; background: #181D19; color: #F6F0E9; font: 600 11.5px/1 var(--mk-font-body); letter-spacing: .02em; box-shadow: 0 4px 10px -4px rgba(0,0,0,.4); }
+.sample-tag::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(-45deg, #1CE362 0 2px, transparent 2px 4px); }
+.mk-nightfield .sample-tag { background: #EEF0F4; color: #111318; }
+.caption { margin-top: 14px; font-size: var(--mk-fs-small); color: var(--mk-text-3); }
+
+/* Navigation */
+.site-nav { position: sticky; top: 0; z-index: 50; background: var(--mk-nav-bg); -webkit-backdrop-filter: blur(var(--mk-nav-blur)); backdrop-filter: blur(var(--mk-nav-blur)); border-bottom: 1px solid var(--mk-line); }
+.site-nav .wrap { display: flex; align-items: center; gap: 28px; height: 70px; }
+.logo { display: inline-flex; align-items: center; gap: 10px; color: var(--logo, #181D19); text-decoration: none; flex: none; }
+.logo .lm { width: 27px; height: 22px; }
+.logo .lw { width: 112px; height: 23px; }
+.logo.chip { background: #1CE362; color: #181D19; padding: 10px 14px; border-radius: 14px; }
+.mk-nightfield { --logo: #F6F0E9; }
+.nav-links { display: flex; gap: 4px; font-size: 14.5px; }
+.nav-links a { text-decoration: none; color: var(--mk-text-2); padding: 8px 11px; border-radius: 999px; white-space: nowrap; }
+.nav-links a:hover { color: var(--mk-text); background: var(--mk-line); }
+.nav-links a[aria-current="page"] { color: var(--mk-text); font-weight: 600; }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.nav-end .signin { font-size: 14.5px; text-decoration: none; color: var(--mk-text-2); padding: 8px 12px; }
+.nav-end .mk-btn { height: 42px; padding: 0 18px; font-size: 14.5px; }
+.nav-links .nav-cta-m { display: none; }
+.nav-toggle { display: none; width: 42px; height: 42px; border-radius: 12px; border: 0; background: var(--mk-line); color: var(--mk-text); cursor: pointer; place-items: center; }
+
+/* Hero: Creative Intelligence Company pattern. Huge headline across the width,
+   a small paragraph with the buttons, then a wide image band. */
+.hero { position: relative; padding: clamp(48px, 7vw, 104px) 0 clamp(56px, 7vw, 112px); background-image: var(--mk-texture); overflow: hidden; }
+.hero .eyebrow { margin-bottom: 26px; }
+.hero-title { max-width: 16ch; }
+.page-hero .hero-title { font-size: var(--mk-fs-h1); max-width: 20ch; }
+.hero-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); margin-top: clamp(28px, 4vw, 56px); align-items: start; }
+.hero-row .hero-lead { grid-column: 1 / span 5; }
+.hero-row .hero-act { grid-column: 7 / span 6; display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+.hero-note { font-size: var(--mk-fs-small); color: var(--mk-text-3); max-width: 56ch; }
+.hero-points { display: grid; gap: 10px; margin-top: 22px; }
+.hero-band { margin-top: clamp(40px, 5vw, 72px); }
+.checks li { display: flex; gap: 10px; align-items: flex-start; }
+.checks li svg { color: var(--mk-link); margin-top: .22em; width: 18px; height: 18px; }
+
+/* Section heads: Cohere pattern. Headline left, short paragraph right. */
+.sec-head { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: end; margin-bottom: clamp(36px, 5vw, 64px); }
+.sec-head > .sh-title { grid-column: 1 / span 7; }
+.sec-head > .sh-text { grid-column: 9 / span 4; }
+.sec-head .eyebrow { margin-bottom: 18px; }
+.sec-head.solo > .sh-title { grid-column: 1 / span 9; }
+
+/* Product proof: Cohere pattern. Wide image tile beside an illustrated map tile. */
+.tiles { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: stretch; }
+.tile-wide { grid-column: 1 / span 8; }
+.tile-side { grid-column: 9 / span 4; display: flex; flex-direction: column; gap: var(--mk-gutter); }
+.tile { background: var(--mk-surface); border-radius: var(--mk-radius-card); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); padding: clamp(20px, 2.4vw, 32px); position: relative; }
+.tile .chips { margin-top: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--mk-highlight); color: var(--mk-ink); font-size: 14px; font-weight: 600; line-height: 1.3; }
+.mk-signal .chip { color: #0D6B35; }
+.mk-nightfield .chip { color: var(--mk-link); }
+.map-tile { padding: 0; overflow: hidden; flex: 1; min-height: 260px; display: flex; flex-direction: column; }
+.map-tile .map { flex: 1; min-height: 0; }
+.map-tile .mt-cap { padding: 14px 18px; border-top: 1px solid var(--mk-line); font-size: 13.5px; color: var(--mk-text-2); display: flex; gap: 8px; align-items: center; }
+.map svg { width: 100%; height: 100%; }
+
+/* Features */
+.feat-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-gutter); counter-reset: feat; }
+.feat { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); counter-increment: feat; }
+.feat-num::before { content: counter(feat, decimal-leading-zero); }
+.feat-num { font-family: var(--mk-font-display); font-size: 15px; color: var(--mk-text-3); font-weight: 500; }
+.feat-label { font-size: 13px; font-weight: 600; color: var(--mk-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); }
+.feat p { color: var(--mk-text-2); }
+
+/* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
+.aud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 3vw, 48px); }
+.aud { display: flex; flex-direction: column; gap: 14px; padding-top: 22px; border-top: 2px solid var(--mk-text); }
+.aud .checks { display: grid; gap: 10px; font-size: 15.5px; color: var(--mk-text-2); margin: 6px 0 4px; }
+.aud .mk-link { margin-top: auto; padding-top: 10px; }
+
+/* Split blocks (oversight sub-sections) */
+.split { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: center; }
+.split + .split { margin-top: clamp(64px, 8vw, 120px); }
+.split .s-copy { grid-column: 1 / span 5; display: flex; flex-direction: column; gap: 16px; }
+.split .s-vis { grid-column: 7 / span 6; }
+.split.flip .s-copy { grid-column: 8 / span 5; order: 2; }
+.split.flip .s-vis { grid-column: 1 / span 6; order: 1; }
+.split .checks { display: grid; gap: 10px; color: var(--mk-text-2); }
+
+/* Evry */
+.evry-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: center; }
+.evry-grid .e-copy { grid-column: 1 / span 5; display: flex; flex-direction: column; gap: 20px; }
+.evry-grid .e-vis { grid-column: 7 / span 6; }
+.limits { display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; border-radius: var(--mk-radius-card); border: 1px solid var(--mk-line-strong); font-size: 15px; color: var(--mk-text-2); }
+.limits svg { margin-top: 2px; color: var(--mk-text); }
+
+/* Trust: three or four ruled columns */
+.trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(20px, 3vw, 40px); }
+.trust-item { display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1px solid var(--mk-line-strong); }
+.trust-item .ti-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--mk-surface-2); color: var(--mk-text); }
+.trust-item p { color: var(--mk-text-2); font-size: 15.5px; }
+
+/* CTA */
+.cta-box { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: clamp(48px, 7vw, 104px) clamp(20px, 4vw, 64px); border-radius: var(--mk-radius-card); position: relative; }
+.cta-box .h1 { max-width: 18ch; }
+.cta-box .btn-row { justify-content: center; margin-top: 8px; }
+.cta-box .lead { margin: 0 auto; }
+
+/* Footer: Phantom pattern. A coloured frame around a rounded cream card. */
+.site-footer { padding: 0 var(--mk-page-pad) var(--mk-page-pad); }
+.ft-frame { max-width: calc(var(--mk-max-width) + 80px); margin: 0 auto; border-radius: calc(var(--mk-radius-card) + 12px); padding: clamp(12px, 1.6vw, 22px); background: #1CE362; }
+.ft-card { --logo: #181D19; background: #F6F0E9; color: #181D19; border-radius: var(--mk-radius-card); padding: clamp(28px, 4vw, 56px); display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+.ft-brand { grid-column: 1 / span 4; display: flex; flex-direction: column; gap: 18px; }
+.ft-brand p { color: #4D5361; max-width: 32ch; font-size: 15px; }
+.ft-cols { grid-column: 6 / span 7; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.ft-cols h4 { font-size: 13px; font-weight: 600; color: #181D19; margin-bottom: 12px; }
+.ft-cols li { margin: 0 0 8px; font-size: 14.5px; }
+.ft-cols a { color: #4D5361; text-decoration: none; }
+.ft-cols a:hover { color: #181D19; text-decoration: underline; }
+.ft-later { color: #666C78; font-size: 14.5px; }
+.ft-later small { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; margin-left: 4px; border: 1px solid rgba(24,29,25,.2); border-radius: 4px; padding: 0 4px; }
+.ft-bottom { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 24px; margin-top: 12px; border-top: 1px solid rgba(24,29,25,.12); font-size: 13.5px; color: #4D5361; }
+.ft-wordmark { grid-column: 1 / -1; color: #181D19; margin-top: 8px; }
+.ft-wordmark svg { width: 100%; height: auto; }
+
+/* Pages */
+.page-tag { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--mk-font-body); padding: 6px 10px; border-radius: 99px; border: 1px dashed var(--mk-line-strong); color: var(--mk-text-3); margin-bottom: 22px; letter-spacing: .02em; }
+.access-table-wrap { overflow-x: auto; border-radius: var(--mk-radius-card); background: var(--mk-surface); box-shadow: var(--mk-shadow-card); border: var(--mk-border-card); }
+.access-table { width: 100%; border-collapse: collapse; min-width: 720px; font-size: 15px; }
+.access-table th, .access-table td { text-align: left; padding: 16px 18px; border-bottom: 1px solid var(--mk-line); vertical-align: top; }
+.access-table thead th { font-size: 13px; color: var(--mk-text-3); font-weight: 600; }
+.access-table tbody th { font-weight: 600; white-space: nowrap; }
+.access-table td { color: var(--mk-text-2); }
+.access-table tr:last-child > * { border-bottom: 0; }
+.yes { color: var(--mk-link); font-weight: 600; }
+.no { color: var(--mk-text-3); }
+.rule-groups { display: grid; gap: clamp(48px, 6vw, 88px); }
+.forms { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-gutter); }
+.form-card { background: var(--mk-surface); border-radius: var(--mk-radius-card); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); padding: clamp(22px, 3vw, 40px); display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 14px; font-weight: 600; }
+.field label small { font-weight: 400; color: var(--mk-text-3); }
+.field input, .field select, .field textarea { font: inherit; font-size: 15.5px; color: var(--mk-text); background: var(--mk-canvas); border: 1px solid var(--mk-line-strong); border-radius: 12px; padding: 12px 14px; width: 100%; }
+.field textarea { min-height: 96px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--mk-link); outline-offset: 1px; }
+.form-msg { display: none; padding: 12px 14px; border-radius: 12px; background: var(--mk-surface-2); font-size: 14.5px; }
+.form-msg.show { display: block; }
+.legal-body { max-width: 72ch; display: grid; gap: 18px; color: var(--mk-text-2); }
+
+/* =================== A. Field Notes: Felt, Clay, Granola =================== */
+.mk-fieldnotes .hl { background: linear-gradient(transparent 12%, #1CE362 12%, #1CE362 88%, transparent 88%); }
+.mk-fieldnotes .feat-list { grid-template-columns: 1fr; gap: 0; border-bottom: 1px solid var(--mk-line-strong); }
+.mk-fieldnotes .feat { display: grid; grid-template-columns: 70px 220px 1fr 1.25fr; align-items: baseline; gap: 24px; padding: 30px 0; border-radius: 0; background: none; box-shadow: none; border: 0; border-top: 1px solid var(--mk-line-strong); }
+.mk-fieldnotes .tile { box-shadow: none; }
+.mk-fieldnotes .tile-wide { padding: 0; background: none; border: 0; }
+.mk-fieldnotes .sec-problem { border-top: 1px solid var(--mk-line); }
+.mk-fieldnotes .sec-proof, .mk-fieldnotes .sec-evry { background: var(--mk-surface-2); }
+.mk-fieldnotes .sec-proof .tile, .mk-fieldnotes .sec-evry .limits { background: var(--mk-surface); }
+.mk-fieldnotes .cta-box { background: var(--mk-surface); border: 1px solid var(--mk-line-strong); }
+.mk-fieldnotes .hero-band .app-frame, .mk-fieldnotes .hero-band .map-hero { border-radius: 6px; }
+.mk-fieldnotes .map-hero { background: var(--mk-surface); border: 1px solid var(--mk-line-strong); }
+.mk-fieldnotes .ft-frame { background: #1CE362; }
+
+/* =================== B. Gradient Field: Mercury, Phantom =================== */
+.mk-gradientfield .sec[data-g], .mk-gradientfield .hero[data-g], .mk-gradientfield .ft-frame { position: relative; overflow: hidden; isolation: isolate; background: var(--g-base); color: #181D19; }
+.mk-gradientfield .sec[data-g]::before, .mk-gradientfield .hero[data-g]::before, .mk-gradientfield .ft-frame::before,
+.mk-gradientfield .sec[data-g]::after, .mk-gradientfield .hero[data-g]::after, .mk-gradientfield .ft-frame::after { content: ""; position: absolute; pointer-events: none; }
+.mk-gradientfield .sec[data-g]::before, .mk-gradientfield .hero[data-g]::before, .mk-gradientfield .ft-frame::before {
+  inset: -25%; z-index: -2;
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px) saturate(1.1);
+}
+.mk-gradientfield .sec[data-g]::after, .mk-gradientfield .hero[data-g]::after, .mk-gradientfield .ft-frame::after {
+  inset: 0; z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 260px 260px; opacity: .42; mix-blend-mode: overlay;
+}
+.mk-gradientfield .ft-frame { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; }
+.mk-gradientfield .hero[data-g] { margin: 0 clamp(8px, 1.2vw, 16px); border-radius: 0 0 36px 36px; }
+.mk-gradientfield .sec[data-g] { margin: clamp(8px, 1.2vw, 16px); border-radius: 36px; }
+.mk-gradientfield .hero[data-g] .lead, .mk-gradientfield .sec[data-g] .lead, .mk-gradientfield .sec[data-g] .body-2 { color: rgba(24,29,25,.78); }
+.mk-gradientfield .hero[data-g] .hero-note, .mk-gradientfield .sec[data-g] .small, .mk-gradientfield .sec[data-g] .caption { color: rgba(24,29,25,.7); }
+.mk-gradientfield .sec[data-g] .tile, .mk-gradientfield .sec[data-g] .limits { background: #F6F0E9; border: 0; }
+.mk-gradientfield .sec[data-g] .chip { background: #181D19; color: #F6F0E9; }
+.mk-gradientfield .hero-band .app-frame, .mk-gradientfield .hero-band .map-hero { background-color: #F6F0E9; }
+.mk-gradientfield .hero-band .map-hero { border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); }
+.mk-gradientfield .feat { background: #FFFDF9; }
+.mk-gradientfield .aud { border-top-color: #181D19; }
+.mk-gradientfield .cta-box { padding-top: clamp(32px, 4vw, 56px); padding-bottom: clamp(32px, 4vw, 56px); }
+.mk-gradientfield .sec-cta .cta-box { background: #F6F0E9; box-shadow: var(--mk-shadow-card); max-width: 980px; margin: 0 auto; }
+.mk-gradientfield .trust-item .ti-icon { background: #1CE362; color: #181D19; }
+.mk-gradientfield .site-nav { border-bottom-color: transparent; }
+
+/* =================== C. Signal: the dashboard, enlarged =================== */
+.mk-signal .hero { text-align: center; }
+.mk-signal .hero-title { margin: 0 auto; max-width: 18ch; }
+.mk-signal .hero-row { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.mk-signal .hero-row .hero-lead { margin: 0 auto; }
+.mk-signal .hero-row .hero-act { align-items: center; }
+.mk-signal .hero-note { margin: 0 auto; }
+.mk-signal .hero-points { text-align: left; justify-content: center; }
+.mk-signal .aud { background: var(--mk-surface); border-radius: var(--mk-radius-card); border-top: 0; padding: 30px; box-shadow: var(--mk-shadow-card); }
+.mk-signal .trust-item { background: var(--mk-surface); border-radius: var(--mk-radius-card); border-top: 0; padding: 26px; box-shadow: var(--mk-shadow-card); }
+.mk-signal .trust-item .ti-icon { background: #DCFAE7; color: #0D6B35; }
+.mk-signal .limits { background: var(--mk-surface); border: 0; box-shadow: var(--mk-shadow-card); }
+.mk-signal .sec-cta .cta-box { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; overflow: hidden; isolation: isolate; background: var(--g-base); color: #181D19; box-shadow: 0 30px 60px -36px rgba(16,120,56,.6); }
+.mk-signal .sec-cta .cta-box .lead, .mk-signal .sec-cta .cta-box .small { color: rgba(24,29,25,.78); }
+.mk-signal .sec-cta .cta-box .mk-btn.secondary { background: rgba(255,255,255,.75); }
+.mk-signal .ft-frame { background: #E1E5EA; }
+.mk-signal .ft-card { background: #FFFFFF; }
+.mk-signal .map-hero { background: var(--mk-surface); border-radius: var(--mk-radius-media); box-shadow: var(--mk-shadow-media); }
+
+/* =================== D. Night Field: Mercury dark product sections =================== */
+.mk-nightfield .hero { background-image: radial-gradient(70% 60% at 70% 0%, rgba(28,227,98,.14), transparent 70%), radial-gradient(50% 40% at 0% 30%, rgba(106,174,255,.08), transparent 70%); }
+.mk-nightfield .hero-band { position: relative; }
+.mk-nightfield .hero-band::before { content: ""; position: absolute; inset: 10% 8% -6%; background: radial-gradient(closest-side, rgba(28,227,98,.22), transparent); filter: blur(40px); z-index: 0; }
+.mk-nightfield .hero-band > * { position: relative; z-index: 1; }
+.mk-nightfield .sec-proof, .mk-nightfield .sec-evry { background: linear-gradient(#0B0D10, #111419 18%, #111419 82%, #0B0D10); }
+.mk-nightfield .tile { background: var(--mk-surface); }
+.mk-nightfield .feat { background: transparent; box-shadow: none; border: 0; border-top: 1px solid var(--mk-line-strong); border-radius: 0; padding: 26px 0 0; }
+.mk-nightfield .feat-num { color: #1CE362; }
+.mk-nightfield .aud { border-top-color: var(--mk-line-strong); border-top-width: 1px; }
+.mk-nightfield .trust-item .ti-icon { background: rgba(28,227,98,.12); color: #62E897; }
+.mk-nightfield .sec-cta .cta-box { background: radial-gradient(60% 80% at 50% 0%, rgba(28,227,98,.16), transparent 70%), var(--mk-surface); border: 1px solid var(--mk-line-strong); }
+.mk-nightfield .ft-frame { background: #161A1F; box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; }
+.mk-nightfield .map-hero { background: var(--mk-surface); border-radius: var(--mk-radius-media); border: 1px solid var(--mk-line-strong); }
+.mk-nightfield .field input, .mk-nightfield .field select, .mk-nightfield .field textarea { background: var(--mk-surface-2); }
+
+/* Hero visual by style. All variants are in the DOM; CSS picks one. */
+.hv { display: none; }
+.mk-fieldnotes .hv-map, .mk-gradientfield .hv-product, .mk-signal .hv-product, .mk-nightfield .hv-product { display: block; }
+.map-hero { position: relative; overflow: hidden; }
+.map-hero .map { aspect-ratio: 16 / 7; }
+.map-hero .map-card { position: absolute; right: 24px; bottom: 24px; width: min(340px, 44%); }
+.map-hero .map-card .card { box-shadow: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28); }
+
+/* Prototype control bar: neutral, never styled by the --mk-* tokens */
+.pbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 16px; background: rgba(17,19,24,.95); color: #EEF0F4; font: 500 13px/1 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; box-shadow: 0 16px 40px -12px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); max-width: calc(100vw - 16px); }
+.pbar .pb-tag { padding: 0 6px 0 8px; color: #8A919E; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+.pbar .pb-group { display: flex; align-items: center; gap: 6px; }
+.pbar .pb-lab { color: #8A919E; font-size: 11.5px; padding-left: 4px; white-space: nowrap; }
+.pbar .seg { display: flex; background: rgba(255,255,255,.07); border-radius: 11px; padding: 3px; gap: 2px; }
+.pbar button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.pbar .seg button { padding: 8px 10px; border-radius: 8px; color: #B1B7C2; white-space: nowrap; }
+.pbar .seg button:hover { color: #fff; background: rgba(255,255,255,.06); }
+.pbar .seg button[aria-pressed="true"] { background: #EEF0F4; color: #111318; }
+.pbar .seg button:disabled { cursor: not-allowed; opacity: .38; }
+.pbar .seg button:disabled[aria-pressed="true"] { opacity: .7; }
+.pbar .seg button b { font-weight: 700; margin-right: 4px; }
+.pbar select { font: inherit; color: #EEF0F4; background: rgba(255,255,255,.07) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23B1B7C2' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center; border: 0; border-radius: 10px; padding: 9px 28px 9px 10px; -webkit-appearance: none; appearance: none; cursor: pointer; max-width: 200px; }
+.pbar select option, .pbar select optgroup { color: #111318; background: #fff; }
+.pbar select.m { display: none; }
+.pbar .pb-btn { padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.07); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.pbar .pb-btn:hover { background: rgba(255,255,255,.14); }
+.pbar .pb-ph { background: #FFF1B8; color: #4A3500; font-weight: 600; }
+.pbar .pb-ph:hover { background: #FFE58A; }
+.pbar .pb-note { color: #8A919E; font-size: 11.5px; white-space: nowrap; }
+.pbar svg { width: 15px; height: 15px; }
+.pbar-show { position: fixed; right: 14px; bottom: 14px; z-index: 1000; display: none; font: 600 12.5px/1 "Instrument Sans", system-ui, sans-serif; padding: 10px 12px; border-radius: 12px; background: rgba(17,19,24,.92); color: #EEF0F4; border: 0; cursor: pointer; }
+body.pbar-hidden .pbar { display: none; }
+body.pbar-hidden .pbar-show { display: block; }
+body.shot .pbar, body.shot .pbar-show { display: none !important; }
+body.pbar-hidden { padding-bottom: 0; }
+.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px); z-index: 1001; background: #111318; color: #EEF0F4; font: 500 13.5px/1.3 "Instrument Sans", system-ui, sans-serif; padding: 11px 14px; border-radius: 12px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* =================== Responsive: 1440 / 768 / 375 =================== */
+@media (max-width: 1240px) {
+  .pbar .seg { display: none; }
+  .pbar select.m { display: block; }
+  .pbar .pb-lab, .pbar .pb-note { display: none; }
+}
+@media (max-width: 1120px) {
+  .nav-links { display: none; }
+  .nav-toggle { display: grid; }
+  .site-nav.open .nav-links { display: flex; flex-direction: column; position: absolute; top: 70px; left: 0; right: 0; padding: 12px var(--mk-page-pad) 20px; background: var(--mk-canvas); border-bottom: 1px solid var(--mk-line); box-shadow: 0 20px 30px -20px rgba(0,0,0,.3); }
+  .site-nav.open .nav-links a { padding: 12px 8px; font-size: 16px; }
+  .dash { grid-template-columns: 1fr 1fr; }
+  .dash .col-3 { display: none; }
+  .lens-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 1024px) {
+  .hero-row .hero-lead { grid-column: 1 / -1; }
+  .hero-row .hero-act { grid-column: 1 / -1; }
+  .sec-head > .sh-title, .sec-head.solo > .sh-title { grid-column: 1 / -1; }
+  .sec-head > .sh-text { grid-column: 1 / -1; }
+  .tile-wide, .tile-side { grid-column: 1 / -1; }
+  .tile-side { flex-direction: row; }
+  .tile-side > * { flex: 1; }
+  .feat-list { grid-template-columns: 1fr 1fr; }
+  .mk-fieldnotes .feat { grid-template-columns: 56px 1fr; gap: 6px 20px; }
+  .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 2; }
+  .aud-grid { grid-template-columns: 1fr; }
+  .trust-grid { grid-template-columns: 1fr 1fr; }
+  .split .s-copy, .split .s-vis, .split.flip .s-copy, .split.flip .s-vis { grid-column: 1 / -1; order: 0; }
+  .evry-grid .e-copy, .evry-grid .e-vis { grid-column: 1 / -1; }
+  .ft-brand, .ft-cols { grid-column: 1 / -1; }
+  .forms { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .sign-grid { grid-template-columns: repeat(3, 1fr); }
+  .map-hero .map { aspect-ratio: 4 / 3; }
+}
+@media (max-width: 900px) {
+  body { padding-bottom: 118px; }
+  .pbar { left: 8px; right: 8px; bottom: 8px; transform: none; flex-wrap: wrap; justify-content: space-between; max-width: none; }
+  .pbar .pb-tag { display: none; }
+  .pbar select.m { flex: 1 1 28%; max-width: none; }
+  .pbar .pb-group { flex: 1 1 auto; }
+  .pbar .pb-group.sel { flex: 1 1 100%; }
+  .pbar .pb-group.sel select { flex: 1 1 0; width: 0; min-width: 0; max-width: none; }
+  .toast { bottom: 128px; }
+}
+@media (max-width: 640px) {
+  .nav-end .signin { display: none; }
+  .nav-end .mk-btn { height: 40px; padding: 0 14px; font-size: 13.5px; }
+  .logo .lw { width: 96px; height: 20px; }
+  .logo .lm { width: 24px; height: 19px; }
+  .site-nav .wrap { gap: 12px; height: 64px; }
+  [id] { scroll-margin-top: 76px; }
+  .site-nav.open .nav-links { top: 64px; }
+  .hero .eyebrow { margin-bottom: 18px; }
+  .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
+  .feat-list { grid-template-columns: 1fr; }
+  .feat { padding: 22px; }
+  .mk-fieldnotes .feat { grid-template-columns: 1fr; padding: 22px 0; }
+  .mk-fieldnotes .feat > :nth-child(n+3) { grid-column: 1; }
+  .trust-grid { grid-template-columns: 1fr; }
+  .tile-side { flex-direction: column; }
+  .dash, .dash.compact, .crop { grid-template-columns: 1fr; }
+  .dash .col-2 { display: none; }
+  .crop { padding: 12px; }
+  .af-pills span:not(.on) { display: none; }
+  .af-body { padding: 4px 12px 14px; }
+  .af-title { font-size: 24px; }
+  .ef .stat-value { font-size: 52px; }
+  .lens-grid { grid-template-columns: 1fr 1fr; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .sign-grid { grid-template-columns: 1fr 1fr; }
+  .ef .phase-labels { font-size: 9.5px; }
+  .ef .hide-sm { display: none; }
+  .map-hero .map { aspect-ratio: 1 / 1; }
+  .map-hero .map-card { position: static; width: auto; padding: 0 12px 12px; }
+  .ft-cols { grid-template-columns: 1fr 1fr; }
+  .mk-gradientfield .sec[data-g] { border-radius: 24px; margin: 6px; }
+  .mk-gradientfield .hero[data-g] { margin: 0 6px; border-radius: 0 0 24px 24px; }
+  .sample-tag { right: 12px; }
+  .pbar .pb-btn span.l { display: none; }
+}
+@media (max-width: 440px) {
+  .nav-end .mk-btn { display: none; }
+  .site-nav.open .nav-links .nav-cta-m { display: inline-flex; margin-top: 8px; padding: 0 20px; color: var(--mk-cta-text); background: var(--mk-cta-bg); align-self: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body class="mk-fieldnotes">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<!-- BEGIN logo symbols -->
+<symbol id="ef-mark" viewBox="0 0 657 530">
+    <path d="M0 461.599H657V529.565H0V461.599Z" fill="currentColor"/>
+    <path d="M362.973 0V276.74L567.181 68.6693L615.898 117.65L412.924 324.364H657V393.631H493.297C424.801 393.631 364.38 358.876 328.525 305.948C292.671 358.875 232.25 393.631 163.753 393.631L0 393.634V324.364H244.127L39.9195 118.89L88.6374 69.9089L294.078 276.623V0H362.973Z" fill="currentColor"/>
+  </symbol>
+<symbol id="ef-wordmark" viewBox="0 0 890 186">
+    <path d="M133.674 148.799L97.3369 42.833H125.757L150.32 128.296H153.365L177.928 42.833H205.536L168.996 148.799H133.674Z" fill="currentColor"/>
+    <path d="M312.928 148.799V42.63H334.446L334.04 79.17H337.694C338.912 70.5087 340.806 63.336 343.378 57.652C345.949 51.8327 349.535 47.502 354.137 44.66C358.738 41.6827 364.422 40.194 371.189 40.194C372.542 40.194 373.963 40.2617 375.452 40.397C377.076 40.5323 378.835 40.8707 380.73 41.412L379.715 68.411C377.549 67.599 375.316 67.0577 373.016 66.787C370.85 66.381 368.82 66.178 366.926 66.178C361.648 66.178 357.046 67.5313 353.122 70.238C349.332 72.9447 346.22 76.8017 343.784 81.809C341.483 86.681 339.724 92.5003 338.506 99.267V148.799H312.928Z" fill="currentColor"/>
+    <path d="M425.572 185.136C420.159 185.136 414.678 184.595 409.129 183.512C403.58 182.429 398.37 180.738 393.498 178.437C388.761 176.272 384.769 173.43 381.521 169.911L390.25 148.799C394.175 153.265 399.25 156.648 405.475 158.949C411.7 161.25 417.993 162.4 424.354 162.4C431.797 162.4 437.955 160.844 442.827 157.731C447.699 154.754 451.421 150.085 453.992 143.724C456.563 137.363 457.984 129.446 458.255 119.973L459.676 100.688H455.413C454.06 109.891 451.827 117.402 448.714 123.221C445.601 128.905 441.677 133.1 436.94 135.807C432.339 138.378 426.925 139.664 420.7 139.664C412.986 139.664 406.49 137.702 401.212 133.777C395.934 129.852 391.942 124.033 389.235 116.319C386.664 108.605 385.378 99.064 385.378 87.696V42.63H411.159V81.809C411.159 94.5303 412.715 103.801 415.828 109.62C418.941 115.304 423.677 118.146 430.038 118.146C433.421 118.146 436.534 117.266 439.376 115.507C442.218 113.612 444.586 110.973 446.481 107.59C448.511 104.071 450.067 99.7407 451.15 94.598C452.368 89.4553 453.045 83.5683 453.18 76.937V42.63H478.961V120.988C478.961 129.514 478.217 137.228 476.728 144.13C475.375 150.897 473.277 156.784 470.435 161.791C467.593 166.934 464.007 171.264 459.676 174.783C455.481 178.302 450.541 180.873 444.857 182.497C439.173 184.256 432.745 185.136 425.572 185.136Z" fill="currentColor"/>
+    <path d="M602.1 148.799V42.63H627.678V148.799H602.1ZM614.889 25.984C609.746 25.984 605.754 24.9013 602.912 22.736C600.205 20.4353 598.852 17.1873 598.852 12.992C598.852 8.79667 600.205 5.61633 602.912 3.451C605.754 1.15033 609.746 0 614.889 0C620.302 0 624.362 1.08267 627.069 3.24801C629.775 5.41334 631.129 8.66133 631.129 12.992C631.129 17.1873 629.708 20.4353 626.866 22.736C624.159 24.9013 620.167 25.984 614.889 25.984Z" fill="currentColor"/>
+    <path d="M749.021 148.799V4.669H774.193V148.799H749.021Z" fill="currentColor"/>
+    <path d="M828.724 151.438C819.792 151.438 812.01 149.137 805.379 144.536C798.883 139.935 793.875 133.506 790.357 125.251C786.838 116.86 785.079 106.981 785.079 95.613C785.079 84.9217 786.703 75.4483 789.951 67.193C793.199 58.8023 797.935 52.2387 804.161 47.502C810.521 42.63 818.371 40.194 827.709 40.194C834.881 40.194 840.768 41.615 845.37 44.457C850.106 47.1637 853.963 51.0207 856.941 56.028C859.918 60.9 862.286 66.6517 864.046 73.283H868.309C867.497 69.0877 866.752 64.8923 866.076 60.697C865.399 56.5017 864.79 52.5093 864.249 48.72C863.843 44.7953 863.64 41.2767 863.64 38.164V4.669H889.421V148.799H867.7L868.106 118.755H864.249C862.76 125.792 860.459 131.747 857.347 136.619C854.234 141.491 850.309 145.213 845.573 147.784C840.971 150.22 835.355 151.438 828.724 151.438ZM836.844 130.326C841.31 130.326 845.234 129.311 848.618 127.281C852.001 125.116 854.775 122.409 856.941 119.161C859.241 115.913 860.933 112.394 862.016 108.605C863.234 104.68 863.843 101.026 863.843 97.643V94.192C863.843 91.6207 863.437 88.8463 862.625 85.869C861.948 82.8917 860.865 79.982 859.377 77.14C858.023 74.1627 856.196 71.5237 853.896 69.223C851.73 66.787 849.159 64.8923 846.182 63.539C843.34 62.0503 840.159 61.306 836.641 61.306C831.363 61.306 826.897 62.7947 823.243 65.772C819.589 68.7493 816.747 72.8093 814.717 77.952C812.822 83.0947 811.875 89.117 811.875 96.019C811.875 102.921 812.89 108.943 814.92 114.086C816.95 119.229 819.792 123.221 823.446 126.063C827.235 128.905 831.701 130.326 836.844 130.326Z" fill="currentColor"/>
+    <path d="M508.128 14.819H496.557V148.799H522.135V96.222H585.877V74.907H522.135V36.946H593.997V14.819H522.135H508.128Z" fill="currentColor"/>
+    <path d="M234.535 123.627C229.93 118.416 227.386 110.817 226.905 100.831L301.728 100.282C302.404 90.4027 301.728 81.7413 299.698 74.298C297.668 66.7193 294.555 60.4263 290.36 55.419C286.164 50.2763 281.022 46.4193 274.932 43.848C268.842 41.2767 261.94 39.991 254.226 39.991C245.97 39.991 238.595 41.412 232.099 44.254C225.738 47.096 220.325 51.0883 215.859 56.231C211.393 61.3737 207.942 67.4637 205.506 74.501C203.205 81.5383 202.055 89.2523 202.055 97.643C202.055 106.034 203.273 113.545 205.709 120.176C208.145 126.807 211.663 132.491 216.265 137.228C220.866 141.829 226.482 145.348 233.114 147.784C239.88 150.22 247.527 151.438 256.053 151.438C263.09 151.438 269.248 150.694 274.526 149.205C279.804 147.716 284.337 145.551 288.127 142.709C292.051 139.867 295.232 136.484 297.668 132.559C300.104 128.634 301.863 124.168 302.946 119.161L280.616 114.086C279.939 116.522 278.992 118.823 277.774 120.988C276.691 123.153 275.202 125.116 273.308 126.875C271.413 128.499 269.045 129.852 266.203 130.935C263.496 131.882 260.113 132.356 256.053 132.356C246.985 132.356 239.813 129.446 234.535 123.627ZM227.697 85.9917C228.238 82.8275 229.028 79.9446 230.069 77.343C232.369 71.7943 235.617 67.599 239.813 64.757C244.008 61.7797 248.88 60.291 254.429 60.291C259.301 60.291 263.631 61.509 267.421 63.945C271.21 66.2457 274.12 69.8997 276.15 74.907C277.401 77.9111 278.113 81.4554 278.284 85.54L227.697 85.9917Z" fill="currentColor"/>
+    <path d="M0 14.819V148.799H16.646H25.781H100.079V127.687H25.781V90.538H90.132V71.05H25.781V35.931H99.673V14.819H25.781H16.646H0Z" fill="currentColor"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M692.146 151.438C683.62 151.438 675.974 150.22 669.207 147.784C662.576 145.348 656.959 141.829 652.358 137.228C647.757 132.491 644.238 126.807 641.802 120.176C639.366 113.545 638.148 106.034 638.148 97.643C638.148 89.2523 639.298 81.5383 641.599 74.501C644.035 67.4637 647.486 61.3737 651.952 56.231C656.418 51.0883 661.831 47.096 668.192 44.254C674.688 41.412 682.064 39.991 690.319 39.991C698.033 39.991 704.935 41.2767 711.025 43.848C717.115 46.4193 722.258 50.2763 726.453 55.419C730.648 60.4263 733.761 66.7193 735.791 74.298C737.821 81.7413 738.498 90.4027 737.821 100.282L662.998 100.831C663.479 110.817 666.023 118.416 670.628 123.627C675.906 129.446 683.079 132.356 692.146 132.356C696.206 132.356 699.589 131.882 702.296 130.935C705.138 129.852 707.506 128.499 709.401 126.875C711.296 125.116 712.784 123.153 713.867 120.988C715.085 118.823 716.032 116.522 716.709 114.086L739.039 119.161C737.956 124.168 736.197 128.634 733.761 132.559C731.325 136.484 728.145 139.867 724.22 142.709C720.431 145.551 715.897 147.716 710.619 149.205C705.341 150.694 699.183 151.438 692.146 151.438ZM663.79 85.9917C664.331 82.8275 665.121 79.9446 666.162 77.343C668.463 71.7943 671.711 67.599 675.906 64.757C680.101 61.7797 684.973 60.291 690.522 60.291C695.394 60.291 699.725 61.509 703.514 63.945C707.303 66.2457 710.213 69.8997 712.243 74.907C713.495 77.9111 714.206 81.4554 714.377 85.54L663.79 85.9917Z" fill="currentColor"/>
+  </symbol>
+<!-- END logo symbols -->
+</svg>
+
+<header class="site-nav" id="site-nav"></header>
+<main id="view"></main>
+<footer class="site-footer" id="site-footer"></footer>
+
+<div class="pbar" id="pbar" role="region" aria-label="Prototype controls"></div>
+<button class="pbar-show" id="pbar-show" type="button">Show prototype controls</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="mk-copy">
+/* BEGIN design/marketing-copy.json */
+{
+  "version": 1,
+  "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
+  "placeholder_format": "Text inside [[double brackets]] is a placeholder. Replace it or remove it before anything is published.",
+  "sample_data_rule": "Every name and number that appears inside a product visual is sample data from a demo church. Label it 'Sample data' in the visual.",
+  "shared": {
+    "brand": "Everyfield",
+    "nav": [
+      { "label": "Product", "href": "#features" },
+      { "label": "For planters", "href": "#planters" },
+      { "label": "For sending churches", "href": "#sending-churches" },
+      { "label": "For networks", "href": "#networks" },
+      { "label": "The method", "href": "#method" },
+      { "label": "Privacy", "href": "#trust" }
+    ],
+    "nav_cta": "Request early access",
+    "nav_signin": "Sign in",
+    "footer": {
+      "columns": [
+        { "title": "Product", "links": ["Overview", "Plant Intelligence", "Evry", "The method"] },
+        { "title": "Who it is for", "links": ["Planters", "Sending churches", "Networks", "Coaches"] },
+        { "title": "Company", "links": ["About", "Privacy and trust", "Contact"] },
+        { "title": "Legal", "links": ["Privacy policy", "Terms"] }
+      ],
+      "fineprint": "© [[YEAR]] Everyfield. [[Legal entity name]]."
+    }
+  },
+  "directions": [
+    {
+      "id": "journey",
+      "name": "From calling to launch Sunday",
+      "angle": "The planter's journey through the seven church phases. The planter is the hero. Sending churches and networks appear as the people who walk beside the planter.",
+      "sections": {
+        "hero": {
+          "eyebrow": "Church planting software, phase by phase",
+          "headline": "From calling to launch Sunday, one week at a time.",
+          "subhead": "Everyfield keeps your people, vision meetings, follow-ups and ministry teams in one place. It reads them against the Playbook and tells you what needs you this week.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "See the seven phases",
+          "note": "Everyfield is in early access. [[Say how access works, for example: invites go out through sending churches and networks.]]"
+        },
+        "problem": {
+          "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
+          "body": "Three guests came to Thursday's vision meeting, and someone needs to call them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
+        },
+        "proof": {
+          "eyebrow": "Phase 1 · Core Group Development",
+          "headline": "Here is what a Monday looks like.",
+          "body": "Open Everyfield and the week is on one screen. Committed adults against the Playbook's benchmark of 50. Days since your last vision meeting against the 14-day rhythm. Follow-ups that are late, and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "callouts": [
+            "34 of 50 committed adults",
+            "Last vision meeting 16 days ago",
+            "3 follow-ups overdue"
+          ],
+          "visual": "Dashboard crop from the round-buffalo mockup: TargetBar, the 'Needs you' list and one InsightCard.",
+          "caption": "Sample data. Harvest Point is a demo church."
+        },
+        "features": {
+          "headline": "Everything a plant needs, in the order you need it.",
+          "intro": "Everyfield follows the seven phases of the Playbook. Each phase brings its own work to the front.",
+          "items": [
+            { "label": "Phase 0 · Discovery", "title": "Start with the method", "body": "Read the Playbook and Wiki in order. Everyfield opens the chapter for the phase you are in." },
+            { "label": "Phase 1 · Core group", "title": "Grow a committed core group", "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks." },
+            { "label": "Phase 2 · Launch team", "title": "Set the date and fill the roles", "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it." },
+            { "label": "Phase 3 · Training", "title": "Train every team", "body": "Plan training meetings for each ministry team and see who has finished." },
+            { "label": "Phase 4 · Pre-launch", "title": "Finish the launch list", "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details." },
+            { "label": "Phases 5 and 6 · Launch and after", "title": "Launch, then keep going", "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm." }
+          ]
+        },
+        "audiences": {
+          "headline": "One plant. Three groups of people who care about it.",
+          "items": [
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Know what needs you this week.",
+              "body": "You do the work. Everyfield keeps the record and points at the next step.",
+              "points": [
+                "People, vision meetings, follow-ups, teams and launch tasks in one place",
+                "One focus each week from Plant Intelligence, with the facts behind it",
+                "You decide when to change phase. Nothing blocks you.",
+                "A private weekly check-in that only you can see"
+              ],
+              "cta": "See the planter's week"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Stay close to the plant you sent.",
+              "body": "See how your plant is doing without asking the planter for another report.",
+              "points": [
+                "Phase, health and launch readiness for the plant, when the planter shares them",
+                "Coaches the planter invites can read that plant and change nothing",
+                "No access to the planter's people or private notes"
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Every plant in your network on one page.",
+              "body": "Find the plants that need a call this month.",
+              "points": [
+                "Each plant shows as on track, watch, launch readiness or limited visibility",
+                "Summaries only, and only what each plant chooses to share",
+                "The same method and the same rubric across every plant"
+              ],
+              "cta": "See the network view"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
+          "headline": "Evry prepares the work. You approve it.",
+          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to assign those calls, and it prepares the tasks and waits. Nothing is saved until you approve the exact change on screen.",
+          "example": {
+            "ask": "Who from Thursday's vision meeting has no follow-up owner?",
+            "answer": "Three first-time guests have no follow-up owner yet.",
+            "review": "Review 3 changes · Assign follow-up calls · Approve or Edit"
+          },
+          "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
+        },
+        "trust": {
+          "headline": "Built on a method, with clear rules about who sees what.",
+          "items": [
+            { "title": "A real method", "body": "The Playbook and the Plant Intelligence rubric come from church planting practitioners. [[Name the authors and how they reviewed the rubric.]]" },
+            { "title": "Your phase is your call", "body": "Plant Intelligence gives advice. It never moves your phase and never blocks a change." },
+            { "title": "Unknown stays unknown", "body": "If you have not recorded something, Everyfield says so. It does not guess." },
+            { "title": "Private means private", "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it." }
+          ]
+        },
+        "cta": {
+          "headline": "Start with the week in front of you.",
+          "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Talk to us about your network",
+          "note": "[[Say what happens after someone asks for access, and how long it takes.]]"
+        },
+        "footer": {
+          "tagline": "Church planting software, from calling to launch Sunday."
+        }
+      }
+    },
+    {
+      "id": "oversight",
+      "name": "See every plant you send",
+      "angle": "The sending church or network that needs honest visibility into many plants. The buyer is the hero. The planter's daily tool is the reason the data is real, and consent is the reason planters accept it.",
+      "sections": {
+        "hero": {
+          "eyebrow": "For sending churches and networks",
+          "headline": "See how every plant you send is doing.",
+          "subhead": "Planters run their launch in Everyfield every day. You see a summary of each plant that shares with you: phase, health and launch readiness. You do not see their people.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "I am a planter",
+          "note": "Everyfield is in early access. [[Say how access works for networks and for planters.]]"
+        },
+        "problem": {
+          "headline": "You usually hear about a struggling plant when it is already late.",
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each call finding out what happened."
+        },
+        "proof": {
+          "eyebrow": "The network view",
+          "headline": "One row for each plant. One status you can act on.",
+          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read, and Everyfield says that instead of guessing.",
+          "callouts": [
+            "On track",
+            "Watch",
+            "Launch readiness",
+            "Limited visibility"
+          ],
+          "visual": "Oversight table: plant name, phase track, launch date, status badge. Use the mockup's StatusBadge and PhaseTrack components.",
+          "caption": "Sample data. All plant names are demo churches."
+        },
+        "features": {
+          "headline": "The planter's daily work is what makes your view accurate.",
+          "intro": "Everyfield does not ask planters for a report. The summary comes from the records they already keep.",
+          "items": [
+            { "label": "Network", "title": "Plant directory", "body": "Every plant that shares with you, with its phase, city and launch date." },
+            { "label": "Network", "title": "Health summary", "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first." },
+            { "label": "Network", "title": "Launch readiness", "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training." },
+            { "label": "Coaching", "title": "Coach access", "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything." },
+            { "label": "Planter", "title": "The planter's tools", "body": "People, vision meetings, follow-up tasks, ministry teams, launch milestones, documents and email. All of it in one place for the plant." },
+            { "label": "Planter", "title": "Consent the planter controls", "body": "Each plant chooses what to share with you and can change that choice. Everyfield checks it on every read." }
+          ]
+        },
+        "audiences": {
+          "headline": "Built for the network, the sending church and the planter.",
+          "items": [
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Know where your coaching time matters most.",
+              "body": "See every plant on one page and start each week with the ones that need a call.",
+              "points": [
+                "Health status for each plant, from one shared rubric",
+                "Filter by phase, launch date or status",
+                "Sending churches in your network and their plants in one view"
+              ],
+              "cta": "See the network view"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Send a planter and stay close.",
+              "body": "Your elders can see how the plant is doing without a monthly report.",
+              "points": [
+                "Phase, launch date and health for the plants you send",
+                "Invite a coach or step back, as the plant needs",
+                "Summaries only. The planter's people stay with the planter."
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Share progress without writing a report.",
+              "body": "Do your work in Everyfield. Your sending church sees what you choose to share, and nothing more.",
+              "points": [
+                "Your people, meetings and tasks are never shown to oversight",
+                "You see every concern before your sending church does",
+                "Your weekly check-in is for you only"
+              ],
+              "cta": "See the planter's week"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, for the plant team",
+          "headline": "Planters get an assistant that does the busywork.",
+          "body": "Evry works inside the plant's account. It finds records, drafts follow-up tasks and emails, and explains a Plant Intelligence result against the rubric. Every change waits for the planter's approval, so the records your summary comes from stay the planter's own work.",
+          "example": {
+            "ask": "Why does Plant Intelligence say my follow-up is slipping?",
+            "answer": "Twelve people have waited longer than your 14-day window. Here they are, with the date each one was last contacted.",
+            "review": "Review 12 changes · Assign follow-up calls · Approve or Edit"
+          },
+          "limits": "Evry is for the plant team. It does not give sending churches or networks extra access, and it never reads a planter's private check-in."
+        },
+        "trust": {
+          "headline": "Planters trust the system, so you get true numbers.",
+          "items": [
+            { "title": "Summaries, not records", "body": "Oversight never sees a person's name, contact details or notes. It sees counts and statuses." },
+            { "title": "Consent on every read", "body": "If a plant stops sharing, your view changes at once." },
+            { "title": "The planter sees it first", "body": "Every concern in your summary is one the planter can already see in their own account. [[Confirm release timing before publishing. Open decision METH-08.]]" },
+            { "title": "One rubric for every plant", "body": "Every plant is read against the same versioned rubric. [[Name the rubric authors.]]" }
+          ]
+        },
+        "cta": {
+          "headline": "Bring Everyfield to your plants.",
+          "body": "We are working with a small group of networks and sending churches during early access.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "Request early access as a planter",
+          "note": "[[Say what the first conversation covers.]]"
+        },
+        "footer": {
+          "tagline": "Church planting software for planters and the churches that send them."
+        }
+      }
+    },
+    {
+      "id": "method",
+      "name": "The Playbook, put to work",
+      "angle": "The method made operational. The Playbook is the hero. Everyfield is how a planter follows it each week, and how anyone can check that they are.",
+      "sections": {
+        "hero": {
+          "eyebrow": "A church planting method you can run",
+          "headline": "The Playbook, put to work.",
+          "subhead": "Vision meetings every 14 days. Timely follow-up after each one. A core group of 50 to 100 committed adults. Eight ministry areas led before launch. Everyfield turns each step of the method into work you can see and finish.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Read about the method"
+        },
+        "problem": {
+          "headline": "A method in a binder cannot tell you that you are late.",
+          "body": "Most planters start with a good plan. Then the weeks fill up. Nobody notices that the last vision meeting was 16 days ago, or that half of Sunday's guests never got a call. The method stays right, and the plant drifts from it."
+        },
+        "proof": {
+          "eyebrow": "Plant Intelligence",
+          "headline": "Your records, read against the method.",
+          "body": "Plant Intelligence checks your plant against the eight Critical Success Factors. It gives you one focus to work on, two more things to watch and what is going well. Every finding links to the facts it used and names the rubric version.",
+          "callouts": [
+            "Focus: follow-up is slipping",
+            "Going well: vision meeting rhythm",
+            "Rubric v1"
+          ],
+          "visual": "Plant Intelligence scorecard: eight CSF tiles and one focus card, built from the mockup's InsightCard and StatusBadge.",
+          "caption": "Sample data from a demo church."
+        },
+        "features": {
+          "headline": "Each part of the method has a place in the product.",
+          "intro": "Everyfield does not add steps to the Playbook. It gives each existing step a record, an owner and a date.",
+          "items": [
+            { "label": "Vision meetings", "title": "Keep the rhythm", "body": "Plan each vision meeting, record attendance and see the days since the last one against the 14-day rhythm." },
+            { "label": "Follow-up", "title": "Follow up while it matters", "body": "Closing attendance creates a follow-up task for each new guest. Everyfield shows how many guests had contact within 48 hours of the meeting." },
+            { "label": "Commitments", "title": "Count committed adults", "body": "Record interviews against the five considerations and the 4 Cs: Committed, Compelled, Contagious, Courageous. Signed commitments count toward the benchmark of 50." },
+            { "label": "Ministry areas", "title": "Lead every area", "body": "Staff and train a team for each of the eight ministry areas, and see the gaps before launch." },
+            { "label": "Phases", "title": "Know where you are", "body": "Seven phases from Discovery to Post-Launch. You record your phase with a reason. Readiness is advice, never a gate." },
+            { "label": "Playbook and Wiki", "title": "Read the method in context", "body": "The chapter for your phase is one click from the work it describes." }
+          ]
+        },
+        "audiences": {
+          "headline": "One method, read the same way by everyone.",
+          "items": [
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Follow the method without carrying it in your head.",
+              "body": "The Playbook says what to do. Everyfield shows what is done and what is next.",
+              "points": [
+                "The week's work, sorted by the method's priorities",
+                "One focus at a time, with the facts behind it",
+                "The relevant Playbook chapter beside the task"
+              ],
+              "cta": "See the planter's week"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Know your planter has a method, and is using it.",
+              "body": "Send a planter with the same method your coaches teach, and see progress against it.",
+              "points": [
+                "Phase and health read against the shared rubric",
+                "A summary of each concern, never the planter's people",
+                "Coaches can read the plants they coach"
+              ],
+              "cta": "See what sending churches see"
+            },
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "One method across every plant.",
+              "body": "Every plant is read against the same benchmarks, so a watch status means the same thing in every city.",
+              "points": [
+                "Shared phases, benchmarks and rubric version",
+                "Health status across all plants that share with you",
+                "Find plants near launch with open roles or training"
+              ],
+              "cta": "See the network view"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
+          "headline": "Ask the method a question. Get your own records back.",
+          "body": "Ask Evry what the Playbook says about a first-time guest, and it shows the passage. Ask why your plant is on watch, and it explains the result against the rubric, with links to the records. Ask it to act, and it prepares the change for your approval.",
+          "example": {
+            "ask": "What does the Playbook say about follow-up after a vision meeting?",
+            "answer": "The Playbook says timely follow-up is what grows the core group. Here is the passage, and here are the two guests from Thursday who have not had a call.",
+            "review": "Review 2 changes · Create follow-up tasks · Approve or Edit"
+          },
+          "limits": "Evry quotes the method. It does not invent a benchmark, write prayers, give counsel or judge a person."
+        },
+        "trust": {
+          "headline": "The software follows the method. It does not rewrite it.",
+          "items": [
+            { "title": "Written by practitioners", "body": "The Playbook and the rubric come from church planting practitioners. [[Name the authors and their review.]]" },
+            { "title": "Versioned rubric", "body": "Each Plant Intelligence result names the rubric version it used. A software update cannot change a benchmark." },
+            { "title": "Benchmarks, not verdicts", "body": "50 to 100 committed adults is this method's benchmark, not a measure of whether a church is healthy." },
+            { "title": "People judge people", "body": "Interviews and the 4 Cs are your judgment. Plant Intelligence and Evry never fill them in." }
+          ]
+        },
+        "cta": {
+          "headline": "Run your plant on a method you can see.",
+          "body": "Everyfield is in early access for planters, sending churches and networks.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Read about the method",
+          "note": "[[Say what happens after someone asks for access.]]"
+        },
+        "footer": {
+          "tagline": "The church planting Playbook, put to work."
+        }
+      }
+    }
+  ]
+}
+/* END design/marketing-copy.json */
+</script>
+<script>
+(function () {
+"use strict";
+
+/* ---------- Data ---------- */
+var rawCopy = document.getElementById("mk-copy").textContent;
+rawCopy = rawCopy.replace(/\/\* (BEGIN|END) design\/marketing-copy\.json \*\//g, "");
+var COPY = JSON.parse(rawCopy);
+var DIR = {};
+COPY.directions.forEach(function (d) { DIR[d.id] = d; });
+
+var STYLES = [
+  { id: "fieldnotes", name: "Field Notes", cls: "mk-fieldnotes", hint: "Felt, Clay, Granola. Cream, ink, map line work." },
+  { id: "gradientfield", name: "Gradient Field", cls: "mk-gradientfield", hint: "Mercury, Phantom. Gradient surfaces with grain." },
+  { id: "signal", name: "Signal", cls: "mk-signal", hint: "The dashboard, enlarged." },
+  { id: "nightfield", name: "Night Field", cls: "mk-nightfield", hint: "Dark. Mercury-style product sections." }
+];
+var STORIES = [
+  { id: "journey", key: "A", short: "Planter" },
+  { id: "oversight", key: "B", short: "Oversight" },
+  { id: "method", key: "C", short: "Method" }
+];
+var PAGES = [
+  { id: "home", name: "Home", path: "/" },
+  { id: "planters", name: "For planters", path: "/planters", story: "journey" },
+  { id: "oversight", name: "Sending churches and networks", path: "/oversight", story: "oversight" },
+  { id: "method", name: "The method", path: "/method", story: "method" },
+  { id: "trust", name: "Privacy and trust", path: "/trust", story: "journey" },
+  { id: "access", name: "Request access", path: "/access", story: "journey" },
+  { id: "privacy", name: "Privacy policy", path: "/privacy", story: "journey" },
+  { id: "terms", name: "Terms", path: "/terms", story: "journey" }
+];
+var LATER = ["Product tour", "Evry", "Pricing", "About", "Coaches", "What's new"];
+var PAGE = {}; PAGES.forEach(function (p) { PAGE[p.id] = p; });
+var STYLE = {}; STYLES.forEach(function (s) { STYLE[s.id] = s; });
+var STORY = {}; STORIES.forEach(function (s) { STORY[s.id] = s; });
+
+/* Gradient Field tone per section: one tone per section */
+var TONE = { hero: "field", proof: "sky", evry: "lilac", cta: "dawn" };
+
+/* Phrases the Field Notes highlighter marks in each hero headline (visual only, copy unchanged) */
+var HIGHLIGHT = { journey: "launch Sunday", oversight: "every plant you send", method: "put to work" };
+
+/* ---------- Helpers ---------- */
+var ICON = {
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.4.2 4 1.8 4.5 4.8"/>',
+  calendar: '<rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/>',
+  sparkle: '<path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  book: '<path d="M4 5.5A2 2 0 0 1 6 4h13v14H6a2 2 0 0 0-2 2z"/><path d="M4 20V5.5M8 8h7"/>',
+  shield: '<path d="M12 3.5l7 3v5c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9v-5z"/><path d="M9 12l2 2 4-4"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  task: '<rect x="4.5" y="4.5" width="15" height="15" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  heart: '<path d="M12 20s-7.5-4.5-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.5-7.5 10-7.5 10z"/>',
+  more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
+  compass: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  scale: '<path d="M12 4v16M6 20h12M5 8h14M7 8l-3 6a3 3 0 0 0 6 0zM17 8l-3 6a3 3 0 0 0 6 0z"/>',
+  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>'
+};
+function icon(name, cls) {
+  return '<svg class="i ' + (cls || "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || "") + "</svg>";
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+}
+/* Text renderer: escapes, applies the official brand spelling, marks [[placeholders]] */
+function t(s) {
+  return esc(s).replace(/Everyfield/g, "EveryField").replace(/\[\[(.+?)\]\]/g, function (m, inner) {
+    var decision = /METH-08/.test(inner);
+    return '<span class="ph" data-kind="' + (decision ? "decision" : "placeholder") + '" title="' +
+      (decision ? "Open decision. Resolve before publishing." : "Placeholder. Fill before publishing.") +
+      '"><span class="ph-tag">' + (decision ? "Open decision" : "Placeholder") + "</span>" + inner + "</span>";
+  });
+}
+function hl(s, phrase) {
+  var out = t(s);
+  if (phrase) out = out.replace(esc(phrase), '<mark class="hl">' + esc(phrase) + "</mark>");
+  return out;
+}
+function logo(extra) {
+  return '<span class="logo ' + (extra || "") + '"><svg class="lm" viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>' +
+    '<svg class="lw" viewBox="0 0 890 186" role="img" aria-label="EveryField"><use href="#ef-wordmark"/></svg></span>';
+}
+function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
+
+/* ---------- State and routing ---------- */
+var state = { page: "home", style: "fieldnotes", story: "journey", at: "" };
+function parseHash() {
+  var h = location.hash.replace(/^#/, "");
+  var q = "";
+  var i = h.indexOf("?");
+  if (i >= 0) { q = h.slice(i + 1); h = h.slice(0, i); }
+  var path = h.replace(/^\/+|\/+$/g, "");
+  var params = new URLSearchParams(q);
+  return {
+    page: PAGE[path] ? path : "home",
+    style: STYLE[params.get("style")] ? params.get("style") : "fieldnotes",
+    story: STORY[params.get("story")] ? params.get("story") : "journey",
+    at: params.get("at") || ""
+  };
+}
+function hrefFor(page, at, over) {
+  var s = Object.assign({}, state, over || {});
+  var p = new URLSearchParams();
+  p.set("style", s.style);
+  p.set("story", s.story);
+  if (at) p.set("at", at);
+  return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
+}
+function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
+
+/* Where each button label goes */
+var ROUTE = {
+  "Request early access": ["access", "planter-form"],
+  "Request early access as a planter": ["access", "planter-form"],
+  "Talk to us about your network": ["access", "network-form"],
+  "See the seven phases": ["planters", "phases"],
+  "I am a planter": ["planters", ""],
+  "Read about the method": ["method", ""],
+  "See the planter's week": ["planters", ""],
+  "See what sending churches see": ["oversight", "sending-churches"],
+  "See the network view": ["oversight", "networks"]
+};
+function routeHref(label) { var r = ROUTE[label] || ["access", ""]; return hrefFor(r[0], r[1]); }
+function btn(label, kind) {
+  return '<a class="mk-btn ' + (kind || "primary") + '" href="' + routeHref(label) + '">' + t(label) + (kind === "secondary" ? "" : icon("arrow")) + "</a>";
+}
+function more(label) { return '<a class="mk-link" href="' + routeHref(label) + '">' + t(label) + icon("arrow") + "</a>"; }
+
+/* ---------- Product visuals (all sample data) ---------- */
+function visual(inner, caption) {
+  return '<figure class="visual"><span class="sample-tag">Sample data</span>' + inner +
+    (caption ? '<figcaption class="caption">' + t(caption) + "</figcaption>" : "") + "</figure>";
+}
+function frame(active, title, sub, body, right) {
+  var tabs = ["Overview", "People", "Meetings", "Tasks", "Network"].filter(function (x) { return active === "Network" ? x !== "Tasks" : x !== "Network"; });
+  return '<div class="ef app-frame"><div class="af-top"><span class="af-brand">' + mark() + '</span><span class="af-pills">' +
+    tabs.map(function (x) { return '<span class="' + (x === active ? "on" : "") + '">' + x + "</span>"; }).join("") +
+    '</span><span class="af-sp"></span><span class="avatar tone-green">DR</span></div><div class="af-body"><div class="af-head"><div><div class="af-title">' +
+    title + '</div><div class="af-sub">' + sub + "</div></div>" + (right || "") + "</div>" + body + "</div></div>";
+}
+function coreGroupCard(withRhythm) {
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Core group</div><div class="card-description">Committed adults</div></div>' + icon("more", "faint") + "</div>" +
+    '<div class="stat-value">34</div><div class="row mt" style="margin-top:10px"><span class="delta" data-dir="up">9 people</span><span class="faint t-sm">vs prior 28 days</span></div>' +
+    '<div class="target-bar"><span class="fill hatch" style="width:56%"></span><span class="mark" style="left:83%"></span></div>' +
+    '<div class="target-bar-legend"><span>0</span><span style="position:absolute;left:83%;transform:translateX(-50%)">Benchmark 50</span><span></span></div>' +
+    '<div style="margin-top:12px">' +
+    (withRhythm ? '<div class="kv"><span class="k">Last vision meeting</span><span class="row"><span class="v">16 d</span><span class="badge" data-size="sm" data-status="attention">Past 14-day rhythm</span></span></div>' : '<div class="kv"><span class="k">Vision meetings</span><span class="row"><span class="v">2</span><span class="delta" data-dir="up">on rhythm</span></span></div>') +
+    '<div class="kv"><span class="k">Avg attendance</span><span class="v">44</span></div>' +
+    '<div class="kv"><span class="k">Followed up in 48 h</span><span class="row"><span class="v">71%</span><span class="delta" data-dir="down">8%</span></span></div></div></div>';
+}
+function needsYouCard() {
+  var rows = [
+    ["tone-magenta", "alert", "3 follow-ups overdue", "James Okafor is the oldest at 3 days"],
+    ["tone-amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"],
+    ["tone-blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"],
+    ["tone-ink", "heart", "Reaffirm prayer rhythm", "Last answered 34 days ago"]
+  ];
+  return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Needs you</div><div class="card-description">4 things this week</div></div>' + icon("more", "faint") + "</div><div>" +
+    rows.map(function (r) { return '<div class="list-row"><span class="card-icon ' + r[0] + '">' + icon(r[1]) + '</span><div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("") + "</div></div>";
+}
+function momentumCard() {
+  return '<div class="insight" data-tone="field" style="min-height:360px"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Momentum</span><span class="insight-count">Last 28 days</span></div>' +
+    '<div class="insight-metric"><span class="num">+9</span><span class="unit">committed adults in 28 days, up from +4</span></div>' +
+    '<div class="insight-title">Your core group is growing faster than in any month so far</div>' +
+    '<div class="insight-text">Six of the nine came from two vision meetings in Hyde Park. Hosts there invite more guests than any other area.</div>' +
+    '<div class="spark"><span style="height:30%"></span><span style="height:42%"></span><span style="height:36%"></span><span style="height:55%"></span><span style="height:48%"></span><span style="height:70%"></span><span style="height:100%"></span></div>' +
+    '<div class="insight-footer"><span class="btn" data-variant="light">See who joined ' + icon("arrow") + "</span></div></div>";
+}
+function focusCard() {
+  return '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
+    '<div class="insight-metric"><span class="num">16 d</span><span class="unit">since the last vision meeting</span></div>' +
+    '<div class="insight-title">Hold your next vision meeting this week</div>' +
+    '<div class="insight-text">The rhythm is one every 14 days. Vision meeting #12 is set for Sun Oct 12.</div>' +
+    '<div class="insight-footer"><span class="btn" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div></div>';
+}
+function vDashboard(compact) {
+  return frame("Overview", "Good morning, Daniel", "Harvest Point Church · Phase 1, Core Group Development · Launch target spring 2027",
+    '<div class="dash' + (compact ? " compact" : "") + '"><div class="col col-1">' + coreGroupCard(false) + '</div><div class="col col-2">' + momentumCard() + '</div><div class="col col-3">' + needsYouCard() + "</div></div>");
+}
+function vMonday() {
+  return '<div class="ef crop"><div class="col">' + coreGroupCard(true) + '</div><div class="col">' + focusCard() + needsYouCard() + "</div></div>";
+}
+var PLANTS = [
+  ["Harvest Point Church", "Hyde Park, Austin", 1, "1 · Core group", "Mar 14, 2027", "positive", "On track", "tone-green"],
+  ["Northline Church", "North Austin", 4, "4 · Pre-launch", "Nov 1, 2026", "measured", "Launch readiness", "tone-blue"],
+  ["Eastside Commons", "East Austin", 3, "3 · Training", "May 2, 2027", "attention", "Watch", "tone-amber"],
+  ["Mueller Fellowship", "Mueller", 0, "0 · Discovery", "Not set", "unknown", "Limited visibility", "tone-violet"],
+  ["River City Church", "South Austin", 6, "6 · Post-launch", "Launched Jan 2026", "positive", "On track", "tone-teal"]
+];
+function phaseMini(n) {
+  var s = ""; for (var i = 0; i < 7; i++) s += '<span data-state="' + (i < n ? "done" : i === n ? "current" : "") + '"></span>';
+  return '<span class="phase-mini" aria-label="Phase ' + n + ' of 6">' + s + "</span>";
+}
+function phaseTrack(n) {
+  var names = ["Discovery", "Core group", "Launch team", "Training", "Pre-launch", "Launch Sunday", "Post-launch"];
+  var segs = "", labels = "";
+  for (var i = 0; i < 7; i++) {
+    segs += '<span class="phase-seg' + (i === n ? " hatch" : "") + '" data-state="' + (i < n ? "done" : i === n ? "current" : "") + '"></span>';
+    labels += i === n ? "<b>" + names[i] + "</b>" : "<span>" + names[i] + "</span>";
+  }
+  return '<div class="phase-track">' + segs + '</div><div class="phase-labels">' + labels + "</div>";
+}
+function networkTable(rows) {
+  return '<table><thead><tr><th>Plant</th><th>Phase</th><th class="hide-sm">Launch</th><th>Status</th></tr></thead><tbody>' +
+    rows.map(function (p) {
+      return '<tr><td><div class="row" style="gap:10px"><span class="card-icon ' + p[7] + ' hide-sm" style="width:34px;height:34px">' + icon("pin") + '</span><div><div class="cell-title">' + p[0] + '</div><div class="cell-sub">' + p[1] + "</div></div></div></td>" +
+        '<td><div style="display:flex;flex-direction:column;gap:6px">' + phaseMini(p[2]) + '<span class="t-xs muted">' + p[3] + "</span></div></td>" +
+        '<td class="hide-sm" style="white-space:nowrap">' + p[4] + '</td><td><span class="badge" data-size="sm" data-status="' + p[5] + '">' + p[6] + "</span></td></tr>";
+    }).join("") + "</tbody></table>";
+}
+function vNetwork() {
+  return frame("Network", "Austin Sending Network", "Plants you support. You only see what each plant chooses to share.",
+    '<div class="ef card" style="padding:10px 14px">' + networkTable(PLANTS) + '</div><div class="callout">' + icon("lock") + "<span>Names and personal details of people in each plant are never shown here. Findings appear only after the plant has seen them.</span></div>",
+    '<span class="badge hide-sm" data-status="measured">Network view</span>');
+}
+function vNetworkHero() {
+  var stats = [["Plants", "5", "4 sharing"], ["Near launch", "1", "Within 30 days"], ["Watch", "1", "Shared findings only"], ["Limited visibility", "1", "Shares too little"]];
+  return frame("Network", "Austin Sending Network", "Summaries only. Each plant chooses what to share.",
+    '<div class="stat-grid">' + stats.map(function (s) { return '<div class="card" style="padding:16px 18px"><div class="stat-label">' + s[0] + '</div><div class="stat-value md" style="margin-top:8px">' + s[1] + '</div><div class="faint t-sm" style="margin-top:6px">' + s[2] + "</div></div>"; }).join("") +
+    '</div><div class="card" style="padding:10px 14px;margin-top:12px">' + networkTable(PLANTS.slice(0, 3)) + "</div>",
+    '<span class="badge hide-sm" data-status="measured">Network view</span>');
+}
+function vPlantSummary() {
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)">' +
+    '<div class="card-header"><div class="grow"><div class="card-title">Harvest Point Church</div><div class="card-description">Hyde Park, Austin · Shared with Grace Church</div></div><span class="badge" data-status="positive">On track</span></div>' +
+    phaseTrack(1) +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px"><div class="card-inset"><div class="t-sm muted">Launch Sunday</div><div class="num" style="font-size:22px;margin-top:4px">Mar 14, 2027</div></div><div class="card-inset"><div class="t-sm muted">Committed adults</div><div class="num" style="font-size:22px;margin-top:4px">34 <span class="faint" style="font-size:14px">of 50</span></div></div></div>' +
+    '<div class="callout">' + icon("eye") + "<span>Shared: phase, health and launch readiness. Not shared: people, notes and the private check-in.</span></div></div></div>";
+}
+function vConsent() {
+  var rows = [["Phase and launch date", true, false], ["Health summary", true, false], ["Launch readiness", true, false], ["People and contact details", false, true], ["Meeting notes", false, true], ["Private weekly check-in", false, true]];
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Sharing with Grace Church</div><div class="card-description">You choose. Checked on every read.</div></div></div><div>' +
+    rows.map(function (r) { return '<div class="share-row"><span>' + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="sw"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "></span></div>"; }).join("") + "</div></div></div>";
+}
+function vReadiness() {
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Launch readiness</div><div class="card-description">Plants within 30 days of launch</div></div><span class="badge" data-status="measured">1 plant</span></div>' +
+    '<div class="list-row"><span class="card-icon tone-blue">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Northline Church</div><div class="list-sub">Launch Sunday Nov 1, 2026 · 24 days</div></div></div>' +
+    '<div class="kv"><span class="k">Kids ministry</span><span class="row"><span class="v">2/6</span><span class="badge" data-size="sm" data-status="risk">Open roles</span></span></div>' +
+    '<div class="kv"><span class="k">Hospitality</span><span class="row"><span class="v">5/6</span><span class="badge" data-size="sm" data-status="attention">1 open</span></span></div>' +
+    '<div class="kv"><span class="k">Team training finished</span><span class="row"><span class="v">6/9</span><span class="badge" data-size="sm" data-status="attention">In progress</span></span></div></div></div>';
+}
+function vScorecard() {
+  var lenses = [
+    ["Vision casting", "positive", "Strong", "Vision meetings every 12 days on average."],
+    ["Shared ownership", "positive", "Strong", "8 core members host or lead part of a meeting."],
+    ["Critical mass", "attention", "Watch", "34 committed adults. Benchmark 50."],
+    ["Core group cohesion", "risk", "Concern", "7 committed adults have not attended in 28 days."],
+    ["Prayer", "positive", "Strong", "Weekly prayer gathering."],
+    ["Generosity and finance", "unknown", "Unknown", "No answer yet. Unknown is not the same as weak."],
+    ["Emerging leadership", "attention", "Watch", "8 leaders for 10 ministries."],
+    ["Comprehensive training", "unknown", "Not raised", "Becomes a focus in Phase 3."]
+  ];
+  return frame("Overview", "Plant Intelligence", "Harvest Point against the Playbook benchmarks. Assessed Oct 6 against rubric v1.",
+    '<div style="display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-bottom:12px" class="sc-top">' +
+    '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus</span><span class="insight-count">1 of 3</span></div><div class="insight-metric"><span class="num">71%</span><span class="unit">of new guests had contact within 48 hours</span></div><div class="insight-title">Follow-up is slipping</div><div class="insight-footer"><span class="btn" data-variant="glass">See the facts</span></div></div>' +
+    '<div class="insight" data-tone="field"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Going well</span><span class="insight-count">Rubric v1</span></div><div class="insight-metric"><span class="num">12 d</span><span class="unit">between vision meetings on average</span></div><div class="insight-title">Vision meeting rhythm</div></div></div>' +
+    '<div class="lens-grid">' + lenses.map(function (l) { return '<div class="lens"><div class="lens-head"><span class="lens-name">' + l[0] + '</span><span class="badge" data-size="sm" data-status="' + l[1] + '">' + l[2] + '</span></div><div class="lens-note">' + l[3] + "</div></div>"; }).join("") + "</div>",
+    '<span class="tag hide-sm">Rubric v1</span>');
+}
+function vPhaseCard() {
+  var signs = [["Size", "attention", "34", "30 to 40 adults"], ["Trajectory", "positive", "Up", "28-day growth"], ["Funding", "unknown", "?", "Not attested"], ["Worship", "positive", "Yes", "Leader in place"], ["Area", "positive", "Yes", "Hyde Park"]];
+  return frame("Overview", "Phase", "Declared by Daniel on Mar 2. You decide when to move on.",
+    '<div class="card">' + phaseTrack(1) + '<div class="t-sm muted" style="margin:22px 0 4px">Signs that Phase 1 is wrapping up</div><div class="sign-grid">' +
+    signs.map(function (s) { return '<div class="card-inset" style="padding:12px"><div class="row between"><span class="t-sm muted">' + s[0] + '</span><span class="badge" data-size="sm" data-status="' + s[1] + '">' + s[2] + '</span></div><div class="faint t-xs" style="margin-top:6px">' + s[3] + "</div></div>"; }).join("") +
+    '</div><div class="callout">' + icon("book") + "<span>Playbook, chapter 3: Core Group Development. Readiness is advice, never a gate.</span></div></div>",
+    '<span class="btn hide-sm" data-variant="secondary">Change phase</span>');
+}
+function vEvry(ex) {
+  var parts = ex.review.split(" · ");
+  var n = parseInt((parts[0].match(/\d+/) || ["1"])[0], 10);
+  var action = parts[1] || "";
+  var names = [["Kim Wu", "Tom"], ["Sara Nunez", "Ana"], ["James Okafor", "Tom"]];
+  var lines = "";
+  for (var i = 0; i < Math.min(n, 3); i++) {
+    lines += '<div class="rc-line">' + icon("task") + "<span>" + (/^Assign/.test(action) ? "Assign <b>Call " + names[i][0] + "</b> to <b>" + names[i][1] + "</b>, due <b>Oct 10</b>" : "Create <b>Call " + names[i][0] + "</b>, due <b>Oct 10</b>") + "</span></div>";
+  }
+  if (n > 3) lines += '<div class="rc-line faint">' + icon("more") + "<span>" + (n - 3) + " more calls in this change</span></div>";
+  var btns = (parts[2] || "Approve or Edit").split(" or ");
+  return '<div class="ef evry-panel"><div class="ep-head"><span class="bot"><i></i><i></i></span><div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
+    '<div class="bubble me">' + t(ex.ask) + '</div><div class="bubble ai">' + t(ex.answer) + "</div>" +
+    '<div class="review-card"><div class="rc-head">' + icon("edit") + esc(parts[0]) + '<span class="grow"></span><span style="font-weight:500">' + esc(action) + '</span></div><div class="rc-body">' + lines + '</div><div class="rc-foot"><span class="btn" data-variant="primary">' + esc(btns[0]) + '</span><span class="btn" data-variant="ghost">' + esc(btns[1] || "Edit") + "</span></div></div></div>";
+}
+
+/* Illustrated map (Felt / Mailchimp line work). Sample data. */
+function contour(cx, cy, r, k) {
+  var d = "";
+  for (var i = 0; i <= 60; i++) {
+    var a = (i / 60) * Math.PI * 2;
+    var rr = r * (1 + 0.13 * Math.sin(3 * a + k) + 0.07 * Math.cos(5 * a - k * 1.7));
+    d += (i ? "L" : "M") + (cx + Math.cos(a) * rr * 1.35).toFixed(1) + " " + (cy + Math.sin(a) * rr).toFixed(1);
+  }
+  return '<path d="' + d + 'Z"/>';
+}
+function mapLabel(x, y, title, sub, anchorRight) {
+  var w = Math.max(title.length * 7.1, (sub || "").length * 6.1) + 22;
+  var h = sub ? 42 : 26;
+  var bx = anchorRight ? x - w - 14 : x + 14;
+  return '<g><rect x="' + bx + '" y="' + (y - h / 2) + '" width="' + w + '" height="' + h + '" rx="8" fill="var(--mk-surface)" stroke="var(--mk-line-strong)"/>' +
+    '<text x="' + (bx + 11) + '" y="' + (y - (sub ? 4 : -4)) + '" font-size="12.5" font-weight="600" fill="var(--mk-text)">' + title + "</text>" +
+    (sub ? '<text x="' + (bx + 11) + '" y="' + (y + 13) + '" font-size="11" fill="var(--mk-text-3)">' + sub + "</text>" : "") + "</g>";
+}
+function vMap(story, tall) {
+  var W = 1200, H = tall ? 900 : 525;
+  var cs = "";
+  for (var k = 1; k <= 9; k++) cs += contour(W * 0.56, H * 0.52, 34 * k, k);
+  var s = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid slice" font-family="Instrument Sans, ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Illustrated map of the plant area with meetings and people (sample data)">' +
+    '<rect width="' + W + '" height="' + H + '" fill="var(--mk-surface)"/>' +
+    '<g fill="none" stroke="var(--mk-line)" stroke-width="1.2">' + cs + "</g>" +
+    '<path d="M-20 ' + (H * 0.86) + " C" + W * 0.2 + " " + H * 0.76 + " " + W * 0.35 + " " + H * 0.98 + " " + W * 0.55 + " " + H * 0.86 + " S" + W * 0.85 + " " + H * 0.72 + " " + (W + 20) + " " + H * 0.8 + '" fill="none" stroke="#B5D7FF" stroke-width="22" stroke-linecap="round" opacity=".75"/>' +
+    '<g fill="none" stroke="var(--mk-surface-2)" stroke-width="14" stroke-linecap="round">' +
+    '<path d="M0 ' + H * 0.28 + " L" + W + " " + H * 0.18 + '"/><path d="M0 ' + H * 0.66 + " L" + W + " " + H * 0.58 + '"/><path d="M' + W * 0.22 + " 0 L" + W * 0.3 + " " + H + '"/><path d="M' + W * 0.76 + " 0 L" + W * 0.7 + " " + H + '"/>' +
+    '<path d="M0 ' + H * 0.46 + " C" + W * 0.3 + " " + H * 0.5 + " " + W * 0.5 + " " + H * 0.36 + " " + W + " " + H * 0.42 + '"/></g>' +
+    '<g fill="none" stroke="var(--mk-line-strong)" stroke-width="1"><path d="M0 ' + H * 0.28 + " L" + W + " " + H * 0.18 + '"/><path d="M0 ' + H * 0.66 + " L" + W + " " + H * 0.58 + '"/><path d="M' + W * 0.22 + " 0 L" + W * 0.3 + " " + H + '"/><path d="M' + W * 0.76 + " 0 L" + W * 0.7 + " " + H + '"/><path d="M0 ' + H * 0.46 + " C" + W * 0.3 + " " + H * 0.5 + " " + W * 0.5 + " " + H * 0.36 + " " + W + " " + H * 0.42 + '"/></g>' +
+    '<path d="M' + W * 0.36 + " " + H * 0.22 + " L" + W * 0.5 + " " + H * 0.2 + " L" + W * 0.52 + " " + H * 0.36 + " L" + W * 0.37 + " " + H * 0.39 + 'Z" fill="#DCFAE7" stroke="#8EF0B2"/>' +
+    '<text x="' + W * 0.385 + '" y="' + H * 0.3 + '" font-size="12" font-weight="700" letter-spacing="2" fill="#0D6B35">HYDE PARK</text>';
+  if (story === "oversight") {
+    var pins = [[0.42, 0.5, "#1CE362", "Harvest Point Church", "On track"], [0.27, 0.16, "#6AAEFF", "Northline Church", "Launch readiness"], [0.56, 0.3, "#FFA552", "Eastside Commons", "Watch"], [0.1, 0.42, "none", "Mueller Fellowship", "Limited visibility"], [0.34, 0.8, "#1CE362", "River City Church", "On track"]];
+    pins.forEach(function (p, i) {
+      var x = W * p[0], y = H * p[1];
+      s += '<circle cx="' + x + '" cy="' + y + '" r="11" fill="' + (p[2] === "none" ? "var(--mk-surface)" : p[2]) + '" stroke="#181D19" stroke-width="2"' + (p[2] === "none" ? ' stroke-dasharray="3 3"' : "") + "/>" + mapLabel(x, y, p[3], p[4], false);
+    });
+    s += '<text x="28" y="40" font-size="12" font-weight="700" letter-spacing="2" fill="var(--mk-text-3)">AUSTIN SENDING NETWORK</text>';
+  } else {
+    var ppl = [[0.4, 0.58], [0.43, 0.68], [0.5, 0.6], [0.53, 0.47], [0.36, 0.5], [0.47, 0.72], [0.58, 0.62], [0.41, 0.43], [0.6, 0.72], [0.33, 0.62], [0.55, 0.54]];
+    var guests = [[0.64, 0.5], [0.3, 0.7], [0.66, 0.66], [0.28, 0.44]];
+    ppl.forEach(function (p) { s += '<circle cx="' + W * p[0] + '" cy="' + H * p[1] + '" r="7" fill="#1CE362" stroke="#181D19" stroke-width="1.4"/>'; });
+    guests.forEach(function (p) { s += '<circle cx="' + W * p[0] + '" cy="' + H * p[1] + '" r="6" fill="var(--mk-surface)" stroke="#181D19" stroke-width="1.4"/>'; });
+    s += '<circle cx="' + W * 0.46 + '" cy="' + H * 0.56 + '" r="15" fill="#181D19"/><circle cx="' + W * 0.46 + '" cy="' + H * 0.56 + '" r="5" fill="#1CE362"/>' + mapLabel(W * 0.46, H * 0.56, "Vision meeting #12", "Reyes home · Sun Oct 12 · 38 RSVPs", true);
+    s += '<rect x="' + (W * 0.78 - 9) + '" y="' + (H * 0.3 - 9) + '" width="18" height="18" rx="4" fill="#FFA552" stroke="#181D19" stroke-width="1.4"/>' + mapLabel(W * 0.78, H * 0.3, "Coffee shop", "2 follow-ups this week", false);
+    s += '<g font-size="11.5" fill="var(--mk-text-2)"><rect x="24" y="' + (H - 54) + '" width="330" height="34" rx="8" fill="var(--mk-surface)" stroke="var(--mk-line-strong)"/>' +
+      '<circle cx="44" cy="' + (H - 37) + '" r="6" fill="#1CE362" stroke="#181D19" stroke-width="1.4"/><text x="56" y="' + (H - 33) + '">Committed</text>' +
+      '<circle cx="140" cy="' + (H - 37) + '" r="5.5" fill="var(--mk-surface)" stroke="#181D19" stroke-width="1.4"/><text x="152" y="' + (H - 33) + '">Guest</text>' +
+      '<circle cx="214" cy="' + (H - 37) + '" r="7" fill="#181D19"/><text x="227" y="' + (H - 33) + '">Vision meeting</text></g>';
+  }
+  return s + "</svg>";
+}
+function mapTile(story) {
+  return '<div class="tile map-tile"><div class="map">' + vMap(story, true) + '</div><div class="mt-cap">' + icon("pin") + (story === "oversight" ? "Plants that share with the Austin Sending Network" : "Where Harvest Point's people live and meet") + "</div></div>";
+}
+
+/* ---------- Sections ---------- */
+function heroVisual(story) {
+  var product = story === "oversight" ? vNetworkHero() : story === "method" ? vPhaseCard() : vDashboard(false);
+  var mapCard = story === "oversight" ? vPlantSummary() : '<div class="ef">' + needsYouCard() + "</div>";
+  return '<div class="hv hv-map">' + visual('<div class="map-hero"><div class="map">' + vMap(story, false) + '</div><div class="map-card">' + mapCard + "</div></div>") + "</div>" +
+    '<div class="hv hv-product">' + visual(product) + "</div>";
+}
+function hero(h, story, opts) {
+  opts = opts || {};
+  var tone = opts.tone || TONE.hero;
+  var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + '" id="top" data-g data-tone="' + tone + '"><div class="wrap">' +
+    (opts.tag ? '<div class="page-tag">' + opts.tag + "</div><br>" : "") +
+    '<span class="eyebrow">' + t(h.eyebrow) + "</span>" +
+    '<h1 class="display h-hero hero-title">' + hl(h.headline, opts.page ? null : HIGHLIGHT[story]) + "</h1>" +
+    '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary) + btn(h.cta_secondary, "secondary") + "</div>" +
+    (h.note ? '<p class="hero-note">' + t(h.note) + "</p>" : "") + "</div></div>" +
+    (opts.visual === false ? "" : '<div class="hero-band">' + (opts.visual || heroVisual(story)) + "</div>") + "</div></section>";
+}
+function problem(p) {
+  return '<section class="sec sec-problem" id="problem"><div class="wrap"><div class="sec-head" style="margin-bottom:0"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="body-2 sh-text">' + t(p.body) + "</p></div></div></section>";
+}
+function proof(p, story) {
+  var main = story === "oversight" ? vNetwork() : story === "method" ? vScorecard() : vMonday();
+  return '<section class="sec sec-proof" id="proof" data-g data-tone="' + TONE.proof + '"><div class="wrap">' +
+    '<div class="sec-head"><div class="sh-title"><span class="eyebrow">' + t(p.eyebrow) + '</span><h2 class="display h2">' + t(p.headline) + '</h2></div><p class="body-2 sh-text">' + t(p.body) + "</p></div>" +
+    '<div class="tiles"><div class="tile tile-wide">' + visual(main, p.caption) + "</div>" +
+    '<div class="tile-side"><div class="tile"><div class="small" style="margin-bottom:10px">On this screen</div><div class="chips">' + p.callouts.map(function (c) { return '<span class="chip">' + t(c) + "</span>"; }).join("") + "</div></div>" + mapTile(story) + "</div></div></div></section>";
+}
+function features(f, opts) {
+  opts = opts || {};
+  return '<section class="sec sec-features" id="' + (opts.id || "features") + '"><div class="wrap">' +
+    '<div class="sec-head"><h2 class="display h2 sh-title">' + t(f.headline) + '</h2><p class="body-2 sh-text">' + t(f.intro) + "</p></div>" +
+    (opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "Sample data. The seven phases, with Harvest Point in Phase 1.") + "</div>" : "") +
+    '<ol class="feat-list">' + f.items.map(function (it) {
+      return '<li class="feat"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
+    }).join("") + "</ol></div></section>";
+}
+function audienceCol(a) {
+  return '<article class="aud" id="' + a.id + '"><span class="eyebrow">' + t(a.label) + '</span><h3 class="display h3">' + t(a.headline) + '</h3><p class="body-2">' + t(a.body) + "</p>" +
+    '<ul class="checks">' + a.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" + more(a.cta) + "</article>";
+}
+function audiences(a) {
+  return '<section class="sec sec-aud" id="audiences"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(a.headline) + "</h2></div>" +
+    '<div class="aud-grid">' + a.items.map(audienceCol).join("") + "</div></div></section>";
+}
+function evry(e) {
+  return '<section class="sec sec-evry" id="evry" data-g data-tone="' + TONE.evry + '"><div class="wrap"><div class="evry-grid"><div class="e-copy"><span class="eyebrow">' + t(e.eyebrow) + '</span><h2 class="display h2">' + t(e.headline) + '</h2><p class="body-2">' + t(e.body) + '</p><div class="limits">' + icon("shield") + "<span>" + t(e.limits) + "</span></div></div>" +
+    '<div class="e-vis">' + visual(vEvry(e.example)) + "</div></div></div></section>";
+}
+var TRUST_ICONS = ["book", "compass", "eye", "lock"];
+function trustGrid(items) {
+  return '<div class="trust-grid">' + items.map(function (it, i) { return '<div class="trust-item"><span class="ti-icon">' + icon(TRUST_ICONS[i % 4]) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></div>"; }).join("") + "</div>";
+}
+function trust(tr) {
+  return '<section class="sec sec-trust" id="trust"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(tr.headline) + "</h2></div>" + trustGrid(tr.items) + "</div></section>";
+}
+function cta(c) {
+  return '<section class="sec sec-cta" id="cta" data-g data-tone="' + TONE.cta + '"><div class="wrap"><div class="cta-box"><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
+    (c.note ? '<p class="small">' + t(c.note) + "</p>" : "") + "</div></div></section>";
+}
+
+/* ---------- Pages ---------- */
+function home(story) {
+  var s = DIR[story].sections;
+  return hero(s.hero, story) + problem(s.problem) + proof(s.proof, story) + features(s.features) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+}
+function pagePlanters() {
+  var s = DIR.journey.sections;
+  var a = s.audiences.items[0];
+  return hero({ eyebrow: a.label, headline: a.headline, subhead: a.body, cta_primary: "Request early access", cta_secondary: "See the seven phases", note: s.hero.note }, "journey", { page: true, points: a.points, tag: "Page mock · /planters · story A copy" }) +
+    problem(s.problem) + proof(s.proof, "journey") + features(s.features, { id: "phases", track: true }) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+}
+function pageOversight() {
+  var s = DIR.oversight.sections;
+  var byId = {}; s.audiences.items.forEach(function (a) { byId[a.id] = a; });
+  function split(a, vis, flip) {
+    return '<div class="split' + (flip ? " flip" : "") + '" id="' + a.id + '"><div class="s-copy"><span class="eyebrow">' + t(a.label) + '</span><h3 class="display h2">' + t(a.headline) + '</h3><p class="body-2">' + t(a.body) + '</p><ul class="checks">' +
+      a.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" + more(a.cta) + '</div><div class="s-vis">' + visual(vis) + "</div></div>";
+  }
+  return hero(s.hero, "oversight", { page: true, tag: "Page mock · /oversight · story B copy" }) + problem(s.problem) + proof(s.proof, "oversight") +
+    '<section class="sec sec-aud" id="audiences"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(s.audiences.headline) + "</h2></div>" +
+    split(byId.networks, vReadiness(), false) + split(byId["sending-churches"], vPlantSummary(), true) + split(byId.planters, vConsent(), false) + "</div></section>" +
+    features(s.features) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+}
+function pageMethod() {
+  var s = DIR.method.sections;
+  return hero(s.hero, "method", { page: true, visual: '<div class="hv hv-map">' + visual('<div class="map-hero"><div class="map">' + vMap("method", false) + '</div><div class="map-card"><div class="ef">' + needsYouCard() + "</div></div></div>") + '</div><div class="hv hv-product">' + visual(vPhaseCard()) + "</div>", tag: "Page mock · /method · story C copy" }) +
+    problem(s.problem) + proof(s.proof, "method") + features(s.features, { id: "phases", track: true }) + audiences(s.audiences) + evry(s.evry) + trust(s.trust) + cta(s.cta);
+}
+function pageTrust() {
+  var A = DIR.journey.sections, B = DIR.oversight.sections, C = DIR.method.sections;
+  var Y = function (s) { return '<span class="yes">' + s + "</span>"; }, N = function (s) { return '<span class="no">' + s + "</span>"; };
+  var rows = [
+    ["Owner", Y("Full"), Y("Full"), Y("Full"), Y("Own only"), Y("Yes")],
+    ["Admin", Y("Full"), Y("Full"), Y("Full"), N("No"), Y("Yes")],
+    ["Member", Y("View"), Y("View"), Y("View"), N("No"), N("No")],
+    ["Coach the planter invites", Y("Read"), Y("Read"), Y("Read"), N("No"), N("No")],
+    ["Sending church or network", N("Never"), N("Counts only"), Y("Summary, when shared"), N("No"), N("No")]
+  ];
+  var groups = [["For planters", A.trust], ["For sending churches and networks", B.trust], ["The method", C.trust]];
+  var limits = [A.evry.limits, B.evry.limits, C.evry.limits];
+  return hero({ eyebrow: "Privacy and trust", headline: A.trust.headline, subhead: C.trust.headline, cta_primary: "Request early access", cta_secondary: "Talk to us about your network" }, "journey", { page: true, visual: false, tag: "Page mock · /trust · copy from stories A, B and C" }) +
+    '<section class="sec" id="who-sees-what" style="padding-top:0"><div class="wrap"><div class="sec-head"><h2 class="display h2 sh-title">Who sees what</h2><p class="body-2 sh-text">' + t("[[Confirm each cell against the access rules before publishing.]]") + "</p></div>" +
+    '<div class="access-table-wrap"><table class="access-table"><thead><tr><th>Role</th><th>People and notes</th><th>Meetings and tasks</th><th>Plant Intelligence</th><th>Private check-in</th><th>Can change records</th></tr></thead><tbody>' +
+    rows.map(function (r) { return "<tr><th>" + r[0] + "</th>" + r.slice(1).map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div></div></section>" +
+    '<section class="sec" style="padding-top:0"><div class="wrap rule-groups">' + groups.map(function (g) { return '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">' + g[0] + '</span><h2 class="display h3" style="margin-top:12px;font-size:var(--mk-fs-h2)">' + t(g[1].headline) + "</h2></div></div>" + trustGrid(g[1].items) + "</div>"; }).join("") +
+    '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">Evry</span></div></div><div class="trust-grid" style="grid-template-columns:repeat(3,1fr)">' + limits.map(function (l) { return '<div class="trust-item"><span class="ti-icon">' + icon("shield") + "</span><p>" + t(l) + "</p></div>"; }).join("") + "</div></div></div></section>" +
+    cta(A.cta);
+}
+function pageAccess() {
+  var A = DIR.journey.sections, B = DIR.oversight.sections;
+  var phases = ["0 · Discovery", "1 · Core group", "2 · Launch team", "3 · Training", "4 · Pre-launch", "5 · Launch Sunday", "6 · Post-launch"];
+  function f(label, type, opt) { return '<div class="field"><label>' + label + (opt ? " <small>(optional)</small>" : "") + "</label>" + (type === "select" ? "<select>" + phases.map(function (p) { return "<option>" + p + "</option>"; }).join("") + "</select>" : type === "area" ? "<textarea></textarea>" : '<input type="' + type + '">') + "</div>"; }
+  return hero({ eyebrow: "Early access", headline: COPY.shared.nav_cta, subhead: A.cta.body, cta_primary: "Request early access", cta_secondary: "Talk to us about your network", note: A.cta.note }, "journey", { page: true, visual: false, tag: "Page mock · /access · no real submission" }) +
+    '<section class="sec" style="padding-top:0"><div class="wrap forms">' +
+    '<form class="form-card" id="planter-form" data-proto-form><span class="eyebrow">' + t(A.audiences.items[0].label) + '</span><h2 class="display h3">' + t(A.audiences.items[0].headline) + '</h2><p class="small">' + t(A.hero.note) + "</p>" +
+    f("Your name", "text") + f("Email", "email") + f("Church plant name", "text") + f("City", "text") + f("Phase", "select") + f("Sending church or network", "text", true) +
+    '<button class="mk-btn primary" type="submit">' + t(A.cta.cta_primary) + icon("arrow") + '</button><div class="form-msg" role="status">Prototype only. Nothing was sent.</div></form>' +
+    '<form class="form-card" id="network-form" data-proto-form><span class="eyebrow">For networks and sending churches</span><h2 class="display h3">' + t(B.cta.headline) + '</h2><p class="small">' + t(B.cta.body) + " " + t(B.cta.note) + "</p>" +
+    f("Your name", "text") + f("Email", "email") + f("Network or church", "text") + f("Your role", "text") + f("Plants you send or support", "number", true) + f("What would you like to talk about?", "area", true) +
+    '<button class="mk-btn primary" type="submit">' + t(B.cta.cta_primary) + icon("arrow") + '</button><div class="form-msg" role="status">Prototype only. Nothing was sent.</div></form></div></section>';
+}
+function pageLegal(title) {
+  return '<section class="hero page-hero" id="top"><div class="wrap"><div class="page-tag">Stub · ' + PAGE[state.page].path + "</div><br>" +
+    '<h1 class="display hero-title" style="font-size:var(--mk-fs-h1)">' + title + '</h1><div class="legal-body" style="margin-top:36px"><p>' + t("[[" + title + " text. Needs legal review before launch.]]") + "</p><p>" + t(COPY.shared.footer.fineprint) + "</p></div></div></section>";
+}
+
+/* ---------- Chrome ---------- */
+var NAVMAP = { "Product": ["home", "features"], "For planters": ["planters", ""], "For sending churches": ["oversight", "sending-churches"], "For networks": ["oversight", "networks"], "The method": ["method", ""], "Privacy": ["trust", ""] };
+function renderNav() {
+  var nav = document.getElementById("site-nav");
+  nav.innerHTML = '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" style="text-decoration:none">' + logo() + "</a>" +
+    '<nav class="nav-links" aria-label="Main">' + COPY.shared.nav.map(function (n) {
+      var r = NAVMAP[n.label] || ["home", ""];
+      var cur = r[0] === state.page && r[0] !== "home" && !r[1] ? ' aria-current="page"' : "";
+      return '<a href="' + hrefFor(r[0], r[1]) + '"' + cur + ">" + t(n.label) + "</a>";
+    }).join("") + '<a class="mk-btn primary nav-cta-m" href="' + routeHref(COPY.shared.nav_cta) + '">' + t(COPY.shared.nav_cta) + "</a></nav>" +
+    '<div class="nav-end"><a class="signin" href="#" data-toast="Sign in is not part of the marketing prototype.">' + t(COPY.shared.nav_signin) + "</a>" + btn(COPY.shared.nav_cta) +
+    '<button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false">' + icon("menu") + "</button></div></div>";
+}
+var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["method", "proof"], "Evry": ["home", "evry"], "The method": ["method", ""], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
+function renderFooter() {
+  var f = COPY.shared.footer;
+  var story = pageStory();
+  document.getElementById("site-footer").innerHTML = '<div class="ft-frame"><div class="ft-card"><div class="ft-brand">' + logo() + "<p>" + t(DIR[story].sections.footer.tagline) + "</p></div>" +
+    '<div class="ft-cols">' + f.columns.map(function (c) {
+      return "<div><h4>" + t(c.title) + "</h4><ul>" + c.links.map(function (l) {
+        var r = FOOTMAP[l];
+        return "<li>" + (r ? '<a href="' + hrefFor(r[0], r[1]) + '">' + t(l) + "</a>" : '<span class="ft-later">' + t(l) + "<small>Later</small></span>") + "</li>";
+      }).join("") + "</ul></div>";
+    }).join("") + "</div>" +
+    '<div class="ft-wordmark" aria-hidden="true"><svg viewBox="0 0 890 186"><use href="#ef-wordmark"/></svg></div>' +
+    '<div class="ft-bottom"><span>' + t(f.fineprint) + "</span><span>Prototype. Not a live site.</span></div></div></div>";
+}
+function renderBar() {
+  var bar = document.getElementById("pbar");
+  var onHome = state.page === "home";
+  var ps = pageStory();
+  var pageOpts = PAGES.map(function (p) { return '<option value="' + p.id + '"' + (p.id === state.page ? " selected" : "") + ">" + p.name + "</option>"; }).join("") +
+    '<optgroup label="Later, not in v1">' + LATER.map(function (l) { return "<option disabled>" + l + "</option>"; }).join("") + "</optgroup>";
+  bar.innerHTML = '<span class="pb-tag">Prototype</span>' +
+    '<div class="pb-group sel"><select class="pb-page" aria-label="Page">' + pageOpts + "</select>" +
+    '<select class="m pb-style" aria-label="Style">' + STYLES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === state.style ? " selected" : "") + ">" + s.name + "</option>"; }).join("") + "</select>" +
+    '<select class="m pb-story" aria-label="Story"' + (onHome ? "" : " disabled") + ">" + STORIES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ps ? " selected" : "") + ' title="' + esc(DIR[s.id].name) + '">Story ' + s.key + "</option>"; }).join("") + "</select></div>" +
+    '<div class="pb-group"><span class="pb-lab">Style</span><div class="seg" role="group" aria-label="Style">' + STYLES.map(function (s) { return '<button type="button" data-style="' + s.id + '" title="' + s.hint + '" aria-pressed="' + (s.id === state.style) + '">' + s.name + "</button>"; }).join("") + "</div></div>" +
+    '<div class="pb-group"><span class="pb-lab">Story</span><div class="seg" role="group" aria-label="Story">' + STORIES.map(function (s) { return '<button type="button" data-story="' + s.id + '" title="' + esc(DIR[s.id].name) + '" aria-pressed="' + (s.id === ps) + '"' + (onHome ? "" : " disabled") + "><b>" + s.key + "</b>" + s.short + "</button>"; }).join("") + "</div>" +
+    (onHome ? "" : '<span class="pb-note">Fixed for this page</span>') + "</div>" +
+    '<div class="pb-group"><button type="button" class="pb-btn pb-ph" title="Jump to the next placeholder">[[ ]] <span class="pb-count">0</span></button>' +
+    '<button type="button" class="pb-btn pb-copy" title="Copy a link to this page, style and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
+    '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
+}
+function countPlaceholders() {
+  var n = document.querySelectorAll("#view .ph, #site-footer .ph").length;
+  var el = document.querySelector(".pb-count");
+  if (el) el.textContent = n;
+}
+
+/* ---------- Apply ---------- */
+var last = {};
+function render(scrollMode) {
+  STYLES.forEach(function (s) { document.body.classList.remove(s.cls); });
+  document.body.classList.add(STYLE[state.style].cls);
+  document.body.dataset.page = state.page;
+  var needView = last.page !== state.page || last.story !== state.story || last.styleForLinks !== state.style;
+  if (needView) {
+    var v = document.getElementById("view");
+    var html = state.page === "home" ? home(state.story) : state.page === "planters" ? pagePlanters() : state.page === "oversight" ? pageOversight() :
+      state.page === "method" ? pageMethod() : state.page === "trust" ? pageTrust() : state.page === "access" ? pageAccess() : pageLegal(PAGE[state.page].name);
+    v.innerHTML = html;
+    renderNav();
+    renderFooter();
+  }
+  renderBar();
+  countPlaceholders();
+  document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · " + STYLE[state.style].name + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
+  if (scrollMode === "top") window.scrollTo({ top: 0, behavior: "auto" });
+  if (scrollMode === "at" && state.at) {
+    var target = document.getElementById(state.at);
+    if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+  }
+  last = { page: state.page, story: state.story, styleForLinks: state.style };
+}
+function setState(over, push) {
+  Object.assign(state, over);
+  var href = hrefFor(state.page, state.at);
+  if (push) { location.hash = href.slice(1); return; }
+  history.replaceState(null, "", href);
+  render();
+}
+function onHash() {
+  var prev = Object.assign({}, state);
+  state = parseHash();
+  var pageChanged = prev.page !== state.page;
+  render(state.at ? "at" : pageChanged ? "top" : null);
+}
+var toastTimer;
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+}
+
+/* ---------- Events ---------- */
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-style]");
+  if (b && b.closest(".pbar")) { setState({ style: b.dataset.style }); return; }
+  b = e.target.closest("[data-story]");
+  if (b && b.closest(".pbar") && !b.disabled) { setState({ story: b.dataset.story }); return; }
+  if (e.target.closest(".pb-copy")) {
+    var url = location.href;
+    var done = function () { toast("Link copied: " + location.hash); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(done, function () { window.prompt("Copy this link", url); });
+    else window.prompt("Copy this link", url);
+    return;
+  }
+  if (e.target.closest(".pb-hide")) { document.body.classList.add("pbar-hidden"); return; }
+  if (e.target.closest("#pbar-show")) { document.body.classList.remove("pbar-hidden"); return; }
+  if (e.target.closest(".pb-ph")) {
+    var list = Array.prototype.slice.call(document.querySelectorAll("#view .ph, #site-footer .ph"));
+    if (!list.length) { toast("No placeholders on this page."); return; }
+    var y = window.scrollY + 120;
+    var next = list.find(function (el) { return el.getBoundingClientRect().top + window.scrollY > y; }) || list[0];
+    next.scrollIntoView({ behavior: "smooth", block: "center" });
+    next.classList.remove("flash"); void next.offsetWidth; next.classList.add("flash");
+    return;
+  }
+  var tl = e.target.closest("[data-toast]");
+  if (tl) { e.preventDefault(); toast(tl.dataset.toast); return; }
+  var tg = e.target.closest(".nav-toggle");
+  if (tg) { var nav = document.getElementById("site-nav"); var open = nav.classList.toggle("open"); tg.setAttribute("aria-expanded", open); return; }
+  if (e.target.closest(".nav-links a")) document.getElementById("site-nav").classList.remove("open");
+});
+document.addEventListener("change", function (e) {
+  if (e.target.matches(".pb-page")) setState({ page: e.target.value, at: "" }, true);
+  else if (e.target.matches(".pb-style")) setState({ style: e.target.value });
+  else if (e.target.matches(".pb-story")) setState({ story: e.target.value });
+});
+document.addEventListener("submit", function (e) {
+  if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
+});
+window.addEventListener("hashchange", onHash);
+
+state = parseHash();
+history.replaceState(null, "", hrefFor(state.page, state.at));
+render(state.at ? "at" : null);
+})();
+</script>
+</body>
+</html>
