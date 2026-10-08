@@ -24,8 +24,9 @@
   /* neutrals (cool grey). Cream is for brand and marketing, not app surfaces */
   --ef-ink-2: #343843;
   --ef-text: #181D19;
-  --ef-text-2: #5B6170;
-  --ef-text-3: #8A909C;
+  --ef-text-2: #4D5361;
+  --ef-focus: #1C5BB5;
+  --ef-text-3: #666C78;            /* 4.6:1 on surface-2, the lowest it sits on */
   --ef-canvas: #E9ECF0;
   --ef-frame: #F2F4F7;
   --ef-surface: #FAFBFC;
@@ -154,8 +155,9 @@
   --ef-ink: #EEF0F4;
   --ef-ink-2: #CDD2DA;
   --ef-text: #ECEEF2;
-  --ef-text-2: #A0A7B4;
-  --ef-text-3: #707784;
+  --ef-text-2: #B1B7C2;
+  --ef-focus: #A9CFFF;
+  --ef-text-3: #8A919E;
   --ef-canvas: #0B0D10;
   --ef-frame: #0F1115;
   --ef-surface: #161A1F;
@@ -410,6 +412,18 @@ button { font: inherit; color: inherit; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--ef-text-3); font-size: var(--ef-text-md); margin-bottom: 10px; }
 .breadcrumb i { font-size: 14px; }
 .breadcrumb [aria-current] { color: var(--ef-text-2); }
+
+
+/* ---- Keyboard focus (<FocusRing>): every interactive element shows a ring on keyboard focus only ---- */
+:where(a, button, summary, [role="button"], [role="radio"], [role="tab"], [role="switch"], [role="checkbox"], [tabindex]:not([tabindex="-1"]), input[type="checkbox"], select):focus-visible {
+  outline: 2px solid var(--ef-focus); outline-offset: 2px;
+}
+.input:has(input:focus-visible) { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5px rgba(106,174,255,.25); }
+.input input:focus-visible, textarea.input:focus-visible { outline: 0; }
+textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5px rgba(106,174,255,.25); }
+.insight :focus-visible { outline-color: #181D19; }
+.rail-item:focus-visible .rail-tip { opacity: 1; transform: translateY(-50%); }
+.list-row:focus-visible, .task-row:focus-visible, .card:focus-visible, tbody tr:focus-visible { outline-offset: -2px; }
 
 /* grid helpers */
 .grid { display: grid; gap: 20px; }
@@ -3952,6 +3966,8 @@ function initHoverGroups() {
     g.prepend(ind); g.__ind = ind;
     g.addEventListener('pointerover', e => { const it = e.target.closest(ITEM_SEL); if (it && groupOf(it) === g) placeIndicator(g, it); });
     g.addEventListener('pointerleave', () => restIndicator(g));
+    g.addEventListener('focusin', e => { const it = e.target.closest(ITEM_SEL); if (it && groupOf(it) === g && it.matches(':focus-visible')) placeIndicator(g, it); });
+    g.addEventListener('focusout', e => { if (!g.contains(e.relatedTarget)) restIndicator(g); });
   });
   window.__hoverGroups = groups;
 }
@@ -4144,10 +4160,34 @@ function renderGuide() {
       <details class="faq"><summary>Who can see the people in my church?<i class="hgi-stroke hgi-add-01"></i></summary><p>Only people with a seat in your church.</p></details>`;
   }
   body.scrollTop = 0;
+  makeKeyboardReachable(body);
 }
 function openGuide() { closeEvry(); renderGuide(); document.getElementById('guide').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; document.getElementById('guide-btn').setAttribute('aria-expanded', 'true'); }
 function closeGuide() { const g = document.getElementById('guide'); if (!g || g.dataset.open !== 'true') return; g.dataset.open = 'false'; if (document.getElementById('evry').dataset.open !== 'true') document.getElementById('scrim').dataset.open = 'false'; document.getElementById('guide-btn').setAttribute('aria-expanded', 'false'); }
 function toggleGuide() { document.getElementById('guide').dataset.open === 'true' ? closeGuide() : openGuide(); }
+
+
+/* Keyboard and touch access for the prototype's clickable divs. In the build these are real buttons and links. */
+const CLICKABLE = '.list-row[onclick], .list-row[href], div.list-row, .task-row, .ms-row, .doc-card, .phase-opt, .merge-opt, .evry-chip, .user-pill, .evry-launch, .menu-item:not(a), .notif-item, .help-topic, .tree-item, .lens, .fb-type';
+function makeKeyboardReachable(root) {
+  root.querySelectorAll(CLICKABLE).forEach(el => {
+    if (el.matches('a[href], button') || el.hasAttribute('tabindex')) return;
+    el.setAttribute('tabindex', '0');
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+  });
+  root.querySelectorAll('tbody tr[onclick]').forEach(tr => { if (!tr.hasAttribute('tabindex')) { tr.setAttribute('tabindex', '0'); tr.setAttribute('role', 'link'); } });
+  root.querySelectorAll('.check[data-toggle]').forEach(c => { c.setAttribute('tabindex', '0'); c.setAttribute('role', 'checkbox'); c.setAttribute('aria-checked', c.dataset.checked === 'true'); c.setAttribute('aria-label', 'Select row'); });
+  root.querySelectorAll('[title]').forEach(el => { if (!el.hasAttribute('aria-label') && !el.textContent.trim()) el.setAttribute('aria-label', el.getAttribute('title')); });
+}
+makeKeyboardReachable(document);
+/* Closed overlays are inert, so Tab never lands inside a hidden menu, panel or dialog. */
+const OVERLAYS = '.float-pop, .modal, .evry-panel';
+function syncInert(el) { el.inert = el.dataset.open !== 'true'; }
+document.querySelectorAll(OVERLAYS).forEach(el => { syncInert(el); new MutationObserver(() => syncInert(el)).observe(el, { attributes: true, attributeFilter: ['data-open'] }); });
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][tabindex="0"]:not(button):not(a)')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[role="link"], .check[role="checkbox"]')) { e.preventDefault(); e.target.click(); if (e.target.matches('.check')) e.target.setAttribute('aria-checked', e.target.dataset.checked === 'true'); }
+});
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
