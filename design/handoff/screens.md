@@ -30,8 +30,8 @@ All app pages are desktop only and sit inside the app shell (top bar, rail, cont
 | `#/documents` | Documents (wide) | `/documents` | `/documents` | WP-036, WP-037 | live |
 | `#/notifications` | Notifications | `/notifications` | `/notifications` | WP-030 | live |
 | `#/network` | Network oversight | `/network` | `/oversight` | WP-047, WP-007 | live |
-| `#/help` | Help center | `/help` | none | none yet, waits for PD-018 | live |
-| `#/help/article` | Help how-to | `/help/[slug]` | none | none yet, waits for PD-018 | live |
+| `#/help` | Help center | `/help` | none | none yet, waits for the proposed help center ruling | live |
+| `#/help/article` | Help how-to | `/help/[slug]` | none | none yet, waits for the proposed help center ruling | live |
 
 Member view (view-only seat) hides every action marked `data-edit` in the prototype and shows a banner. It applies on every page. The prototype marks the actions on Overview, People and the person page. In the build, the server decides what each seat may do, and the UI hides actions the seat cannot use.
 
