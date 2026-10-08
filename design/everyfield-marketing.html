@@ -343,17 +343,21 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .site-nav { position: relative; z-index: 50; background: transparent; }
 /* Revision 5: Calendly-style floating pill. It slides down once the page scrolls past the in-flow nav,
    and slides up again at the top. Transform and opacity only, hero ease-out (cubic-bezier(.33, 1, .68, 1)), 360 ms. */
-.nav-pill { position: fixed; top: 12px; left: 0; right: 0; z-index: 60; width: min(1160px, calc(100% - 24px)); margin: 0 auto; background: #FFFFFF; border: 1px solid var(--mk-line); border-radius: 999px;
-  box-shadow: 0 1px 2px rgba(24, 29, 25, .06), 0 14px 32px -16px rgba(24, 29, 25, .3); opacity: 0; transform: translate3d(0, calc(-100% - 16px), 0); visibility: hidden;
+.nav-pill { position: fixed; top: 12px; left: 0; right: 0; z-index: 60; width: 100%; max-width: var(--mk-max-width); margin: 0 auto; background: #FFFFFF; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--mk-line), 0 1px 2px rgba(24, 29, 25, .06), 0 14px 32px -16px rgba(24, 29, 25, .3); opacity: 0; transform: translate3d(0, calc(-100% - 16px), 0); visibility: hidden;
   transition: transform .36s cubic-bezier(.33, 1, .68, 1), opacity .36s cubic-bezier(.33, 1, .68, 1), visibility 0s linear .36s; will-change: transform, opacity; }
 .nav-pill.on { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
-.nav-pill .wrap { display: flex; align-items: center; max-width: none; height: 60px; padding: 0 8px 0 22px; gap: 20px; }
-.nav-pill .signin { display: none; }
+.nav-pill .wrap { height: 60px; }
 .nav-pill .nav-end .mk-btn { height: 44px; }
-.site-nav .wrap { display: flex; align-items: center; gap: 28px; height: 70px; }
+.site-nav .wrap, .nav-pill .wrap { display: flex; align-items: center; gap: 28px; }
+.site-nav .wrap { height: 70px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--logo, #181D19); text-decoration: none; flex: none; }
 .logo .lm { width: 27px; height: 22px; }
 .logo .lw { width: 112px; height: 23px; }
+/* Revision 6: nav logo. Flex anchor (no inline baseline gap), green mark, ink wordmark. The footer logo is unchanged. */
+.nav-home { display: flex; align-items: center; text-decoration: none; flex: none; }
+.nav-logo .lm { color: #1CE362; }
+.nav-logo .lw { color: #181D19; height: 26px; }
 .logo.chip { background: #1CE362; color: #181D19; padding: 10px 14px; border-radius: 14px; }
 .nav-links { display: flex; gap: 4px; font-size: 14.5px; }
 .nav-links a { text-decoration: none; color: var(--mk-text-2); padding: 8px 11px; border-radius: 999px; white-space: nowrap; }
@@ -530,10 +534,12 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .hero.hero-anim { background: var(--mk-canvas); padding: 0 0 clamp(32px, 5vw, 72px); }
 /* Revision 5: the panel is wider than the nav and the sections (Calendly: 24 px side margins at 1440). */
 .hero.hero-anim > .wrap { max-width: none; padding: 0 clamp(8px, 1.67vw, 24px); }
-.hero-anim .hero-panel { padding: clamp(48px, 6vw, 88px) clamp(14px, 4vw, 64px) clamp(16px, 2.6vw, 40px); }
-.hero-anim .hero-title { max-width: 14ch; }
-.hero-anim .hero-row { margin-top: clamp(20px, 2.4vw, 32px); }
-.hero-anim .hero-band { margin-top: clamp(28px, 3.4vw, 48px); }
+.hero-anim .hero-panel { padding: clamp(56px, 9vw, 128px) clamp(14px, 4vw, 64px) clamp(16px, 2.2vw, 32px); }
+/* Revision 6 spacing at 1440: 128 top, 30 headline to subtext, 40 subtext to buttons, 80 buttons to card (56 + 24 stage), 96 under the card (64 stage + 32 panel). */
+.hero-anim .hero-title { max-width: 14ch; color: #2A332C; }
+.hero-anim .hero-row { margin-top: clamp(18px, 2.1vw, 30px); gap: clamp(24px, 2.8vw, 40px); }
+.hero-anim .hero-row .lead { max-width: 620px; color: var(--hero-sub, rgba(24, 29, 25, .72)); }
+.hero-anim .hero-band { margin-top: clamp(32px, 3.9vw, 56px); }
 .hero-panel { border-radius: var(--mk-radius-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); color: var(--on); box-shadow: 0 30px 60px -40px rgba(16, 120, 56, .6); }
 .hero-panel .eyebrow { color: var(--on); }
 .hero-panel .lead { color: rgba(24, 29, 25, .9); }
@@ -946,11 +952,13 @@ body.pbar-hidden { padding-bottom: 0; }
   .nav-end .signin { display: none; }
   .nav-end .mk-btn { height: 40px; padding: 0 14px; font-size: 13.5px; }
   .logo .lw { width: 96px; height: 20px; }
+  .nav-logo .lw { height: 22.3px; }
   .logo .lm { width: 24px; height: 19px; }
-  .site-nav .wrap { gap: 12px; height: 64px; }
+  .site-nav .wrap, .nav-pill .wrap { gap: 12px; }
+  .site-nav .wrap { height: 64px; }
   [id] { scroll-margin-top: 76px; }
   .site-nav.open .nav-links { top: 64px; }
-  .nav-pill .wrap { height: 56px; padding: 0 6px 0 16px; gap: 10px; }
+  .nav-pill .wrap { height: 56px; }
   .nav-pill .nav-end .mk-btn { height: 42px; }
   .hero .eyebrow { margin-bottom: 18px; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
@@ -1019,7 +1027,7 @@ body.pbar-hidden { padding-bottom: 0; }
 /* BEGIN design/marketing-copy.json */
 {
   "version": 2,
-  "revision_note": "Revision 5 (2026-10-08): shorter heroes, no sample-data or placeholder labels, and the Revision 4 wording rules site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
@@ -1148,7 +1156,7 @@ body.pbar-hidden { padding-bottom: 0; }
       "sections": {
         "hero": {
           "headline": "From calling to launch Sunday.",
-          "subhead": "People, gatherings, follow-ups and teams for your church plant, in one place.",
+          "subhead": "Keep your people, gatherings, follow-ups and teams in one place as your core team and launch team grow toward launch Sunday.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
@@ -1472,9 +1480,12 @@ function esc(s) {
 function t(s) {
   return esc(s).replace(/Everyfield/g, "EveryField");
 }
+/* Nav logo: the wordmark viewBox is padded at the top (-21.5) so its box centre is the cap-height centre
+   (caps run 14.8 to 148.8, the "y" descender ends at 185.1). The box then lines up with the nav items. */
 function logo(extra) {
+  var nav = /nav-logo/.test(extra || "");
   return '<span class="logo ' + (extra || "") + '"><svg class="lm" viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>' +
-    '<svg class="lw" viewBox="0 0 890 186" role="img" aria-label="EveryField"><use href="#ef-wordmark"/></svg></span>';
+    '<svg class="lw" viewBox="' + (nav ? "0 -21.5 890 206.6" : "0 0 890 186") + '" role="img" aria-label="EveryField"><use href="#ef-wordmark"' + (nav ? ' width="890" height="186"' : '') + '/></svg></span>';
 }
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
@@ -2534,7 +2545,7 @@ function renderNav() {
   navPill(true);
 }
 function navHTML() {
-  return '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" style="text-decoration:none">' + logo() + "</a>" +
+  return '<div class="wrap"><a href="' + hrefFor("home") + '" aria-label="EveryField home" class="nav-home">' + logo("nav-logo") + "</a>" +
     '<nav class="nav-links" aria-label="Main">' + COPY.shared.nav.map(function (n) {
       var r = NAVMAP[n.label] || ["home", ""];
       var cur = r[0] === state.page && r[0] !== "home" && !r[1] ? ' aria-current="page"' : "";

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "revision_note": "Revision 5 (2026-10-08): shorter heroes, no sample-data or placeholder labels, and the Revision 4 wording rules site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
@@ -129,7 +129,7 @@
       "sections": {
         "hero": {
           "headline": "From calling to launch Sunday.",
-          "subhead": "People, gatherings, follow-ups and teams for your church plant, in one place.",
+          "subhead": "Keep your people, gatherings, follow-ups and teams in one place as your core team and launch team grow toward launch Sunday.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
