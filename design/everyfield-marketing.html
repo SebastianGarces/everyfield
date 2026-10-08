@@ -98,7 +98,7 @@
 <style id="mk-site">
 /* =====================================================================
    Dashboard component kit, scoped to .ef (product visuals).
-   Values copied from design/everyfield-ui.html. Night Field shows the dashboard's dark mode.
+   Values copied from design/everyfield-ui.html.
    ===================================================================== */
 .ef {
   --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text: #181D19; --ef-text-2: #4D5361; --ef-text-3: #666C78;
@@ -513,12 +513,6 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .rv.in { opacity: 1; transform: none; }
 body.shot .rv { opacity: 1; transform: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none !important; } }
-
-/* Placeholder slots for sections that later tasks rebuild. Fixed review colours. */
-.slot { text-align: left; border: 2px dashed #B07D00; background: repeating-linear-gradient(-45deg, #FFF8DC 0 12px, #FFF1B8 12px 24px); color: #4A3500; border-radius: var(--mk-radius-card); padding: clamp(24px, 4vw, 48px); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.slot b { font: 700 11px/1.4 var(--mk-font-body); letter-spacing: .08em; text-transform: uppercase; background: #4A3500; color: #FFF1B8; border-radius: 4px; padding: 2px 8px; }
-.slot p { font-size: 15px; max-width: 70ch; }
-.slot-hero { min-height: clamp(260px, 36vw, 480px); justify-content: center; margin-top: clamp(40px, 5vw, 72px); }
 
 /* =====================================================================
    Revision 2 hero: a very light gradient, then a looping product animation.
@@ -1680,10 +1674,6 @@ function mapTile(story) {
 function heroVisual(story) {
   return visual(story === "oversight" ? vNetworkHero() : vMondayOverview());
 }
-/* Marked placeholder for a section that a later task rebuilds. Not final design. */
-function slot(title, text, extra) {
-  return '<div class="slot' + (extra ? " " + extra : "") + '" role="note"><b>Placeholder</b><strong>' + esc(title) + "</strong><p>" + esc(text) + "</p></div>";
-}
 /* ---------- Revision 2 hero: one person, from first contact to the core group ----------
    Five cards share one grid cell and crossfade. Maria's chip is one element that glides
    from a hidden slot in each card to the next, so the loop reads as one story.
@@ -2216,8 +2206,8 @@ function cxScroll() {
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
     if (!cxDesk(ch)) return;
-    /* A step becomes active when its top passes half a step below the sticky heading. */
-    var line = Math.min(ch.head.getBoundingClientRect().bottom + ch.steps[0].offsetHeight * .5, window.innerHeight * .6), k = 0;
+    /* A step becomes active when its top passes 0.6 of a step below the sticky heading. The active title then stays in view, and the first step still gets some scroll. */
+    var line = Math.min(ch.head.getBoundingClientRect().bottom + ch.steps[0].offsetHeight * .6, window.innerHeight * .6), k = 0;
     ch.steps.forEach(function (s, i) { if (s.getBoundingClientRect().top < line) k = i; });
     cxSetActive(ch, k);
   });
@@ -2250,12 +2240,18 @@ function cxKick() {
   CX.last = performance.now();
   CX.raf = requestAnimationFrame(cxFrame);
 }
-/* Pad the step list so the last step sits under the heading when the panel unpins: no long empty gap. */
+/* The heading and the panel unpin together, with the last step under the heading: no long empty gap.
+   The last step hangs below the left column, so the sticky heading releases when the panel does.
+   The right column extends by the panel minus the heading height, and the grid padding keeps the section height. */
 function cxMeasureAll() {
   CX.list.forEach(function (ch) {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
-    var ol = ch.steps[0].parentNode;
-    ol.style.paddingBottom = cxDesk(ch) ? Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight - ch.steps[ch.steps.length - 1].offsetHeight) + "px" : "";
+    var ol = ch.steps[0].parentNode, right = ch.vis.closest(".cx-right"), grid = ch.vis.closest(".cx-grid");
+    var desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
+    ol.style.paddingBottom = "";
+    ol.style.marginBottom = desk ? -ch.steps[ch.steps.length - 1].offsetHeight + "px" : "";
+    right.style.marginBottom = desk ? -x + "px" : "";
+    grid.style.paddingBottom = desk ? x + "px" : "";
   });
 }
 function cxPaintAll() {
