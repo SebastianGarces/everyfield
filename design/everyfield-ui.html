@@ -414,6 +414,51 @@ button { font: inherit; color: inherit; }
 .breadcrumb [aria-current] { color: var(--ef-text-2); }
 
 
+
+/* ---- Preview states (design dock): role and data state ---- */
+[data-state-view] { display: none; }
+body:not([data-data="live"]) .page[data-states] > :not(.page-header):not([data-state-view]) { display: none; }
+body[data-data="loading"]  .page[data-states] > [data-state-view~="loading"],
+body[data-data="error"]    .page[data-states] > [data-state-view~="error"],
+body[data-data="noaccess"] .page[data-states] > [data-state-view~="noaccess"],
+body[data-data="empty"]    .page[data-states] > [data-state-view~="empty"],
+body[data-data="firstweek"] .page[data-states] > [data-state-view~="firstweek"] { display: block; }
+body:not([data-data="live"]) .page[data-states] .page-actions [data-live-only] { display: none; }
+body[data-role="member"] [data-edit] { display: none !important; }
+body[data-role="member"] .page[data-page="people"] table tr > :first-child { display: none; }
+.role-banner { display: none; align-items: center; gap: 12px; margin: 0 0 18px; padding: 12px 16px 12px 14px; border-radius: 16px; background: var(--ef-blue-50); box-shadow: 0 0 0 1px var(--ef-blue-100) inset; color: var(--ef-ink-2); font-size: var(--ef-text-md); }
+.role-banner i { font-size: 18px; color: var(--ef-blue-600); }
+body[data-role="member"] .role-banner { display: flex; }
+.state-panel { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 64px 24px; }
+.state-panel .s-art { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; margin-bottom: 6px; background: var(--ef-surface-2); }
+.state-panel .s-art i { font-size: 28px; color: var(--ef-text-2); }
+.state-panel[data-tone="error"] .s-art { background: var(--ef-magenta-100); }
+.state-panel[data-tone="error"] .s-art i { color: var(--ef-magenta-600); }
+.state-panel[data-tone="lock"] .s-art { background: var(--ef-violet-100); }
+.state-panel[data-tone="lock"] .s-art i { color: var(--ef-violet-600); }
+.state-panel p { margin: 0; max-width: 420px; color: var(--ef-text-2); }
+.state-meta { font-size: var(--ef-text-xs); color: var(--ef-text-3); margin-top: 6px; }
+.setup-step { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--ef-line); }
+.setup-step:first-child { border-top: 0; }
+.setup-step .ss-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--ef-surface-2); color: var(--ef-ink); }
+.setup-step[data-done] .ss-n { background: var(--ef-green-500); color: #181D19; }
+.setup-step[data-done] .ss-t { color: var(--ef-text-3); text-decoration: line-through; }
+.setup-step .ss-t { font-weight: 500; color: var(--ef-ink); }
+.setup-step .ss-s { font-size: var(--ef-text-sm); color: var(--ef-text-2); margin-top: 2px; }
+.zero-num { font-family: var(--ef-font-display); font-size: 44px; line-height: 1; color: var(--ef-text-3); }
+/* dock preview popover */
+.doc-dock .sep { width: 1px; height: 22px; background: rgba(255,255,255,.18); margin: 0 4px; }
+.doc-dock button.dd { color: rgba(255,255,255,.8); height: 38px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.doc-dock button.dd:hover, .doc-dock button.dd[aria-expanded="true"] { background: rgba(255,255,255,.1); color: #fff; }
+.doc-dock .dd-val { color: #fff; font-weight: 600; white-space: nowrap; }
+.preview-pop { position: fixed; z-index: 60; width: 330px; padding: 14px; border-radius: 20px; background: #262B33; color: #fff; box-shadow: 0 20px 40px -16px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transform: translateY(6px); transition: opacity .15s, transform .15s; }
+.preview-pop[data-open="true"] { opacity: 1; pointer-events: auto; transform: none; }
+.preview-pop h4 { margin: 4px 4px 8px; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
+.preview-pop .pp-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.preview-pop .pp-opts button { border: 0; cursor: pointer; font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 99px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.85); }
+.preview-pop .pp-opts button[aria-pressed="true"] { background: #fff; color: #111318; }
+.preview-pop .pp-note { font-size: 12px; color: rgba(255,255,255,.55); margin: 0 4px; line-height: 1.45; }
+
 /* ---- Keyboard focus (<FocusRing>): every interactive element shows a ring on keyboard focus only ---- */
 :where(a, button, summary, [role="button"], [role="radio"], [role="tab"], [role="switch"], [role="checkbox"], [tabindex]:not([tabindex="-1"]), input[type="checkbox"], select):focus-visible {
   outline: 2px solid var(--ef-focus); outline-offset: 2px;
@@ -1436,6 +1481,7 @@ body[data-shell="bare"] .main { max-width: none; }
   </aside>
 
   <main class="main" id="main">
+    <div class="role-banner" role="status"><i class="hgi-stroke hgi-view"></i><span class="grow">You have <b style="font-weight:600">view-only</b> access to Harvest Point. You can read everything you are allowed to see, but changes need an Owner or Admin.</span><button class="btn" data-variant="secondary" data-size="sm">Ask for access</button></div>
 
 <!-- =================================================================
      PAGE: FOUNDATIONS
@@ -1745,7 +1791,7 @@ body[data-shell="bare"] .main { max-width: none; }
         <div class="stack gap-2 mt-4"><div class="progress"><span style="width:71%"></span></div><div class="progress" data-size="sm" style="--fill:var(--ef-blue-500)"><span style="width:48%"></span></div><div class="row gap-4 mt-2"><span class="ring" style="--p:71" data-label="71%"></span><span class="ring" style="--p:40;--c:var(--ef-amber-500)" data-label="4/10"></span><span class="ring" style="--p:88;--c:var(--ef-blue-500)" data-label="88%"></span></div></div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="grow"><div class="card-title">Needs you</div><div class="card-description">4 things this week</div></div><button class="icon-btn"><i class="hgi-stroke hgi-more-horizontal"></i></button></div>
+        <div class="card-header"><div class="grow"><div class="card-title">Needs you</div><div class="card-description">4 things this week</div></div><button class="icon-btn" data-edit><i class="hgi-stroke hgi-more-horizontal"></i></button></div>
         <div class="list">
           <div class="list-row"><span class="card-icon tone-magenta"><i class="hgi-stroke hgi-alert-02"></i></span><div class="grow"><div class="list-title">3 follow-ups overdue</div><div class="list-sub">Kim Wu is 3 days late</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></div>
           <div class="list-row"><span class="card-icon tone-amber"><i class="hgi-stroke hgi-checkmark-circle-02"></i></span><div class="grow"><div class="list-title">2 interviews to record</div><div class="list-sub">Held last week</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></div>
@@ -1976,23 +2022,70 @@ body[data-shell="bare"] .main { max-width: none; }
 <!-- =================================================================
      PAGE: OVERVIEW
      ================================================================= -->
-<section class="page" data-page="overview">
+<section class="page" data-page="overview" data-states>
   <header class="page-header">
     <div class="titles">
       <h1 class="page-title xl">Good morning, Daniel</h1>
       <p class="page-sub">Harvest Point Church · Phase 1, Core Group Development · Launch target spring 2027</p>
     </div>
     <div class="page-actions">
-      <div class="toolbar-pill"><button class="btn seg-on" data-variant="ghost"><i class="hgi-stroke hgi-calendar-03"></i>Last 28 days <i class="hgi-stroke hgi-arrow-down-01" style="font-size:14px"></i></button><span class="ghost-text">vs Aug 13 to Sep 9</span></div>
-      <button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-share-08"></i>Share with coach</button>
+      <div class="toolbar-pill" data-live-only><button class="btn seg-on" data-variant="ghost"><i class="hgi-stroke hgi-calendar-03"></i>Last 28 days <i class="hgi-stroke hgi-arrow-down-01" style="font-size:14px"></i></button><span class="ghost-text">vs Aug 13 to Sep 9</span></div>
+      <button class="btn" data-variant="secondary" data-edit data-live-only><i class="hgi-stroke hgi-share-08"></i>Share with coach</button>
     </div>
   </header>
+  <!-- STATES (preview): first week, loading, error, no access -->
+  <div data-state-view="firstweek empty">
+    <div class="grid" style="grid-template-columns: 1.15fr 1fr; align-items:start">
+      <div class="insight" data-tone="field" data-on="ink" style="min-height:0">
+        <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-plant-01"></i>Week 1</span><span class="insight-count">2 of 5 done</span></div>
+        <div class="insight-title" style="font-size:32px;max-width:520px">Welcome to Everyfield, Daniel. Here is your first week.</div>
+        <div class="insight-text">Phase 1 is about gathering a core group. These steps get your plan, your people and your team into one place.</div>
+        <div class="card mt-6" style="padding:6px 20px;background:rgba(255,255,255,.72);box-shadow:none">
+          <div class="setup-step" data-done><span class="ss-n"><i class="hgi-stroke hgi-tick-02"></i></span><div><div class="ss-t">Create Harvest Point Church</div></div><span></span></div>
+          <div class="setup-step" data-done><span class="ss-n"><i class="hgi-stroke hgi-tick-02"></i></span><div><div class="ss-t">Choose your phase and launch target</div></div><span></span></div>
+          <div class="setup-step"><span class="ss-n">3</span><div><div class="ss-t">Add the people you already know</div><div class="ss-s">Import a spreadsheet or add them one by one.</div></div><a class="btn" data-variant="primary" data-size="sm" href="#/people/import">Import</a></div>
+          <div class="setup-step"><span class="ss-n">4</span><div><div class="ss-t">Plan your first vision meeting</div><div class="ss-s">The Playbook suggests one every 14 days.</div></div><a class="btn" data-variant="secondary" data-size="sm" href="#/meetings">Plan</a></div>
+          <div class="setup-step"><span class="ss-n">5</span><div><div class="ss-t">Invite your spouse or co-leader</div><div class="ss-s">Seats are free for your planting team.</div></div><a class="btn" data-variant="secondary" data-size="sm" href="#/settings/seats">Invite</a></div>
+        </div>
+      </div>
+      <div class="stack" style="gap:20px">
+        <div class="card"><div class="card-header"><div class="grow"><div class="card-title">Core group</div><div class="card-description">Committed adults</div></div></div><div class="zero-num">0</div><p class="muted mt-3" style="margin-bottom:0">The Playbook aims for 50 to 100 adults who share the vision before launch. Your count starts when someone commits.</p><div class="progress mt-4" data-size="sm"><span style="width:0"></span></div></div>
+        <div class="card"><div class="card-header"><div class="grow"><div class="card-title">Plant Intelligence</div><div class="card-description">Not enough data yet</div></div></div><div class="row gap-3"><span class="evry-bot" data-size="md" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><p class="muted" style="margin:0">Evry starts to notice patterns after your first two vision meetings. Until then, nothing here is a score.</p></div></div>
+        <div class="card"><div class="card-header"><div class="grow"><div class="card-title">Start with the Playbook</div><div class="card-description">Phase 1 · 6 short articles</div></div><a class="btn" data-variant="ghost" data-size="sm" href="#/wiki">Open Wiki</a></div><div class="list"><a class="list-row" href="#/wiki"><div class="grow"><div class="list-title">Cast the vision</div><div class="list-sub">5 min read</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a><a class="list-row" href="#/wiki"><div class="grow"><div class="list-title">Run your first vision meeting</div><div class="list-sub">8 min read</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a></div></div>
+      </div>
+    </div>
+  </div>
+  <div data-state-view="loading" aria-busy="true">
+    <div class="grid" style="grid-template-columns: 1fr 1fr 1.08fr; align-items:start">
+      <div class="stack" style="gap:20px"><div class="card stack" style="gap:12px"><div class="skel" style="height:18px;width:40%;"></div><div class="skel" style="height:12px;width:30%;"></div><div class="skel" style="height:56px;width:35%;margin-top:10px;border-radius:12px"></div><div class="skel" style="height:12px;width:90%;"></div><div class="skel" style="height:12px;width:70%;"></div></div><div class="card stack" style="gap:12px"><div class="skel" style="height:18px;width:50%;"></div><div class="skel" style="height:120px;width:100%;border-radius:14px"></div></div></div>
+      <div class="stack" style="gap:20px"><div class="card stack" style="gap:12px"><div class="skel" style="height:18px;width:55%;"></div><div class="skel" style="height:12px;width:40%;"></div><div class="skel" style="height:10px;width:100%;margin-top:8px"></div><div class="skel" style="height:12px;width:0%;"></div><div class="skel" style="height:10px;width:100%;margin-top:8px"></div><div class="skel" style="height:12px;width:0%;"></div><div class="skel" style="height:10px;width:100%;margin-top:8px"></div><div class="skel" style="height:12px;width:0%;"></div><div class="skel" style="height:10px;width:100%;margin-top:8px"></div><div class="skel" style="height:12px;width:0%;"></div><div class="skel" style="height:10px;width:100%;margin-top:8px"></div><div class="skel" style="height:12px;width:0%;"></div></div></div>
+      <div class="stack" style="gap:20px"><div class="skel" style="height:420px;border-radius:var(--ef-radius-card)"></div><div class="card stack" style="gap:12px"><div class="skel" style="height:18px;width:40%;"></div><div class="skel" style="height:44px;width:100%;border-radius:12px"></div><div class="skel" style="height:44px;width:100%;border-radius:12px"></div></div></div>
+    </div>
+  </div>
+  <div data-state-view="error">
+    <div class="card"><div class="state-panel" data-tone="error" role="alert">
+      <div class="s-art"><i class="hgi-stroke hgi-wifi-disconnected-01"></i></div>
+      <div class="card-title">We could not load your overview</div>
+      <p>Your numbers did not arrive, so we are not showing zeros that could be wrong. Nothing in your plant has changed.</p>
+      <div class="row gap-2 mt-3"><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-refresh"></i>Try again</button><button class="btn" data-variant="ghost" onclick="openFeedback('bug')">Report a problem</button></div>
+      <div class="state-meta">Last loaded today at 8:40 am · Error reference EF-7Q2K</div>
+    </div></div>
+  </div>
+  <div data-state-view="noaccess">
+    <div class="card"><div class="state-panel" data-tone="lock">
+      <div class="s-art"><i class="hgi-stroke hgi-lock-key"></i></div>
+      <div class="card-title">You do not have access to this church</div>
+      <p>Your account is not a member of Harvest Point Church any more, or your invitation has not been accepted yet. Ask one of its Owners to invite you again.</p>
+      <div class="row gap-2 mt-3"><button class="btn" data-variant="primary">Switch church</button><a class="btn" data-variant="ghost" href="#/signin">Sign in with another account</a></div>
+    </div></div>
+  </div>
+
 
   <div class="grid" style="grid-template-columns: 1fr 1fr 1.08fr; align-items:start">
     <!-- col 1 -->
     <div class="stack gap-6" style="gap:20px">
       <div class="card">
-        <div class="card-header"><div class="grow"><div class="card-title">Core group</div><div class="card-description">Committed adults</div></div><button class="icon-btn"><i class="hgi-stroke hgi-more-horizontal"></i></button></div>
+        <div class="card-header"><div class="grow"><div class="card-title">Core group</div><div class="card-description">Committed adults</div></div><button class="icon-btn" data-edit><i class="hgi-stroke hgi-more-horizontal"></i></button></div>
         <div class="stat-value xl" style="margin-top:0">34</div>
         <div class="row gap-3 mt-3"><span class="delta" data-dir="up">9 people</span><span class="faint">vs prior 28 days</span></div>
         <p class="muted mt-4">16 more to the 50-person benchmark. The Playbook aims for 50 to 100 adults who share the vision before launch.</p>
@@ -2084,18 +2177,51 @@ body[data-shell="bare"] .main { max-width: none; }
 <!-- =================================================================
      PAGE: PEOPLE
      ================================================================= -->
-<section class="page" data-page="people" data-width="wide">
+<section class="page" data-page="people" data-width="wide" data-states>
   <header class="page-header">
     <div class="titles">
       <h1 class="page-title xl">People</h1>
       <p class="page-sub">Everyone you have met, from first visit to leader.</p>
     </div>
     <div class="page-actions">
-      <a class="btn" data-variant="secondary" href="#/people/duplicates"><i class="hgi-stroke hgi-copy-01"></i>3 possible duplicates</a>
-      <a class="btn" data-variant="secondary" href="#/people/import"><i class="hgi-stroke hgi-download-01"></i>Import CSV</a>
-      <button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Add person</button>
+      <a class="btn" data-variant="secondary" href="#/people/duplicates" data-edit data-live-only><i class="hgi-stroke hgi-copy-01"></i>3 possible duplicates</a>
+      <a class="btn" data-variant="secondary" href="#/people/import" data-edit><i class="hgi-stroke hgi-download-01"></i>Import CSV</a>
+      <button class="btn" data-variant="primary" data-edit><i class="hgi-stroke hgi-user-add-01"></i>Add person</button>
     </div>
   </header>
+  <!-- STATES (preview): loading, error, no access, empty / first week -->
+  <div data-state-view="loading" aria-busy="true">
+    <div class="card"><div class="row gap-3" style="margin-bottom:18px"><div class="skel" style="height:44px;width:320px;border-radius:14px"></div><div class="skel" style="height:44px;width:110px;border-radius:14px"></div><div class="skel" style="height:44px;width:110px;border-radius:14px"></div></div>
+      <table class="table"><thead><tr><th style="width:36px"></th><th>Person</th><th>Stage</th><th>Last contact</th><th>Vision meetings</th><th>Ministry</th></tr></thead><tbody><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:60%"></div><div class="skel" style="height:10px;width:35%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:72%"></div><div class="skel" style="height:10px;width:47%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:55%"></div><div class="skel" style="height:10px;width:30%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:66%"></div><div class="skel" style="height:10px;width:41%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:50%"></div><div class="skel" style="height:10px;width:25%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr><tr><td><div class="skel" style="width:18px;height:18px;border-radius:6px"></div></td><td><div class="row gap-3"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="stack" style="gap:6px;flex:1"><div class="skel" style="height:12px;width:62%"></div><div class="skel" style="height:10px;width:37%"></div></div></div></td><td><div class="skel" style="height:22px;width:90px;border-radius:99px"></div></td><td><div class="skel" style="height:12px;width:50px"></div></td><td><div class="skel" style="height:12px;width:30px"></div></td><td><div class="skel" style="height:22px;width:70px;border-radius:8px"></div></td></tr></tbody></table>
+      <div class="state-meta" style="text-align:center;margin-top:14px">Loading people…</div></div>
+  </div>
+  <div data-state-view="error">
+    <div class="card"><div class="state-panel" data-tone="error" role="alert">
+      <div class="s-art"><i class="hgi-stroke hgi-wifi-disconnected-01"></i></div>
+      <div class="card-title">We could not load your people</div>
+      <p>This is a loading problem, not an empty list. Your 214 people are safe. Try again in a moment.</p>
+      <div class="row gap-2 mt-3"><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-refresh"></i>Try again</button><button class="btn" data-variant="ghost" onclick="openFeedback('bug')">Report a problem</button></div>
+      <div class="state-meta">Error reference EF-3MDA</div>
+    </div></div>
+  </div>
+  <div data-state-view="noaccess">
+    <div class="card"><div class="state-panel" data-tone="lock">
+      <div class="s-art"><i class="hgi-stroke hgi-lock-key"></i></div>
+      <div class="card-title">People is not shared with your seat</div>
+      <p>Your seat can see meetings and tasks you are part of, but not the full list of people. An Owner can change this in Seats and invitations.</p>
+      <div class="row gap-2 mt-3"><button class="btn" data-variant="primary">Ask for access</button><a class="btn" data-variant="ghost" href="#/overview">Back to overview</a></div>
+    </div></div>
+  </div>
+  <div data-state-view="empty firstweek">
+    <div class="card"><div class="state-panel">
+      <div class="s-art"><i class="hgi-stroke hgi-user-multiple"></i></div>
+      <div class="card-title">No people yet</div>
+      <p>Start with the people you already know: friends, family and anyone who asked about the new church. Everyone starts as a prospect.</p>
+      <div class="row gap-2 mt-3"><a class="btn" data-variant="primary" href="#/people/import" data-edit><i class="hgi-stroke hgi-download-01"></i>Import a spreadsheet</a><button class="btn" data-variant="secondary" data-edit><i class="hgi-stroke hgi-user-add-01"></i>Add a person</button></div>
+      <div class="state-meta">Tip: export contacts from your phone or Google as a CSV file.</div>
+    </div></div>
+  </div>
+
 
   <div class="grid" style="grid-template-columns: 2fr 1fr; align-items: stretch">
     <div class="card" style="justify-content:center">
@@ -2117,7 +2243,7 @@ body[data-shell="bare"] .main { max-width: none; }
       <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">5</span><span style="color:var(--on-2);font-size:14px;max-width:210px">attendees came to 3 or more vision meetings and have no interview yet</span></div>
       <div class="insight-title" style="margin-top:12px">Invite them to an interview this week</div>
       <div class="row gap-2 mt-3"><div class="avatar-group"><span class="avatar tone-blue" data-size="sm">JO</span><span class="avatar tone-amber" data-size="sm">DK</span><span class="avatar tone-violet" data-size="sm">LP</span><span class="avatar tone-green" data-size="sm">RB</span><span class="avatar more" data-size="sm">+1</span></div></div>
-      <div class="insight-footer" style="padding-top:16px"><button class="btn" data-variant="light" data-size="sm">Plan interviews <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
+      <div class="insight-footer" style="padding-top:16px"><button class="btn" data-variant="light" data-size="sm" data-edit>Plan interviews <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
     </div>
   </div>
 
@@ -2197,8 +2323,8 @@ body[data-shell="bare"] .main { max-width: none; }
     <div class="page-actions">
       <button class="icon-btn"><i class="hgi-stroke hgi-mail-01"></i></button>
       <button class="icon-btn"><i class="hgi-stroke hgi-call"></i></button>
-      <button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-task-01"></i>Follow-up</button>
-      <button class="btn" data-variant="primary">Move to core group</button>
+      <button class="btn" data-variant="secondary" data-edit><i class="hgi-stroke hgi-task-01"></i>Follow-up</button>
+      <button class="btn" data-variant="primary" data-edit>Move to core group</button>
     </div>
   </header>
 
@@ -2217,7 +2343,7 @@ body[data-shell="bare"] .main { max-width: none; }
 
       <div class="grid g-2">
         <div class="card">
-          <div class="card-header"><div class="grow"><div class="card-title">The 4 C's</div><div class="card-description">Recorded by Daniel · Sep 30</div></div><button class="icon-btn" data-size="sm"><i class="hgi-stroke hgi-edit-02"></i></button></div>
+          <div class="card-header"><div class="grow"><div class="card-title">The 4 C's</div><div class="card-description">Recorded by Daniel · Sep 30</div></div><button class="icon-btn" data-size="sm" data-edit><i class="hgi-stroke hgi-edit-02"></i></button></div>
           <div class="stack" style="gap:14px">
             <div><div class="row between"><b style="font-weight:500">Committed</b><span class="badge" data-fill="soft" data-status="positive" data-size="sm">Clear</span></div><div class="progress mt-2" data-size="sm"><span style="width:90%"></span></div></div>
             <div><div class="row between"><b style="font-weight:500">Compelled</b><span class="badge" data-fill="soft" data-status="positive" data-size="sm">Clear</span></div><div class="progress mt-2" data-size="sm"><span style="width:80%"></span></div></div>
@@ -2240,7 +2366,7 @@ body[data-shell="bare"] .main { max-width: none; }
 
       <div class="card">
         <div class="card-header"><div class="grow"><div class="card-title">Activity</div></div><div class="tabs" style="border:0"><button aria-selected="true">All</button><button>Notes</button><button>Meetings</button><button>Email</button></div></div>
-        <div class="card-inset" style="margin-bottom:14px"><div class="row gap-3"><span class="avatar tone-green" data-size="sm">DR</span><span class="faint grow">Add a note about Maria…</span><button class="btn" data-variant="primary" data-size="sm">Save note</button></div></div>
+        <div class="card-inset" style="margin-bottom:14px" data-edit><div class="row gap-3"><span class="avatar tone-green" data-size="sm">DR</span><span class="faint grow">Add a note about Maria…</span><button class="btn" data-variant="primary" data-size="sm">Save note</button></div></div>
         <div class="list">
           <div class="list-row"><span class="card-icon tone-green"><i class="hgi-stroke hgi-file-02"></i></span><div class="grow"><div class="list-title">Signed the Core Group Commitment Card</div><div class="list-sub">Uploaded by Daniel · Oct 6</div></div><span class="faint t-sm">2 d</span></div>
           <div class="list-row"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-calendar-03"></i></span><div class="grow"><div class="list-title">Attended Vision meeting #11</div><div class="list-sub">Brought her sister, Lucia</div></div><span class="faint t-sm">9 d</span></div>
@@ -2255,10 +2381,10 @@ body[data-shell="bare"] .main { max-width: none; }
         <div class="insight-top"><span class="insight-pill"><span class="evry-bot" data-size="xs" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Evry summary</span></div>
         <div class="insight-title" style="margin-top:16px">Maria is ready for core group. One step is left.</div>
         <div class="insight-text">She signed her commitment card on Oct 6. Record it to move her stage and offer her the open vocalist role.</div>
-        <div class="insight-footer" style="padding-top:18px"><button class="btn" data-variant="light" data-size="sm">Record commitment <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm" onclick="openEvry()">Ask Evry</button></div>
+        <div class="insight-footer" style="padding-top:18px"><button class="btn" data-variant="light" data-size="sm" data-edit>Record commitment <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm" onclick="openEvry()">Ask Evry</button></div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="grow"><div class="card-title sm">Details</div></div><button class="icon-btn" data-size="sm"><i class="hgi-stroke hgi-edit-02"></i></button></div>
+        <div class="card-header"><div class="grow"><div class="card-title sm">Details</div></div><button class="icon-btn" data-size="sm" data-edit><i class="hgi-stroke hgi-edit-02"></i></button></div>
         <div class="list">
           <div class="kv"><span class="k">Email</span><span>maria@harvestpoint.org</span></div>
           <div class="kv"><span class="k">Phone</span><span>(512) 555-0142</span></div>
@@ -3405,6 +3531,10 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Document card</td><td><code class="k">&lt;DocCard&gt;</code> <code class=k>&lt;DocThumb&gt;</code> <code class=k>&lt;FormatChip&gt;</code></td><td class="muted t-sm">Stage, Thumb, Use, Formats, Name, Description</td><td class="muted t-sm">thumb page/quarter/sheet/grid-sheet · selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Radio (selection)</span></td></tr>
 <tr><td class="faint t-sm">Evry</td><td class="cell-title">Evry character</td><td><code class="k">&lt;EvryBot&gt;</code></td><td class="muted t-sm">Body, Face, Eyes, Mouth</td><td class="muted t-sm">size xs/sm/md/lg/xl · mood idle/thinking/talking/happy · follow</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none (CSS + small script)</span></td></tr>
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Legend count</td><td><code class="k">&lt;Legend.Count&gt;</code></td><td class="muted t-sm">Pill after the item name</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Feedback</td><td class="cell-title">State panel</td><td><code class="k">&lt;StatePanel tone&gt;</code></td><td class="muted t-sm">Art, Title, Text, Actions, Meta (reference)</td><td class="muted t-sm">tone error/lock/neutral</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Feedback</td><td class="cell-title">Role banner</td><td><code class="k">&lt;RoleBanner&gt;</code></td><td class="muted t-sm">Icon, Text, Action</td><td class="muted t-sm">role member</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Alert</span></td></tr>
+<tr><td class="faint t-sm">Content</td><td class="cell-title">Setup checklist</td><td><code class="k">&lt;SetupChecklist&gt;</code></td><td class="muted t-sm">Step: number, title, hint, action</td><td class="muted t-sm">done</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Zero metric</td><td><code class="k">&lt;Metric zero&gt;</code></td><td class="muted t-sm">Number, Explanation</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -3575,7 +3705,16 @@ body[data-shell="bare"] .main { max-width: none; }
   <a href="#/components" data-nav="components"><i class="hgi-stroke hgi-grid-view"></i>Components</a>
   <a href="#/inventory" data-nav="inventory"><i class="hgi-stroke hgi-list-view"></i>Inventory</a>
   <a href="#/mobile" data-nav="mobile"><i class="hgi-stroke hgi-smart-phone-01"></i>Mobile</a>
+  <span class="sep" aria-hidden="true"></span>
+  <button class="dd" id="preview-btn" aria-expanded="false" aria-controls="preview-pop" onclick="togglePreview(this)"><i class="hgi-stroke hgi-view"></i>Preview <span class="dd-val" id="preview-val">Owner · Live</span></button>
 </nav>
+<div class="preview-pop" id="preview-pop" data-open="false" role="dialog" aria-label="Preview states">
+  <h4>Role</h4>
+  <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · view only</button></div>
+  <h4>Data</h4>
+  <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
+  <p class="pp-note">Data states are drawn for Overview and People. Member view hides edit actions across the app.</p>
+</div>
 <!-- ================= BELL DROP-DOWN  <NotificationPopover> ================= -->
 <div class="float-pop popover" id="bell-pop" role="dialog" aria-label="Notifications">
   <div class="pop-head"><b style="font-weight:600">Notifications</b><button class="btn" data-variant="ghost" data-size="sm">Mark all read</button></div>
@@ -4181,13 +4320,32 @@ function makeKeyboardReachable(root) {
 }
 makeKeyboardReachable(document);
 /* Closed overlays are inert, so Tab never lands inside a hidden menu, panel or dialog. */
-const OVERLAYS = '.float-pop, .modal, .evry-panel';
+const OVERLAYS = '.float-pop, .modal, .evry-panel, .preview-pop';
 function syncInert(el) { el.inert = el.dataset.open !== 'true'; }
 document.querySelectorAll(OVERLAYS).forEach(el => { syncInert(el); new MutationObserver(() => syncInert(el)).observe(el, { attributes: true, attributeFilter: ['data-open'] }); });
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][tabindex="0"]:not(button):not(a)')) { e.preventDefault(); e.target.click(); }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[role="link"], .check[role="checkbox"]')) { e.preventDefault(); e.target.click(); if (e.target.matches('.check')) e.target.setAttribute('aria-checked', e.target.dataset.checked === 'true'); }
 });
+
+
+/* Preview states from the design dock: role and data state on <body>. */
+document.body.dataset.role = 'owner'; document.body.dataset.data = 'live';
+const PREVIEW_LABEL = { owner: 'Owner', member: 'Member', live: 'Live', firstweek: 'First week', loading: 'Loading', error: 'Error', noaccess: 'No access', empty: 'Empty' };
+function togglePreview(btn) {
+  const pop = document.getElementById('preview-pop'), open = pop.dataset.open !== 'true';
+  pop.dataset.open = open; btn.setAttribute('aria-expanded', open);
+  if (open) { const r = btn.getBoundingClientRect(); pop.style.left = Math.max(16, r.right - 330) + 'px'; pop.style.bottom = (innerHeight - r.top + 10) + 'px'; }
+}
+document.getElementById('preview-pop').addEventListener('click', e => {
+  const b = e.target.closest('.pp-opts button'); if (!b) return;
+  const key = b.parentElement.dataset.pp;
+  b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.body.dataset[key] = b.dataset.v;
+  document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data];
+  const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
+});
+document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
