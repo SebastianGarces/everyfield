@@ -1437,6 +1437,15 @@ body[data-shell="bare"] .main { max-width: none; }
 
 
 /* ---- Phone frames (mobile views) ---- */
+.phones-h { display: flex; align-items: baseline; gap: 12px; margin: 40px 0 18px; }
+.phones-h h2 { font-size: 24px; margin: 0; color: var(--ef-ink); }
+.ph-brand { display: flex; align-items: center; gap: 10px; }
+.ph-brand .church { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--ef-ink); color: var(--ef-on-ink); font-weight: 700; font-size: 12px; }
+.stepper { display: inline-flex; align-items: center; gap: 12px; }
+.stepper button { width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--ef-surface-2); color: var(--ef-ink); font-size: 18px; cursor: pointer; }
+.stepper b { min-width: 14px; text-align: center; font-variant-numeric: tabular-nums; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--ef-line); }
+.pref-row:first-child { border-top: 0; }
 .phones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; justify-items: center; }
 .phone-col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .phone { width: 330px; height: 680px; border-radius: 48px; background: #111318; padding: 12px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06) inset; position: relative; }
@@ -3429,7 +3438,7 @@ body[data-shell="bare"] .main { max-width: none; }
             <div class="kv" style="padding:10px 0"><span class="k row gap-2"><i class="hgi-stroke hgi-baby-01"></i>Childcare</span><span class="t-sm">Provided</span></div>
           </div>
           <div style="font-weight:600;margin-top:16px">Hi Kim, will you come?</div>
-          <div class="grid g-2 mt-3" style="gap:8px"><button class="btn" data-variant="primary">Yes, I'll come</button><button class="btn" data-variant="secondary">Can't make it</button></div>
+          <div class="stack mt-3" style="gap:8px"><button class="btn" data-variant="primary">Yes, I'll come</button><div class="grid g-2" style="gap:8px"><button class="btn" data-variant="secondary">Maybe</button><button class="btn" data-variant="secondary">Can't make it</button></div></div>
           <p class="faint t-xs mt-3" style="text-align:center">No account needed. This link is only for you and expires on Oct 12.</p>
         </div>
       </div></div>
@@ -3451,6 +3460,57 @@ body[data-shell="bare"] .main { max-width: none; }
         <button class="btn mt-3" data-variant="primary" style="width:100%">Save</button>
       </div></div>
       <div class="phone-cap"><b>Follow-up call</b><span>Records what happened, not just a tick.</span></div>
+    </div>
+  </div>
+
+  <div class="phones-h"><h2>Opened from an email</h2><span class="faint t-sm">No app, often no account. Each link is personal and expires.</span></div>
+  <div class="phones">
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen" style="padding:58px 18px 18px">
+        <div class="ph-brand"><svg viewBox="0 0 890 186" style="height:18px;color:var(--ef-ink)"><use href="#ef-wordmark"/></svg></div>
+        <div style="font-family:var(--ef-font-display);font-size:24px;line-height:1.15;margin-top:18px">Join Harvest Point Church</div>
+        <p class="muted t-sm" style="margin:8px 0 14px">Daniel Reyes invited you as an <b style="color:var(--ef-ink);font-weight:600">Admin</b>.</p>
+        <div class="stack" style="gap:10px">
+          <div class="field"><label class="field-label">Your name</label><div class="input" style="height:46px"><input value="Ana Lee"></div></div>
+          <div class="field"><label class="field-label">Email</label><div class="input" style="height:46px;background:var(--ef-surface-2)"><input value="ana.lee@gmail.com" readonly><i class="hgi-stroke hgi-lock-key" style="color:var(--ef-text-3)"></i></div></div>
+          <div class="field"><label class="field-label">Create a password</label><div class="input" style="height:46px"><input type="password" value="harvest-point"></div><span class="field-hint">At least 10 characters.</span></div>
+        </div>
+        <button class="btn mt-4" data-variant="primary" style="width:100%">Create account and join</button>
+        <p class="faint t-xs" style="text-align:center;margin:12px 0 0">Already use Everyfield? <a href="#/signin" style="text-decoration:underline">Sign in to accept</a></p>
+      </div></div>
+      <div class="phone-cap"><b>Accept a seat invitation</b><span>From the seat invitation email. Email is fixed to the invited address.</span></div>
+    </div>
+
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen" style="padding:58px 18px 18px">
+        <div class="ph-brand"><span class="church">HP</span><b style="font-weight:600">Harvest Point Church</b></div>
+        <div style="text-align:center;margin:22px 0 6px"><span style="width:52px;height:52px;border-radius:50%;background:var(--ef-green-500);display:inline-grid;place-items:center"><i class="hgi-stroke hgi-tick-02" style="font-size:26px;color:#181D19"></i></span><div style="font-family:var(--ef-font-display);font-size:24px;margin-top:10px">See you Sunday, Kim</div><div class="faint t-sm">Vision meeting · Oct 12, 6:30 pm</div></div>
+        <div class="card-inset mt-3" style="padding:12px 14px">
+          <div class="row between"><span class="t-sm">Adults</span><span class="stepper"><button aria-label="Fewer adults">−</button><b>2</b><button aria-label="More adults">+</button></span></div>
+          <div class="row between mt-3"><span class="t-sm">Children</span><span class="stepper"><button aria-label="Fewer children">−</button><b>1</b><button aria-label="More children">+</button></span></div>
+        </div>
+        <div class="faint t-xs mt-4" style="margin-bottom:6px">Change your answer</div>
+        <div class="segmented" style="width:100%"><button aria-selected="true" style="flex:1">Coming</button><button style="flex:1">Maybe</button><button style="flex:1">Can't</button></div>
+        <button class="btn mt-4" data-variant="secondary" style="width:100%"><i class="hgi-stroke hgi-calendar-03"></i>Add to calendar</button>
+      </div></div>
+      <div class="phone-cap"><b>RSVP confirmed</b><span>From the confirmation email. Change the answer or headcount until the meeting starts.</span></div>
+    </div>
+
+    <div class="phone-col">
+      <div class="phone"><div class="phone-notch"></div><div class="phone-screen" style="padding:58px 18px 18px">
+        <div class="ph-brand"><span class="church">HP</span><b style="font-weight:600">Harvest Point Church</b></div>
+        <div style="font-family:var(--ef-font-display);font-size:24px;line-height:1.15;margin-top:18px">Email from Harvest Point</div>
+        <p class="muted t-sm" style="margin:8px 0 10px">For maria@harvestpoint.org. Choose what you want to get.</p>
+        <div class="card-inset" style="padding:4px 14px">
+          <div class="pref-row"><div><div style="font-weight:500">Meeting invitations</div><div class="faint t-xs">Vision meetings and gatherings</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Meeting invitations"></button></div>
+          <div class="pref-row"><div><div style="font-weight:500">Announcements</div><div class="faint t-xs">News from Daniel and the team</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Announcements"></button></div>
+          <div class="pref-row"><div><div style="font-weight:500">Reminders</div><div class="faint t-xs">The day before something you said yes to</div></div><button class="switch" role="switch" aria-checked="false" aria-label="Reminders"></button></div>
+        </div>
+        <button class="btn mt-4" data-variant="primary" style="width:100%">Save choices</button>
+        <button class="btn mt-2" data-variant="ghost" style="width:100%;color:var(--ef-magenta-600)">Stop all email from Harvest Point</button>
+        <p class="faint t-xs" style="text-align:center;margin:8px 0 0">Messages about your own account still arrive.</p>
+      </div></div>
+      <div class="phone-cap"><b>Email preferences</b><span>From the footer of every church email. No sign-in needed.</span></div>
     </div>
   </div>
 </section>
