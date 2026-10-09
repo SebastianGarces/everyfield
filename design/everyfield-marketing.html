@@ -947,16 +947,16 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
 .cx-bar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--mk-line); }
 .cx-bar i { position: absolute; inset: 0; border-radius: 2px; background: var(--mk-text); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
-.cx-auto .cx-num { display: flex; }
-.cx-auto .cx-step .h3 { margin-top: 10px; font-size: var(--cx-h3); }
+/* Revision 17: no number and label row; each step starts with its title. */
+.cx-auto .cx-step .h3 { margin-top: 0; font-size: var(--cx-h3); }
 .cx-auto .cx-p { margin-top: 8px; color: var(--mk-text-2); max-width: 46ch; }
 .cx-auto .cx-tab:hover .cx-txt { opacity: 1; }
 .cx-auto .cx-vis { position: relative; top: auto; height: 560px; min-height: 0; }
+/* Revision 17: without the label row the list is shorter; more padding on desktop keeps it close to the 560 px panel. */
+@media (min-width: 901px) { .cx-auto .cx-tab { padding: 31px 0 33px; } }
 @media (max-width: 900px) {
   .cx-auto .cx-right { display: block; grid-column: 1 / -1; }
   .cx-auto .cx-step:not(.on) .cx-txt { opacity: .32; }
-  .cx-auto .cx-num b { background: var(--mk-surface-2); color: var(--mk-text); }
-  .cx-auto .cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
   .cx-auto .cx-vis { height: auto; min-height: 0; padding: 44px 16px 28px; border-radius: 26px; grid-template-columns: minmax(0, 1fr); }
   .cx-auto .cx-card { width: min(400px, 100%); }
 }
@@ -1280,6 +1280,10 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Record each commitment and watch both teams grow as you get closer to launch."
         }
       ]
+    },
+    "intelligence": {
+      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. The step copy is still draft in the HTML.",
+      "title": "Know your next step, and why."
     },
     "trust_page": {
       "eyebrow": "Privacy and trust",
@@ -2179,7 +2183,7 @@ var CX_MARK = {
       '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div>';
   },
   facts: function () {
-    var kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>'], ["Rubric version", "v1", ""]];
+    var kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>']];
     var names = [["JO", "James Okafor"], ["KW", "Kim Wu"], ["SN", "Sara Nunez"]];
     return cxHead(cxIcon("tone-amber", "alert"), "Follow-up is slipping", "The facts this finding used") +
       '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct"><span data-n="pct">0</span>%</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
@@ -2202,16 +2206,17 @@ var CX_MARK = {
       cxSwap('<span class="badge" data-size="sm" data-status="unknown">Health not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
   }
 };
-/* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times. */
+/* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times.
+   end (Revision 17, Plant Intelligence panels only): the time the last motion finishes; the panel plays once to it and holds. still = end there. */
 var CX_SCN = {
   people: { L: 6400, still: 4200, cur: [[0, "rest"], [700, "rest"], [1500, ".cx-t0"], [2500, ".cx-t0"], [3300, "rest"]], clicks: [2000] },
   meet: { L: 7200, still: 5600, cur: [[0, "rest"], [400, "rest"], [1000, ".cx-t0"], [2300, ".cx-t0"], [3100, ".cx-t1"], [3700, ".cx-t1"], [4500, "rest"]], clicks: [1100, 3300] },
   follow: { L: 8600, still: 6500, cur: [[0, "mid"], [3700, "mid"], [4500, ".cx-t0"], [5400, ".cx-t0"], [6200, "mid"]], clicks: [4900] },
   teams: { L: 7600, still: 6000, cur: [[0, "rest"], [700, "rest"], [1400, ".cx-t0"], [2100, ".cx-t0"], [2900, ".cx-t1"], [3800, ".cx-t1"], [4600, "rest"]], clicks: [1700, 3300] },
-  focus: { L: 6800, still: 4400, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
-  facts: { L: 6600, still: 4400, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
-  evry: { L: 8400, still: 6400, cur: [[0, "rest"], [3900, "rest"], [4700, ".cx-t0"], [5600, ".cx-t0"], [6400, "rest"]], clicks: [5100] },
-  share: { L: 6600, still: 4400, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] }
+  focus: { L: 6800, still: 3700, end: 3700, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
+  facts: { L: 6600, still: 3600, end: 3600, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
+  evry: { L: 8400, still: 6400, end: 6400, cur: [[0, "rest"], [3900, "rest"], [4700, ".cx-t0"], [5600, ".cx-t0"], [6400, "rest"]], clicks: [5100] },
+  share: { L: 6600, still: 3500, end: 3500, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] }
 };
 /* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
 var WK = COPY.shared.week;
@@ -2229,9 +2234,9 @@ function cxTitle(title, words) {
 }
 var CX_DEFS = {
   week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
-  intelligence: { title: "One focus a week, with the facts behind it.", auto: true, steps: [
+  intelligence: { title: COPY.shared.intelligence.title, auto: true, steps: [
     ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
-    ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
+    ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used, so you can check it."],
     ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
     ["share", "dawn", "Sharing", "You see it first.", "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."]] }
 };
@@ -2254,7 +2259,7 @@ function autoSection(id, cls, d) {
   return '<section class="sec cx cx-auto ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-head"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2></div>" +
     '<div class="cx-grid"><div class="cx-left"><ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
-        '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
+        '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
     }).join("") + "</ol></div>" +
     '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
@@ -2501,7 +2506,7 @@ function cxFrame(now) {
       any = true;
       if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       var I = ch.insts[ch.active];
-      ch.since += dt; I.t = (I.t + dt) % CX_SCN[I.kind].L;
+      ch.since += dt; I.t = ch.auto ? Math.min(I.t + dt, CX_SCN[I.kind].end) : (I.t + dt) % CX_SCN[I.kind].L;
       cxRender(ch); if (ch.auto) cxBars(ch);
     }
     ch.mobs.forEach(function (M) {
@@ -2569,12 +2574,13 @@ function cxPaintAll() {
     cxRender(ch); ch.mobs.forEach(cxRenderMob); if (ch.auto) cxBars(ch);
   });
 }
-/* Revision 10 auto list. Each step's progress lasts its panel loop (CX_SCN L) plus 600 ms for the card to come in,
-   so the loop plays once in full: focus 7400 ms, facts 7200 ms, evry 9000 ms, share 7200 ms.
+/* Revision 17 auto list. When a step becomes active its panel plays once from the start to its CX_SCN end and holds that frame.
+   Panel lengths: focus 3700 ms, facts 3600 ms, evry 6400 ms, share 3500 ms. Every step lasts the longest (6400 ms) plus a 1200 ms hold: 7600 ms.
    Revision 11: no pause on hover (a pointer resting over the section while the wheel scrolls stalled the progress).
    Progress runs while any part of the section is on screen, holds only when it is fully off screen or a tab has keyboard focus, and then resumes where it stopped.
    Reduced motion: no advance and no fill; the active line is full and clicks switch steps. */
-function cxDur(ch) { return CX_SCN[ch.insts[ch.active].kind].L + 600; }
+var CX_AUTO_DUR = 7600;
+function cxDur() { return CX_AUTO_DUR; }
 function cxBars(ch) {
   var p = REDUCED.matches ? 1 : haClamp(ch.prog / cxDur(ch));
   ch.bars.forEach(function (b, i) { haSet(b, "transform", "scaleX(" + (i === ch.active ? p : 0).toFixed(4) + ")"); });
@@ -2583,7 +2589,8 @@ function cxTabs(ch) {
   ch.tabs.forEach(function (b, i) { b.setAttribute("aria-selected", String(i === ch.active)); b.tabIndex = i === ch.active ? 0 : -1; });
   ch.vis.setAttribute("aria-labelledby", ch.tabs[ch.active].id);
 }
-function cxAutoGo(ch, k) { ch.prog = 0; cxSetActive(ch, k); cxBars(ch); cxKick(); }
+/* A click on the active step restarts its panel too. */
+function cxAutoGo(ch, k) { ch.prog = 0; if (k === ch.active && !REDUCED.matches) ch.insts[k].t = 0; cxSetActive(ch, k); cxRender(ch); cxBars(ch); cxKick(); }
 function cxAutoBind(ch) {
   var root = ch.root; root.__auto = ch;
   if (root.__bound) return;

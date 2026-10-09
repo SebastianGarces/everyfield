@@ -102,6 +102,10 @@
         }
       ]
     },
+    "intelligence": {
+      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. The step copy is still draft in the HTML.",
+      "title": "Know your next step, and why."
+    },
     "trust_page": {
       "eyebrow": "Privacy and trust",
       "headline": "Who sees what in EveryField.",
