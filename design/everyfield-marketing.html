@@ -429,24 +429,12 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .feat-label { font-size: var(--mk-fs-eyebrow); font-weight: 600; color: var(--mk-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); }
 .feat p { color: var(--mk-text-2); }
 
-/* Marketing v14: three review designs for the phases section (A track, B bento, C rail).
-   The switcher (.ph-rv) is a review control. It sits in the section's top padding, so it adds no height. */
+/* Marketing v15: the phases section is a rail of six cards. */
 .ph-sec .sec-head { margin-bottom: clamp(28px, 3.4vw, 48px); }
-.ph-rv { position: absolute; z-index: 3; top: clamp(18px, calc(var(--mk-section-space) / 2 - 20px), 44px); right: max(var(--mk-page-pad), calc((100% - var(--mk-max-width)) / 2 + var(--mk-page-pad)));
-  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #181D19; color: #FFFFFF; font: 500 12.5px/1 var(--mk-font-body); box-shadow: 0 0 0 1px rgba(255,196,138,.55), 0 10px 22px -12px rgba(24,29,25,.6); }
-.ph-rv .ph-rl { display: inline-flex; align-items: center; gap: 6px; padding: 0 9px 0 10px; font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #FFC48A; }
-.ph-rv .ph-rl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #FFC48A; }
-.ph-rv button { height: 28px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.72); font: inherit; cursor: pointer; white-space: nowrap; }
-.ph-rv button b { font-weight: 700; margin-right: 2px; }
-.ph-rv button:hover { color: #FFFFFF; }
-.ph-rv button[aria-pressed="true"] { background: #FFFFFF; color: #181D19; }
-.ph-rv button:focus-visible { outline: 2px solid #FFC48A; outline-offset: 1px; }
 .ph-n { color: var(--mk-text-3); font-variant-numeric: tabular-nums; }
 
 /* Mini product vignettes (sample data, same church as the Monday dashboard) */
-.ef .pv { background: #FFFFFF; border-radius: 18px; padding: 16px 18px 18px; box-shadow: 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -22px rgba(24,29,25,.42); color: var(--ef-text); font-size: 13px; line-height: 1.4; }
-.ef .pv[data-c] { padding: 14px 15px 15px; }
-.ef .pv[data-c] .pv-x { display: none; }
+.ef .pv { background: #FFFFFF; border-radius: 18px; padding: 14px 15px 15px; box-shadow: 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -22px rgba(24,29,25,.42); color: var(--ef-text); font-size: 13px; line-height: 1.4; }
 .ef .pv-h { display: flex; align-items: center; gap: 10px; }
 .ef .pv-h .card-icon { width: 34px; height: 34px; }
 .ef .pv-h .card-icon svg.i, .ef .pv-in .card-icon svg.i { width: 16px; height: 16px; }
@@ -487,122 +475,32 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ef .pv-bars b { position: absolute; top: 7px; left: 0; right: 0; text-align: center; color: #FFFFFF; font-size: 11px; font-weight: 600; }
 .ef .pv-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ef-text-3); margin-top: 8px; }
 
-/* A. Phase track: six segments, one active phase, a gradient detail panel. Advances by itself (same rules as Plant Intelligence). */
-.pha-track { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.pha-tab { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 0 0 4px; border: 0; background: none; font: inherit; color: var(--mk-text-3); text-align: left; cursor: pointer; }
-.pha-lbl { display: flex; align-items: baseline; gap: 10px; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.3; transition: color .3s var(--mk-ease); }
-.pha-n { font-size: 12.5px; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
-.pha-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pha-tab:hover, .pha-tab.done, .pha-tab[aria-selected="true"] { color: var(--mk-text); }
-.pha-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 5px; border-radius: 6px; }
-.pha-bar { position: relative; display: block; height: 8px; border-radius: 99px; background: #ECE9E2; overflow: hidden; transition: background-color .3s var(--mk-ease); }
-.pha-tab.done .pha-bar { background: #181D19; }
-.pha-tab[aria-selected="true"] .pha-bar { background-color: #DCFAE7; background-image: repeating-linear-gradient(-45deg, rgba(15,126,60,.32) 0, rgba(15,126,60,.32) 1.6px, transparent 2.6px, transparent 5.5px); }
-.pha-bar i { position: absolute; inset: 0; border-radius: inherit; background: var(--mk-accent); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
-.pha-panel { position: relative; display: grid; margin-top: 24px; border-radius: 30px; overflow: hidden; isolation: isolate; box-shadow: 0 26px 50px -30px rgba(24,29,25,.42); }
-.pha-bg.gsurf { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .7s var(--mk-ease); }
-.pha-bg.on { opacity: 1; }
-.pha-pane { grid-area: 1 / 1; position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 5fr); gap: 48px; align-items: center; padding: 44px 52px; color: #181D19;
-  opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity .4s var(--mk-ease), transform .6s var(--mk-ease), visibility 0s linear .6s; }
-.pha-pane.on { opacity: 1; visibility: visible; transform: none; transition: opacity .5s var(--mk-ease) .1s, transform .6s var(--mk-ease) .1s, visibility 0s; }
-.pha-pill { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(24,29,25,.07); box-shadow: 0 0 0 1px rgba(24,29,25,.16) inset; font-weight: 600; font-size: 13px; }
-.pha-pill svg.i { width: 16px; height: 16px; }
-.pha-copy h3 { margin-top: 20px; font-size: clamp(28px, 2.7vw, 42px); line-height: 1.08; letter-spacing: -0.03em; max-width: 16ch; }
-.pha-copy p { margin-top: 14px; font-size: 17px; line-height: 1.55; color: rgba(24,29,25,.76); max-width: 46ch; }
-.pha-vig { justify-self: end; width: min(420px, 100%); }
-.pha-vig .pv { padding: 20px 22px 22px; }
-
-/* B. Bento: two rows, unequal cards. Gradient cards carry a vignette; white cards play with the number. */
-.phb { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(228px, auto)); gap: var(--mk-gutter); }
-.phb-c { position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden; border-radius: var(--mk-radius-card); padding: 24px 26px; }
-.phb-c:nth-child(1) { grid-column: 1 / 5; }
-.phb-c:nth-child(2) { grid-column: 5 / 10; }
-.phb-c:nth-child(3) { grid-column: 10 / 13; }
-.phb-c:nth-child(4) { grid-column: 1 / 6; }
-.phb-c:nth-child(5) { grid-column: 6 / 10; }
-.phb-c:nth-child(6) { grid-column: 10 / 13; }
-.phb-w { background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); }
-.phb-copy { position: relative; z-index: 1; }
-.phb-c h3 { margin-top: 12px; font-size: clamp(21px, 1.65vw, 25px); }
-.phb-c p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
-.phb-g { color: #181D19; }
-.phb-g .feat-label, .phb-g .ph-n { color: rgba(24,29,25,.66); }
-.phb-g p { color: rgba(24,29,25,.76); }
-.phb-g .phb-copy { max-width: 46%; }
-.phb-g .phb-vig { position: absolute; z-index: 1; top: 22px; right: 22px; width: calc(54% - 34px); }
-.phb-c:nth-child(6) .phb-copy { max-width: none; }
-.phb-c:nth-child(6) .phb-vig { top: 136px; left: 26px; right: 26px; width: auto; }
-.phb-num { position: absolute; z-index: 0; font-family: var(--mk-font-display); font-weight: 500; line-height: .8; letter-spacing: -0.06em; font-variant-numeric: tabular-nums; pointer-events: none; }
-.phb-o .phb-copy { max-width: 64%; }
-.phb-o .phb-num { right: -18px; bottom: -26px; font-size: 230px; color: transparent; -webkit-text-stroke: 1.5px rgba(24,29,25,.2); }
-.phb-s { justify-content: flex-end; }
-.phb-s .phb-num { top: -16px; right: -10px; font-size: 190px; color: #F2EFE8; }
-.phb-h { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
-.phb-h .phb-num { position: static; font-size: 150px; color: transparent; background: repeating-linear-gradient(-45deg, #0F7E3C 0, #0F7E3C 2.4px, transparent 3.4px, transparent 8px); -webkit-background-clip: text; background-clip: text; padding: 8px 0 4px; }
-
-/* C. Rail: six tall cards in a scroll-snap row that bleeds off the right edge. The first card lines up with the content column. */
-.phc-ctl { grid-column: 10 / span 3; justify-self: end; align-self: end; display: flex; align-items: center; gap: 10px; }
-.phc-prog { position: relative; width: 104px; height: 3px; margin-right: 10px; border-radius: 3px; background: var(--mk-line-strong); overflow: hidden; }
-.phc-prog i { position: absolute; top: 0; bottom: 0; left: 0; width: 50%; border-radius: 3px; background: var(--mk-ink); }
-.phc-btn { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--mk-line-strong); background: var(--mk-surface); color: var(--mk-ink); cursor: pointer; box-shadow: var(--mk-shadow-card); transition: opacity .2s var(--mk-ease), background-color .2s var(--mk-ease); }
-.phc-btn:hover { background: #F5F3EE; }
-.phc-btn[aria-disabled="true"] { opacity: .35; cursor: default; box-shadow: none; }
-.phc-btn svg.i { width: 19px; height: 19px; }
-.phc-btn.prev svg.i { transform: scaleX(-1); }
-.phc-btn:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+/* Rail: six tall cards in a scroll-snap row that bleeds off the right edge. The first card lines up with the content column. */
 .phc-rail { --phc-in: max(var(--mk-page-pad), calc((100% - var(--mk-max-width)) / 2 + var(--mk-page-pad)));
   overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: var(--phc-in); overscroll-behavior-x: contain; scrollbar-width: none; padding: 6px var(--phc-in) 22px; cursor: grab; }
 .phc-rail::-webkit-scrollbar { display: none; }
 .phc-rail.drag { scroll-snap-type: none; cursor: grabbing; user-select: none; }
-.phc-rail:focus-visible { outline: none; }
-.phc-rail:focus-visible .phc-card { box-shadow: 0 0 0 2px #181D19; }
 .phc-list { display: flex; gap: var(--mk-gutter); width: max-content; }
-.phc-card { scroll-snap-align: start; display: flex; flex-direction: column; width: clamp(272px, 26vw, 372px); height: 444px; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
+.phc-card { scroll-snap-align: start; display: flex; flex-direction: column; width: clamp(296px, 26vw, 372px); height: 444px; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
+.phc-card:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+/* Card art: the number sits top left; the vignette is centered below it and is cropped by the bottom of the art. */
 .phc-art.gsurf { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: 20px; }
-.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 120px; font-weight: 500; line-height: .8; letter-spacing: -0.06em; color: #181D19; font-variant-numeric: tabular-nums; }
-.phc-vig { position: absolute; right: 16px; bottom: -22px; width: 70%; }
+.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 500; line-height: .8; letter-spacing: -0.06em; color: #181D19; font-variant-numeric: tabular-nums; }
+.phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
 .phc-txt { padding: 20px 22px 22px; }
+/* Pinned mode (desktop, no reduced motion). The pin is a tall track (frame height + travel, set by JS); the frame is sticky
+   at the week chapter's clear space below the nav. --phc-start is where the first card's left edge sits when the section pins. */
+.ph-sec { --phc-top: clamp(148px, 2.5vw + 126px, 162px); --phc-start: .55; }
+.ph-sec.pinned .phc-frame { position: sticky; top: var(--phc-top); }
+.ph-sec.pinned .phc-rail { overflow: clip; scroll-snap-type: none; cursor: auto; }
+.ph-sec.pinned .phc-list { will-change: transform; }
 .phc-txt h3 { margin-top: 10px; font-size: clamp(21px, 1.65vw, 25px); }
 .phc-txt p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
 
-@media (max-width: 1024px) {
-  .pha-lbl { font-size: 13.5px; gap: 7px; }
-  .pha-pane { gap: 28px; padding: 36px; }
-  .phb { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(236px, auto); }
-  .phb-c:nth-child(n) { grid-column: auto; }
-  .phb-g .phb-copy { max-width: none; }
-  .phb-g .phb-vig, .phb-c:nth-child(6) .phb-vig { position: relative; top: auto; right: auto; bottom: auto; left: auto; width: auto; max-width: 340px; margin: 18px 0 -46px; }
-  .phb-o .phb-copy { max-width: none; }
-  .phb-o .phb-num { font-size: 132px; bottom: -18px; }
-  .phb-o { padding-bottom: 104px; }
-  .phb-h .phb-num { font-size: 104px; }
-  .phc-ctl { grid-column: 1 / -1; justify-self: start; margin-top: 18px; }
-}
-@media (max-width: 900px) {
-  .pha-pane { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 28px 24px 26px; align-items: start; align-content: start; }
-  .pha-vig { justify-self: stretch; width: 100%; max-width: 420px; }
-}
 @media (max-width: 640px) {
   .ph-sec .sec-head { margin-bottom: 26px; }
-  .ph-rv { font-size: 12px; }
-  .ph-rv button { padding: 0 9px; }
-  .pha-track { gap: 6px; }
-  .pha-tab { gap: 9px; }
-  .pha-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .pha-bar { height: 6px; }
-  .pha-panel { margin-top: 18px; border-radius: 24px; }
-  .pha-copy h3 { margin-top: 16px; font-size: 27px; }
-  .pha-copy p { font-size: 15.5px; }
-  .phb { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
-  .phb-c { padding: 22px; min-height: 0; }
-  .phb-s { min-height: 200px; }
-  .phb-s .phb-num { font-size: 160px; }
-  .phb-h { gap: 16px; }
-  .phb-h .phb-num { font-size: 104px; }
-  .phc-card { width: min(78vw, 320px); height: auto; }
+  .phc-card { width: min(82vw, 320px); height: auto; }
   .phc-art.gsurf { height: 200px; }
-  .phc-num { font-size: 108px; }
-  .phc-btn { width: 42px; height: 42px; }
 }
 
 /* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
@@ -1742,7 +1640,7 @@ function logo(extra) {
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-var state = { page: "home", story: "journey", at: "", ph: "a" };
+var state = { page: "home", story: "journey", at: "" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -1753,8 +1651,7 @@ function parseHash() {
   return {
     page: PAGE[path] ? path : "home",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
-    at: params.get("at") || "",
-    ph: /^[abc]$/.test(params.get("phases") || "") ? params.get("phases") : "a"
+    at: params.get("at") || ""
   };
 }
 function hrefFor(page, at, over) {
@@ -1762,7 +1659,6 @@ function hrefFor(page, at, over) {
   var p = new URLSearchParams();
   p.set("story", s.story);
   if (at) p.set("at", at);
-  if (s.ph && s.ph !== "a") p.set("phases", s.ph);
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
 function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
@@ -2808,34 +2704,32 @@ function features(f, opts) {
       return '<li class="feat"><span class="feat-tag"><span class="feat-num"></span><span class="feat-label">' + t(it.label) + '</span></span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></li>";
     }).join("") + "</ol></div></section>";
 }
-/* ---------- Marketing v14: three review designs for the phases section ----------
-   A track (auto-advancing tabs), B bento, C rail. The review switcher stores the choice as ?phases=a|b|c in the hash (default a).
-   A follows the Plant Intelligence rules: progress runs while any part of it is on screen, holds when it is fully off screen,
-   the page is hidden or a tab has keyboard focus; click selects; reduced motion means no advance and a full active segment. */
+/* ---------- Marketing v15: the phases section is a rail of six cards ----------
+   Desktop (above 900 px, no reduced motion): the section pins below the floating nav and vertical scroll moves the rail
+   left 1:1 (tall outer track, sticky frame, translateX from scroll progress). Narrow screens and reduced motion: a native
+   horizontal rail with scroll-snap, mouse drag, touch swipe and arrow keys. In both modes each card takes focus. */
 var PH_TONES = ["sky", "field", "dawn", "lilac", "field", "sky"];
-var PH_ICONS = ["book", "users", "calendar", "users", "task", "heart"];
-var PH_B = ["o", "g", "s", "g", "h", "g"];
-var PH_DUR = 6800;
-var PH = { args: null, root: null, raf: 0, io: null, ro: null, on: false, kbd: false, active: 0, prog: 0, last: 0, tabs: [], bars: [], panes: [], bgs: [] };
+var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
+var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
 function phNum(i) { return (i < 9 ? "0" : "") + (i + 1); }
-function phTag(i, it, noNum) { return '<span class="feat-tag">' + (noNum ? "" : '<span class="ph-n">' + phNum(i) + "</span>") + '<span class="feat-label">' + t(it.label) + "</span></span>"; }
+function phTag(i, it) { return '<span class="feat-tag"><span class="ph-n">' + phNum(i) + '</span><span class="feat-label">' + t(it.label) + "</span></span>"; }
 function pvHead(ic, tone, title, sub, right) {
   return '<div class="pv-h"><span class="card-icon ' + tone + '">' + icon(ic) + '</span><div class="grow"><div class="pv-t">' + title + '</div><div class="pv-s">' + sub + "</div></div>" + (right || "") + "</div>";
 }
-function phVig(i, compact) {
+function phVig(i) {
   var b = "";
   if (i === 0) {
-    b = pvHead("book", "tone-blue", "Guidance", "Phase 0 · Discovery", '<span class="pv-x">' + phaseMini(0) + "</span>") + '<div class="pv-b">' +
-      [[80, 54, 1], [72, 46, 0], [66, 40, 0]].map(function (r, k) {
-        return '<div class="pv-read' + (r[2] ? " on" : "") + (k === 2 ? " pv-x" : "") + '"><span class="pv-ri">' + icon(r[2] ? "book" : "check") + '</span><span class="grow"><i style="width:' + r[0] + '%"></i><i style="width:' + r[1] + '%"></i></span>' + (r[2] ? '<span class="pv-now">Now</span>' : "") + "</div>";
+    b = pvHead("book", "tone-blue", "Guidance", "Discovery") + '<div class="pv-b">' +
+      [[80, 54, 1], [72, 46, 0]].map(function (r) {
+        return '<div class="pv-read' + (r[2] ? " on" : "") + '"><span class="pv-ri">' + icon(r[2] ? "book" : "check") + '</span><span class="grow"><i style="width:' + r[0] + '%"></i><i style="width:' + r[1] + '%"></i></span>' + (r[2] ? '<span class="pv-now">Now</span>' : "") + "</div>";
       }).join("") + "</div>";
   } else if (i === 1) {
     b = pvHead("users", "tone-green", "Core group", "Signed commitments") +
       '<div class="pv-stat"><span class="num">34</span><span class="delta" data-dir="up">9 people</span></div>' +
-      '<div class="pv-in"><span class="card-icon tone-green">' + icon("task") + '</span><div class="grow"><div class="pv-it">Vision meeting #11 closed</div><div class="pv-s">9 follow-up tasks created</div></div></div>';
+      '<div class="pv-in"><span class="card-icon tone-green">' + icon("task") + '</span><div class="grow"><div class="pv-it">Vision meeting closed</div><div class="pv-s">9 follow-up tasks</div></div></div>';
   } else if (i === 2) {
-    var seats = [["Worship", "MS", "tone-violet"], ["Kids", ""], ["Hospitality", "JO", "tone-blue"], ["Prayer", "RA", "tone-amber"], ["Tech", "KL", "tone-teal"], ["Outreach", "TB", "tone-green"], ["Setup", "AP", "tone-magenta"], ["Admin", "LC", "tone-ink"]];
-    b = pvHead("calendar", "tone-amber", "Ministry areas", "Launch Sunday · Mar 14, 2027", '<span class="pv-k">7 of 8</span>') + '<div class="pv-seats">' +
+    var seats = [["Worship", "MS", "tone-violet"], ["Kids", ""], ["Welcome", "JO", "tone-blue"], ["Prayer", "RA", "tone-amber"], ["Tech", "KL", "tone-teal"], ["Outreach", "TB", "tone-green"], ["Setup", "AP", "tone-magenta"], ["Admin", "LC", "tone-ink"]];
+    b = pvHead("calendar", "tone-amber", "Ministry areas", "Launch Sunday, Mar 14", '<span class="pv-k">7 of 8</span>') + '<div class="pv-seats">' +
       seats.map(function (s) { return '<div class="pv-seat' + (s[1] ? "" : " open") + '">' + (s[1] ? '<span class="avatar ' + s[2] + '">' + s[1] + "</span>" : '<span class="pv-empty">+</span>') + '<span class="pv-sn">' + s[0] + "</span></div>"; }).join("") + "</div>";
   } else if (i === 3) {
     b = pvHead("users", "tone-violet", "Training", "Who has finished") + '<div class="pv-b">' +
@@ -2844,134 +2738,94 @@ function phVig(i, compact) {
       }).join("") + "</div>";
   } else if (i === 4) {
     b = pvHead("task", "tone-blue", "Launch milestones", "3 of 5 done") + '<div class="pv-b">' +
-      [["Venue booked", 1], ["Invite cards printed", 1], ["Email to your people", 1], ["Sound check", 0], ["Kids check-in ready", 0]].map(function (r, k) {
-        return '<div class="pv-ck' + (r[1] ? " done" : "") + (k > 3 ? " pv-x" : "") + '"><span class="pv-box">' + (r[1] ? icon("check") : "") + "</span>" + r[0] + "</div>";
+      [["Venue booked", 1], ["Invite cards printed", 1], ["Email to your people", 1], ["Sound check", 0]].map(function (r) {
+        return '<div class="pv-ck' + (r[1] ? " done" : "") + '"><span class="pv-box">' + (r[1] ? icon("check") : "") + "</span>" + r[0] + "</div>";
       }).join("") + "</div>";
   } else {
-    b = pvHead("calendar", "tone-green", "Launch Sunday", "Mar 14, 2027", '<span class="badge pv-x" data-size="sm" data-status="positive">Recorded</span>') + '<div class="pv-bars">' +
+    b = pvHead("calendar", "tone-green", "Launch Sunday", "Mar 14, 2027") + '<div class="pv-bars">' +
       [100, 70, 76, 79, 83, 88].map(function (h, k) { return '<span class="' + (k ? "hatch" : "solid") + '" style="height:' + h + '%">' + (k ? "" : "<b>186</b>") + "</span>"; }).join("") +
       '</div><div class="pv-axis"><span>Launch</span><span>Week 6</span></div>';
   }
-  return '<div class="pv"' + (compact ? " data-c" : "") + ">" + b + "</div>";
-}
-function phReview(v) {
-  return '<div class="ph-rv" role="group" aria-label="Review control, not part of the page: phases section layout"><span class="ph-rl">Review</span>' +
-    [["a", "Track"], ["b", "Bento"], ["c", "Rail"]].map(function (o) { return '<button type="button" data-phv="' + o[0] + '" aria-pressed="' + (o[0] === v) + '"><b>' + o[0].toUpperCase() + "</b> " + o[1] + "</button>"; }).join("") + "</div>";
-}
-function phA(f) {
-  var it = f.items;
-  return '<div class="pha"><div class="pha-track" role="tablist" aria-labelledby="ph-title">' + it.map(function (x, i) {
-    return '<button type="button" class="pha-tab" role="tab" id="pha-tab-' + i + '" aria-controls="pha-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
-      '<span class="pha-lbl"><span class="pha-n">' + phNum(i) + '</span><span class="pha-name">' + t(x.label) + '</span></span><span class="pha-bar" aria-hidden="true"><i></i></span></button>';
-  }).join("") + '</div><div class="pha-panel" role="tabpanel" id="pha-panel" aria-labelledby="pha-tab-0">' +
-    it.map(function (x, i) { return '<span class="pha-bg gsurf' + (i ? "" : " on") + '" data-tone="' + PH_TONES[i] + '" aria-hidden="true"></span>'; }).join("") +
-    it.map(function (x, i) {
-      return '<div class="pha-pane' + (i ? "" : " on") + '"><div class="pha-copy"><span class="pha-pill">' + icon(PH_ICONS[i]) + phNum(i) + " · " + t(x.label) + '</span><h3 class="display">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>" +
-        '<div class="pha-vig ef" aria-hidden="true">' + phVig(i) + "</div></div>";
-    }).join("") + "</div></div>";
-}
-function phB(f) {
-  return '<ol class="phb">' + f.items.map(function (x, i) {
-    var k = PH_B[i], body = "<p>" + t(x.short || x.body) + "</p>", h = '<h3 class="display h3">' + t(x.title) + "</h3>";
-    if (k === "g") return '<li class="phb-c phb-g gsurf" data-tone="' + PH_TONES[i] + '"><div class="phb-copy">' + phTag(i, x) + h + body + '</div><div class="phb-vig ef" aria-hidden="true">' + phVig(i, true) + "</div></li>";
-    return '<li class="phb-c phb-w phb-' + k + '"><span class="phb-num" aria-hidden="true">' + phNum(i) + '</span><div class="phb-copy">' + phTag(i, x, true) + h + body + "</div></li>";
-  }).join("") + "</ol>";
-}
-function phCtl() {
-  return '<div class="phc-ctl"><span class="phc-prog" aria-hidden="true"><i></i></span>' +
-    '<button type="button" class="phc-btn prev" aria-label="Previous phases" aria-controls="phc-rail">' + icon("arrow") + "</button>" +
-    '<button type="button" class="phc-btn next" aria-label="Next phases" aria-controls="phc-rail">' + icon("arrow") + "</button></div>";
-}
-function phC(f) {
-  return '<div class="phc"><div class="phc-rail" id="phc-rail" tabindex="0" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-    return '<li class="phc-card"><div class="phc-art gsurf" data-tone="' + PH_TONES[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + phVig(i, true) + "</div></div>" +
-      '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
-  }).join("") + "</ol></div></div>";
+  return '<div class="pv">' + b + "</div>";
 }
 function phSection(f, opts) {
-  PH.args = [f, opts];
-  var v = state.ph || "a";
-  var track = opts.track && v !== "a" ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "The seven phases of a church plant.") + "</div>" : "";
-  return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '" data-ph="' + v + '">' + phReview(v) + '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2>" +
-    (v === "c" ? phCtl() : "") + "</div>" + track + (v === "a" ? phA(f) : v === "b" ? phB(f) : "") + "</div>" + (v === "c" ? phC(f) : "") + "</section>";
+  var track = opts.track ? '<div style="margin-bottom:clamp(32px,4vw,56px)">' + visual('<div class="ef"><div class="card" style="padding:24px 26px;border-radius:var(--mk-radius-card)">' + phaseTrack(1) + "</div></div>", "The seven phases of a church plant.") + "</div>" : "";
+  return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
+    '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
+    '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art gsurf" data-tone="' + PH_TONES[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + phVig(i) + "</div></div>" +
+        '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
+    }).join("") + "</ol></div></div></div></section>";
 }
 function phInit() {
-  if (PH.raf) cancelAnimationFrame(PH.raf);
-  PH.raf = 0;
-  if (PH.io) PH.io.disconnect();
-  if (PH.ro) PH.ro.disconnect();
-  PH.io = PH.ro = null;
-  PH.root = document.querySelector("#view .ph-sec");
-  if (!PH.root) return;
-  if (PH.root.dataset.ph === "a") phAInit(PH.root);
-  else if (PH.root.dataset.ph === "c") phCInit(PH.root);
-}
-function phAInit(root) {
-  var q = function (s) { return Array.prototype.slice.call(root.querySelectorAll(s)); };
-  PH.tabs = q(".pha-tab"); PH.bars = q(".pha-bar i"); PH.panes = q(".pha-pane"); PH.bgs = q(".pha-bg");
-  PH.active = 0; PH.prog = 0; PH.kbd = false; PH.on = false;
-  phASet(0);
-  if ("IntersectionObserver" in window) {
-    PH.io = new IntersectionObserver(function (es) { es.forEach(function (e) { PH.on = e.isIntersecting; }); phKick(); }, { threshold: 0 });
-    PH.io.observe(root.querySelector(".pha"));
-  } else { PH.on = true; phKick(); }
-}
-function phASet(k) {
-  PH.active = k;
-  PH.tabs.forEach(function (b, i) { b.setAttribute("aria-selected", String(i === k)); b.tabIndex = i === k ? 0 : -1; b.classList.toggle("done", i < k); });
-  PH.panes.forEach(function (p, i) { p.classList.toggle("on", i === k); });
-  PH.bgs.forEach(function (p, i) { p.classList.toggle("on", i === k); });
-  var panel = PH.root.querySelector(".pha-panel"); if (panel && PH.tabs[k]) panel.setAttribute("aria-labelledby", PH.tabs[k].id);
-  phABars();
-}
-function phABars() {
-  var p = REDUCED.matches ? 1 : Math.max(0, Math.min(1, PH.prog / PH_DUR));
-  PH.bars.forEach(function (b, i) { b.style.transform = "scaleX(" + (i === PH.active ? p : 0).toFixed(4) + ")"; });
-}
-function phAGo(k) { PH.prog = 0; phASet(k); }
-function phRunning() { return !!(PH.root && PH.root.dataset.ph === "a" && PH.root.isConnected && PH.on && !PH.kbd && !document.hidden && !REDUCED.matches); }
-function phKick() { if (!PH.raf && phRunning()) { PH.last = performance.now(); PH.raf = requestAnimationFrame(phTick); } }
-function phTick(now) {
-  PH.raf = 0;
-  if (!phRunning()) return;
-  PH.prog += Math.max(0, Math.min(100, now - PH.last)); PH.last = now;
-  if (PH.prog >= PH_DUR) phAGo((PH.active + 1) % PH.tabs.length); else phABars();
-  PH.raf = requestAnimationFrame(phTick);
-}
-function phCInit(root) {
-  var rail = root.querySelector(".phc-rail"), prev = root.querySelector(".phc-btn.prev"), next = root.querySelector(".phc-btn.next"), thumb = root.querySelector(".phc-prog i");
+  if (PH.off) PH.off();
+  PH.off = null;
+  var root = PH.root = document.querySelector("#view .ph-sec");
+  if (!root) return;
+  var pin = root.querySelector(".phc-pin"), frame = root.querySelector(".phc-frame"), rail = root.querySelector(".phc-rail"), list = root.querySelector(".phc-list");
   var cards = Array.prototype.slice.call(root.querySelectorAll(".phc-card"));
   var smooth = function () { return REDUCED.matches ? "auto" : "smooth"; };
   var step = function () { return cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : rail.clientWidth; };
   var max = function () { return Math.max(0, rail.scrollWidth - rail.clientWidth); };
-  function upd() {
-    var m = max(), x = rail.scrollLeft, f = m > 0 ? Math.min(1, x / m) : 0, w = rail.scrollWidth ? Math.min(1, rail.clientWidth / rail.scrollWidth) : 1;
-    thumb.style.width = (w * 100).toFixed(2) + "%";
-    thumb.style.transform = "translateX(" + (w < 1 ? f * (1 - w) / w * 100 : 0).toFixed(2) + "%)";
-    prev.setAttribute("aria-disabled", String(x <= 2));
-    next.setAttribute("aria-disabled", String(x >= m - 2));
+  var st = null;
+  /* Pinned mode geometry. The start offset comes from --phc-start (a fraction of the viewport width). */
+  function measure() {
+    var on = PH_WIDE.matches && !REDUCED.matches;
+    root.classList.toggle("pinned", on);
+    list.style.transform = "";
+    pin.style.height = "";
+    frame.style.top = "";
+    PH.pin = on;
+    if (!on) { st = PH.st = null; return; }
+    var cs = getComputedStyle(root), vw = root.clientWidth, vh = window.innerHeight;
+    var inset = parseFloat(getComputedStyle(rail).paddingLeft) || 0;
+    var top = parseFloat(getComputedStyle(frame).top) || 0, start = parseFloat(cs.getPropertyValue("--phc-start")) || .55;
+    var fh = frame.offsetHeight, stick = Math.min(top, vh - fh - 16);
+    var a = start * vw - inset, z = vw - 2 * inset - list.scrollWidth;
+    st = PH.st = { a: a, z: Math.min(z, a), stick: stick, travel: Math.max(0, a - Math.min(z, a)), inset: inset, vw: vw };
+    frame.style.top = stick + "px";
+    pin.style.height = (fh + st.travel) + "px";
+    queue();
   }
-  function go(d) { rail.scrollTo({ left: Math.max(0, Math.min(max(), (Math.round(rail.scrollLeft / step()) + d) * step())), behavior: smooth() }); }
-  prev.addEventListener("click", function () { go(-1); });
-  next.addEventListener("click", function () { go(1); });
-  rail.addEventListener("scroll", function () { requestAnimationFrame(upd); }, { passive: true });
-  rail.addEventListener("keydown", function (e) {
-    if (e.target !== rail) return;
-    if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
-    else if (e.key === "Home") rail.scrollTo({ left: 0, behavior: smooth() }); else if (e.key === "End") rail.scrollTo({ left: max(), behavior: smooth() });
-    else return;
+  function frameTick() {
+    PH.raf = 0;
+    if (!st) return;
+    list.style.transform = "translate3d(" + phX().toFixed(2) + "px,0,0)";
+  }
+  function phX() { return st.a - st.travel * phP(); }
+  function phP() { return st.travel ? Math.max(0, Math.min(1, (st.stick - pin.getBoundingClientRect().top) / st.travel)) : 0; }
+  function queue() { if (!PH.raf) PH.raf = requestAnimationFrame(frameTick); }
+  function onScroll() { if (st) queue(); }
+  function onFocus(e) {
+    var c = e.target.closest && e.target.closest(".phc-card");
+    if (!c || !st) return;
+    var x = st.a - st.travel * phP(), l = st.inset + x + c.offsetLeft, r = l + c.offsetWidth, nx = x;
+    if (l < st.inset) nx = x + (st.inset - l); else if (r > st.vw - st.inset) nx = x - (r - (st.vw - st.inset));
+    var pt = pin.getBoundingClientRect().top;
+    if (nx === x && pt <= st.stick + 1 && pt >= st.stick - st.travel - 1) return;
+    var p = st.travel ? Math.max(0, Math.min(1, (st.a - nx) / st.travel)) : 0;
+    var y = window.scrollY + pt - st.stick + p * st.travel;
+    window.scrollTo({ top: Math.round(y), behavior: "instant" });
+  }
+  function onKey(e) {
+    var k = cards.indexOf(e.target), n = cards.length, to = -1;
+    if (k < 0) return;
+    if (e.key === "ArrowRight") to = Math.min(n - 1, k + 1); else if (e.key === "ArrowLeft") to = Math.max(0, k - 1); else if (e.key === "Home") to = 0; else if (e.key === "End") to = n - 1;
+    if (to < 0) return;
     e.preventDefault();
-  });
-  /* Mouse drag. Touch and trackpads scroll natively. */
+    cards[to].focus({ preventScroll: true });
+    if (!st) rail.scrollTo({ left: Math.max(0, Math.min(max(), to * step())), behavior: smooth() });
+  }
+  /* Native mode: mouse drag. Touch and trackpads scroll natively. */
   var d = null;
-  rail.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse" || e.button !== 0) return; d = { x: e.clientX, s: rail.scrollLeft, moved: false, id: e.pointerId }; });
-  rail.addEventListener("pointermove", function (e) {
+  function down(e) { if (st || e.pointerType !== "mouse" || e.button !== 0) return; d = { x: e.clientX, s: rail.scrollLeft, moved: false, id: e.pointerId }; }
+  function move(e) {
     if (!d) return;
     var dx = e.clientX - d.x;
     if (!d.moved && Math.abs(dx) > 5) { d.moved = true; rail.classList.add("drag"); try { rail.setPointerCapture(d.id); } catch (er) {} }
     if (d.moved) rail.scrollLeft = d.s - dx;
-  });
-  var end = function () {
+  }
+  function end() {
     if (!d) return;
     var moved = d.moved; d = null;
     if (!moved) return;
@@ -2980,45 +2834,29 @@ function phCInit(root) {
     rail.scrollLeft = at;
     rail.scrollTo({ left: Math.max(0, Math.min(max(), Math.round(at / step()) * step())), behavior: smooth() });
     rail.__dragged = true; setTimeout(function () { rail.__dragged = false; }, 0);
-  };
+  }
+  function click(e) { if (rail.__dragged) { e.preventDefault(); e.stopPropagation(); } }
+  rail.addEventListener("pointerdown", down);
+  rail.addEventListener("pointermove", move);
   rail.addEventListener("pointerup", end);
   rail.addEventListener("pointercancel", end);
-  rail.addEventListener("click", function (e) { if (rail.__dragged) { e.preventDefault(); e.stopPropagation(); } }, true);
-  if ("ResizeObserver" in window) { PH.ro = new ResizeObserver(upd); PH.ro.observe(rail); }
-  upd();
+  rail.addEventListener("click", click, true);
+  rail.addEventListener("keydown", onKey);
+  rail.addEventListener("focusin", onFocus);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", measure);
+  if (PH_WIDE.addEventListener) PH_WIDE.addEventListener("change", measure);
+  if ("ResizeObserver" in window) { PH.ro = new ResizeObserver(function () { measure(); }); PH.ro.observe(frame); }
+  PH.off = function () {
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("resize", measure);
+    if (PH_WIDE.removeEventListener) PH_WIDE.removeEventListener("change", measure);
+    if (PH.ro) PH.ro.disconnect();
+    if (PH.raf) cancelAnimationFrame(PH.raf);
+    PH.ro = null; PH.raf = 0; PH.st = null;
+  };
+  measure();
 }
-function phSwitch(v, refocus) {
-  if (!/^[abc]$/.test(v) || v === state.ph) return;
-  state.ph = v;
-  history.replaceState(null, "", hrefFor(state.page, state.at));
-  phSwap();
-  last.ph = v;
-  if (refocus) { var b = document.querySelector('#view .ph-rv [data-phv="' + v + '"]'); if (b) b.focus({ preventScroll: true }); }
-}
-function phSwap() {
-  var sec = document.querySelector("#view .ph-sec");
-  if (!sec || !PH.args) return;
-  var tmp = document.createElement("div");
-  tmp.innerHTML = features(PH.args[0], PH.args[1]);
-  sec.parentNode.replaceChild(tmp.firstElementChild, sec);
-  phInit();
-}
-document.addEventListener("click", function (e) {
-  var sw = e.target.closest && e.target.closest(".ph-rv [data-phv]");
-  if (sw) { phSwitch(sw.dataset.phv, true); return; }
-  var tab = e.target.closest && e.target.closest(".pha-tab");
-  if (tab && PH.tabs.indexOf(tab) >= 0) { phAGo(PH.tabs.indexOf(tab)); phKick(); }
-});
-document.addEventListener("keydown", function (e) {
-  var i = PH.tabs.indexOf(e.target), n = PH.tabs.length, k = -1;
-  if (i < 0) return;
-  if (e.key === "ArrowRight" || e.key === "ArrowDown") k = (i + 1) % n; else if (e.key === "ArrowLeft" || e.key === "ArrowUp") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
-  if (k < 0) return;
-  e.preventDefault(); phAGo(k); PH.tabs[k].focus(); PH.kbd = true;
-});
-document.addEventListener("focusin", function (e) { if (PH.tabs.indexOf(e.target) >= 0) PH.kbd = !!(e.target.matches && e.target.matches(":focus-visible")); });
-document.addEventListener("focusout", function (e) { if (PH.tabs.indexOf(e.target) >= 0 && PH.tabs.indexOf(e.relatedTarget) < 0) { PH.kbd = false; phKick(); } });
-document.addEventListener("visibilitychange", phKick);
 
 function audienceCol(a) {
   return '<article class="aud" id="' + a.id + '"><span class="eyebrow">' + t(a.label) + '</span><h3 class="display h3">' + t(a.headline) + '</h3><p class="body-2">' + t(a.body) + "</p>" +
@@ -3238,8 +3076,7 @@ function render(scrollMode) {
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
   if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); }
-  else if (last.ph !== state.ph) phSwap();
-  last = { page: state.page, story: state.story, ph: state.ph };
+  last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
   Object.assign(state, over);
