@@ -976,8 +976,15 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .cx-mirror .cx-tab { padding: 14px 0 16px; }
 }
 .cx-mirror .cx-left .cx-head { margin-bottom: clamp(14px, 1.6vw, 22px); }
-.cx-foot { display: flex; align-items: flex-start; margin-top: 30px; }
-@media (max-width: 900px) { .cx-foot { margin: 22px 0 26px; } }
+/* Revision 21: a small square arrow link after the title text. The h2 runs inline, so the link sits on the title's last line,
+   centred on that line. It is a link, not product UI, so it has no white ring. */
+.cx-head-link { font-size: var(--mk-fs-h2); line-height: calc(var(--mk-lh-display) + .04); white-space: nowrap; }
+.cx-head-link h2 { display: inline; white-space: normal; }
+.sec-icon-link { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-left: 12px; border-radius: 9px; background: var(--mk-surface-2); color: rgba(24, 29, 25, .7);
+  vertical-align: middle; position: relative; top: -.08em; transition: background-color .15s var(--mk-ease), color .15s var(--mk-ease); }
+.sec-icon-link:hover { background: #EAE7E0; color: var(--mk-ink); }
+.sec-icon-link:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.sec-icon-link svg.i { width: 18px; height: 18px; stroke-width: 1.8; }
 /* Scope switch, counts and areas */
 .sd-scope { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .sd-chip { position: relative; display: inline-grid; height: 30px; border-radius: 99px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 12.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: transform; }
@@ -1216,6 +1223,23 @@ body.pbar-hidden { padding-bottom: 0; }
   .nav-pill .nav-end .mk-btn { padding: 0 14px; }
   .site-nav.open .nav-links .nav-cta-m { display: inline-flex; margin-top: 8px; padding: 0 20px; color: var(--mk-cta-text); background: var(--mk-cta-bg); align-self: flex-start; }
 }
+/* Revision 21: a glass bezel around every product UI card. One white ring drawn outside the card's edge with a spread shadow,
+   so the card's size and content do not change and the ring follows the corner radius. Tune the width and the alpha (.2 to .3) here.
+   Not applied to buttons, chips, nav, the footer card or the gradient panels. */
+:root { --ui-ring-w: 6px; --ui-ring-a: .25; --ui-ring: 0 0 0 var(--ui-ring-w) rgba(255, 255, 255, var(--ui-ring-a)); }
+.ha-shadow { box-shadow: var(--ui-ring), 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45); }
+.cx-card { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
+.cx-card.evry-panel { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
+.cx-card.insight[data-tone="field"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(16,120,56,.55); }
+.cx-card.insight[data-tone="sky"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(40,90,170,.45); }
+.cx-card.insight[data-tone="dawn"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(190,110,40,.5); }
+.cx-card.insight[data-tone="lilac"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(110,80,200,.45); }
+/* The follow-up card has no shadow of its own: the ring sits on its white shell. The shell's bottom edge (set per frame) moves up
+   instead of a bottom clip, so the ring follows the visible edge of the card. */
+.cx-shell { box-shadow: var(--ui-ring); }
+.ef .pv { box-shadow: var(--ui-ring), 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -22px rgba(24,29,25,.42); }
+.visual > .app-frame, .visual > .evry-panel { box-shadow: var(--ui-ring), var(--mk-shadow-media); }
+.visual > .ef > .card { box-shadow: var(--ui-ring), var(--ef-shadow-card); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -1399,7 +1423,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
         }
       ],
-      "cta": "Learn more"
+      "link": "Learn more about the oversight view"
     }
   },
   "directions": [
@@ -1706,6 +1730,7 @@ var STORY = {}; STORIES.forEach(function (s) { STORY[s.id] = s; });
 /* ---------- Helpers ---------- */
 var ICON = {
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  arrowUpRight: '<path d="M17 7L6 18"/><path d="M11 6h7v7"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
   users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.4.2 4 1.8 4.5 4.8"/>',
@@ -1780,8 +1805,7 @@ var ROUTE = {
   "I am a planter": ["planters", ""],
   "See the planter's week": ["planters", ""],
   "See what sending churches see": ["oversight", "sending-churches"],
-  "See the network view": ["oversight", "networks"],
-  "Learn more": ["oversight", ""]
+  "See the network view": ["oversight", "networks"]
 };
 function routeHref(label) { var r = ROUTE[label] || ["access", ""]; return hrefFor(r[0], r[1]); }
 function btn(label, kind) {
@@ -1894,7 +1918,7 @@ function vNetworkHero() {
     '<span class="badge hide-sm" data-status="measured">Network view</span>');
 }
 function vPlantSummary() {
-  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)">' +
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--ui-ring),var(--mk-shadow-media)">' +
     '<div class="card-header"><div class="grow"><div class="card-title">Harvest Point Church</div><div class="card-description">Hyde Park, Austin · Shared with Grace Church</div></div><span class="badge" data-status="positive">On track</span></div>' +
     phaseTrack(1) +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px"><div class="card-inset"><div class="t-sm muted">Launch Sunday</div><div class="num" style="font-size:22px;margin-top:4px">Mar 14, 2027</div></div><div class="card-inset"><div class="t-sm muted">Core team</div><div class="num" style="font-size:22px;margin-top:4px">34 <span class="faint" style="font-size:14px">adults</span></div></div></div>' +
@@ -1902,11 +1926,11 @@ function vPlantSummary() {
 }
 function vConsent() {
   var rows = [["Phase and launch date", true, false], ["Health summary", true, false], ["Launch readiness", true, false], ["People and contact details", false, true], ["Meeting notes", false, true], ["Private weekly check-in", false, true]];
-  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Sharing with Grace Church</div><div class="card-description">You choose. Checked on every read.</div></div></div><div>' +
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--ui-ring),var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Sharing with Grace Church</div><div class="card-description">You choose. Checked on every read.</div></div></div><div>' +
     rows.map(function (r) { return '<div class="share-row"><span>' + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="sw"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "></span></div>"; }).join("") + "</div></div></div>";
 }
 function vReadiness() {
-  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Launch readiness</div><div class="card-description">Plants within 30 days of launch</div></div><span class="badge" data-status="measured">1 plant</span></div>' +
+  return '<div class="ef"><div class="card" style="padding:24px;border-radius:var(--mk-radius-media);box-shadow:var(--ui-ring),var(--mk-shadow-media)"><div class="card-header"><div class="grow"><div class="card-title">Launch readiness</div><div class="card-description">Plants within 30 days of launch</div></div><span class="badge" data-status="measured">1 plant</span></div>' +
     '<div class="list-row"><span class="card-icon tone-blue">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Northline Church</div><div class="list-sub">Launch Sunday Nov 1, 2026 · 24 days</div></div></div>' +
     '<div class="kv"><span class="k">Kids ministry</span><span class="row"><span class="v">2/6</span><span class="badge" data-size="sm" data-status="risk">Open roles</span></span></div>' +
     '<div class="kv"><span class="k">Hospitality</span><span class="row"><span class="v">5/6</span><span class="badge" data-size="sm" data-status="attention">1 open</span></span></div>' +
@@ -2382,7 +2406,7 @@ var CX_DEFS = {
     ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
     ["share", "dawn", "Sharing", "You see it first.", "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."]] },
   /* Revision 19: copy from shared.sending in marketing-copy.json. Tones sea, rose, sun, slate differ from the Plant Intelligence tones above. */
-  sending: { title: COPY.shared.sending.title, auto: true, mirror: true, foot: COPY.shared.sending, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
+  sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.sending.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) }
 };
 function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
@@ -2400,14 +2424,16 @@ function chapterSection(id, cls) {
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
 /* Revision 10: the auto-advancing list (Plant Intelligence). Same panels and cards; steps are tabs, the panel is the tab panel. */
-/* Revision 19: d.mirror puts the heading in the list column (right on desktop). Revision 20: d.foot adds a "Learn more" secondary button under the list. */
+/* Revision 19: d.mirror puts the heading in the list column (right on desktop). Revision 21: d.link adds a small square arrow link
+   after the title text, kept on one line with the last word (it replaces the Revision 20 "Learn more" button under the list). */
 function autoSection(id, cls, d) {
-  var head = '<div class="cx-head"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2></div>";
+  var head = '<div class="cx-head' + (d.link ? " cx-head-link" : "") + '"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2>" +
+    (d.link ? '<a class="sec-icon-link" href="' + hrefFor("oversight", "") + '" aria-label="' + t(d.link) + '">' + icon("arrowUpRight") + "</a>" : "") + "</div>";
   return '<section class="sec cx cx-auto' + (d.mirror ? " cx-mirror" : "") + " " + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap">' + (d.mirror ? "" : head) +
     '<div class="cx-grid"><div class="cx-left">' + (d.mirror ? head : "") + '<ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
         '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
-    }).join("") + "</ol>" + (d.foot ? '<div class="cx-foot">' + btn(d.foot.cta, "secondary") + "</div>" : "") + "</div>" +
+    }).join("") + "</ol></div>" +
     '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
 }
@@ -2479,7 +2505,7 @@ var CX_RENDER = {
     haTO(cxQ(I, ".cx-draft"), 0, 0, .96 + .04 * e, e);
     haTO(cxQ(I, ".cx-dn"), 0, -dh * (1 - e), 1, 1);
     var cut = dh * (1 - e), H = I.h || 1;
-    haSet(cxQ(I, ".cx-shell"), "clipPath", "inset(0 0 " + cut.toFixed(1) + "px 0 round 22px)");
+    haSet(cxQ(I, ".cx-shell"), "bottom", cut.toFixed(1) + "px");
     haSet(cxQ(I, ".cx-shade"), "transform", "scaleY(" + ((H - cut) / H).toFixed(4) + ")");
     cxType(cxQ(I, ".cx-dt"), CX_DRAFT, haP(t, 3150, 1200));
     cxDone(I, ".cx-t0", t, 4900, R);
