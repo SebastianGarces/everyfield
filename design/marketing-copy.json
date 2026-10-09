@@ -154,12 +154,14 @@
             {
               "label": "Core group",
               "title": "Grow a committed core group",
-              "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks."
+              "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks.",
+              "short": "Track each person from first visit to signed commitment."
             },
             {
               "label": "Launch team",
               "title": "Set the date and fill the roles",
-              "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it."
+              "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it.",
+              "short": "See which of the eight ministry areas still has no leader."
             },
             {
               "label": "Training",
@@ -169,12 +171,14 @@
             {
               "label": "Pre-launch",
               "title": "Finish the launch list",
-              "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details."
+              "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details.",
+              "short": "Work through launch milestones and their tasks."
             },
             {
               "label": "Launch and after",
               "title": "Launch, then keep going",
-              "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm."
+              "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm.",
+              "short": "Record Launch Sunday and its outcome."
             }
           ]
         },
