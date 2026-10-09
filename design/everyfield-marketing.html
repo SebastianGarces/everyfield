@@ -400,6 +400,10 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .sec-head > .sh-text { grid-column: 9 / span 4; }
 .sec-head .eyebrow { margin-bottom: 18px; }
 .sec-head.solo > .sh-title { grid-column: 1 / span 9; }
+/* Centered section head (Calendly pattern): headline with one short muted paragraph under it. Used by the problem and Monday sections. */
+.sec-head.center { display: block; text-align: center; max-width: 940px; margin-left: auto; margin-right: auto; }
+.sec-head.center > .sh-title { margin: 0 auto; text-wrap: balance; }
+.sec-head.center > .sh-text { max-width: 600px; margin: 20px auto 0; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
 
 /* Product proof: Cohere pattern. Wide image tile beside an illustrated map tile. */
 .tiles { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: stretch; }
@@ -1213,12 +1217,11 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Three guests came to Thursday's vision meeting, and someone needs to follow up with them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
+          "body": "Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. EveryField keeps it all in one place, so the most important work gets your time."
         },
         "proof": {
-          "eyebrow": "Phase 1 · Core Group Development",
           "headline": "Here is what a Monday looks like.",
-          "body": "Your core team and your launch team, and how both are growing. When your last vision meeting was, and when the next one is. Late follow-ups and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
@@ -1333,12 +1336,11 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "problem": {
           "headline": "You usually hear about a struggling plant when it is already late.",
-          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each meeting finding out what happened."
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices."
         },
         "proof": {
-          "eyebrow": "The network view",
           "headline": "One row for each plant. One status you can act on.",
-          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read.",
+          "body": "Each plant shows its phase, its launch date and a status: on track, watch, launch readiness or limited visibility.",
           "callouts": [
             "On track",
             "Watch",
@@ -2513,16 +2515,19 @@ function hero(h, story, opts) {
     (opts.visual === false ? "" : '<div class="hero-band">' + (opts.visual || heroVisual(story)) + "</div>") + (opts.panel ? "</div>" : "") + "</div></section>";
 }
 function problem(p) {
-  return '<section class="sec sec-problem" id="problem"><div class="wrap"><div class="sec-head" style="margin-bottom:0"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="body-2 sh-text">' + t(p.body) + "</p></div></div></section>";
+  return '<section class="sec sec-problem" id="problem"><div class="wrap"><div class="sec-head center" style="margin-bottom:0"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="sh-text">' + t(p.body) + "</p></div></div></section>";
+}
+function centerHead(p) {
+  return '<div class="sec-head center"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="sh-text">' + t(p.body) + "</p></div>";
 }
 function proof(p, story) {
   if (story !== "oversight") {
     return '<section class="sec sec-proof sec-monday" id="proof"><div class="wrap">' +
-      '<div class="sec-head"><div class="sh-title"><span class="eyebrow">' + t(p.eyebrow) + '</span><h2 class="display h2">' + t(p.headline) + '</h2></div><p class="body-2 sh-text">' + t(p.body) + "</p></div>" +
+      centerHead(p) +
       '<div class="monday-frame">' + visual(vMondayOverview(), p.caption) + "</div></div></section>";
   }
   return '<section class="sec sec-proof" id="proof"><div class="wrap">' +
-    '<div class="sec-head"><div class="sh-title"><span class="eyebrow">' + t(p.eyebrow) + '</span><h2 class="display h2">' + t(p.headline) + '</h2></div><p class="body-2 sh-text">' + t(p.body) + "</p></div>" +
+    centerHead(p) +
     '<div class="tiles"><div class="tile tile-wide">' + visual(vNetwork(), p.caption) + "</div>" +
     '<div class="tile-side"><div class="tile"><div class="small" style="margin-bottom:10px">On this screen</div><div class="chips">' + p.callouts.map(function (c) { return '<span class="chip">' + t(c) + "</span>"; }).join("") + "</div></div>" + mapTile(story) + "</div></div></div></section>";
 }

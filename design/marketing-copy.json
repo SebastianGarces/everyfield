@@ -135,12 +135,11 @@
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Three guests came to Thursday's vision meeting, and someone needs to follow up with them by Saturday. Commitment cards sit in a folder. The kids ministry still has no leader. Your spreadsheet knows none of this, so the loudest problem gets your week, not the most important one."
+          "body": "Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. EveryField keeps it all in one place, so the most important work gets your time."
         },
         "proof": {
-          "eyebrow": "Phase 1 · Core Group Development",
           "headline": "Here is what a Monday looks like.",
-          "body": "Your core team and your launch team, and how both are growing. When your last vision meeting was, and when the next one is. Late follow-ups and who owns each one. One focus from Plant Intelligence, with the facts it used.",
+          "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
@@ -255,12 +254,11 @@
         },
         "problem": {
           "headline": "You usually hear about a struggling plant when it is already late.",
-          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. Coaches spend the first half of each meeting finding out what happened."
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices."
         },
         "proof": {
-          "eyebrow": "The network view",
           "headline": "One row for each plant. One status you can act on.",
-          "body": "Each plant shows its phase, launch date and a health status: on track, watch, launch readiness or limited visibility. Limited visibility means the plant shares too little for a fair read.",
+          "body": "Each plant shows its phase, its launch date and a status: on track, watch, launch readiness or limited visibility.",
           "callouts": [
             "On track",
             "Watch",
