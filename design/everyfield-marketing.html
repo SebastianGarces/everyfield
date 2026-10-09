@@ -976,10 +976,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .cx-mirror .cx-tab { padding: 14px 0 16px; }
 }
 .cx-mirror .cx-left .cx-head { margin-bottom: clamp(14px, 1.6vw, 22px); }
-.cx-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 22px; }
-.cx-note { display: flex; align-items: flex-start; gap: 8px; max-width: 46ch; font-size: 14px; line-height: 1.45; color: var(--mk-text-3); }
-.cx-note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
-@media (max-width: 900px) { .cx-foot { margin: 18px 0 26px; } }
+.cx-foot { display: flex; align-items: flex-start; margin-top: 30px; }
+@media (max-width: 900px) { .cx-foot { margin: 22px 0 26px; } }
 /* Scope switch, counts and areas */
 .sd-scope { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .sd-chip { position: relative; display: inline-grid; height: 30px; border-radius: 99px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 12.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: transform; }
@@ -1401,8 +1399,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
         }
       ],
-      "privacy": "Plants choose what they share. Names and private notes never leave the plant.",
-      "cta": "See the oversight view"
+      "cta": "Learn more"
     }
   },
   "directions": [
@@ -1784,7 +1781,7 @@ var ROUTE = {
   "See the planter's week": ["planters", ""],
   "See what sending churches see": ["oversight", "sending-churches"],
   "See the network view": ["oversight", "networks"],
-  "See the oversight view": ["oversight", ""]
+  "Learn more": ["oversight", ""]
 };
 function routeHref(label) { var r = ROUTE[label] || ["access", ""]; return hrefFor(r[0], r[1]); }
 function btn(label, kind) {
@@ -2403,14 +2400,14 @@ function chapterSection(id, cls) {
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
 /* Revision 10: the auto-advancing list (Plant Intelligence). Same panels and cards; steps are tabs, the panel is the tab panel. */
-/* Revision 19: d.mirror puts the heading in the list column (right on desktop) and d.foot adds the privacy line and the link under the list. */
+/* Revision 19: d.mirror puts the heading in the list column (right on desktop). Revision 20: d.foot adds a "Learn more" secondary button under the list. */
 function autoSection(id, cls, d) {
   var head = '<div class="cx-head"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2></div>";
   return '<section class="sec cx cx-auto' + (d.mirror ? " cx-mirror" : "") + " " + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap">' + (d.mirror ? "" : head) +
     '<div class="cx-grid"><div class="cx-left">' + (d.mirror ? head : "") + '<ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
         '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
-    }).join("") + "</ol>" + (d.foot ? '<div class="cx-foot"><p class="cx-note">' + icon("lock") + "<span>" + t(d.foot.privacy) + "</span></p>" + more(d.foot.cta) + "</div>" : "") + "</div>" +
+    }).join("") + "</ol>" + (d.foot ? '<div class="cx-foot">' + btn(d.foot.cta, "secondary") + "</div>" : "") + "</div>" +
     '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
 }
