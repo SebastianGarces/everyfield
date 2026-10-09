@@ -489,8 +489,10 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
 .phc-txt { padding: 20px 22px 22px; }
 /* Pinned mode (desktop, no reduced motion). The pin is a tall track (frame height + travel, set by JS); the frame is sticky
-   at the week chapter's clear space below the nav. --phc-start is where the first card's left edge sits when the section pins. */
-.ph-sec { --phc-top: clamp(148px, 2.5vw + 126px, 162px); --phc-start: .55; }
+   at the week chapter's clear space below the nav. --phc-start is where the first card's left edge sits when the section pins
+   (a fraction of the viewport width). Revision 16: --phc-lead moves that start left by whole card steps (card width plus gap),
+   so one more full card shows at pin start. The end position and the 1:1 movement stay the same. */
+.ph-sec { --phc-top: clamp(148px, 2.5vw + 126px, 162px); --phc-start: .55; --phc-lead: 1; }
 .ph-sec.pinned .phc-frame { position: sticky; top: var(--phc-top); }
 .ph-sec.pinned .phc-rail { overflow: clip; scroll-snap-type: none; cursor: auto; }
 .ph-sec.pinned .phc-list { will-change: transform; }
@@ -602,10 +604,12 @@ svg.i { width: 18px; height: 18px; flex: none; }
    Motion. IntersectionObserver reveals in JS. prefers-reduced-motion shows static states.
    ===================================================================== */
 /* Reveal on scroll */
-.rv { opacity: 0; transform: translateY(18px); transition: opacity .4s var(--mk-ease), transform .4s var(--mk-ease); transition-delay: var(--rv-d, 0ms); }
+.rv { opacity: 0; transform: translateY(var(--rv-y, 18px)); transition: opacity .4s var(--mk-ease), transform .4s var(--mk-ease); transition-delay: var(--rv-d, 0ms); }
 .rv.in { opacity: 1; transform: none; }
 body.shot .rv { opacity: 1; transform: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none !important; } }
+/* Revision 16: the section after the phases rail fades up as one block (see setupMotion). */
+.rv.rv-up { --rv-y: 28px; transition-duration: .5s; }
 
 /* =====================================================================
    Revision 3 hero: one rounded panel with the dashboard InsightCard field gradient
@@ -2768,7 +2772,7 @@ function phInit() {
   var step = function () { return cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : rail.clientWidth; };
   var max = function () { return Math.max(0, rail.scrollWidth - rail.clientWidth); };
   var st = null;
-  /* Pinned mode geometry. The start offset comes from --phc-start (a fraction of the viewport width). */
+  /* Pinned mode geometry. The start offset comes from --phc-start (a fraction of the viewport width) minus --phc-lead card steps. */
   function measure() {
     var on = PH_WIDE.matches && !REDUCED.matches;
     root.classList.toggle("pinned", on);
@@ -2779,9 +2783,9 @@ function phInit() {
     if (!on) { st = PH.st = null; return; }
     var cs = getComputedStyle(root), vw = root.clientWidth, vh = window.innerHeight;
     var inset = parseFloat(getComputedStyle(rail).paddingLeft) || 0;
-    var top = parseFloat(getComputedStyle(frame).top) || 0, start = parseFloat(cs.getPropertyValue("--phc-start")) || .55;
+    var top = parseFloat(getComputedStyle(frame).top) || 0, start = parseFloat(cs.getPropertyValue("--phc-start")) || .55, lead = parseFloat(cs.getPropertyValue("--phc-lead")) || 0;
     var fh = frame.offsetHeight, stick = Math.min(top, vh - fh - 16);
-    var a = start * vw - inset, z = vw - 2 * inset - list.scrollWidth;
+    var a = Math.max(0, start * vw - inset - lead * step()), z = vw - 2 * inset - list.scrollWidth;
     st = PH.st = { a: a, z: Math.min(z, a), stick: stick, travel: Math.max(0, a - Math.min(z, a)), inset: inset, vw: vw };
     frame.style.top = stick + "px";
     pin.style.height = (fh + st.travel) + "px";
@@ -2891,17 +2895,23 @@ function setupMotion() {
   var hasIO = "IntersectionObserver" in window;
   var still = REDUCED.matches || !hasIO;
   var sel = "#view .sec-head, #view .feat, #view .aud, #view .trust-item, #view .tile, #view .split, #view .cta-box, #view .e-copy, #view .e-vis, #view .form-card, #view .access-table-wrap, #view .hero-band";
-  var els = document.querySelectorAll(sel);
+  /* Revision 16: the section that follows the phases rail reveals as one block; its own items do not reveal again inside it. */
+  var ph = document.querySelector("#view .ph-sec"), next = ph && ph.nextElementSibling, up = next && next.querySelector(".wrap");
+  var els = Array.prototype.filter.call(document.querySelectorAll(sel), function (el) { return !up || !up.contains(el); });
+  if (up) els.push(up);
   if (still) return;
   var o3 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); o3.unobserve(e.target); } }); }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  /* The block is taller than the screen, so it starts when its top edge is 12% into the viewport, not at a share of its height. */
+  var o4 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting || e.boundingClientRect.bottom < 0) { e.target.classList.add("in"); o4.unobserve(e.target); } }); }, { rootMargin: "0px 0px -12% 0px", threshold: 0 });
   els.forEach(function (el) {
     var sib = el.parentElement ? Array.prototype.indexOf.call(el.parentElement.children, el) : 0;
     el.style.setProperty("--rv-d", Math.min(sib, 4) * 70 + "ms");
     if (el.getBoundingClientRect().top < window.innerHeight * 0.92) return;
     el.classList.add("rv");
+    if (el === up) { el.classList.add("rv-up"); el.style.setProperty("--rv-d", "0ms"); o4.observe(el); return; }
     o3.observe(el);
   });
-  observers.push(o3);
+  observers.push(o3, o4);
 }
 /* EvryBot life, copied from design/everyfield-ui.html: random blinks and glances, pointer follow. */
 function evryBots() { return Array.prototype.filter.call(document.querySelectorAll(".evry-bot"), function (b) { return b.offsetParent; }); }
