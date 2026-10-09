@@ -73,6 +73,8 @@ The card has three layers. Build it the same way.
 
 Pills, counts, sparkline bars and glass buttons on a card take their colors from per-card variables (`--on`, `--on-2`, `--pill-bg`, `--spark`). Avatars on a gradient card have no ring.
 
+The cards look the same in light and dark mode. In dark mode, the neutral tokens inside a card (`--ef-ink`, `--ef-text`, `--ef-text-2`, `--ef-text-3`, the surfaces, lines and `--ef-on-ink`) keep their light values. Panels, buttons and text nested in a card then stay readable on the light gradient. In the build, set these tokens on the card component for dark mode.
+
 Performance is the risk with this card. A 52px blur on an element larger than the card is expensive to paint, and the cards can be large. Before launch, profile Overview on a low-end laptop. If paints are slow, render each tone once to a static WebP and keep only the grain as CSS. The tones never change at runtime, so a static image loses nothing visible.
 
 ## Type

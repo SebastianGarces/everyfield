@@ -586,6 +586,9 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .insight[data-tone="dawn"] { --g-base: #FFC48A; --g1: #FFD2A1; --g2: #FFB26A; --g3: #FFE4C4; --g4: #F7A05A; --g5: #FFF7EC; box-shadow: 0 18px 36px -24px rgba(190,110,40,.5); }
 /* lilac: soft violet */
 .insight[data-tone="lilac"] { --g-base: #C3B2FF; --g1: #D2C4FF; --g2: #B09AFF; --g3: #E4DBFF; --g4: #A48CF5; --g5: #F8F5FF; box-shadow: 0 18px 36px -24px rgba(110,80,200,.45); }
+/* Gradient cards look the same in both themes. In dark mode, neutral tokens inside them keep
+   their light values, so nested panels, buttons and text stay readable on the light gradient. */
+[data-theme="dark"] .insight[data-on="ink"] { --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text: #181D19; --ef-text-2: #4D5361; --ef-text-3: #666C78; --ef-focus: #1C5BB5; --ef-surface: #FAFBFC; --ef-surface-2: #EDF0F4; --ef-surface-3: #E6E8EC; --ef-surface-raised: #FFFFFF; --ef-line: rgba(22, 30, 46, .075); --ef-line-2: rgba(22, 30, 46, .13); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(22, 30, 46, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #DCDFE4; color-scheme: light; }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
