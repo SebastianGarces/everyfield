@@ -1327,6 +1327,57 @@ body[data-shell="bare"] .main { max-width: none; }
 .em-bot { width: 22px; height: 22px; border-radius: 50%; background: #1CE362; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin-top: 1px; }
 .em-bot i { width: 3px; height: 6px; border-radius: 2px; background: #181D19; display: block; }
 
+
+/* ---- Network views (<NetworkTabs>, <ScopeBar>, <CategoryCard>, <PhasePipeline>, <AreaTable>) ---- */
+.net-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--ef-surface-2); width: max-content; margin-bottom: 20px; }
+.net-tabs a { padding: 8px 14px; border-radius: 10px; font-weight: 500; color: var(--ef-ink-2); }
+.net-tabs a[aria-current="page"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: var(--ef-shadow-raised); }
+.scope-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.scope-bar .sb-label { font-size: var(--ef-text-sm); color: var(--ef-text-2); margin-right: 4px; }
+.scope-bar button { border: 0; cursor: pointer; font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 99px; background: var(--ef-surface); box-shadow: 0 0 0 1px var(--ef-line-2) inset; color: var(--ef-ink-2); }
+.scope-bar button b { font-weight: 600; color: var(--ef-ink); font-variant-numeric: tabular-nums; }
+.scope-bar button[aria-pressed="true"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: none; }
+.scope-bar button[aria-pressed="true"] b { color: var(--ef-on-ink); }
+.scope-bar .sb-sep { width: 1px; height: 22px; background: var(--ef-line-2); margin: 0 4px; }
+.cat-card[data-share="withheld"] { background: transparent; box-shadow: none; border: 1.5px dashed var(--ef-line-2); }
+.cat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.cat-head .card-icon { width: 34px; height: 34px; }
+.cat-head .card-icon i { font-size: 17px; }
+.share-tag { margin-left: auto; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; background: var(--ef-green-100); color: var(--ef-green-700); }
+.share-tag[data-v="empty"] { background: var(--ef-surface-2); color: var(--ef-text-2); }
+.share-tag[data-v="withheld"] { background: var(--ef-surface-2); color: var(--ef-text-2); }
+.mini-bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.mini-bars span { flex: 1; border-radius: 3px 3px 1px 1px; background: var(--ef-blue-300); }
+.mini-bars span:last-child { background: var(--ef-blue-500); }
+.stage-strip { display: flex; height: 10px; border-radius: 99px; overflow: hidden; gap: 2px; }
+.ptimeline { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; }
+.ptimeline .pt { display: flex; flex-direction: column; gap: 6px; }
+.ptimeline .pt-bar { height: 10px; border-radius: 99px; background: var(--ef-surface-2); position: relative; overflow: hidden; }
+.ptimeline .pt-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--ef-green-500); }
+.ptimeline .pt[data-state="current"] .pt-bar i { background: repeating-linear-gradient(-45deg, var(--ef-green-500) 0 var(--ef-hatch-w), transparent var(--ef-hatch-w) calc(var(--ef-hatch-w) + var(--ef-hatch-gap))); box-shadow: 0 0 0 1.5px var(--ef-green-500) inset; }
+.ptimeline .pt-n { font-size: 12px; font-weight: 600; color: var(--ef-ink); }
+.ptimeline .pt-s { font-size: 12px; color: var(--ef-text-2); }
+.pipeline { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: start; }
+.pipeline .pl { display: flex; flex-direction: column; gap: 6px; }
+.pipeline .pl-col { height: 120px; display: flex; align-items: flex-end; }
+.pipeline .pl-col span { width: 100%; border-radius: 10px 10px 4px 4px; background: var(--ef-violet-300); display: grid; place-items: start center; padding-top: 6px; font-weight: 600; font-size: 13px; color: #181D19; min-height: 26px; }
+.pipeline .pl-n { font-size: 13px; font-weight: 600; color: var(--ef-ink); }
+.pipeline .pl-s { font-size: 12px; color: var(--ef-text-2); line-height: 1.35; }
+.launch-cal { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 4px; }
+.launch-cal .lc { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.launch-cal .lc-m { font-size: 11px; color: var(--ef-text-3); text-transform: uppercase; letter-spacing: .04em; }
+.launch-cal .lc-d { width: 100%; min-height: 64px; border-radius: 10px; background: var(--ef-surface-2); display: flex; flex-direction: column; gap: 3px; padding: 4px; }
+.launch-cal .lc-d { align-items: center; justify-content: center; }
+.launch-cal .lc-d b { font-family: var(--ef-font-display); font-size: 20px; font-weight: 500; color: var(--ef-green-700); line-height: 1; }
+.launch-cal .lc-d small { font-size: 11px; color: var(--ef-text-2); }
+.launch-cal .lc-d[data-has] { background: var(--ef-green-100); }
+.cov-row { display: grid; grid-template-columns: 130px minmax(0,1fr) 54px; gap: 12px; align-items: center; padding: 8px 0; font-size: var(--ef-text-sm); }
+.cov-bar { height: 8px; border-radius: 99px; background: var(--ef-surface-2); overflow: hidden; }
+.cov-bar i { display: block; height: 100%; border-radius: 99px; background: var(--ef-blue-500); }
+.area-table td .badge { white-space: nowrap; }
+.not-enough { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ef-text-2); }
+.rubric-note { display: flex; align-items: center; gap: 10px; font-size: var(--ef-text-sm); color: var(--ef-text-2); margin: -6px 0 18px; }
+
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
 .modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
 .modal-panel[data-size="sm"] .modal-body { padding: 26px 30px 22px; }
@@ -3602,27 +3653,31 @@ body[data-shell="bare"] .main { max-width: none; }
      ================================================================= -->
 <section class="page" data-page="network">
   <header class="page-header">
-    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Austin Sending Network</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">Plants you support. You only see what each plant chooses to share.</p></div>
+    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Austin Sending Network</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">14 plants in Texas and Oklahoma. You only see what each plant chooses to share.</p></div>
     <div class="page-actions"><a class="btn" data-variant="secondary" href="#/overview"><i class="hgi-stroke hgi-church"></i>Back to Harvest Point</a><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Invite a plant</button></div>
   </header>
+  <nav class="net-tabs" aria-label="Network views"><a href="#/network" aria-current="page">Plants</a><a href="#/network/intelligence" >Network Intelligence</a></nav>
   <div class="grid g-4" style="margin-bottom:20px">
-    <div class="card" data-size="sm"><div class="stat-label">Plants</div><div class="stat-value">5</div><div class="faint t-sm mt-2">4 sharing</div></div>
-    <div class="card" data-size="sm"><div class="stat-label">Launching this year</div><div class="stat-value">2</div><div class="faint t-sm mt-2">Mar and May 2027</div></div>
-    <div class="card" data-size="sm"><div class="stat-label">Committed adults</div><div class="stat-value">118</div><div class="faint t-sm mt-2">Across sharing plants</div></div>
-    <div class="card" data-size="sm"><div class="stat-label">Needs attention</div><div class="stat-value" style="color:var(--ef-amber-display)">1</div><div class="faint t-sm mt-2">Shared findings only</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Plants</div><div class="stat-value">14</div><div class="faint t-sm mt-2">11 share findings · 2 states</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Launching in 12 months</div><div class="stat-value">5</div><div class="faint t-sm mt-2">Next: Deep Ellum, Jan 24</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Committed adults</div><div class="stat-value">412</div><div class="faint t-sm mt-2">From 12 plants that share people</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Needs attention</div><div class="stat-value" style="color:var(--ef-amber-display)">3</div><div class="faint t-sm mt-2">From shared findings only</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><div class="grow"><div class="card-title">Plants</div></div><div class="input" style="width:260px;height:40px"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search plants"></div></div>
+    <div class="card-header"><div class="grow"><div class="card-title">Plants</div><div class="card-description">In order of launch date. Select a plant to see what it shares.</div></div><div class="input" style="width:260px;height:40px"><i class="hgi-stroke hgi-search-01"></i><input placeholder="Search plants"></div></div>
+    <div class="scope-bar" style="margin:0 0 6px"><span class="sb-label">Area</span><button aria-pressed="true">All <b>14</b></button><button aria-pressed="false">Austin <b>5</b></button><button aria-pressed="false">San Antonio <b>3</b></button><button aria-pressed="false">Dallas–Fort Worth <b>3</b></button><button aria-pressed="false">Houston <b>1</b></button><button aria-pressed="false">Oklahoma City <b>2</b></button></div>
     <table class="table">
       <thead><tr><th>Plant</th><th>Phase</th><th>Core group</th><th>Launch</th><th>Findings</th><th></th></tr></thead>
       <tbody>
-        <tr><td><div class="row gap-3"><span class="card-icon tone-green" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Harvest Point Church</div><div class="cell-sub">Hyde Park, Austin · Daniel Reyes</div></div></div></td><td><span class="tag">1 · Core group</span></td><td class="num-cell">34</td><td style="white-space:nowrap">Mar 14, 2027</td><td><span class="evidence"><i class="hgi-stroke hgi-lock-key"></i>Not shared</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
-        <tr><td><div class="row gap-3"><span class="card-icon tone-blue" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Eastside Commons</div><div class="cell-sub">East Austin · Priya Shah</div></div></div></td><td><span class="tag">3 · Training</span></td><td class="num-cell">52</td><td style="white-space:nowrap">May 2, 2027</td><td><span class="badge" data-size="sm" data-status="attention">Watch</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
-        <tr><td><div class="row gap-3"><span class="card-icon tone-violet" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Mueller Fellowship</div><div class="cell-sub">Mueller · Ben Ortiz</div></div></div></td><td><span class="tag">0 · Discovery</span></td><td class="faint">Not shared</td><td class="faint">Not set</td><td><span class="evidence"><i class="hgi-stroke hgi-lock-key"></i>Not shared</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
-        <tr><td><div class="row gap-3"><span class="card-icon tone-teal" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">River City Church</div><div class="cell-sub">South Austin · Joy Lin</div></div></div></td><td><span class="tag">6 · Post-launch</span></td><td class="num-cell">32</td><td style="white-space:nowrap">Launched Jan 2026</td><td><span class="badge" data-size="sm" data-status="positive">Strong</span></td><td class="right"><i class="hgi-stroke hgi-arrow-right-01 faint"></i></td></tr>
+        <tr onclick="location.hash='#/network'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-green" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Harvest Point Church</div><div class="cell-sub">Hyde Park, Austin, TX · Daniel Reyes</div></div></div></td><td><span class="tag">1 · Core group</span></td><td>34</td><td>Mar 14, 2027</td><td><span class="badge" data-size="sm" data-plain="true">1 shared</span></td><td><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></td></tr>
+        <tr onclick="location.hash='#/network/plant'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-blue" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Eastside Commons</div><div class="cell-sub">East Austin, Austin, TX · Priya Shah</div></div></div></td><td><span class="tag">3 · Training</span></td><td>46</td><td>May 2, 2027</td><td><span class="badge" data-size="sm" data-plain="true">4 shared</span></td><td><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></td></tr>
+        <tr onclick="location.hash='#/network'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-violet" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Mueller Fellowship</div><div class="cell-sub">Mueller, Austin, TX · Ben Ortiz</div></div></div></td><td><span class="tag">0 · Discovery</span></td><td><span class="faint">Not shared</span></td><td>Not set</td><td><span class="faint">Not shared</span></td><td><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></td></tr>
+        <tr onclick="location.hash='#/network'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-amber" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Alamo Heights Church</div><div class="cell-sub">San Antonio, TX · Marcus Hill</div></div></div></td><td><span class="tag">2 · Launch team</span></td><td>28</td><td>Sep 2027</td><td><span class="badge" data-size="sm" data-plain="true">2 shared</span></td><td><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></td></tr>
+        <tr onclick="location.hash='#/network'" style="cursor:pointer"><td><div class="row gap-3"><span class="card-icon tone-teal" style="width:38px;height:38px"><i class="hgi-stroke hgi-church" style="font-size:17px"></i></span><div><div class="cell-title">Deep Ellum Collective</div><div class="cell-sub">Dallas, TX · Grace Kim</div></div></div></td><td><span class="tag">4 · Pre-launch</span></td><td>61</td><td>Jan 24, 2027</td><td><span class="badge" data-size="sm" data-plain="true">3 shared</span></td><td><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></td></tr>
       </tbody>
     </table>
-    <div class="card mt-4" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-shield-user"></i></span>Privacy</div><p class="callout-text t-sm">Names and personal details of people in each plant are never shown here. Findings appear only after the plant has seen them.</p></div>
+    <div class="row between mt-3"><span class="faint t-sm">Showing 5 of 14 plants</span><button class="btn" data-variant="ghost" data-size="sm">Show all</button></div>
+    <div class="card mt-4" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-shield-user"></i></span>Privacy</div><p class="callout-text t-sm">Names and personal details of people in each plant are never shown here. Each plant decides what it shares with your network, and can change it at any time.</p></div>
   </div>
 </section>
 
@@ -3713,6 +3768,14 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Publish review</td><td><code class="k">&lt;PublishReview&gt;</code></td><td class="muted t-sm">Change list, Audience, Confirmation</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Hide dialog</td><td><code class="k">&lt;ConfirmDialog tone=danger&gt;</code></td><td class="muted t-sm">Consequences list, Action</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">AlertDialog</span></td></tr>
 <tr><td class="faint t-sm">Email</td><td class="cell-title">Email layout</td><td><code class="k">&lt;EmailLayout from&gt;</code></td><td class="muted t-sm">Brand, Card, Heading, Meta box, Buttons (RSVP), List, Stats, Signature, Footer (address, preferences)</td><td class="muted t-sm">from church/everyfield</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">React Email (choose at build)</span></td></tr>
+<tr><td class="faint t-sm">Layout</td><td class="cell-title">Network tabs</td><td><code class="k">&lt;NetworkTabs&gt;</code></td><td class="muted t-sm">Plants, Network Intelligence</td><td class="muted t-sm">current</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Tabs</span></td></tr>
+<tr><td class="faint t-sm">Inputs</td><td class="cell-title">Scope bar</td><td><code class="k">&lt;ScopeBar&gt;</code></td><td class="muted t-sm">All, states, metro areas, plant counts</td><td class="muted t-sm">selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">ToggleGroup</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Sharing category card</td><td><code class="k">&lt;CategoryCard share&gt;</code></td><td class="muted t-sm">Header, share tag, metric, chart</td><td class="muted t-sm">share shared/empty/withheld</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Charts</td><td class="cell-title">Phase journey</td><td><code class="k">&lt;PhaseJourney&gt;</code></td><td class="muted t-sm">Phase, weeks, Playbook range</td><td class="muted t-sm">done/current/next</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Charts</td><td class="cell-title">Phase pipeline</td><td><code class="k">&lt;PhasePipeline&gt;</code></td><td class="muted t-sm">Column per phase, count, typical weeks</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Charts</td><td class="cell-title">Launch calendar</td><td><code class="k">&lt;LaunchCalendar&gt;</code></td><td class="muted t-sm">12 months, plant chips</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Evidence coverage</td><td><code class="k">&lt;CoverageBar&gt;</code></td><td class="muted t-sm">Category, bar, n of total</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Data</td><td class="cell-title">Area table</td><td><code class="k">&lt;AreaTable&gt;</code></td><td class="muted t-sm">Area, plants, sharing, lens badges, gap</td><td class="muted t-sm">minimum 2 plants</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Table</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -4066,6 +4129,147 @@ body[data-shell="bare"] .main { max-width: none; }
   </div>
 </section>
 
+
+<!-- =================================================================
+     PAGE: NETWORK · PLANT VIEW  (#/network/plant) · IDN-023 plant detail, aggregate only
+     ================================================================= -->
+<section class="page" data-page="network-plant">
+  <header class="page-header">
+    <div class="titles">
+      <div class="breadcrumb"><a href="#/network">Austin Sending Network</a><i class="hgi-stroke hgi-arrow-right-01"></i><a href="#/network">Plants</a><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Eastside Commons</span></div>
+      <div class="row gap-3"><h1 class="page-title xl">Eastside Commons</h1><span class="tag">3 · Training</span></div>
+      <p class="page-sub row gap-3" style="display:flex;align-items:center"><span><i class="hgi-stroke hgi-location-01" style="font-size:14px;vertical-align:-2px"></i> East Austin · Austin, TX metro</span><span>·</span><span>Planter Priya Shah</span><span>·</span><span>Connected since Jan 2026</span></p>
+    </div>
+    <div class="page-actions"><span class="badge" data-plain="true"><i class="hgi-stroke hgi-shield-user" style="font-size:13px"></i>Shares 5 of 6 with you</span><button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-mail-01"></i>Email Priya</button></div>
+  </header>
+
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Phase journey</div><div class="card-description">Weeks in each phase, compared with the Playbook range</div></div><span class="badge" data-size="sm" data-status="positive">On pace</span></div>
+      <div class="ptimeline mt-2"><div class="pt" data-state="done"><div class="pt-bar"><i style="width:100%"></i></div><div class="pt-n">Discovery</div><div class="pt-s">10 wk<br><span class="faint">Playbook 8 to 12</span></div></div><div class="pt" data-state="done"><div class="pt-bar"><i style="width:100%"></i></div><div class="pt-n">Core group</div><div class="pt-s">34 wk<br><span class="faint">Playbook 24 to 40</span></div></div><div class="pt" data-state="done"><div class="pt-bar"><i style="width:100%"></i></div><div class="pt-n">Launch team</div><div class="pt-s">18 wk<br><span class="faint">Playbook 12 to 20</span></div></div><div class="pt" data-state="current"><div class="pt-bar"><i style="width:55%"></i></div><div class="pt-n">Training</div><div class="pt-s">6 wk so far<br><span class="faint">Playbook 8 to 12</span></div></div><div class="pt" data-state=""><div class="pt-bar"><i style="width:0%"></i></div><div class="pt-n">Pre-launch</div><div class="pt-s"><span class="faint">Playbook 10 to 14</span></div></div><div class="pt" data-state=""><div class="pt-bar"><i style="width:0%"></i></div><div class="pt-n">Launch Sunday</div><div class="pt-s">May 2<br><span class="faint"></span></div></div><div class="pt" data-state=""><div class="pt-bar"><i style="width:0%"></i></div><div class="pt-n">Post-launch</div><div class="pt-s"><span class="faint"></span></div></div></div>
+      <p class="faint t-sm" style="margin:16px 0 0">Phases come from what Priya declared. Everyfield never moves a plant to the next phase on its own.</p>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Launch Sunday</div><div class="card-description">Sunday, May 2, 2027</div></div></div>
+      <div class="row gap-4" style="align-items:flex-end"><span class="stat-value" style="margin:0">205</span><span class="muted" style="padding-bottom:6px">days to go</span></div>
+      <div class="mt-4"><div class="row between t-sm"><span class="muted">Milestones done</span><b>3 of 9</b></div><div class="progress mt-2" data-size="sm"><span style="width:33%"></span></div></div>
+      <div class="mt-3"><div class="row between t-sm"><span class="muted">Linked prep tasks done</span><b>8 of 22</b></div><div class="progress mt-2" data-size="sm"><span style="width:36%"></span></div></div>
+    </div>
+  </div>
+
+  <div class="row between" style="margin:6px 0 12px"><h2 class="card-title">What Eastside Commons shares</h2><span class="faint t-sm">Counts only. Names and notes are never shared.</span></div>
+  <div class="grid g-3" style="margin-bottom:20px">
+    <div class="card cat-card" data-share="shared">
+      <div class="cat-head"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-user-multiple"></i></span><b>People</b><span class="share-tag"><i class="hgi-stroke hgi-tick-02"></i>Shared</span></div>
+      <div class="row gap-3" style="align-items:flex-end"><span class="stat-value" style="margin:0">46</span><span class="muted t-sm" style="padding-bottom:6px">committed adults · +5 in 28 days</span></div>
+      <div class="stage-strip mt-3"><span style="flex:70;background:var(--ef-surface-3)"></span><span style="flex:31;background:var(--ef-blue-500)"></span><span style="flex:12;background:var(--ef-amber-500)"></span><span style="flex:9;background:var(--ef-violet-500)"></span><span style="flex:46;background:var(--ef-green-500)"></span><span style="flex:18;background:var(--ef-teal-500)"></span></div>
+      <div class="faint t-xs mt-2">186 people across 6 stages</div>
+    </div>
+    <div class="card cat-card" data-share="shared">
+      <div class="cat-head"><span class="card-icon tone-green"><i class="hgi-stroke hgi-calendar-03"></i></span><b>Meetings</b><span class="share-tag"><i class="hgi-stroke hgi-tick-02"></i>Shared</span></div>
+      <div class="row gap-3" style="align-items:flex-end"><span class="stat-value" style="margin:0">13 d</span><span class="muted t-sm" style="padding-bottom:6px">between vision meetings, on average</span></div>
+      <div class="mini-bars mt-3"><span style="height:40%"></span><span style="height:52%"></span><span style="height:48%"></span><span style="height:60%"></span><span style="height:55%"></span><span style="height:66%"></span><span style="height:62%"></span><span style="height:70%"></span><span style="height:74%"></span><span style="height:68%"></span><span style="height:80%"></span><span style="height:88%"></span></div>
+      <div class="faint t-xs mt-2">Attendance at the last 12 meetings · latest 41</div>
+    </div>
+    <div class="card cat-card" data-share="shared">
+      <div class="cat-head"><span class="card-icon tone-amber"><i class="hgi-stroke hgi-task-01"></i></span><b>Tasks</b><span class="share-tag"><i class="hgi-stroke hgi-tick-02"></i>Shared</span></div>
+      <div class="row gap-6"><div><span class="stat-value" style="margin:0">42</span><div class="faint t-sm">open</div></div><div><span class="stat-value" style="margin:0;color:var(--ef-amber-display)">6</span><div class="faint t-sm">overdue</div></div></div>
+      <div class="faint t-xs mt-3">Follow-ups within 48 h: 78% in the last 28 days</div>
+    </div>
+    <div class="card cat-card" data-share="shared">
+      <div class="cat-head"><span class="card-icon tone-violet"><i class="hgi-stroke hgi-user-group"></i></span><b>Ministry teams</b><span class="share-tag"><i class="hgi-stroke hgi-tick-02"></i>Shared</span></div>
+      <div class="row gap-3" style="align-items:flex-end"><span class="stat-value" style="margin:0">9 of 11</span><span class="muted t-sm" style="padding-bottom:6px">leader roles filled</span></div>
+      <div class="list mt-2"><div class="kv" style="padding:8px 0"><span class="t-sm">Kids</span><span class="badge" data-size="sm" data-status="risk">Leader open</span></div><div class="kv" style="padding:8px 0"><span class="t-sm">Production</span><span class="badge" data-size="sm" data-status="risk">Leader open</span></div></div>
+    </div>
+    <div class="card cat-card" data-share="empty">
+      <div class="cat-head"><span class="card-icon tone-teal"><i class="hgi-stroke hgi-book-open-01"></i></span><b>Wiki reading</b><span class="share-tag" data-v="empty">Shared · nothing yet</span></div>
+      <p class="muted t-sm" style="margin:0">Shared, but no one at Eastside Commons has finished a Playbook article in the last 28 days.</p>
+    </div>
+    <div class="card cat-card" data-share="withheld">
+      <div class="cat-head"><span class="card-icon tone-ink"><i class="hgi-stroke hgi-activity-01"></i></span><b>Activity updates</b><span class="share-tag" data-v="withheld"><i class="hgi-stroke hgi-lock-key"></i>Not shared</span></div>
+      <p class="muted t-sm" style="margin:0">Priya has not shared activity updates with Austin Sending Network. This is a choice, not a zero.</p>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); align-items:start">
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Plant Intelligence findings</div><div class="card-description">Shared by Eastside Commons · assessed Sep 28 against rubric v1</div></div></div>
+      <div class="grid g-2" style="gap:10px"><div class="lens" data-state="positive" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-megaphone-01"></i></span><span class="lens-name" style="font-size:14px">Vision casting</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div></div></div><div class="lens" data-state="positive" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-group"></i></span><span class="lens-name" style="font-size:14px">Shared ownership</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div></div></div><div class="lens" data-state="positive" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-multiple"></i></span><span class="lens-name" style="font-size:14px">Critical mass</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div></div></div><div class="lens" data-state="watch" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-link-01"></i></span><span class="lens-name" style="font-size:14px">Core group cohesion</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div></div></div><div class="lens" data-state="unknown" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-hand-prayer"></i></span><span class="lens-name" style="font-size:14px">Prayer</span><span class="badge" data-size="sm" data-status="unknown">Not shared</span></div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div></div></div><div class="lens" data-state="unknown" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-coins-01"></i></span><span class="lens-name" style="font-size:14px">Generosity and finance</span><span class="badge" data-size="sm" data-status="unknown">Not shared</span></div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div></div></div><div class="lens" data-state="concern" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-crown"></i></span><span class="lens-name" style="font-size:14px">Emerging leadership</span><span class="badge" data-size="sm" data-status="risk">Concern</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span></span><span></span><span></span></div></div></div><div class="lens" data-state="watch" style="min-height:0;padding:14px"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-graduation-scroll"></i></span><span class="lens-name" style="font-size:14px">Comprehensive training</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div></div></div></div>
+      <p class="faint t-sm" style="margin:14px 0 0">These are the plant's own findings, shown after Priya saw them. Network Intelligence combines findings like these across plants without naming any of them.</p>
+    </div>
+    <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:0">
+      <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-target-02"></i>Where help could matter</span></div>
+      <div class="insight-title">Two leader roles are open, 205 days before launch</div>
+      <div class="insight-text">Kids and Production have no leader yet. Emerging leadership is the plant's only Concern. From shared Ministry teams and findings.</div>
+      <div class="insight-footer"><button class="btn" data-variant="light" data-size="sm">Offer help <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm">Later</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE: NETWORK INTELLIGENCE  (#/network/intelligence) · draft Network Intelligence rubric
+     ================================================================= -->
+<section class="page" data-page="network-intel">
+  <header class="page-header">
+    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Network Intelligence</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">Patterns across your plants, from the findings and facts they share. No plant is named here.</p></div>
+    <div class="page-actions"><a class="btn" data-variant="secondary" href="#/overview"><i class="hgi-stroke hgi-church"></i>Back to Harvest Point</a><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Invite a plant</button></div>
+  </header>
+  <nav class="net-tabs" aria-label="Network views"><a href="#/network" >Plants</a><a href="#/network/intelligence" aria-current="page">Network Intelligence</a></nav>
+  <div class="rubric-note"><i class="hgi-stroke hgi-information-circle"></i><span>Network Intelligence rubric <b style="font-weight:600;color:var(--ef-ink)">v0.1 draft</b> · written by Everyfield and being tested with networks · reads Plant Intelligence results that plants share. A finding needs at least 2 plants.</span></div>
+  <div class="scope-bar" id="scope-bar"><span class="sb-label">Show</span>
+    <button data-scope="all" aria-pressed="true"><i class="hgi-stroke hgi-globe-02"></i>All plants <b>14</b></button>
+    <span class="sb-sep"></span>
+    <button data-scope="tx" aria-pressed="false">Texas <b>12</b></button><button data-scope="ok" aria-pressed="false">Oklahoma <b>2</b></button>
+    <span class="sb-sep"></span>
+    <button data-scope="atx" aria-pressed="false">Greater Austin <b>5</b></button><button data-scope="sat" aria-pressed="false">Greater San Antonio <b>3</b></button><button data-scope="dfw" aria-pressed="false">Dallas–Fort Worth <b>3</b></button><button data-scope="hou" aria-pressed="false">Greater Houston <b>1</b></button><button data-scope="okc" aria-pressed="false">Greater Oklahoma City <b>2</b></button>
+  </div>
+
+  <div id="ni-enough">
+  <div class="grid" style="grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
+    <div class="insight" data-tone="lilac" data-on="ink" style="min-height:0">
+      <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top network finding</span><span class="insight-count" id="ni-count">From 11 of 14 plants</span></div>
+      <div class="insight-metric"><span class="num" id="ni-num">4 of 6</span><span class="unit" id="ni-unit">plants within a year of launch have a Concern on Emerging leadership</span></div>
+      <div class="insight-title" id="ni-title">Emerging leadership is the most common gap before launch</div>
+      <div class="insight-text" id="ni-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>
+      <div class="insight-footer"><button class="btn" data-variant="light">See the lens <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" onclick="openEvry()">Ask Evry why</button></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Evidence</div><div class="card-description" id="ni-cov-desc">How much of the portfolio each insight can see</div></div></div>
+      <div id="ni-cov"></div>
+      <p class="faint t-xs" style="margin:10px 0 0">Plants that do not share a category count as unknown, never as zero.</p>
+    </div>
+  </div>
+
+  <div class="row between" style="margin:6px 0 12px"><h2 class="card-title">Network lenses</h2><span class="faint t-sm">Each lens says how many plants it covers</span></div>
+  <div class="grid g-4" id="ni-lenses" style="margin-bottom:20px"></div>
+
+  <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Phase pipeline</div><div class="card-description">Plants in each phase, and typical weeks in it</div></div></div>
+      <div class="pipeline mt-2" id="ni-pipeline"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="grow"><div class="card-title">Launches in the next 12 months</div><div class="card-description">From launch dates plants have set. Names are on the Plants tab.</div></div></div>
+      <div class="launch-cal mt-2" id="ni-cal"></div>
+    </div>
+  </div>
+
+  <div class="card" id="ni-areas-card">
+    <div class="card-header"><div class="grow"><div class="card-title">By area</div><div class="card-description">Metro areas use US Census metropolitan areas. Listed by size, not by score.</div></div></div>
+    <table class="table area-table"><thead><tr><th>Area</th><th>Plants</th><th>Share findings</th><th>Launch readiness</th><th>Momentum</th><th>Most common gap</th></tr></thead><tbody id="ni-areas"></tbody></table>
+  </div>
+  </div>
+
+  <div id="ni-not-enough" hidden>
+    <div class="card"><div class="state-panel">
+      <div class="s-art"><i class="hgi-stroke hgi-user-group"></i></div>
+      <div class="card-title">Not enough plants for a finding here</div>
+      <p>Greater Houston has 1 plant. A network finding needs at least 2, so nothing here could describe a single plant. This plant still counts in the Texas and All plants views, and you can open it from Plants.</p>
+      <div class="row gap-2 mt-3"><button class="btn" data-variant="primary" onclick="setScope('tx')">Show Texas</button><a class="btn" data-variant="ghost" href="#/network">Open Plants</a></div>
+    </div></div>
+  </div>
+</section>
+
 <section class="page" data-page="stub">
   <header class="page-header"><div class="titles"><h1 class="page-title xl" data-stub-title>Section</h1><p class="page-sub" data-stub-sub></p></div></header>
   <div class="card"><div class="empty" style="padding:70px 24px"><div class="e-art"><i data-stub-icon class="hgi-stroke hgi-rocket-01"></i></div><div class="card-title sm">Not designed in this pass</div><p class="muted" style="max-width:360px">This screen uses the same kit. It is out of scope for the first visual pass.</p><a class="btn" data-variant="primary" data-size="sm" href="#/components" style="margin-top:8px">See the components</a></div></div>
@@ -4368,7 +4572,7 @@ body[data-shell="bare"] .main { max-width: none; }
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
   'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
-  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki']
+  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network']
 };
 const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
@@ -4788,6 +4992,35 @@ function setWikiSource(k) {
 function openDialog(id) { closePopovers(); document.getElementById(id).dataset.open = 'true'; }
 function closeDialog(id) { document.getElementById(id).dataset.open = 'false'; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') ['publish-dialog', 'hide-dialog'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
+
+
+/* Network Intelligence: scope switch (all, state, metro). Findings need at least 2 plants. */
+const NI = {"all": {"n": 14, "share": 11, "num": "4 of 6", "unit": "plants within a year of launch have a Concern on Emerging leadership", "title": "Emerging leadership is the most common gap before launch", "text": "It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "11 of 11 sharing plants moved forward or held within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "3 of 5 plants launching within a year are on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "8 of 12 plants grew their core group in the last 28 days."], ["Leader development", "hgi-crown", "concern", "Concern", "4 of 6 plants near launch have open leader roles."], ["Recurring gaps", "hgi-alert-02", "watch", "Watch", "Emerging leadership and Core group cohesion appear most often."], ["Support load", "hgi-target-02", "watch", "Watch", "3 plants have a Concern they shared. Up from 1 in August."], ["Evidence coverage", "hgi-analytics-01", "positive", "Strong", "11 of 14 plants share findings. 9 were assessed in the last 60 days."]], "pipe": [[1, "Discovery", "6 wk"], [4, "Core group", "31 wk"], [3, "Launch team", "15 wk"], [2, "Training", "9 wk"], [2, "Pre-launch", "11 wk"], [0, "Launch Sunday", ""], [2, "Post-launch", ""]], "cal": {"2": ["Deep Ellum Collective"], "4": ["Harvest Point Church"], "6": ["Eastside Commons"], "7": ["Lakewood Church Dallas"], "10": ["Alamo Heights Church"]}, "cov": [["Findings", 11], ["People", 12], ["Meetings", 12], ["Tasks", 10], ["Ministry teams", 9], ["Wiki reading", 7]]}, "tx": {"n": 12, "share": 10, "num": "4 of 5", "unit": "Texas plants within a year of launch have a Concern on Emerging leadership", "title": "In Texas, Emerging leadership is the gap before launch", "text": "Emerging leadership is at Watch or Concern for most Texas plants in Training and Pre-launch. Momentum is strong: 7 of 10 grew in the last 28 days.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "10 of 10 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "2 of 4 plants launching within a year are on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "7 of 10 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "concern", "Concern", "4 of 5 plants near launch have open leader roles."], ["Recurring gaps", "hgi-alert-02", "watch", "Watch", "Emerging leadership appears most often."], ["Support load", "hgi-target-02", "watch", "Watch", "3 plants have a Concern they shared."], ["Evidence coverage", "hgi-analytics-01", "positive", "Strong", "10 of 12 plants share findings."]], "pipe": [[1, "Discovery", "6 wk"], [3, "Core group", "30 wk"], [3, "Launch team", "15 wk"], [2, "Training", "9 wk"], [2, "Pre-launch", "11 wk"], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {"2": ["Deep Ellum Collective"], "4": ["Harvest Point Church"], "6": ["Eastside Commons"], "7": ["Lakewood Church Dallas"], "10": ["Alamo Heights Church"]}, "cov": [["Findings", 10], ["People", 11], ["Meetings", 11], ["Tasks", 9], ["Ministry teams", 8], ["Wiki reading", 6]]}, "ok": {"n": 2, "share": 2, "num": "2 of 2", "unit": "plants in Oklahoma are in the Core group phase", "title": "Oklahoma is early: both plants are building a core group", "text": "Too early for launch insights. Vision casting is Strong for both.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "4 of 4 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "1 of 2 plants launching within a year is on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "3 of 4 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "watch", "Watch", "2 of 4 plants have open leader roles."], ["Recurring gaps", "hgi-alert-02", "positive", "Strong", "No lens is at Concern in more than 1 plant."], ["Support load", "hgi-target-02", "positive", "Strong", "1 plant has a Concern it shared."], ["Evidence coverage", "hgi-analytics-01", "watch", "Watch", "4 of 5 plants share findings. 1 plant shares none."]], "pipe": [[1, "Discovery", "6 wk"], [1, "Core group", "34 wk"], [0, "Launch team", ""], [1, "Training", "6 wk"], [0, "Pre-launch", ""], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {}, "cov": [["Findings", 2], ["People", 2], ["Meetings", 2], ["Tasks", 2], ["Ministry teams", 2], ["Wiki reading", 2]]}, "atx": {"n": 5, "share": 4, "num": "3 of 4", "unit": "sharing plants in Greater Austin grew their core group this month", "title": "Greater Austin has the strongest momentum in the network", "text": "Vision meetings run every 13 days on average across these plants, more often than the Playbook floor of 14. Emerging leadership is the one lens at Watch.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "4 of 4 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "1 of 2 plants launching within a year is on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "3 of 4 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "watch", "Watch", "2 of 4 plants have open leader roles."], ["Recurring gaps", "hgi-alert-02", "positive", "Strong", "No lens is at Concern in more than 1 plant."], ["Support load", "hgi-target-02", "positive", "Strong", "1 plant has a Concern it shared."], ["Evidence coverage", "hgi-analytics-01", "watch", "Watch", "4 of 5 plants share findings. 1 plant shares none."]], "pipe": [[1, "Discovery", "6 wk"], [1, "Core group", "34 wk"], [0, "Launch team", ""], [1, "Training", "6 wk"], [0, "Pre-launch", ""], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {"4": ["Harvest Point Church"], "6": ["Eastside Commons"]}, "cov": [["Findings", 4], ["People", 4], ["Meetings", 4], ["Tasks", 3], ["Ministry teams", 3], ["Wiki reading", 2]]}, "sat": {"n": 3, "share": 3, "num": "2 of 3", "unit": "plants in Greater San Antonio meet less often than every 14 days", "title": "Greater San Antonio plants are meeting less often", "text": "Momentum is at Watch. Plants that meet every 14 days or less grew faster elsewhere in the network.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "4 of 4 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "1 of 2 plants launching within a year is on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "3 of 4 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "watch", "Watch", "2 of 4 plants have open leader roles."], ["Recurring gaps", "hgi-alert-02", "positive", "Strong", "No lens is at Concern in more than 1 plant."], ["Support load", "hgi-target-02", "positive", "Strong", "1 plant has a Concern it shared."], ["Evidence coverage", "hgi-analytics-01", "watch", "Watch", "4 of 5 plants share findings. 1 plant shares none."]], "pipe": [[1, "Discovery", "6 wk"], [1, "Core group", "34 wk"], [0, "Launch team", ""], [1, "Training", "6 wk"], [0, "Pre-launch", ""], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {"10": ["Alamo Heights Church"]}, "cov": [["Findings", 3], ["People", 3], ["Meetings", 3], ["Tasks", 3], ["Ministry teams", 3], ["Wiki reading", 2]]}, "dfw": {"n": 3, "share": 3, "num": "2 of 3", "unit": "plants in Dallas\u2013Fort Worth are within 6 months of launch", "title": "Dallas\u2013Fort Worth is the next area to launch", "text": "Launch readiness is the focus here. Emerging leadership is at Concern for both plants near launch.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "4 of 4 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "1 of 2 plants launching within a year is on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "3 of 4 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "watch", "Watch", "2 of 4 plants have open leader roles."], ["Recurring gaps", "hgi-alert-02", "positive", "Strong", "No lens is at Concern in more than 1 plant."], ["Support load", "hgi-target-02", "positive", "Strong", "1 plant has a Concern it shared."], ["Evidence coverage", "hgi-analytics-01", "watch", "Watch", "4 of 5 plants share findings. 1 plant shares none."]], "pipe": [[1, "Discovery", "6 wk"], [1, "Core group", "34 wk"], [0, "Launch team", ""], [1, "Training", "6 wk"], [0, "Pre-launch", ""], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {"2": ["Deep Ellum Collective"], "7": ["Lakewood Church Dallas"]}, "cov": [["Findings", 3], ["People", 3], ["Meetings", 3], ["Tasks", 3], ["Ministry teams", 3], ["Wiki reading", 2]]}, "okc": {"n": 2, "share": 2, "num": "2 of 2", "unit": "plants in Greater Oklahoma City are in the Core group phase", "title": "Greater Oklahoma City is early: both plants are building a core group", "text": "Too early for launch insights. Vision casting is Strong for both.", "lenses": [["Phase flow", "hgi-route-01", "positive", "Strong", "4 of 4 sharing plants within the Playbook range."], ["Launch readiness", "hgi-rocket-01", "watch", "Watch", "1 of 2 plants launching within a year is on track."], ["Momentum", "hgi-chart-increase", "positive", "Strong", "3 of 4 plants grew in the last 28 days."], ["Leader development", "hgi-crown", "watch", "Watch", "2 of 4 plants have open leader roles."], ["Recurring gaps", "hgi-alert-02", "positive", "Strong", "No lens is at Concern in more than 1 plant."], ["Support load", "hgi-target-02", "positive", "Strong", "1 plant has a Concern it shared."], ["Evidence coverage", "hgi-analytics-01", "watch", "Watch", "4 of 5 plants share findings. 1 plant shares none."]], "pipe": [[1, "Discovery", "6 wk"], [1, "Core group", "34 wk"], [0, "Launch team", ""], [1, "Training", "6 wk"], [0, "Pre-launch", ""], [0, "Launch Sunday", ""], [1, "Post-launch", ""]], "cal": {}, "cov": [["Findings", 2], ["People", 2], ["Meetings", 2], ["Tasks", 2], ["Ministry teams", 2], ["Wiki reading", 2]]}};
+const NI_AREAS = [["Greater Austin", "5", "4 of 5", "watch", "positive", "Emerging leadership"], ["Greater San Antonio", "3", "3 of 3", "watch", "watch", "Core group cohesion"], ["Dallas\u2013Fort Worth", "3", "3 of 3", "concern", "positive", "Emerging leadership"], ["Greater Oklahoma City", "2", "2 of 2", "unknown", "positive", "Too early to say"], ["Greater Houston", "1", "1 of 1", "few", "few", ""]];
+const NI_MONTHS = ['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'];
+const NI_STATUS = { positive: ['positive','Strong'], watch: ['attention','Watch'], concern: ['risk','Concern'], unknown: ['unknown','Unknown'] };
+function setScope(k) {
+  document.querySelectorAll('#scope-bar [data-scope]').forEach(b => b.setAttribute('aria-pressed', b.dataset.scope === k));
+  const few = k === 'hou';
+  document.getElementById('ni-enough').hidden = few; document.getElementById('ni-not-enough').hidden = !few;
+  if (few) return;
+  const d = NI[k];
+  document.getElementById('ni-count').textContent = 'From ' + d.share + ' of ' + d.n + ' plants';
+  document.getElementById('ni-num').textContent = d.num; document.getElementById('ni-unit').textContent = d.unit;
+  document.getElementById('ni-title').textContent = d.title; document.getElementById('ni-text').textContent = d.text;
+  document.getElementById('ni-cov').innerHTML = d.cov.map(([c, v]) => `<div class="cov-row"><span>${c}</span><span class="cov-bar"><i style="width:${Math.round(v / d.n * 100)}%"></i></span><b class="t-sm" style="font-weight:600;text-align:right">${v} of ${d.n}</b></div>`).join('');
+  document.getElementById('ni-lenses').innerHTML = d.lenses.map(([n, ic, st, lab, note]) => { const on = { positive: 4, watch: 2, concern: 1, unknown: 0 }[st]; return `<div class="lens" data-state="${st}" style="min-height:0"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke ${ic}"></i></span><span class="lens-name">${n}</span><span class="badge" data-size="sm" data-status="${NI_STATUS[st][0]}">${lab}</span></div><div class="lens-note">${note}</div><div class="lens-foot"><div class="lens-meter">${[0,1,2,3].map(i => i < on ? '<span data-on></span>' : '<span></span>').join('')}</div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>From shared findings</span></div></div>`; }).join('');
+  const max = Math.max(1, ...d.pipe.map(p => p[0]));
+  document.getElementById('ni-pipeline').innerHTML = d.pipe.map(([c, n, w]) => `<div class="pl"><div class="pl-col"><span style="height:${c ? Math.max(26, c / max * 120) : 0}px;${c ? '' : 'background:none'}">${c || ''}</span></div><div class="pl-n">${n}</div><div class="pl-s">${c ? (w ? 'typical ' + w : '') : '<span class="faint">none</span>'}</div></div>`).join('');
+  document.getElementById('ni-cal').innerHTML = NI_MONTHS.map((m, i) => { const c = (d.cal[i] || []).length; return `<div class="lc"><div class="lc-m">${m}</div><div class="lc-d"${c ? ' data-has' : ''}>${c ? `<b>${c}</b><small>${c === 1 ? 'launch' : 'launches'}</small>` : ''}</div></div>`; }).join('');
+  document.getElementById('ni-areas-card').style.display = (k === 'all' || k === 'tx') ? '' : 'none';
+  document.getElementById('ni-areas').innerHTML = NI_AREAS.filter(a => k === 'all' || (k === 'tx' && a[0] !== 'Greater Oklahoma City')).map(([a, n, sh, lr, mo, gap]) => {
+    const badge = s => s === 'few' ? '<span class="not-enough"><i class="hgi-stroke hgi-information-circle"></i>Needs 2 plants</span>' : `<span class="badge" data-size="sm" data-status="${NI_STATUS[s][0]}">${NI_STATUS[s][1]}</span>`;
+    return `<tr><td class="cell-title">${a}</td><td>${n}</td><td>${sh}</td><td>${badge(lr)}</td><td>${badge(mo)}</td><td class="muted t-sm">${gap || '<span class="faint">Not shown</span>'}</td></tr>`;
+  }).join('');
+}
+document.getElementById('scope-bar').addEventListener('click', e => { const b = e.target.closest('[data-scope]'); if (b) setScope(b.dataset.scope); });
+setScope('all');
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {

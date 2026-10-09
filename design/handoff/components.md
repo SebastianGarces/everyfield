@@ -86,6 +86,14 @@ Rules that apply to every component:
 | Overlays | Publish review | `<PublishReview>` | Change list, Audience, Confirmation |  | Dialog |
 | Overlays | Hide dialog | `<ConfirmDialog tone=danger>` | Consequences list, Action |  | AlertDialog |
 | Email | Email layout | `<EmailLayout from>` | Brand, Card, Heading, Meta box, Buttons (RSVP), List, Stats, Signature, Footer (address, preferences) | from church/everyfield | React Email (choose at build) |
+| Layout | Network tabs | `<NetworkTabs>` | Plants, Network Intelligence | current | Tabs |
+| Inputs | Scope bar | `<ScopeBar>` | All, states, metro areas, plant counts | selected | ToggleGroup |
+| Data | Sharing category card | `<CategoryCard share>` | Header, share tag, metric, chart | share shared/empty/withheld | none |
+| Charts | Phase journey | `<PhaseJourney>` | Phase, weeks, Playbook range | done/current/next | none |
+| Charts | Phase pipeline | `<PhasePipeline>` | Column per phase, count, typical weeks |  | none |
+| Charts | Launch calendar | `<LaunchCalendar>` | 12 months, plant chips |  | none |
+| Data | Evidence coverage | `<CoverageBar>` | Category, bar, n of total |  | none |
+| Data | Area table | `<AreaTable>` | Area, plants, sharing, lens badges, gap | minimum 2 plants | Table |
 | Overlays | Feedback dialog | `<FeedbackDialog>` | Type, Description, Page details, Sent state | type bug/suggestion/question/other | Dialog, RadioGroup |
 | Overlays | Guide panel | `<GuidePanel>` | Article, Help fallback, Footer | kind article/help | Sheet |
 | Content | How-to steps | `<HowTo.Steps>` | Step, UI reference |  | none |
@@ -109,4 +117,4 @@ Rules that apply to every component:
 | Evry | Message | `<EvryMessage>` | Avatar, Bubble, Citation | role user/evry | none |
 | Evry | Review card | `<ReviewCard>` | Header, Note, Lines, Footer (Approve, Edit, Cancel) | state pending/revised/approved/failed/expired | none |
 
-89 components.
+97 components.
