@@ -3152,7 +3152,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + sendingChapter() + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -3247,7 +3247,7 @@ function navPill(force) {
   if (on) { pill.removeAttribute("inert"); pill.setAttribute("aria-hidden", "false"); } else { pill.setAttribute("inert", ""); pill.setAttribute("aria-hidden", "true"); }
 }
 window.addEventListener("scroll", function () { if (!NAVP.ticking) { NAVP.ticking = true; requestAnimationFrame(function () { navPill(); }); } }, { passive: true });
-var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["home", "evry"], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
+var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["planters", "evry"], "Planters": ["planters", ""], "Sending churches": ["oversight", "sending-churches"], "Networks": ["oversight", "networks"], "Coaches": ["oversight", "features"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
 function renderFooter() {
   var f = COPY.shared.footer;
   document.getElementById("site-footer").innerHTML = '<div class="ft-card"><div class="ft-lead"><span class="ft-mark">' + mark() + '</span><h2 class="display">' + t(f.headline) + "</h2>" + btn(f.cta) + "</div>" +
