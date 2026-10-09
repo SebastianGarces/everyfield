@@ -104,6 +104,8 @@ Spacing is a 4px grid: `--ef-space-1` 4 to `--ef-space-10` 40. Card padding is 2
 
 The app shell is a top bar (`--ef-topbar-h` 60px, built from separate pills), an icon rail on the left and a content column. The top bar and rail span the full window. The content column stops at `--ef-content-max` (1536px) and centers in the space beside the rail. Pages with many columns (People, Meetings, Documents) set `data-width="wide"` and can grow to `--ef-content-max-wide` (1920px). At 1440px every page looks as designed.
 
+The top bar has three parts: the logo pill, the main nav and the right-hand controls (search, notifications, Ask Evry, user menu). From 1640px up, it is a three-column grid with equal outer columns, so the nav is centered on the window. Below 1640px the right-hand controls no longer fit their half (measured at 1619px), so the bar becomes a flex row and the nav centers in the space between the logo and the controls. At 1520px and below the user menu drops the role line. At 1340px and below it drops the name, and the logo drops the wordmark. The phase is not shown in the top bar.
+
 The main app is desktop only. Phone layouts exist only for door check-in, the follow-up call and pages opened from an email link. See [screens.md](screens.md).
 
 Sign-in and onboarding use a bare shell without the top bar and rail.

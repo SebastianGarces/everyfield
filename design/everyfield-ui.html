@@ -259,6 +259,16 @@ button { font: inherit; color: inherit; }
 }
 .topbar > * { white-space: nowrap; flex: none; }
 .topbar .topnav { flex: 0 1 auto; }
+.top-right { display: flex; align-items: center; gap: 14px; }
+/* Wide screens: three columns with equal outer tracks, so the nav centers on the window.
+   Starts at 1640px, where the right-hand controls fit their half (measured: 1619px).
+   Below it, the nav centers in the space between the logo and the controls. */
+@media (min-width: 1640px) {
+  .topbar { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); }
+  .topbar > .brand-pill { justify-self: start; }
+  .topbar > .topnav { justify-self: center; margin: 0; }
+  .topbar > .top-right { justify-self: end; }
+}
 .pill-surface {
   background: var(--ef-surface-raised); border-radius: 999px;
   box-shadow: var(--ef-shadow-nav);
@@ -273,8 +283,6 @@ button { font: inherit; color: inherit; }
 .topnav a[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
-.phase-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: var(--ef-green-100); color: var(--ef-green-700); font-weight: 600; font-size: var(--ef-text-sm); }
-.phase-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ef-green-500); box-shadow: 0 0 0 3px rgba(28,227,98,.22); }
 .top-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
 .top-icon:hover { background: var(--ef-surface-2); }
 .top-icon i { font-size: 20px; }
@@ -291,7 +299,7 @@ button { font: inherit; color: inherit; }
 .user-pill .meta span { font-size: 12px; color: var(--ef-text-3); }
 
 @media (max-width: 1520px) {
-  .topbar { gap: 10px; }
+  .topbar, .top-right { gap: 10px; }
   .topnav a { padding: 0 13px; }
   .user-pill .meta span { display: none; }
   .user-pill { padding-right: 14px; }
@@ -1549,8 +1557,8 @@ body[data-shell="bare"] .main { max-width: none; }
       <a href="#/ministries" data-nav="ministries">Ministries</a>
       <a href="#/wiki" data-nav="wiki">Wiki</a>
     </nav>
+    <div class="top-right">
     <div class="top-cluster pill-surface">
-      <span class="phase-pill" title="Phase 1 · Core Group Development">Phase 1</span>
       <button class="top-icon" title="Search (⌘K)"><i class="hgi-stroke hgi-search-01"></i></button>
       <button class="top-icon" title="Notifications" data-pop-anchor onclick="openPop('bell-pop', this)"><i class="hgi-stroke hgi-notification-03"></i><span class="ping"></span></button>
       <span class="evry-chip" onclick="openEvry()" title="Ask Evry (⌘J)"><span class="evry-bot" data-size="sm" data-mood="idle" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>Ask Evry</span>
@@ -1559,6 +1567,7 @@ body[data-shell="bare"] .main { max-width: none; }
       <span class="avatar tone-green">DR</span>
       <div class="meta"><b>Daniel Reyes</b><span>Lead planter · Harvest Point</span></div>
       <i class="hgi-stroke hgi-arrow-down-01" style="font-size:16px;color:var(--ef-text-3)"></i>
+    </div>
     </div>
   </header>
 
