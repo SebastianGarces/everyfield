@@ -94,6 +94,7 @@ Rules that apply to every component:
 | Charts | Launch calendar | `<LaunchCalendar>` | 12 months, plant chips |  | none |
 | Data | Evidence coverage | `<CoverageBar>` | Category, bar, n of total |  | none |
 | Data | Area table | `<AreaTable>` | Area, plants, sharing, lens badges, gap | minimum 2 plants | Table |
+| Overlays | Lens plants dialog | `<LensPlantsDialog lens>` | Lens state, groups by state, plant rows (name, area, phase, reason, link), not-shared group | scope all/state/metro | Dialog |
 | Overlays | Feedback dialog | `<FeedbackDialog>` | Type, Description, Page details, Sent state | type bug/suggestion/question/other | Dialog, RadioGroup |
 | Overlays | Guide panel | `<GuidePanel>` | Article, Help fallback, Footer | kind article/help | Sheet |
 | Content | How-to steps | `<HowTo.Steps>` | Step, UI reference |  | none |
@@ -117,4 +118,4 @@ Rules that apply to every component:
 | Evry | Message | `<EvryMessage>` | Avatar, Bubble, Citation | role user/evry | none |
 | Evry | Review card | `<ReviewCard>` | Header, Note, Lines, Footer (Approve, Edit, Cancel) | state pending/revised/approved/failed/expired | none |
 
-97 components.
+98 components.

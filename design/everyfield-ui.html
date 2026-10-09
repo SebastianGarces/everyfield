@@ -1376,6 +1376,17 @@ body[data-shell="bare"] .main { max-width: none; }
 .cov-bar i { display: block; height: 100%; border-radius: 99px; background: var(--ef-blue-500); }
 .area-table td .badge { white-space: nowrap; }
 .not-enough { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ef-text-2); }
+
+.lens .lens-list { width: 30px; height: 30px; border-radius: 9px; border: 0; background: var(--ef-surface-2); color: var(--ef-ink-2); display: grid; place-items: center; cursor: pointer; flex: none; }
+.lens .lens-list:hover { background: var(--ef-surface-3); color: var(--ef-ink); }
+.lens .lens-list i { font-size: 16px; }
+.dl-group { margin-top: 18px; }
+.dl-group h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ef-text-3); display: flex; align-items: center; gap: 8px; }
+.dl-row { display: grid; grid-template-columns: minmax(0,1fr) auto 18px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; color: inherit; }
+.dl-row:hover { background: var(--ef-surface-2); }
+.dl-row .dl-n { font-weight: 600; color: var(--ef-ink); }
+.dl-row .dl-s { font-size: var(--ef-text-sm); color: var(--ef-text-2); margin-top: 2px; }
+.dl-row .dl-why { font-size: var(--ef-text-sm); color: var(--ef-ink-2); text-align: right; max-width: 280px; }
 .rubric-note { display: flex; align-items: center; gap: 10px; font-size: var(--ef-text-sm); color: var(--ef-text-2); margin: -6px 0 18px; }
 
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
@@ -3776,6 +3787,7 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Charts</td><td class="cell-title">Launch calendar</td><td><code class="k">&lt;LaunchCalendar&gt;</code></td><td class="muted t-sm">12 months, plant chips</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Evidence coverage</td><td><code class="k">&lt;CoverageBar&gt;</code></td><td class="muted t-sm">Category, bar, n of total</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Area table</td><td><code class="k">&lt;AreaTable&gt;</code></td><td class="muted t-sm">Area, plants, sharing, lens badges, gap</td><td class="muted t-sm">minimum 2 plants</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Table</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Lens plants dialog</td><td><code class="k">&lt;LensPlantsDialog lens&gt;</code></td><td class="muted t-sm">Lens state, groups by state, plant rows (name, area, phase, reason, link), not-shared group</td><td class="muted t-sm">scope all/state/metro</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -4211,7 +4223,7 @@ body[data-shell="bare"] .main { max-width: none; }
      ================================================================= -->
 <section class="page" data-page="network-intel">
   <header class="page-header">
-    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Network Intelligence</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">Patterns across your plants, from the findings and facts they share. No plant is named here.</p></div>
+    <div class="titles"><div class="row gap-3"><h1 class="page-title xl">Network Intelligence</h1><span class="badge" data-status="measured">Network view</span></div><p class="page-sub">Patterns across your plants, from the findings and facts they share. Open any lens to see which plants are behind it.</p></div>
     <div class="page-actions"><a class="btn" data-variant="secondary" href="#/overview"><i class="hgi-stroke hgi-church"></i>Back to Harvest Point</a><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-user-add-01"></i>Invite a plant</button></div>
   </header>
   <nav class="net-tabs" aria-label="Network views"><a href="#/network" >Plants</a><a href="#/network/intelligence" aria-current="page">Network Intelligence</a></nav>
@@ -4231,7 +4243,7 @@ body[data-shell="bare"] .main { max-width: none; }
       <div class="insight-metric"><span class="num" id="ni-num">4 of 6</span><span class="unit" id="ni-unit">plants within a year of launch have a Concern on Emerging leadership</span></div>
       <div class="insight-title" id="ni-title">Emerging leadership is the most common gap before launch</div>
       <div class="insight-text" id="ni-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>
-      <div class="insight-footer"><button class="btn" data-variant="light">See the lens <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" onclick="openEvry()">Ask Evry why</button></div>
+      <div class="insight-footer"><button class="btn" data-variant="light" onclick="openLensPlants('Leader development')">See the plants <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" onclick="openEvry()">Ask Evry why</button></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="grow"><div class="card-title">Evidence</div><div class="card-description" id="ni-cov-desc">How much of the portfolio each insight can see</div></div></div>
@@ -4240,7 +4252,7 @@ body[data-shell="bare"] .main { max-width: none; }
     </div>
   </div>
 
-  <div class="row between" style="margin:6px 0 12px"><h2 class="card-title">Network lenses</h2><span class="faint t-sm">Each lens says how many plants it covers</span></div>
+  <div class="row between" style="margin:6px 0 12px"><h2 class="card-title">Network lenses</h2><span class="faint t-sm">From the findings plants share. Open a lens to see which plants are behind it.</span></div>
   <div class="grid g-4" id="ni-lenses" style="margin-bottom:20px"></div>
 
   <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
@@ -4264,7 +4276,7 @@ body[data-shell="bare"] .main { max-width: none; }
     <div class="card"><div class="state-panel">
       <div class="s-art"><i class="hgi-stroke hgi-user-group"></i></div>
       <div class="card-title">Not enough plants for a finding here</div>
-      <p>Greater Houston has 1 plant. A network finding needs at least 2, so nothing here could describe a single plant. This plant still counts in the Texas and All plants views, and you can open it from Plants.</p>
+      <p>Greater Houston has 1 plant. A pattern needs at least 2 plants, so there are no network findings for this area yet. The plant still counts in the Texas and All plants views, and you can open it from Plants.</p>
       <div class="row gap-2 mt-3"><button class="btn" data-variant="primary" onclick="setScope('tx')">Show Texas</button><a class="btn" data-variant="ghost" href="#/network">Open Plants</a></div>
     </div></div>
   </div>
@@ -4504,6 +4516,17 @@ body[data-shell="bare"] .main { max-width: none; }
     </ul>
   </div>
   <div class="modal-foot"><span class="grow"></span><button class="btn" data-variant="ghost" onclick="closeDialog('hide-dialog')">Cancel</button><button class="btn" data-variant="danger" onclick="closeDialog('hide-dialog')"><i class="hgi-stroke hgi-view-off"></i>Hide for my network</button></div>
+  </div></div>
+</div>
+
+
+<!-- ================= NETWORK LENS PLANTS  <LensPlantsDialog> ================= -->
+<div class="modal" id="lens-plants" data-open="false" role="dialog" aria-modal="true" aria-labelledby="lp-title" onclick="if (event.target === this) closeDialog('lens-plants')">
+  <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body" style="max-height:calc(100vh - 220px)">
+    <div class="modal-head"><div class="grow"><div class="row gap-3"><h2 id="lp-title" style="font-size:26px">Leader development</h2><span id="lp-badge"></span></div><p class="muted mt-2" style="margin-bottom:0" id="lp-note"></p></div><button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeDialog('lens-plants')"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+    <div id="lp-groups"></div>
+  </div>
+  <div class="modal-foot"><span class="faint t-sm grow" id="lp-foot">Each plant decides what it shares with your network.</span><button class="btn" data-variant="secondary" onclick="closeDialog('lens-plants')">Close</button></div>
   </div></div>
 </div>
 
@@ -4991,7 +5014,7 @@ function setWikiSource(k) {
 }
 function openDialog(id) { closePopovers(); document.getElementById(id).dataset.open = 'true'; }
 function closeDialog(id) { document.getElementById(id).dataset.open = 'false'; }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') ['publish-dialog', 'hide-dialog'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ['publish-dialog', 'hide-dialog', 'lens-plants'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
 
 
 /* Network Intelligence: scope switch (all, state, metro). Findings need at least 2 plants. */
@@ -4999,7 +5022,30 @@ const NI = {"all": {"n": 14, "share": 11, "num": "4 of 6", "unit": "plants withi
 const NI_AREAS = [["Greater Austin", "5", "4 of 5", "watch", "positive", "Emerging leadership"], ["Greater San Antonio", "3", "3 of 3", "watch", "watch", "Core group cohesion"], ["Dallas\u2013Fort Worth", "3", "3 of 3", "concern", "positive", "Emerging leadership"], ["Greater Oklahoma City", "2", "2 of 2", "unknown", "positive", "Too early to say"], ["Greater Houston", "1", "1 of 1", "few", "few", ""]];
 const NI_MONTHS = ['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'];
 const NI_STATUS = { positive: ['positive','Strong'], watch: ['attention','Watch'], concern: ['risk','Concern'], unknown: ['unknown','Unknown'] };
+
+/* Network lens drill-down: the plants behind a lens, by name, grouped by state. */
+const NI_PLANTS = {"Harvest Point Church": ["atx", "tx", "1 \u00b7 Core group", "Mar 14, 2027"], "Eastside Commons": ["atx", "tx", "3 \u00b7 Training", "May 2, 2027"], "Mueller Fellowship": ["atx", "tx", "0 \u00b7 Discovery", "Not set"], "River City Church": ["atx", "tx", "6 \u00b7 Post-launch", "Launched Apr 2026"], "Round Rock Community": ["atx", "tx", "1 \u00b7 Core group", "Not set"], "Alamo Heights Church": ["sat", "tx", "2 \u00b7 Launch team", "Sep 2027"], "Stone Oak Fellowship": ["sat", "tx", "2 \u00b7 Launch team", "Not set"], "Southtown Church": ["sat", "tx", "6 \u00b7 Post-launch", "Launched Sep 2025"], "Deep Ellum Collective": ["dfw", "tx", "4 \u00b7 Pre-launch", "Jan 24, 2027"], "Lakewood Church Dallas": ["dfw", "tx", "4 \u00b7 Pre-launch", "Jun 2027"], "Fort Worth Commons": ["dfw", "tx", "3 \u00b7 Training", "Aug 2027"], "Heights Church Houston": ["hou", "tx", "2 \u00b7 Launch team", "Not set"], "Plaza District Church": ["okc", "ok", "1 \u00b7 Core group", "Not set"], "Edmond Community": ["okc", "ok", "1 \u00b7 Core group", "Not set"]};
+const NI_AREA_NAMES = {"atx": "Greater Austin", "sat": "Greater San Antonio", "dfw": "Dallas\u2013Fort Worth", "hou": "Greater Houston", "okc": "Greater Oklahoma City"};
+const NI_NOSHARE = ["Mueller Fellowship", "Round Rock Community", "Heights Church Houston"];
+const NI_LENS_PLANTS = {"Leader development": [["Eastside Commons", "concern", "Kids and Production leaders open \u00b7 205 days to launch"], ["Deep Ellum Collective", "concern", "3 leader roles open \u00b7 107 days to launch"], ["Lakewood Church Dallas", "concern", "Worship leader open \u00b7 8 months to launch"], ["Fort Worth Commons", "concern", "Kids leader open \u00b7 10 months to launch"], ["Harvest Point Church", "positive", "Leader roles filled for this phase"], ["Alamo Heights Church", "positive", "Leader roles filled for this phase"]], "Launch readiness": [["Deep Ellum Collective", "watch", "5 of 9 milestones done \u00b7 107 days to launch"], ["Eastside Commons", "watch", "3 of 9 milestones done \u00b7 205 days to launch"], ["Harvest Point Church", "positive", "4 of 9 milestones done \u00b7 on pace"], ["Lakewood Church Dallas", "positive", "6 of 9 milestones done"], ["Alamo Heights Church", "positive", "2 of 9 milestones done \u00b7 11 months to launch"]], "Momentum": [["Harvest Point Church", "positive", "+9 committed in 28 days"], ["Eastside Commons", "positive", "+5 committed in 28 days"], ["Deep Ellum Collective", "positive", "+4 committed"], ["Lakewood Church Dallas", "positive", "+3 committed"], ["Fort Worth Commons", "positive", "+2 committed"], ["Plaza District Church", "positive", "+2 committed"], ["Edmond Community", "positive", "+1 committed"], ["River City Church", "positive", "+6 members since launch"], ["Alamo Heights Church", "watch", "No new commitment in 21 days"], ["Stone Oak Fellowship", "watch", "No new commitment in 30 days"], ["Southtown Church", "watch", "Attendance down 12% in 28 days"]], "Phase flow": [["Harvest Point Church", "positive", "Within the Playbook range for its phase"], ["Eastside Commons", "positive", "Within the Playbook range for its phase"], ["River City Church", "positive", "Within the Playbook range for its phase"], ["Alamo Heights Church", "positive", "Within the Playbook range for its phase"], ["Stone Oak Fellowship", "positive", "Within the Playbook range for its phase"], ["Southtown Church", "positive", "Within the Playbook range for its phase"], ["Deep Ellum Collective", "positive", "Within the Playbook range for its phase"], ["Lakewood Church Dallas", "positive", "Within the Playbook range for its phase"], ["Fort Worth Commons", "positive", "Within the Playbook range for its phase"], ["Plaza District Church", "positive", "Within the Playbook range for its phase"], ["Edmond Community", "positive", "Within the Playbook range for its phase"]], "Recurring gaps": [["Eastside Commons", "concern", "Emerging leadership at Concern"], ["Deep Ellum Collective", "concern", "Emerging leadership at Concern"], ["Lakewood Church Dallas", "concern", "Emerging leadership at Concern"], ["Fort Worth Commons", "concern", "Emerging leadership at Concern"], ["Alamo Heights Church", "watch", "Core group cohesion at Watch"], ["Stone Oak Fellowship", "watch", "Core group cohesion at Watch"], ["Southtown Church", "watch", "Core group cohesion at Watch"]], "Support load": [["Eastside Commons", "concern", "Concern shared Sep 28: Emerging leadership"], ["Deep Ellum Collective", "concern", "Concern shared Oct 2: Emerging leadership"], ["Lakewood Church Dallas", "concern", "Concern shared Sep 20: Emerging leadership"]], "Evidence coverage": [["Harvest Point Church", "positive", "Assessed in the last 60 days"], ["Eastside Commons", "positive", "Assessed in the last 60 days"], ["Deep Ellum Collective", "positive", "Assessed in the last 60 days"], ["Lakewood Church Dallas", "positive", "Assessed in the last 60 days"], ["Alamo Heights Church", "positive", "Assessed in the last 60 days"], ["Stone Oak Fellowship", "positive", "Assessed in the last 60 days"], ["Fort Worth Commons", "positive", "Assessed in the last 60 days"], ["Plaza District Church", "positive", "Assessed in the last 60 days"], ["Edmond Community", "positive", "Assessed in the last 60 days"], ["River City Church", "watch", "Last assessed more than 60 days ago"], ["Southtown Church", "watch", "Last assessed more than 60 days ago"]]};
+let NI_SCOPE = 'all';
+function inScope(name) { const [area, st] = NI_PLANTS[name]; return NI_SCOPE === 'all' || NI_SCOPE === area || NI_SCOPE === st; }
+function openLensPlants(lens) {
+  const d = NI[NI_SCOPE] || NI.all, l = d.lenses.find(x => x[0] === lens) || NI.all.lenses.find(x => x[0] === lens);
+  const rows = (NI_LENS_PLANTS[lens] || []).filter(([n]) => inScope(n));
+  const noshare = NI_NOSHARE.filter(inScope);
+  document.getElementById('lp-title').textContent = lens;
+  document.getElementById('lp-badge').innerHTML = l ? `<span class="badge" data-size="sm" data-status="${NI_STATUS[l[2]][0]}">${l[3]}</span>` : '';
+  document.getElementById('lp-note').textContent = l ? l[4] : '';
+  const groups = [['concern', 'Concern'], ['watch', 'Watch'], ['positive', 'Strong']];
+  const row = ([n, st, why]) => { const [area, , phase] = NI_PLANTS[n]; return `<a class="dl-row" href="#/network/plant" onclick="closeDialog('lens-plants')"><div><div class="dl-n">${n}</div><div class="dl-s">${NI_AREA_NAMES[area]} · ${phase}</div></div><div class="dl-why">${why}</div><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></a>`; };
+  let html = groups.map(([st, lab]) => { const r = rows.filter(x => x[1] === st); return r.length ? `<div class="dl-group"><h4><span class="badge" data-size="sm" data-status="${NI_STATUS[st][0]}">${lab}</span>${r.length} ${r.length === 1 ? 'plant' : 'plants'}</h4>${r.map(row).join('')}</div>` : ''; }).join('');
+  if (noshare.length) html += `<div class="dl-group"><h4><span class="badge" data-size="sm" data-status="unknown">Not shared</span>${noshare.length} ${noshare.length === 1 ? 'plant' : 'plants'}</h4>${noshare.map(n => { const [area, , phase] = NI_PLANTS[n]; return `<a class="dl-row" href="#/network/plant" onclick="closeDialog('lens-plants')"><div><div class="dl-n">${n}</div><div class="dl-s">${NI_AREA_NAMES[area]} · ${phase}</div></div><div class="dl-why faint">Does not share findings with you</div><i class="hgi-stroke hgi-arrow-right-01" style="color:var(--ef-text-3)"></i></a>`; }).join('')}</div>`;
+  document.getElementById('lp-groups').innerHTML = html || '<p class="muted">No plants in this view.</p>';
+  openDialog('lens-plants');
+}
 function setScope(k) {
+  NI_SCOPE = k;
   document.querySelectorAll('#scope-bar [data-scope]').forEach(b => b.setAttribute('aria-pressed', b.dataset.scope === k));
   const few = k === 'hou';
   document.getElementById('ni-enough').hidden = few; document.getElementById('ni-not-enough').hidden = !few;
@@ -5009,7 +5055,7 @@ function setScope(k) {
   document.getElementById('ni-num').textContent = d.num; document.getElementById('ni-unit').textContent = d.unit;
   document.getElementById('ni-title').textContent = d.title; document.getElementById('ni-text').textContent = d.text;
   document.getElementById('ni-cov').innerHTML = d.cov.map(([c, v]) => `<div class="cov-row"><span>${c}</span><span class="cov-bar"><i style="width:${Math.round(v / d.n * 100)}%"></i></span><b class="t-sm" style="font-weight:600;text-align:right">${v} of ${d.n}</b></div>`).join('');
-  document.getElementById('ni-lenses').innerHTML = d.lenses.map(([n, ic, st, lab, note]) => { const on = { positive: 4, watch: 2, concern: 1, unknown: 0 }[st]; return `<div class="lens" data-state="${st}" style="min-height:0"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke ${ic}"></i></span><span class="lens-name">${n}</span><span class="badge" data-size="sm" data-status="${NI_STATUS[st][0]}">${lab}</span></div><div class="lens-note">${note}</div><div class="lens-foot"><div class="lens-meter">${[0,1,2,3].map(i => i < on ? '<span data-on></span>' : '<span></span>').join('')}</div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>From shared findings</span></div></div>`; }).join('');
+  document.getElementById('ni-lenses').innerHTML = d.lenses.map(([n, ic, st, lab, note]) => { const on = { positive: 4, watch: 2, concern: 1, unknown: 0 }[st]; return `<div class="lens" data-state="${st}" style="min-height:0"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke ${ic}"></i></span><span class="lens-name">${n}</span><span class="badge" data-size="sm" data-status="${NI_STATUS[st][0]}">${lab}</span></div><div class="lens-note">${note}</div><div class="lens-foot"><div class="lens-meter">${[0,1,2,3].map(i => i < on ? '<span data-on></span>' : '<span></span>').join('')}</div><button class="lens-list" title="See the plants" aria-label="See the plants behind ${n}" onclick="openLensPlants('${n}')"><i class="hgi-stroke hgi-list-view"></i></button></div></div>`; }).join('');
   const max = Math.max(1, ...d.pipe.map(p => p[0]));
   document.getElementById('ni-pipeline').innerHTML = d.pipe.map(([c, n, w]) => `<div class="pl"><div class="pl-col"><span style="height:${c ? Math.max(26, c / max * 120) : 0}px;${c ? '' : 'background:none'}">${c || ''}</span></div><div class="pl-n">${n}</div><div class="pl-s">${c ? (w ? 'typical ' + w : '') : '<span class="faint">none</span>'}</div></div>`).join('');
   document.getElementById('ni-cal').innerHTML = NI_MONTHS.map((m, i) => { const c = (d.cal[i] || []).length; return `<div class="lc"><div class="lc-m">${m}</div><div class="lc-d"${c ? ' data-has' : ''}>${c ? `<b>${c}</b><small>${c === 1 ? 'launch' : 'launches'}</small>` : ''}</div></div>`; }).join('');

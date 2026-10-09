@@ -31,7 +31,7 @@ All app pages are desktop only and sit inside the app shell (top bar, rail, cont
 | `#/notifications` | Notifications | `/notifications` | `/notifications` | WP-030 | live |
 | `#/network` | Network plants: portfolio stats, plant directory by area, status by name, no ranking | `/network` | `/oversight`, `/oversight/plants` | WP-047, WP-007 | live |
 | `#/network/plant` | One plant as the network sees it: phase journey, launch, sharing categories, the plant's shared findings | `/network/plants/[plantId]` | `/oversight/plants/[id]` | WP-047, WP-044 | shared, shared but empty, not shared |
-| `#/network/intelligence` | Network Intelligence: draft network rubric over shared Plant Intelligence results, by all plants, state and metro area | `/network/intelligence` | `/oversight/health` (partly) | WP-044, WP-047, WP-041 to WP-043, waits for the proposed Network Intelligence ruling | live, not enough plants |
+| `#/network/intelligence` | Network Intelligence: draft network rubric over shared Plant Intelligence results, by all plants, state and metro area; each lens opens the list of plants behind it | `/network/intelligence` | `/oversight/health` (partly) | WP-044, WP-047, WP-041 to WP-043, waits for the proposed Network Intelligence ruling | live, not enough plants |
 | `#/help` | Help center | `/help` | none | none yet, waits for the proposed help center ruling | live |
 | `#/help/article` | Help how-to | `/help/[slug]` | none | none yet, waits for the proposed help center ruling | live |
 
