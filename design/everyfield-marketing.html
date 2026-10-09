@@ -657,7 +657,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .ha .sk, .ha-caret { animation: none !important; } }
 
 /* =====================================================================
-   Revision 2 chapters: "Gather, meet, follow up, commit" and Plant Intelligence.
+   Revision 2 chapters: "Reach, gather, follow up, commit" and Plant Intelligence.
    Pattern studied on calendly.com product chapters (2026-10-08):
    - the heading block and the visual are both sticky at the same top line
    - step rows are short (about 200 px), sit under the heading, and dim when inactive
@@ -691,6 +691,25 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-step.cx-rv.in .cx-txt > * { opacity: 1; transform: none; }
 .cx-step.cx-rv.in .cx-txt > :nth-child(2) { transition-delay: 75ms; }
 .cx-step.cx-rv.in .cx-txt > :nth-child(3) { transition-delay: 150ms; }
+/* Revision 13: stacked steps. On desktop (not reduced motion) each step rises from below and locks under the pinned heading, directly below the
+   steps already locked, so the list builds up and nothing scrolls behind the heading. Each step gets about 72vh of pinned scroll (was 8 px for step 1
+   and about 160 px for the others at 1440 x 900). The steps are sticky items of one tall list; JS (cxMeasureAll) sets each step's lock line
+   (--cx-st), the scroll space before it (--cx-mt), the padding that lines all steps up at the list bottom (--cx-pb) and the scroll after the last
+   step (--cx-tail), so the heading, the full list and the panel unpin together. When the full list does not fit below the heading, a locked
+   inactive step keeps only its title: the next step rises over its body (canvas background), and the body of each step above the active one fades out (.cx-fold). Mobile and reduced motion: the plain list of 099c759.
+   The title's step phrases follow the active step: the active phrase is full ink, the rest and the punctuation are muted (the inactive step title tone).
+   Colour only, so the heading never changes width or wraps. Mobile and reduced motion: full ink, no transition. */
+@media (min-width: 901px) {
+  .cx-stack .cx-steps { display: flex; flex-direction: column; }
+  .cx-stack .cx-steps::after { content: ""; flex: none; height: var(--cx-tail, 0px); }
+  .cx-stack .cx-step { position: sticky; top: var(--cx-st, 0px); margin-top: var(--cx-mt, 0px); padding-bottom: calc(36px + var(--cx-pb, 0px)); background: var(--mk-canvas); }
+  .cx-fold .cx-step .cx-txt > p { transition: opacity .25s var(--cx-sine); }
+  .cx-fold .cx-step.cx-past .cx-txt > p { opacity: 0; }
+  .cx-ttl { color: color-mix(in srgb, var(--mk-text) 32%, var(--mk-canvas)); }
+  .cx-ttl .cx-w { transition: color .3s var(--mk-ease); }
+  .cx-ttl .cx-w.on { color: var(--mk-text); }
+}
+@media (prefers-reduced-motion: reduce) { .cx-ttl, .cx-ttl .cx-w { color: var(--mk-text) !important; transition: none !important; } }
 
 /* Sticky panel */
 .cx-vis { position: sticky; top: var(--cx-top); height: min(560px, calc(100vh - var(--cx-top) - 28px)); min-height: 500px; border-radius: var(--mk-radius-media); overflow: hidden; isolation: isolate; display: grid; place-items: center;
@@ -1152,7 +1171,7 @@ body.pbar-hidden { padding-bottom: 0; }
     },
     "week": {
       "note": "Revision 4 (2026-10-08): the home week section. Each step has a solid-colour icon in its tone and an animated panel (panel). No step numbers, labels or section eyebrow.",
-      "title": "Gather, meet, follow up, commit.",
+      "title": "Reach, gather, follow up, commit.",
       "steps": [
         {
           "panel": "people",
@@ -2012,7 +2031,7 @@ window.EFHero = {
   length: HA_T
 };
 /* ---------- Revision 2 chapters: sticky panel on the right, rising steps on the left ----------
-   Two sections share one engine: "Gather, meet, follow up, commit" (#week) and Plant Intelligence (#intelligence).
+   Two sections share one engine: "Reach, gather, follow up, commit" (#week) and Plant Intelligence (#intelligence).
    Each step has one panel. Each panel loops a short action ("you do this, and this is what you see").
    cxScene(inst, t) is a pure function of the panel's loop time t (ms), like haRender.
    Scroll picks the active step. The panel crossfades with the hero curves. Reduced motion renders each panel at its still time. */
@@ -2114,8 +2133,20 @@ var CX_SCN = {
 };
 /* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
 var WK = COPY.shared.week;
+/* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac. Step content keeps its order; the copy JSON tone fields are not used here. */
+var WK_TONES = ["sky", "dawn", "field", "lilac"];
+/* Revision 13: the title phrase for each step, in step order. The active step's phrase is highlighted (cxTitle, .cx-ttl). */
+var WK_WORDS = ["Reach", "gather", "follow up", "commit"];
+function cxTitle(title, words) {
+  var out = "", at = 0, ok = true;
+  words.forEach(function (w, i) {
+    var j = title.indexOf(w, at); if (j < 0) { ok = false; return; }
+    out += t(title.slice(at, j)) + '<span class="cx-w' + (i ? "" : " on") + '" data-w="' + i + '">' + t(w) + "</span>"; at = j + w.length;
+  });
+  return ok ? out + t(title.slice(at)) : t(title);
+}
 var CX_DEFS = {
-  week: { title: WK.title, final: true, steps: WK.steps.map(function (s) { return [s.panel, s.tone, s.icon, s.title, s.body]; }) },
+  week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
   intelligence: { title: "One focus a week, with the facts behind it.", auto: true, steps: [
     ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
     ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used and names the rubric version, so you can check it."],
@@ -2127,7 +2158,7 @@ function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
-    '<div class="cx-head"><h2 class="display h2">' + t(d.title) + "</h2></div>" +
+    '<div class="cx-head"><h2 class="display h2' + (d.words ? ' cx-ttl">' + cxTitle(d.title, d.words) : '">' + t(d.title)) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
         '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :
@@ -2334,28 +2365,46 @@ function cxRenderMob(I) {
 function cxSetActive(ch, k) {
   if (k === ch.active) return;
   ch.prev = ch.active; ch.active = k;
-  ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === k); });
+  ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === k); s.classList.toggle("cx-past", i < k); });
+  ch.words.forEach(function (w, i) { w.classList.toggle("on", i === k); });
   if (ch.auto) cxTabs(ch);
   var I = ch.insts[k];
   if (REDUCED.matches) { ch.since = 1e6; I.t = cxStill(I); cxRender(ch); return; }
   ch.since = 0; I.t = 0;
   cxKick();
 }
-function cxScroll() {
+/* Revision 13: the scroll position sets a target step; the shown step moves toward it one step at a time and holds each step for at least CX_DWELL ms
+   (the 530 ms panel crossfade plus a first look). The page scroll is never blocked. When the panel is off screen, the chapter settles on the target at once. */
+var CX_DWELL = 800;
+function cxGo(ch) {
+  clearTimeout(ch.tm); ch.tm = 0;
+  if (CX.lock || ch.target === ch.active) return;
+  var now = performance.now();
+  if (!ch.on) { cxSetActive(ch, ch.target); ch.at = now; return; }
+  /* Reduced motion: the plain list, no dwell; the shown step follows the scroll at once, still one step at a time in order. */
+  if (REDUCED.matches) { while (ch.active !== ch.target) cxSetActive(ch, ch.active + (ch.target > ch.active ? 1 : -1)); ch.at = now; return; }
+  var wait = ch.at + CX_DWELL - now;
+  if (wait <= 0) { cxSetActive(ch, ch.active + (ch.target > ch.active ? 1 : -1)); ch.at = now; wait = CX_DWELL; }
+  if (ch.target !== ch.active) ch.tm = setTimeout(function () { cxGo(ch); }, wait + 1);
+}
+function cxScroll(jump) {
   CX.ticking = false;
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
     if (ch.auto || !cxDesk(ch)) return;
-    /* Revision 11: a step becomes active when the previous step's title reaches 28 px below the sticky heading (clear of its 20 px fade),
+    /* Revision 11: a step becomes the target when the previous step's title reaches 28 px below the sticky heading (clear of its 20 px fade),
        so the outgoing title never slides under the heading. The line stays above 0.6 of the viewport, so the new title is in view. */
     var hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * .6, k = 0;
-    ch.steps.forEach(function (s, i) {
+    /* Revision 13 stacked steps: a step becomes the target ch.lead px before it locks, before it covers any of the previous step's body. */
+    if (ch.stack) ch.steps.forEach(function (s, i) { if (i && s.getBoundingClientRect().top < ch.lock[i] + ch.lead) k = i; });
+    else ch.steps.forEach(function (s, i) {
       if (!i) return;
       var pv = ch.steps[i - 1], pr = pv.getBoundingClientRect(), tt = pv.querySelector("h3");
       var off = tt ? tt.getBoundingClientRect().top - pr.top : 0;
       if (s.getBoundingClientRect().top < Math.min(hb + pr.height - off + 28, cap)) k = i;
     });
-    cxSetActive(ch, k);
+    ch.target = k;
+    if (jump === true) { clearTimeout(ch.tm); cxSetActive(ch, k); ch.at = performance.now(); } else cxGo(ch);
   });
 }
 function cxRunning() { return !CX.paused && !document.hidden && !REDUCED.matches; }
@@ -2387,6 +2436,33 @@ function cxKick() {
   CX.last = performance.now();
   CX.raf = requestAnimationFrame(cxFrame);
 }
+/* Revision 13: stacked step geometry (see the .cx-stack CSS). h = full step height, c = height a locked step keeps (all of it when the full list fits
+   below the heading, else its title row plus the step padding), S = share of pinned scroll per step. Steps lock S apart; step k becomes the target
+   lead px before it locks, so step 1 gets lead px more space before step 2 and the last step lead px less after it: every step gets S. */
+var CX_SHARE = .72;
+function cxStack(ch, on) {
+  var ol = ch.steps[0].parentNode, n = ch.steps.length;
+  ch.root.classList.toggle("cx-stack", on); ch.stack = on;
+  if (!on) { ch.root.classList.remove("cx-fold"); ch.steps.forEach(function (s) { ["--cx-st", "--cx-mt", "--cx-pb"].forEach(function (v) { s.style.removeProperty(v); }); }); ol.style.removeProperty("--cx-tail"); return; }
+  var base = parseFloat(getComputedStyle(ch.head).top) + ch.head.offsetHeight, vh = window.innerHeight, S = Math.round(vh * CX_SHARE);
+  var h = ch.steps.map(function (s, i) { return s.querySelector(".cx-txt").offsetHeight + 70 + (i ? 1 : 0); });
+  var full = h.reduce(function (a, b) { return a + b; }, 0), fits = base + full <= vh - 24;
+  var c = ch.steps.map(function (s, i) { var tl = s.querySelector(".cx-tl") || s.querySelector("h3"); return fits ? h[i] : tl.offsetHeight + 70 + (i ? 1 : 0); });
+  var lead = 0, top = 0; ch.lock = [];
+  for (var i = 0; i < n; i++) { lead = Math.max(lead, h[i] - c[i]); }
+  lead = Math.max(60, lead + 8);
+  for (i = 0; i < n; i++) { ch.lock[i] = base + top; if (i < n - 1) top += c[i]; }
+  var H = top + h[n - 1], pb = [];
+  ch.steps.forEach(function (s, i) {
+    pb[i] = Math.max(0, H - (ch.lock[i] - base) - h[i]);
+    s.style.setProperty("--cx-st", ch.lock[i] + "px");
+    s.style.setProperty("--cx-pb", pb[i] + "px");
+    s.style.setProperty("--cx-mt", (i ? S + c[i - 1] - h[i - 1] - pb[i - 1] + (i === 1 ? lead : 0) : 0) + "px");
+  });
+  ol.style.setProperty("--cx-tail", (S - lead) + "px");
+  ch.listH = H; ch.lead = lead; ch.fits = fits;
+  ch.root.classList.toggle("cx-fold", !fits);
+}
 /* The heading and the panel unpin together, with the last step under the heading: no long empty gap.
    The last step hangs below the left column, so the sticky heading releases when the panel does.
    The right column extends by the panel minus the heading height, and the grid padding keeps the section height. */
@@ -2397,9 +2473,12 @@ function cxMeasureAll() {
     var ol = ch.steps[0].parentNode, right = ch.vis.closest(".cx-right"), grid = ch.vis.closest(".cx-grid");
     var desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
-    ol.style.marginBottom = desk ? -ch.steps[ch.steps.length - 1].offsetHeight + "px" : "";
+    cxStack(ch, desk && !REDUCED.matches);
+    ol.style.marginBottom = !desk ? "" : ch.stack ? -ch.listH + "px" : -ch.steps[ch.steps.length - 1].offsetHeight + "px";
     right.style.marginBottom = desk ? -x + "px" : "";
-    grid.style.paddingBottom = desk ? x + "px" : "";
+    /* Revision 13: the stacked list hangs listH below the column (its text ends 36 px above that). Pad the grid for whichever ends lower, the panel or
+       the list text, so the space to the next section stays as at 099c759. */
+    grid.style.paddingBottom = desk ? Math.max(x, ch.stack ? ch.listH - 36 : 0) + "px" : "";
   });
 }
 function cxPaintAll() {
@@ -2440,15 +2519,16 @@ function cxAutoBind(ch) {
 }
 function cxInit() {
   if (CX.raf) cancelAnimationFrame(CX.raf);
+  CX.list.forEach(function (ch) { clearTimeout(ch.tm); });
   CX.raf = 0; CX.lock = false;
   [CX.io, CX.aio, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
   CX.list = Array.prototype.map.call(document.querySelectorAll("#view .cx"), function (root) {
     var vis = root.querySelector(".cx-vis");
     return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
       insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
-      active: 0, prev: -1, since: 1e6, on: false, seen: false,
+      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, stack: false, lock: [], lead: 0, listH: 0,
       auto: root.classList.contains("cx-auto"), prog: 0, kbd: false,
-      bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
+      bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), words: Array.prototype.slice.call(root.querySelectorAll(".cx-ttl .cx-w")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
   });
   CX.list.forEach(function (ch) { if (ch.auto) cxAutoBind(ch); });
   if (!CX.list.length) return;
@@ -2468,7 +2548,9 @@ function cxInit() {
         if (I) { if (e.isIntersecting && !I.on && !REDUCED.matches) { I.since = 0; I.t = 0; } I.on = e.isIntersecting; return; }
         var ch = e.target.__ch; if (!ch) return;
         if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; ch.prog = 0; }
+        if (e.isIntersecting && !ch.on) ch.at = performance.now();
         ch.on = e.isIntersecting;
+        if (!ch.auto) cxGo(ch);
       });
       cxKick();
     };
@@ -2484,18 +2566,21 @@ function cxInit() {
     CX.ro = new ResizeObserver(function () { cxMeasureAll(); cxScroll(); if (!CX.raf) cxPaintAll(); });
     CX.list.forEach(function (ch) { CX.ro.observe(ch.root); });
   }
-  cxScroll();
+  cxScroll(true);
   cxKick();
 }
 window.addEventListener("scroll", function () { if (!CX.ticking && CX.list.length) { CX.ticking = true; requestAnimationFrame(cxScroll); } }, { passive: true });
 document.addEventListener("visibilitychange", cxKick);
+/* Revision 13: the stacked step share depends on the viewport height. */
+window.addEventListener("resize", function () { if (CX.list.length) { cxMeasureAll(); cxScroll(); } }, { passive: true });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { cxMeasureAll(); if (!CX.raf) cxPaintAll(); });
 /* Review hook for frame captures: EFChapters.seek("week", step, ms[, sinceMs, prevStep]) renders one frame and pauses. */
 window.EFChapters = {
   seek: function (id, step, ms, since, prev) {
     var ch = CX.list.filter(function (c) { return c.id === id; })[0]; if (!ch) return false;
     CX.paused = true; CX.lock = true;
-    ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === step); s.classList.add("in"); });
+    ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === step); s.classList.toggle("cx-past", i < step); s.classList.add("in"); });
+    ch.words.forEach(function (w, i) { w.classList.toggle("on", i === step); });
     ch.active = step; ch.prev = prev === undefined ? -1 : prev; ch.since = since === undefined ? 1e6 : since;
     ch.insts[step].t = ms; cxRender(ch);
     ch.mobs.forEach(function (M, i) { if (i === step) { M.since = 1e6; M.t = ms; cxRenderMob(M); } });
