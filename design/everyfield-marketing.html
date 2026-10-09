@@ -1141,6 +1141,272 @@ body.pbar-hidden { padding-bottom: 0; }
   .nav-pill .nav-end .mk-btn { padding: 0 14px; }
   .site-nav.open .nav-links .nav-cta-m { display: inline-flex; margin-top: 8px; padding: 0 20px; color: var(--mk-cta-text); background: var(--mk-cta-bg); align-self: flex-start; }
 }
+/* =====================================================================
+   Marketing v18: the two-audience section ("One plant. Two sides of the work."). Both home stories use it.
+   Three review designs share the copy in shared.audiences:
+   A  Two panels and a bridge. Phase, Launch date and Health glide from the planter's card to the oversight list.
+      People and Private notes stay on the planter side.
+   B  One card with a tablist (planter or sender). Panels crossfade with the hero curves. The sending paths cycle on the oversight side.
+   C  The plant at the center. The sending paths light up one at a time above it. The two audiences sit beside it.
+   The review switcher (.au-rv) stores the choice as audience=a|b|c in the hash (default a). It sits in the section's top padding.
+   Loops run only while the section is on screen (.au-live). Reduced motion shows the end state and no loops.
+   ===================================================================== */
+.sec-au { --au-out: cubic-bezier(.33, 1, .68, 1); --au-T: 8s; }
+.sec-au .sec-head { margin-bottom: clamp(28px, 3vw, 44px); }
+.sec-au:not(.au-live) .au-anim, .sec-au:not(.au-live) .au-anim > * { animation-play-state: paused !important; }
+.au-rv { position: absolute; z-index: 3; top: clamp(18px, calc(var(--mk-section-space) / 2 - 20px), 44px); right: max(var(--mk-page-pad), calc((100% - var(--mk-max-width)) / 2 + var(--mk-page-pad)));
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #181D19; color: #FFFFFF; font: 500 12.5px/1 var(--mk-font-body); box-shadow: 0 0 0 1px rgba(255,196,138,.55), 0 10px 22px -12px rgba(24,29,25,.6); }
+.au-rv .au-rl { display: inline-flex; align-items: center; gap: 6px; padding: 0 9px 0 10px; font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #FFC48A; }
+.au-rv .au-rl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #FFC48A; }
+.au-rv button { height: 28px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.72); font: inherit; cursor: pointer; white-space: nowrap; }
+.au-rv button b { font-weight: 700; margin-right: 2px; }
+.au-rv button:hover { color: #FFFFFF; }
+.au-rv button[aria-pressed="true"] { background: #FFFFFF; color: #181D19; }
+.au-rv button:focus-visible { outline: 2px solid #FFC48A; outline-offset: 1px; }
+
+/* Shared copy block */
+.au-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.au-copy .eyebrow { margin-bottom: 12px; }
+.au-h { font-size: clamp(24px, 2vw, 32px); line-height: 1.1; letter-spacing: -0.03em; }
+.au-body { margin-top: 10px; font-size: 16px; line-height: 1.5; color: var(--mk-text-2); max-width: 50ch; text-wrap: pretty; }
+.au-pts { display: grid; gap: 9px; margin: 18px 0 0; padding: 0; list-style: none; font-size: 15px; line-height: 1.45; color: var(--mk-text-2); }
+.au-pts li svg { width: 17px; height: 17px; }
+.au-x { width: 100%; }
+.au-copy > .mk-link { margin-top: 20px; }
+
+/* Sending paths: three small chains. Static in A; in B and C the active chain draws its arrows (data-p on an ancestor). */
+.au-paths { margin-top: 18px; }
+.au-pl { display: block; margin-bottom: 9px; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--au-pl, var(--mk-text-3)); }
+.au-paths ol { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.au-paths li { display: inline-flex; align-items: center; gap: 5px; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.5); box-shadow: 0 0 0 1px rgba(24,29,25,.08) inset;
+  transition: opacity .3s var(--mk-ease), background-color .3s var(--mk-ease), box-shadow .3s var(--mk-ease); }
+.au-pn { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: #FFFFFF; color: #181D19; font: 600 12.5px/1 var(--mk-font-body); white-space: nowrap; box-shadow: 0 0 0 1px rgba(24,29,25,.1) inset; }
+.au-pn.pl { background: #1CE362; box-shadow: none; }
+.au-ar { position: relative; width: 14px; height: 1.5px; flex: none; background: rgba(24,29,25,.3); }
+.au-ar::before { content: ""; position: absolute; inset: 0; background: #181D19; transform: scaleX(0); transform-origin: left center; }
+.au-ar::after { content: ""; position: absolute; right: 0; top: 50%; width: 5px; height: 5px; border: solid rgba(24,29,25,.45); border-width: 1.5px 1.5px 0 0; transform: translateY(-50%) rotate(45deg); }
+.is-anim li { opacity: .5; }
+[data-p="0"] .is-anim li[data-i="0"], [data-p="1"] .is-anim li[data-i="1"], [data-p="2"] .is-anim li[data-i="2"], [data-p="all"] .is-anim li { opacity: 1; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(24,29,25,.14) inset, 0 8px 18px -12px rgba(24,29,25,.45); }
+.is-anim li .au-ar::before { transition: transform 0s; }
+[data-p="0"] .is-anim li[data-i="0"] .au-ar::before, [data-p="1"] .is-anim li[data-i="1"] .au-ar::before, [data-p="2"] .is-anim li[data-i="2"] .au-ar::before, [data-p="all"] .is-anim .au-ar::before {
+  transform: scaleX(1); transition: transform .42s var(--mk-ease) calc(120ms + var(--a, 0) * 260ms); }
+[data-p="0"] .is-anim li[data-i="0"] .au-ar::after, [data-p="1"] .is-anim li[data-i="1"] .au-ar::after, [data-p="2"] .is-anim li[data-i="2"] .au-ar::after, [data-p="all"] .is-anim .au-ar::after { border-color: #181D19; }
+
+.ef .au-share .au-paths { margin-top: 0; }
+.ef .au-share .au-pl { margin-bottom: 7px; font-size: 11px; letter-spacing: .06em; color: var(--ef-text-3); }
+.ef .au-share .au-paths ol { gap: 6px; flex-wrap: nowrap; }
+.ef .au-share .au-paths li { gap: 4px; padding: 3px; background: var(--ef-surface); box-shadow: 0 0 0 1px var(--ef-line) inset; }
+.ef .au-share .au-pn { height: 20px; padding: 0 8px; font-size: 11.5px; }
+.ef .au-share .au-ar { width: 10px; }
+/* Small vignette parts (sample data from the Monday dashboard church) */
+.ef .au-pv { padding: 16px 16px 14px; border-radius: 20px; }
+.ef .au-nl { margin-top: 10px; }
+.ef .au-nr { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--ef-line); min-width: 0; }
+.ef .au-nr:first-child { border-top: 0; }
+.ef .au-nr .card-icon { width: 32px; height: 32px; }
+.ef .au-nr .card-icon svg.i { width: 15px; height: 15px; }
+.ef .au-nr .grow { min-width: 0; }
+.ef .au-rbtn { height: 28px; padding: 0 11px; border-radius: 10px; font-size: 12px; flex: none; }
+.ef .au-share { display: grid; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--ef-line-2); }
+.ef .au-sr { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ef .au-sl { width: 58px; flex: none; font-size: 11.5px; font-weight: 600; color: var(--ef-text-3); }
+.au-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.au-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: #DCFAE7; color: #0D6B35; font: 600 11.5px/1 var(--mk-font-body); letter-spacing: 0; white-space: nowrap; }
+.au-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #1CE362; flex: none; }
+.au-chip.lock { background: #EDF0F4; color: #4D5361; }
+.au-chip.lock::before { display: none; }
+.au-chip.lock svg { width: 12px; height: 12px; stroke-width: 2; }
+.ef .au-tb { margin-top: 10px; }
+.ef .au-th, .ef .au-row { display: grid; grid-template-columns: minmax(0, 1fr) 60px 50px 74px; gap: 10px; align-items: center; }
+.ef .au-th { padding: 0 8px 4px; font-size: 11px; color: var(--ef-text-3); }
+.ef .au-grp { display: flex; align-items: center; gap: 6px; padding: 9px 8px 3px; border-top: 1px solid var(--ef-line); font-size: 11.5px; font-weight: 600; color: var(--ef-text-2); }
+.ef .au-grp svg.i { width: 13px; height: 13px; color: var(--ef-text-3); }
+.ef .au-row { padding: 7px 8px; border-radius: 10px; font-size: 12.5px; white-space: nowrap; }
+.ef .au-row.tg { background: var(--ef-green-50); box-shadow: 0 0 0 1px rgba(15,126,60,.16) inset; }
+.ef .au-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.ef .au-row .phase-mini { width: 56px; }
+.ef .au-cell { display: grid; align-items: center; min-width: 0; }
+.ef .au-cell > * { grid-area: 1 / 1; min-width: 0; }
+.ef .au-sk { display: block; width: 78%; height: 8px; border-radius: 9px; background: #E3E7EC; opacity: 0; }
+
+/* ---------- A: two panels and a bridge ---------- */
+.au-a { position: relative; }
+.au-a-grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(96px, 8.4vw, 124px) minmax(0, 1fr); grid-template-rows: auto auto; }
+.au-side { grid-row: 1 / span 2; display: grid; grid-template-rows: subgrid; row-gap: clamp(20px, 1.9vw, 26px); padding: clamp(18px, 1.9vw, 26px); border-radius: var(--mk-radius-card); color: var(--on); }
+.au-side.gsurf[data-tone="field"] { box-shadow: 0 24px 48px -32px rgba(16,120,56,.6); }
+.au-side.gsurf[data-tone="sky"] { box-shadow: 0 24px 48px -32px rgba(40,90,170,.5); }
+.au-side.au-s-pl { grid-column: 1; }
+.au-side.au-s-ov { grid-column: 3; }
+.au-side .au-vig .pv { height: 100%; display: flex; flex-direction: column; }
+.au-side .au-vig .au-share { margin-top: auto; }
+.au-side .au-pts { font-size: 14.5px; gap: 8px; margin-top: 16px; }
+.au-side .au-copy > .mk-link { margin-top: 18px; }
+.au-side .au-copy { padding: 0 4px 2px; }
+.au-side .eyebrow { color: var(--on-2); }
+.au-side .au-body, .au-side .au-pts { color: var(--on-2); }
+.au-side .checks li svg, .au-side .mk-link { color: var(--on); }
+.au-side .au-paths { --au-pl: var(--on-2); }
+.au-a .au-pts { grid-template-columns: 1fr 1fr; column-gap: 22px; }
+.au-fx { position: absolute; inset: 0; z-index: 2; pointer-events: none; visibility: hidden; }
+.au-a.au-ready .au-fx { visibility: visible; }
+.au-fx > svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+.au-line { fill: none; stroke: rgba(24,29,25,.42); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
+.au-live .au-line { animation: auDash 1.4s linear infinite; }
+@keyframes auDash { to { stroke-dashoffset: -14; } }
+.au-end { fill: #FFFFFF; stroke: rgba(24,29,25,.42); stroke-width: 1.5; }
+.au-bdg { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; width: 108px; transform: translate(-50%, -21px); text-align: center; font-size: 11.5px; font-weight: 600; line-height: 1.3; color: var(--mk-text-2); }
+.au-bdg .au-bi { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #FFFFFF; color: #181D19; box-shadow: 0 0 0 1px var(--mk-line-strong), 0 10px 22px -12px rgba(24,29,25,.45); }
+.au-bdg .au-bi svg { width: 18px; height: 18px; }
+.au-fly { position: absolute; left: 0; top: 0; }
+.au-fly .au-chip { opacity: 0; box-shadow: 0 1px 2px rgba(24,29,25,.08), 0 10px 20px -10px rgba(24,29,25,.5); }
+/* One loop, --au-T long. Chip k starts k x 200 ms later. 0 to 9%: rest. 9 to 12%: the chip lifts off the planter's card.
+   12 to 28%: it glides (x in-out; y rises 14 px above the straight line at the middle, so the path arcs over the row). 28 to 32%: it lands and the value shows. 88 to 96%: values reset. */
+.au-a .au-anim { animation-duration: var(--au-T); animation-iteration-count: infinite; animation-delay: calc(var(--k, 0) * 200ms); animation-fill-mode: both; }
+.au-fly.au-anim { animation-name: auFlyX; }
+.au-fly.au-anim > .au-chip { animation: auFlyY var(--au-T) infinite both; animation-delay: inherit; }
+@keyframes auFlyX {
+  0%, 12% { transform: translateX(0); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  28%, 100% { transform: translateX(var(--dx, 0px)); }
+}
+@keyframes auFlyY {
+  0%, 9% { opacity: 0; transform: translateY(0) scale(1); animation-timing-function: cubic-bezier(.33, 1, .68, 1); }
+  12% { opacity: 1; transform: translateY(-6px) scale(1.05); animation-timing-function: cubic-bezier(.33, 1, .68, 1); }
+  20% { opacity: 1; transform: translateY(calc(var(--dy, 0px) * .5 - 14px)) scale(1.05); animation-timing-function: cubic-bezier(.32, 0, .67, 0); }
+  28% { opacity: 1; transform: translateY(var(--dy, 0px)) scale(1); animation-timing-function: cubic-bezier(.37, 0, .63, 1); }
+  32%, 100% { opacity: 0; transform: translateY(var(--dy, 0px)) scale(.9); }
+}
+.au-chip.au-anim[data-src] { animation-name: auSrc; }
+@keyframes auSrc { 0%, 8% { box-shadow: 0 0 0 0 rgba(28,227,98,0); } 12% { box-shadow: 0 0 0 4px rgba(28,227,98,.4); } 24%, 100% { box-shadow: 0 0 0 0 rgba(28,227,98,0); } }
+.au-chip.lock.au-anim { animation-name: auLock; --k: 1; }
+@keyframes auLock { 0%, 10% { box-shadow: 0 0 0 0 rgba(24,29,25,0); } 15% { box-shadow: 0 0 0 3px rgba(24,29,25,.14); } 26%, 100% { box-shadow: 0 0 0 0 rgba(24,29,25,0); } }
+.au-val.au-anim { animation-name: auVal; }
+@keyframes auVal { 0%, 27% { opacity: 0; transform: scale(.92); } 31% { opacity: 1; transform: none; } 88% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: none; } }
+.au-sk.au-anim { animation-name: auSk; }
+@keyframes auSk { 0%, 27% { opacity: 1; } 30% { opacity: 0; } 90% { opacity: 0; } 96%, 100% { opacity: 1; } }
+.au-row.tg.au-anim { animation-name: auRow; --k: 0; }
+@keyframes auRow { 0%, 27% { background-color: rgba(239,253,244,0); box-shadow: 0 0 0 1px rgba(15,126,60,0) inset; } 31% { background-color: #DCFAE7; box-shadow: 0 0 0 1px rgba(15,126,60,.3) inset; }
+  50%, 88% { background-color: #EFFDF4; box-shadow: 0 0 0 1px rgba(15,126,60,.16) inset; } 96%, 100% { background-color: rgba(239,253,244,0); box-shadow: 0 0 0 1px rgba(15,126,60,0) inset; } }
+
+/* ---------- B: one card with a switch ---------- */
+.au-b-card { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--mk-radius-media); padding: clamp(18px, 2.6vw, 40px) clamp(18px, 3.2vw, 48px) clamp(22px, 3.2vw, 48px); color: #181D19; box-shadow: 0 30px 60px -40px rgba(24,29,25,.5); }
+.au-b-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; transition: opacity .5s cubic-bezier(.65, 0, .35, 1); }
+.au-b-bg.on { opacity: 1; }
+.au-b-top { display: flex; justify-content: center; margin-bottom: clamp(24px, 2.8vw, 40px); }
+.au-tabs { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.42); box-shadow: 0 0 0 1px rgba(24,29,25,.1) inset; }
+.au-ti { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(24,29,25,.08), 0 8px 18px -10px rgba(24,29,25,.45); transition: transform .38s var(--au-out); }
+.au-tabs[data-sel="1"] .au-ti { transform: translateX(100%); }
+.au-tab { position: relative; z-index: 1; height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: transparent; color: rgba(24,29,25,.66); font: 600 15px/1.15 var(--mk-font-body); cursor: pointer; white-space: nowrap; transition: color .25s var(--mk-ease); }
+.au-tab[aria-selected="true"] { color: #181D19; }
+.au-tab:hover { color: #181D19; }
+.au-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.au-b-panels { display: grid; }
+.au-b-panel { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 3.6vw, 56px); align-items: center; min-width: 0;
+  opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity .25s cubic-bezier(.37, 0, .63, 1), transform .25s cubic-bezier(.37, 0, .63, 1), visibility 0s linear .25s; }
+.au-b-panel.out { transform: translateY(-6px); }
+.au-b-panel.on { opacity: 1; visibility: visible; transform: none; transition: opacity .38s var(--au-out) .15s, transform .38s var(--au-out) .15s, visibility 0s; }
+.au-b-panel [data-st] { opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; }
+.au-b-panel.on [data-st] { opacity: 1; transform: none; transition: opacity .42s var(--au-out) calc(240ms + var(--k, 0) * 75ms), transform .42s var(--au-out) calc(240ms + var(--k, 0) * 75ms); }
+.au-b .au-h { font-size: clamp(28px, 2.6vw, 40px); }
+.au-b .au-copy .eyebrow, .au-b .au-body, .au-b .au-pts { color: rgba(24,29,25,.74); }
+.au-b .checks li svg, .au-b .mk-link { color: #181D19; }
+.au-b .au-paths { --au-pl: rgba(24,29,25,.66); }
+.au-bv { display: grid; gap: 12px; min-width: 0; }
+.au-bv .card { padding: 16px 18px; border-radius: 20px; box-shadow: 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -24px rgba(24,29,25,.42); }
+.au-bv .card-header { margin-bottom: 6px; }
+.au-bv .card-title { font-size: 17px; }
+.au-bv-pl { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); align-items: start; }
+.au-bv-pl .au-col { display: grid; gap: 12px; min-width: 0; }
+.ef .au-ckr { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; padding: 6px 0; font-size: 12.5px; color: var(--ef-text-2); }
+.ef .au-dots { display: flex; gap: 5px; }
+.ef .au-dots i { width: 14px; height: 6px; border-radius: 9px; background: var(--ef-surface-2); }
+.ef .au-dots i.on { background: #181D19; }
+.au-bv .share-row { padding: 8px 0; font-size: 12.5px; }
+.au-bv .sw { width: 32px; height: 20px; }
+.au-bv .sw::after { width: 14px; height: 14px; }
+.au-bv .sw[data-on]::after { left: 15px; }
+.ef .au-bt .au-th, .ef .au-bt .au-row { grid-template-columns: minmax(0, 1fr) 112px 62px 118px; }
+.ef .au-bt .au-row { padding: 8px; }
+.ef .au-bt .au-ph { display: flex; flex-direction: column; gap: 4px; }
+.ef .au-bt .au-ph .t-xs { font-size: 11px; }
+.ef .au-bt .cell-sub { font-size: 11.5px; margin-top: 1px; color: var(--ef-text-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.au-bv .callout { margin-top: 10px; padding: 10px 12px; font-size: 12.5px; }
+.au-bv .callout svg.i { width: 16px; height: 16px; }
+
+/* ---------- C: the plant at the center ---------- */
+.au-c { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 440px) minmax(0, 1fr); gap: clamp(28px, 3.6vw, 64px); align-items: center; }
+.au-c-col { min-width: 0; }
+.au-c .au-copy .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.au-c .au-copy .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--au-dot); }
+.au-c-l { --au-dot: #1CE362; }
+.au-c-r { --au-dot: #6AAEFF; }
+.au-c-fig { margin: 0; display: flex; flex-direction: column; align-items: center; padding: clamp(18px, 2vw, 26px) clamp(16px, 1.8vw, 24px) clamp(20px, 2.2vw, 28px); border-radius: var(--mk-radius-media); background: var(--mk-surface); box-shadow: var(--mk-shadow-card); position: relative; overflow: hidden; isolation: isolate; }
+.au-c-fig::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 66%; width: 300px; height: 240px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(28,227,98,.2), rgba(28,227,98,0)); }
+.au-dia { position: relative; width: 100%; max-width: 392px; aspect-ratio: 400 / 300; }
+.au-dia > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.au-b0 { fill: none; stroke: rgba(24,29,25,.2); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
+.au-pp { fill: none; stroke: #1CE362; stroke-width: 2.5; stroke-linecap: round; }
+.au-o { fill: none; stroke: #181D19; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; transition: opacity .3s var(--mk-ease), stroke-dashoffset 0s linear .3s; }
+[data-p="0"] .au-o[data-g="0"], [data-p="1"] .au-o[data-g="1"], [data-p="2"] .au-o[data-g="2"] { opacity: 1; stroke-dashoffset: 0; transition: opacity .01s, stroke-dashoffset .62s cubic-bezier(.65, 0, .35, 1) var(--d, 0s); }
+[data-p="all"] .au-o { opacity: .9; stroke-dashoffset: 0; transition: none; }
+.au-nd { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 7px; transform: translate(-50%, -28px); font-size: 12.5px; font-weight: 600; color: var(--mk-text-3); white-space: nowrap; transition: color .3s var(--mk-ease); }
+.au-nd .au-nc { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: #FFFFFF; color: var(--mk-text-3); box-shadow: 0 0 0 1.5px rgba(24,29,25,.14) inset, 0 6px 16px -10px rgba(24,29,25,.35); transition: box-shadow .3s var(--mk-ease), color .3s var(--mk-ease); }
+.au-nd .au-nc svg { width: 22px; height: 22px; }
+.au-nd.nd-plant { transform: translate(-50%, -38px); color: #181D19; }
+.au-nd.nd-plant .au-nc { width: 76px; height: 76px; border-radius: 24px; background: #1CE362; color: #181D19; box-shadow: 0 16px 30px -16px rgba(16,120,56,.7); }
+.au-nd.nd-plant .au-nc svg { width: 34px; height: 28px; }
+.au-nd.nd-pp { transform: translate(-50%, -24px); color: var(--mk-text-2); }
+.au-nd.nd-pp .au-nc { width: 48px; height: 48px; background: #FFEBD6; color: #9A4A0C; font-size: 14px; box-shadow: 0 0 0 3px #FFFFFF, 0 6px 16px -10px rgba(24,29,25,.35); }
+[data-p="0"] .nd-ch, [data-p="1"] .nd-ch, [data-p="1"] .nd-net, [data-p="2"] .nd-net, [data-p="all"] .nd-ch, [data-p="all"] .nd-net { color: #181D19; }
+[data-p="0"] .nd-ch .au-nc, [data-p="1"] .nd-ch .au-nc, [data-p="1"] .nd-net .au-nc, [data-p="2"] .nd-net .au-nc, [data-p="all"] .nd-ch .au-nc, [data-p="all"] .nd-net .au-nc { color: #181D19; box-shadow: 0 0 0 2px #181D19 inset, 0 10px 22px -12px rgba(24,29,25,.5); }
+.au-c .au-paths { margin-top: 8px; display: flex; flex-direction: column; align-items: center; }
+.au-c .au-paths ol { flex-direction: column; align-items: center; }
+
+@media (max-width: 1180px) {
+  .au-a .au-pts { grid-template-columns: 1fr; }
+  .au-c { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .au-c-fig { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 560px; justify-self: center; }
+  .au-c-col { align-self: start; }
+}
+@media (max-width: 900px) {
+  .au-a-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; row-gap: 84px; }
+  .au-side { grid-row: auto; grid-template-rows: none; display: flex; flex-direction: column; }
+  .au-side.au-s-pl, .au-side.au-s-ov { grid-column: 1; }
+  .au-s-pl .au-vig { order: 2; }
+  .au-bdg { flex-direction: row; width: auto; transform: translate(-50%, -50%); gap: 10px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--mk-canvas); white-space: nowrap; }
+  .au-b-panel { grid-template-columns: minmax(0, 1fr); align-items: start; }
+}
+@media (max-width: 640px) {
+  .sec-au .sec-head { margin-bottom: 26px; }
+  .au-rv { font-size: 12px; }
+  .au-rv button { padding: 0 9px; }
+  .au-a .au-pts { margin-top: 16px; }
+  .au-tab { height: 46px; padding: 0 12px; font-size: 13.5px; white-space: normal; text-align: center; }
+  .au-tabs { width: 100%; }
+  .au-bv-pl { grid-template-columns: minmax(0, 1fr); }
+  .au-bv-pl .au-ck { display: none; }
+  .ef .au-bt .au-th, .ef .au-bt .au-row { grid-template-columns: minmax(0, 1fr) 60px 104px; }
+  .ef .au-bt .au-lc { display: none; }
+  .ef .au-bt .au-ph .t-xs { display: none; }
+  .ef .au-th, .ef .au-row { grid-template-columns: minmax(0, 1fr) 56px 46px 70px; gap: 8px; }
+  .ef .au-row .phase-mini { width: 52px; }
+  .ef .au-share .au-paths ol { flex-wrap: wrap; }
+  .au-c { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .au-c-fig { grid-column: auto; }
+  .au-nd .au-nc { width: 48px; height: 48px; }
+  .au-nd.nd-plant .au-nc { width: 64px; height: 64px; border-radius: 20px; }
+  .au-nd.nd-plant { transform: translate(-50%, -32px); }
+  .au-nd { transform: translate(-50%, -24px); font-size: 12px; }
+}
+@media (max-width: 480px) {
+  .ef .au-pv .au-th { display: none; }
+  .ef .au-pv .au-row { grid-template-columns: 60px 52px minmax(0, 1fr); row-gap: 4px; }
+  .ef .au-pv .au-row .nm { grid-column: 1 / -1; }
+  .ef .au-pv .au-row .au-cell:last-child { justify-self: end; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .au-fly { display: none; }
+  .au-b-panel, .au-b-panel [data-st] { transition: none !important; }
+}
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -1302,6 +1568,68 @@ body.pbar-hidden { padding-bottom: 0; }
           }
         ]
       }
+    },
+    "audiences": {
+      "note": "Revision 18 (2026-10-09): the home section for the two audiences, used by both stories. Three review designs (A bridge, B switch, C center) share this copy.",
+      "headline": "One plant. Two sides of the work.",
+      "headline_alt": "Built for the planter, and for the people who sent them.",
+      "planters": {
+        "label": "For planters",
+        "title": "Run your plant from one place.",
+        "body": "People, gatherings, follow-ups and teams, with one clear next step and the facts behind it.",
+        "points": [
+          "People, gatherings, follow-ups and teams in one place",
+          "Evry prepares the work, and you approve it",
+          "A private weekly check-in that only you see",
+          "You choose what your sending church or network sees"
+        ],
+        "cta": "See the planter view",
+        "tab": "I'm planting a church"
+      },
+      "oversight": {
+        "label": "For sending churches and networks",
+        "title": "See every plant you send.",
+        "body": "Whether a church, a network or both sent the plant, you see how it is doing without asking for another report.",
+        "points": [
+          "Phase, launch date and health, when the planter shares them",
+          "A network also sees each of its sending churches",
+          "Summaries only, never the planter's people or private notes",
+          "Coaches the planter invites can read, and change nothing"
+        ],
+        "cta": "See the oversight view",
+        "tab": "I send planters"
+      },
+      "paths": {
+        "label": "Three ways a plant is sent",
+        "items": [
+          [
+            "Church",
+            "Plant"
+          ],
+          [
+            "Network",
+            "Church",
+            "Plant"
+          ],
+          [
+            "Network",
+            "Plant"
+          ]
+        ],
+        "planter": "Planter"
+      },
+      "shared_label": "Shared",
+      "shared": [
+        "Phase",
+        "Launch date",
+        "Health"
+      ],
+      "private_label": "Only you",
+      "private": [
+        "People",
+        "Private notes"
+      ],
+      "bridge": "Shared when the planter chooses"
     }
   },
   "directions": [
@@ -1626,7 +1954,9 @@ var ICON = {
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
   compass: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
   scale: '<path d="M12 4v16M6 20h12M5 8h14M7 8l-3 6a3 3 0 0 0 6 0zM17 8l-3 6a3 3 0 0 0 6 0z"/>',
-  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>'
+  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+  church: '<path d="M12 3v4.5M10 5.2h4"/><path d="M5 20.5v-8.2l7-4.8 7 4.8v8.2z"/><path d="M10 20.5v-3.8a2 2 0 0 1 4 0v3.8"/>',
+  network: '<circle cx="12" cy="5.5" r="2.3"/><circle cx="5.5" cy="18" r="2.3"/><circle cx="18.5" cy="18" r="2.3"/><path d="M10.9 7.6l-4.3 8.2M13.1 7.6l4.3 8.2M7.9 18h8.2"/>'
 };
 function icon(name, cls) {
   return '<svg class="i ' + (cls || "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || "") + "</svg>";
@@ -1648,7 +1978,7 @@ function logo(extra) {
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-var state = { page: "home", story: "journey", at: "" };
+var state = { page: "home", story: "journey", at: "", aud: "a" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -1659,7 +1989,8 @@ function parseHash() {
   return {
     page: PAGE[path] ? path : "home",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
-    at: params.get("at") || ""
+    at: params.get("at") || "",
+    aud: /^[abc]$/.test(params.get("audience") || "") ? params.get("audience") : "a"
   };
 }
 function hrefFor(page, at, over) {
@@ -1667,6 +1998,7 @@ function hrefFor(page, at, over) {
   var p = new URLSearchParams();
   p.set("story", s.story);
   if (at) p.set("at", at);
+  if (s.aud && s.aud !== "a") p.set("audience", s.aud);
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
 function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
@@ -1681,7 +2013,9 @@ var ROUTE = {
   "I am a planter": ["planters", ""],
   "See the planter's week": ["planters", ""],
   "See what sending churches see": ["oversight", "sending-churches"],
-  "See the network view": ["oversight", "networks"]
+  "See the network view": ["oversight", "networks"],
+  "See the planter view": ["planters", ""],
+  "See the oversight view": ["oversight", ""]
 };
 function routeHref(label) { var r = ROUTE[label] || ["access", ""]; return hrefFor(r[0], r[1]); }
 function btn(label, kind) {
@@ -2869,14 +3203,260 @@ function phInit() {
   measure();
 }
 
-function audienceCol(a) {
-  return '<article class="aud" id="' + a.id + '"><span class="eyebrow">' + t(a.label) + '</span><h3 class="display h3">' + t(a.headline) + '</h3><p class="body-2">' + t(a.body) + "</p>" +
-    '<ul class="checks">' + a.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" + more(a.cta) + "</article>";
+/* ---------- Marketing v18: the two-audience section ----------
+   One section for both home stories, from shared.audiences. Three review designs: A bridge, B switch, C center.
+   The review switcher stores the choice as audience=a|b|c in the hash (default a) and swaps only this section.
+   Loops (A's chips, the sending paths in B and C) run only while the section is on screen. Reduced motion shows the end state. */
+var AU = { io: null, ro: null, timer: 0, root: null, live: false, step: 0, rmTimer: 0 };
+var AU_VARIANTS = [["a", "Bridge"], ["b", "Switch"], ["c", "Center"]];
+var AU_NEEDS = [
+  ["tone-green", "sparkle", "Evry drafted 3 follow-ups", "Waiting for your approval", true],
+  ["tone-amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"],
+  ["tone-blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"],
+  ["tone-violet", "calendar", "Vision meeting #12", "Sun Oct 12 · 38 RSVPs"]
+];
+/* Plants the Austin Sending Network sees, grouped by how each was sent: [name, city, phase, phase label, launch, status, status label] */
+var AU_GROUPS = [
+  ["Sent directly", "network", [["Northline Church", "North Austin", 4, "4 · Pre-launch", "Nov 1", "measured", "Launch readiness"], ["Mueller Fellowship", "Mueller", 0, "0 · Discovery", "Not set", "unknown", "Limited visibility"]]],
+  ["Through Grace Church", "church", [["Harvest Point Church", "Hyde Park, Austin", 1, "1 · Core group", "Mar 14", "positive", "On track"], ["Eastside Commons", "East Austin", 3, "3 · Training", "May 2", "attention", "Watch"]]]
+];
+function auReview(v) {
+  return '<div class="au-rv" role="group" aria-label="Review control, not part of the page: audience section layout"><span class="au-rl">Review</span>' +
+    AU_VARIANTS.map(function (o) { return '<button type="button" data-auv="' + o[0] + '" aria-pressed="' + (o[0] === v) + '"><b>' + o[0].toUpperCase() + "</b> " + o[1] + "</button>"; }).join("") + "</div>";
 }
-function audiences(a) {
-  return '<section class="sec sec-aud" id="audiences"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(a.headline) + "</h2></div>" +
-    '<div class="aud-grid">' + a.items.map(audienceCol).join("") + "</div></div></section>";
+function auCopy(a, extra, st) {
+  var k = 0, s = function () { return st ? ' data-st style="--k:' + (k++) + '"' : ""; };
+  return '<div class="au-copy"><span class="eyebrow"' + s() + ">" + t(a.label) + '</span><h3 class="display au-h"' + s() + ">" + t(a.title) + '</h3><p class="au-body"' + s() + ">" + t(a.body) + "</p>" +
+    '<ul class="checks au-pts"' + s() + ">" + a.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" +
+    (extra ? '<div class="au-x"' + s() + ">" + extra + "</div>" : "") +
+    '<a class="mk-link" href="' + routeHref(a.cta) + '"' + s() + ">" + t(a.cta) + icon("arrow") + "</a></div>";
 }
+function auPaths(P, cls) {
+  return '<div class="au-paths ' + (cls || "") + '"><span class="au-pl">' + t(P.label) + "</span><ol>" + P.items.map(function (row, i) {
+    return '<li data-i="' + i + '" aria-label="' + esc(row.join(" to ")) + '">' + row.map(function (n, k) {
+      return (k ? '<span class="au-ar" style="--a:' + (k - 1) + '" aria-hidden="true"></span>' : "") + '<span class="au-pn' + (k === row.length - 1 ? " pl" : "") + '" aria-hidden="true">' + t(n) + "</span>";
+    }).join("") + "</li>";
+  }).join("") + "</ol></div>";
+}
+function auNeedRows(n) {
+  return AU_NEEDS.slice(0, n).map(function (r) {
+    return '<div class="au-nr"><span class="card-icon ' + r[0] + '">' + icon(r[1]) + '</span><div class="grow"><div class="pv-it">' + r[2] + '</div><div class="pv-s">' + r[3] + "</div></div>" +
+      (r[4] ? '<span class="btn au-rbtn" data-variant="primary">Review</span>' : icon("arrow", "chev")) + "</div>";
+  }).join("");
+}
+/* A: the planter's card. The three shared chips are the sources of the flight. */
+function auVigPlanter(A) {
+  return '<div class="ef"><div class="pv au-pv">' + pvHead("task", "tone-green", "Needs you", "Harvest Point Church", '<span class="pv-k">3 things</span>') +
+    '<div class="au-nl">' + auNeedRows(2) + "</div>" +
+    '<div class="au-share"><div class="au-sr"><span class="au-sl">' + t(A.shared_label) + '</span><span class="au-chips">' +
+    A.shared.map(function (s, k) { return '<span class="au-chip au-anim" data-src="' + k + '" style="--k:' + k + '">' + t(s) + "</span>"; }).join("") + "</span></div>" +
+    '<div class="au-sr"><span class="au-sl">' + t(A.private_label) + '</span><span class="au-chips">' +
+    A["private"].map(function (s) { return '<span class="au-chip lock au-anim">' + icon("lock") + t(s) + "</span>"; }).join("") + "</span></div></div></div></div>";
+}
+/* A: the oversight list. Harvest Point's three cells are the landing spots. */
+function auVigOversight(A) {
+  var rows = "";
+  AU_GROUPS.forEach(function (g) {
+    rows += '<div class="au-grp">' + icon(g[1]) + g[0] + "</div>";
+    g[2].slice(0, 1).forEach(function (p) {
+      var tg = p[0] === "Harvest Point Church";
+      var st = p[5] === "measured" ? ["positive", "On track"] : [p[5], p[6]];
+      var cells = [phaseMini(p[2]), p[4], '<span class="badge" data-size="sm" data-status="' + st[0] + '">' + st[1] + "</span>"];
+      rows += '<div class="au-row' + (tg ? " tg au-anim" : "") + '"><span class="nm">' + p[0] + "</span>" + cells.map(function (c, k) {
+        return tg ? '<span class="au-cell" data-dst="' + k + '"><i class="au-sk au-anim" style="--k:' + k + '"></i><span class="au-val au-anim" style="--k:' + k + '">' + c + "</span></span>" : '<span class="au-cell"><span>' + c + "</span></span>";
+      }).join("") + "</div>";
+    });
+  });
+  return '<div class="ef"><div class="pv au-pv">' + pvHead("eye", "tone-blue", "Plants you send", "Austin Sending Network", '<span class="pv-k">4 plants</span>') +
+    '<div class="au-tb"><div class="au-th"><span>Plant</span><span>Phase</span><span>Launch</span><span>Health</span></div>' + rows + "</div>" +
+    '<div class="au-share">' + auPaths(A.paths) + "</div></div></div>";
+}
+function auA(A) {
+  return '<div class="au-a">' + '<div class="au-a-grid">' +
+    '<article class="au-side au-s-pl gsurf" data-tone="field"><div class="au-vig">' + auVigPlanter(A) + "</div>" + auCopy(A.planters) + "</article>" +
+    '<article class="au-side au-s-ov gsurf" data-tone="sky"><div class="au-vig">' + auVigOversight(A) + "</div>" + auCopy(A.oversight) + "</article></div>" +
+    '<div class="au-fx" aria-hidden="true"><svg><path class="au-line"/><circle class="au-end" r="4"/><circle class="au-end" r="4"/></svg>' +
+    '<span class="au-bdg"><span class="au-bi">' + icon("eye") + '</span><span class="au-bx">' + t(A.bridge) + "</span></span>" +
+    A.shared.map(function (s, k) { return '<span class="au-fly au-anim" data-k="' + k + '" style="--k:' + k + '"><span class="au-chip">' + t(s) + "</span></span>"; }).join("") + "</div></div>";
+}
+/* B: larger vignettes */
+function auBigPlanter(A) {
+  var share = A.shared.map(function (s) { return [s, 1, 0]; }).concat(A["private"].map(function (s) { return [s, 0, 1]; }));
+  var ck = [["Rest", 3], ["Prayer", 4], ["Family", 4]];
+  return '<div class="ef au-bv au-bv-pl"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Needs you</div><div class="card-description">Harvest Point Church · 4 things</div></div>' + icon("more", "faint") + "</div>" +
+    '<div class="au-nl">' + auNeedRows(4) + "</div></div>" +
+    '<div class="au-col"><div class="card au-ck"><div class="card-header"><div class="grow"><div class="card-title">Weekly check-in</div><div class="card-description">Sent Monday</div></div><span class="badge" data-size="sm" data-status="unknown">' + t(A.private_label) + "</span></div>" +
+    ck.map(function (r) { var d = ""; for (var i = 0; i < 5; i++) d += "<i" + (i < r[1] ? ' class="on"' : "") + "></i>"; return '<div class="au-ckr"><span>' + r[0] + '</span><span class="au-dots">' + d + "</span></div>"; }).join("") + "</div>" +
+    '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Sharing with Grace Church</div><div class="card-description">You choose. You can change it.</div></div></div><div>' +
+    share.map(function (r) { return '<div class="share-row"><span>' + t(r[0]) + (r[2] ? ' <span class="faint t-xs">' + t(A.private_label) + "</span>" : "") + '</span><span class="sw"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "></span></div>"; }).join("") +
+    "</div></div></div></div>";
+}
+function auBigOversight() {
+  var rows = "";
+  AU_GROUPS.forEach(function (g) {
+    rows += '<div class="au-grp">' + icon(g[1]) + g[0] + "</div>";
+    g[2].forEach(function (p) {
+      rows += '<div class="au-row"><span class="nm">' + p[0] + '<div class="cell-sub">' + p[1] + '</div></span><span class="au-ph">' + phaseMini(p[2]) + '<span class="t-xs muted">' + p[3] + '</span></span><span class="au-lc">' + p[4] + '</span><span><span class="badge" data-size="sm" data-status="' + p[5] + '">' + p[6] + "</span></span></div>";
+    });
+  });
+  return '<div class="ef au-bv au-bv-ov"><div class="card"><div class="card-header"><div class="grow"><div class="card-title">Plants you send</div><div class="card-description">Austin Sending Network · 4 plants</div></div><span class="badge" data-size="sm" data-status="measured">Network view</span></div>' +
+    '<div class="au-tb au-bt"><div class="au-th"><span>Plant</span><span>Phase</span><span class="au-lc">Launch</span><span>Health</span></div>' + rows + "</div>" +
+    '<div class="callout">' + icon("lock") + "<span>People, notes and the private check-in stay with each plant.</span></div></div></div>";
+}
+function auB(A) {
+  var tabs = [A.planters, A.oversight];
+  return '<div class="au-b" data-p="0"><div class="au-b-card"><span class="au-b-bg gsurf on" data-tone="field" aria-hidden="true"></span><span class="au-b-bg gsurf" data-tone="sky" aria-hidden="true"></span>' +
+    '<div class="au-b-top"><div class="au-tabs" role="tablist" aria-labelledby="au-title" data-sel="0"><span class="au-ti" aria-hidden="true"></span>' +
+    tabs.map(function (a, i) { return '<button type="button" class="au-tab" role="tab" id="au-tab-' + i + '" aria-controls="au-panel-' + i + '" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' + t(a.tab) + "</button>"; }).join("") + "</div></div>" +
+    '<div class="au-b-panels">' +
+    '<div class="au-b-panel on" role="tabpanel" id="au-panel-0" aria-labelledby="au-tab-0">' + auCopy(A.planters, "", true) + '<div class="au-vis" data-st style="--k:5">' + auBigPlanter(A) + "</div></div>" +
+    '<div class="au-b-panel" role="tabpanel" id="au-panel-1" aria-labelledby="au-tab-1">' + auCopy(A.oversight, auPaths(A.paths, "is-anim"), true) + '<div class="au-vis" data-st style="--k:6">' + auBigOversight() + "</div></div>" +
+    "</div></div></div>";
+}
+/* C: the diagram. Coordinates are in a 400 x 300 box; nodes are placed in percent so the diagram scales. */
+var AU_PT = { ch: [92, 58], net: [308, 58], plant: [200, 212], pp: [62, 212] };
+function auC(A) {
+  var P = AU_PT, L = function (a, b) { return "M" + P[a][0] + " " + P[a][1] + "L" + P[b][0] + " " + P[b][1]; };
+  var segs = [["ch", "plant", 0, 0], ["net", "ch", 1, 0], ["ch", "plant", 1, .42], ["net", "plant", 2, 0]];
+  var svg = '<svg viewBox="0 0 400 300" preserveAspectRatio="none">' +
+    [L("net", "ch"), L("ch", "plant"), L("net", "plant")].map(function (d) { return '<path class="au-b0" d="' + d + '"/>'; }).join("") +
+    '<path class="au-pp" d="' + L("pp", "plant") + '"/>' +
+    segs.map(function (s) { return '<path class="au-o" data-g="' + s[2] + '" pathLength="1" style="--d:' + s[3] + 's" d="' + L(s[0], s[1]) + '"/>'; }).join("") + "</svg>";
+  var names = { ch: A.paths.items[0][0], net: A.paths.items[2][0], plant: A.paths.items[0][1], pp: A.paths.planter };
+  var node = function (id, inner) { return '<span class="au-nd nd-' + id + '" style="left:' + (P[id][0] / 4) + "%;top:" + (P[id][1] / 3) + '%"><span class="au-nc">' + inner + "</span>" + t(names[id]) + "</span>"; };
+  return '<div class="au-c" data-p="0"><div class="au-c-col au-c-l">' + auCopy(A.planters) + "</div>" +
+    '<figure class="au-c-fig"><div class="au-dia" aria-hidden="true">' + svg + node("ch", icon("church")) + node("net", icon("network")) + node("plant", mark()) + node("pp", "DR") + "</div>" +
+    auPaths(A.paths, "is-anim") + "</figure>" +
+    '<div class="au-c-col au-c-r">' + auCopy(A.oversight) + "</div></div>";
+}
+function audiencesSection() {
+  var A = COPY.shared.audiences, v = state.aud;
+  return '<section class="sec sec-au" id="audiences" data-au="' + v + '">' + auReview(v) + '<div class="wrap"><div class="sec-head center"><h2 class="display h2 sh-title" id="au-title">' + t(A.headline) + "</h2></div>" +
+    (v === "b" ? auB(A) : v === "c" ? auC(A) : auA(A)) + "</div></section>";
+}
+/* A: measure the flight. Each flying chip starts on its source chip and lands on its cell; the dashed bridge joins the two cards. */
+function auMeasure() {
+  var root = AU.root && AU.root.querySelector(".au-a");
+  if (!root) return;
+  var R = root.getBoundingClientRect();
+  if (!R.width) return;
+  var rel = function (el) { var r = el.getBoundingClientRect(); return { x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height }; };
+  root.querySelectorAll(".au-fly").forEach(function (f) {
+    var k = f.dataset.k, s = root.querySelector('[data-src="' + k + '"]'), d = root.querySelector('[data-dst="' + k + '"] .au-val');
+    if (!s || !d) return;
+    var a = rel(s), b = rel(d.firstElementChild || d), c = f.firstElementChild;
+    f.style.left = a.x + "px"; f.style.top = a.y + "px";
+    var fw = c.offsetWidth || a.w;
+    f.style.setProperty("--dx", (b.x + Math.min(b.w, fw) / 2 - (a.x + fw / 2)).toFixed(1) + "px");
+    f.style.setProperty("--dy", (b.y + b.h / 2 - (a.y + a.h / 2)).toFixed(1) + "px");
+  });
+  var cards = root.querySelectorAll(".au-vig .pv"), src = root.querySelector("[data-src]"), tg = root.querySelector(".au-row.tg");
+  if (cards.length < 2 || !src || !tg) return;
+  var p = rel(cards[0]), o = rel(cards[1]), s0 = rel(src), t0 = rel(tg), x1, y1, x2, y2, dPath;
+  if (o.y > p.y + p.h - 1) { /* stacked: from the bottom of the planter's card to the top of the oversight card */
+    x1 = p.x + p.w / 2; y1 = p.y + p.h; x2 = o.x + o.w / 2; y2 = o.y;
+    dPath = "M" + x1 + " " + y1 + "C" + x1 + " " + (y1 + (y2 - y1) * .5) + " " + x2 + " " + (y2 - (y2 - y1) * .5) + " " + x2 + " " + y2;
+  } else {
+    x1 = p.x + p.w; y1 = s0.y + s0.h / 2; x2 = o.x; y2 = t0.y + t0.h / 2;
+    dPath = "M" + x1 + " " + y1 + "C" + (x1 + (x2 - x1) * .5) + " " + y1 + " " + (x2 - (x2 - x1) * .5) + " " + y2 + " " + x2 + " " + y2;
+  }
+  var fx = root.querySelector(".au-fx"), ends = fx.querySelectorAll(".au-end"), bd = fx.querySelector(".au-bdg");
+  fx.querySelector(".au-line").setAttribute("d", dPath);
+  ends[0].setAttribute("cx", x1); ends[0].setAttribute("cy", y1); ends[1].setAttribute("cx", x2); ends[1].setAttribute("cy", y2);
+  bd.style.left = ((x1 + x2) / 2) + "px"; bd.style.top = ((y1 + y2) / 2) + "px";
+  root.classList.add("au-ready");
+}
+/* Sending paths in B and C: light one path, hold, clear for a moment, then the next. */
+function auStep() {
+  var el = AU.root && AU.root.querySelector("[data-p]");
+  if (!el || !AU.live) return;
+  el.dataset.p = String(AU.step);
+  AU.timer = setTimeout(function () {
+    if (!AU.live) return;
+    el.dataset.p = "n";
+    AU.timer = setTimeout(function () { AU.step = (AU.step + 1) % 3; auStep(); }, 360);
+  }, 2500);
+}
+function auLive(on) {
+  if (on === AU.live) return;
+  AU.live = on;
+  if (AU.root) AU.root.classList.toggle("au-live", on);
+  clearTimeout(AU.timer);
+  if (on && AU.root && AU.root.querySelector("[data-p]")) { AU.step = 0; auStep(); }
+}
+function auInit() {
+  if (AU.io) AU.io.disconnect();
+  if (AU.ro) AU.ro.disconnect();
+  clearTimeout(AU.timer);
+  AU.io = AU.ro = null; AU.live = false;
+  AU.root = document.querySelector("#view .sec-au");
+  if (!AU.root) return;
+  var cyc = AU.root.querySelector("[data-p]");
+  if (cyc) cyc.dataset.p = REDUCED.matches ? "all" : "0";
+  if (AU.root.querySelector(".au-a")) {
+    auMeasure();
+    if ("ResizeObserver" in window) { AU.ro = new ResizeObserver(function () { auMeasure(); }); AU.root.querySelectorAll(".au-a, .au-vig").forEach(function (el) { AU.ro.observe(el); }); }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(auMeasure);
+  }
+  if (REDUCED.matches) return;
+  if ("IntersectionObserver" in window) {
+    AU.io = new IntersectionObserver(function (es) { es.forEach(function (e) { auLive(e.isIntersecting); }); }, { threshold: 0.15 });
+    AU.io.observe(AU.root);
+  } else auLive(true);
+}
+function auSwitch(v, refocus) {
+  if (!/^[abc]$/.test(v) || v === state.aud) return;
+  state.aud = v;
+  history.replaceState(null, "", hrefFor(state.page, state.at));
+  auSwap();
+  if (refocus) { var b = document.querySelector('#view .au-rv [data-auv="' + v + '"]'); if (b) b.focus({ preventScroll: true }); }
+}
+function auSwap() {
+  last.aud = state.aud;
+  var sec = document.querySelector("#view .sec-au");
+  if (!sec) return;
+  var tmp = document.createElement("div");
+  tmp.innerHTML = audiencesSection();
+  sec.parentNode.replaceChild(tmp.firstElementChild, sec);
+  auInit();
+}
+/* B: the tablist. Automatic activation; arrows, Home and End move between the two tabs. */
+function auBGo(i, focus) {
+  var b = AU.root && AU.root.querySelector(".au-b");
+  if (!b) return;
+  var tabs = b.querySelectorAll(".au-tab"), panels = b.querySelectorAll(".au-b-panel"), bgs = b.querySelectorAll(".au-b-bg");
+  var cur = Number(b.querySelector(".au-tabs").dataset.sel);
+  if (focus) tabs[i].focus();
+  if (i === cur) return;
+  b.querySelector(".au-tabs").dataset.sel = String(i);
+  tabs.forEach(function (tb, k) { tb.setAttribute("aria-selected", String(k === i)); tb.tabIndex = k === i ? 0 : -1; });
+  bgs.forEach(function (g, k) { g.classList.toggle("on", k === i); });
+  var old = panels[cur];
+  old.classList.remove("on"); old.classList.add("out");
+  clearTimeout(AU.rmTimer); AU.rmTimer = setTimeout(function () { old.classList.remove("out"); }, 260);
+  panels[i].classList.remove("out"); panels[i].classList.add("on");
+}
+document.addEventListener("click", function (e) {
+  var sw = e.target.closest && e.target.closest(".au-rv [data-auv]");
+  if (sw) { auSwitch(sw.dataset.auv, true); return; }
+  var tb = e.target.closest && e.target.closest(".au-tab");
+  if (tb) auBGo(Array.prototype.indexOf.call(tb.parentNode.querySelectorAll(".au-tab"), tb));
+});
+document.addEventListener("keydown", function (e) {
+  if (!e.target.classList || !e.target.classList.contains("au-tab")) return;
+  var tabs = Array.prototype.slice.call(e.target.parentNode.querySelectorAll(".au-tab")), i = tabs.indexOf(e.target), n = tabs.length, k = -1;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") k = (i + 1) % n; else if (e.key === "ArrowLeft" || e.key === "ArrowUp") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
+  if (k < 0) return;
+  e.preventDefault(); auBGo(k, true);
+});
+/* Review hook for frame captures: EFAudience.seek(ms) pauses A's loop at one time; EFAudience.path(i) shows one sending path. */
+window.EFAudience = {
+  seek: function (ms) {
+    var root = AU.root && AU.root.querySelector(".au-a"); if (!root) return;
+    root.getAnimations({ subtree: true }).forEach(function (a) { a.pause(); a.currentTime = ms; });
+  },
+  path: function (i) { auLive(false); var el = AU.root && AU.root.querySelector("[data-p]"); if (el) el.dataset.p = String(i); }
+};
 function evry(e) {
   return '<section class="sec sec-evry" id="evry"><div class="wrap"><div class="evry-grid"><div class="e-copy"><span class="eyebrow">' + t(e.eyebrow) + '</span><h2 class="display h2">' + t(e.headline) + '</h2><p class="body-2">' + t(e.body) + '</p><div class="limits">' + icon("shield") + "<span>" + t(e.limits) + "</span></div></div>" +
     '<div class="e-vis">' + visual(vEvry(e.example)) + "</div></div></div></section>";
@@ -2950,7 +3530,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + audiences(s.audiences) + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + audiencesSection() + evry(s.evry) + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -3092,8 +3672,9 @@ function render(scrollMode) {
     var target = document.getElementById(state.at);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); }
-  last = { page: state.page, story: state.story };
+  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); auInit(); }
+  else if (last.aud !== state.aud) auSwap();
+  last = { page: state.page, story: state.story, aud: state.aud };
 }
 function setState(over, push) {
   Object.assign(state, over);
@@ -3142,7 +3723,7 @@ document.addEventListener("submit", function (e) {
   if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
 });
 window.addEventListener("hashchange", onHash);
-if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); cxInit(); phInit(); });
+if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); cxInit(); phInit(); auInit(); });
 
 state = parseHash();
 history.replaceState(null, "", hrefFor(state.page, state.at));

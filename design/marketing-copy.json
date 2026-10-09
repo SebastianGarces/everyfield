@@ -123,6 +123,68 @@
           }
         ]
       }
+    },
+    "audiences": {
+      "note": "Revision 18 (2026-10-09): the home section for the two audiences, used by both stories. Three review designs (A bridge, B switch, C center) share this copy.",
+      "headline": "One plant. Two sides of the work.",
+      "headline_alt": "Built for the planter, and for the people who sent them.",
+      "planters": {
+        "label": "For planters",
+        "title": "Run your plant from one place.",
+        "body": "People, gatherings, follow-ups and teams, with one clear next step and the facts behind it.",
+        "points": [
+          "People, gatherings, follow-ups and teams in one place",
+          "Evry prepares the work, and you approve it",
+          "A private weekly check-in that only you see",
+          "You choose what your sending church or network sees"
+        ],
+        "cta": "See the planter view",
+        "tab": "I'm planting a church"
+      },
+      "oversight": {
+        "label": "For sending churches and networks",
+        "title": "See every plant you send.",
+        "body": "Whether a church, a network or both sent the plant, you see how it is doing without asking for another report.",
+        "points": [
+          "Phase, launch date and health, when the planter shares them",
+          "A network also sees each of its sending churches",
+          "Summaries only, never the planter's people or private notes",
+          "Coaches the planter invites can read, and change nothing"
+        ],
+        "cta": "See the oversight view",
+        "tab": "I send planters"
+      },
+      "paths": {
+        "label": "Three ways a plant is sent",
+        "items": [
+          [
+            "Church",
+            "Plant"
+          ],
+          [
+            "Network",
+            "Church",
+            "Plant"
+          ],
+          [
+            "Network",
+            "Plant"
+          ]
+        ],
+        "planter": "Planter"
+      },
+      "shared_label": "Shared",
+      "shared": [
+        "Phase",
+        "Launch date",
+        "Health"
+      ],
+      "private_label": "Only you",
+      "private": [
+        "People",
+        "Private notes"
+      ],
+      "bridge": "Shared when the planter chooses"
     }
   },
   "directions": [
