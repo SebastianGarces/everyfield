@@ -153,6 +153,116 @@
       "problem": {
         "headline": "You usually hear about a struggling plant when it is already late.",
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
+      },
+      "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "chapter": {
+        "title": "Invite, share, see, help.",
+        "steps": [
+          {
+            "panel": "invite",
+            "icon": "users",
+            "title": "Invite your plants.",
+            "body": "Send an invite. The planter connects their plant in a few clicks."
+          },
+          {
+            "panel": "choose",
+            "icon": "eye",
+            "title": "They choose what to share.",
+            "body": "Each planter picks what your church or network sees, and can change it at any time."
+          },
+          {
+            "panel": "plants",
+            "icon": "network",
+            "title": "See every plant on one page.",
+            "body": "Phase, core group, launch date and shared findings for each plant, in launch order."
+          },
+          {
+            "panel": "help",
+            "icon": "heart",
+            "title": "Help where it matters.",
+            "body": "See where a plant could use help, and offer it."
+          }
+        ]
+      },
+      "intelligence": {
+        "title": "Know where your network needs help.",
+        "steps": [
+          {
+            "title": "Every plant, by state or metro area.",
+            "body": "Switch between all your plants, one state or one metro area, and every number follows."
+          },
+          {
+            "title": "Your pipeline, phase by phase.",
+            "body": "See how many plants are in each phase, and how long plants usually stay there."
+          },
+          {
+            "title": "Lenses across every plant.",
+            "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
+          },
+          {
+            "title": "The pattern that matters most.",
+            "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
+          }
+        ]
+      },
+      "plants": {
+        "headline": "Each plant, up close.",
+        "items": [
+          {
+            "label": "Phase journey",
+            "title": "Where the plant is on the way to launch.",
+            "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
+          },
+          {
+            "label": "Launch Sunday",
+            "title": "The days left before launch Sunday.",
+            "short": "A countdown to the launch date, with milestones and prep tasks done."
+          },
+          {
+            "label": "What the plant shares",
+            "title": "Counts, never names.",
+            "short": "See each area the plant shares with you, and the areas it keeps to itself."
+          },
+          {
+            "label": "People and meetings",
+            "title": "Committed adults and meeting rhythm.",
+            "short": "How many adults have committed, and how often the plant holds a vision meeting."
+          },
+          {
+            "label": "Ministry teams",
+            "title": "Which leader roles are filled.",
+            "short": "How many teams have a leader, and which leader roles are still open."
+          },
+          {
+            "label": "Where help could matter",
+            "title": "A clear place to help.",
+            "short": "When shared facts point to a need, the plant view names it, so you can offer help."
+          }
+        ]
+      },
+      "paths": {
+        "headline": "However your plants are sent.",
+        "items": [
+          ["Church", "Plant"],
+          ["Network", "Church", "Plant"],
+          ["Network", "Plant"]
+        ],
+        "labels": ["A church sends a plant", "A network sends through a church", "A network sends a plant"],
+        "line": "A network also sees each of its sending churches. The tools are the same for both."
+      },
+      "privacy": {
+        "headline": "Plants choose what you see.",
+        "points": [
+          "You see counts and summaries, and only for what each plant shares.",
+          "Names, people and private notes stay with the plant.",
+          "Coaches the planter invites can read the records, and can change nothing."
+        ]
+      },
+      "cta": {
+        "headline": "Bring EveryField to your network.",
+        "body": "We are working with a small group of networks and sending churches during early access.",
+        "cta_primary": "Talk to us about your network",
+        "cta_secondary": "Request early access as a planter"
       }
     }
   },
