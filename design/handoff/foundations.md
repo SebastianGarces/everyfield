@@ -92,7 +92,7 @@ Wiki and help articles cap their text at 700px and center it in the card.
 
 ## Icons
 
-The prototype uses Hugeicons, stroke rounded style, from the free set only, loaded as an icon font from the Hugeicons CDN. Icons are 20px in the rail and nav, 18px in buttons and 16px inline. In the build, use `@hugeicons/react` with `@hugeicons/core-free-icons` so each icon is a tree-shaken component. `docs/dependencies.md` lists lucide instead, which is an open decision in the [README](README.md#open-decisions).
+The prototype uses Hugeicons, stroke rounded style, from the free set only, loaded as an icon font from `https://use.hugeicons.com/font/icons.css`, the current build. The older `cdn.hugeicons.com/font` address is deprecated and frozen on a 2024 build, so do not use it. Markup is `<i class="hgi hgi-stroke hgi-rounded hgi-rocket-01"></i>`; the stylesheet only needs `hgi-stroke` and the icon name, so the shorter form also works. Icons are 20px in the rail and nav, 18px in buttons and 16px inline. In the build, use `@hugeicons/react` (1.1.10 on 2026-10-10) with `@hugeicons/core-free-icons` (4.3.5) so each icon is a tree-shaken component. Pin versions 1.0.0 or later. `docs/dependencies.md` lists lucide instead, which is an open decision in the [README](README.md#open-decisions).
 
 Every icon-only button needs an accessible name. The prototype takes it from the button's `title`.
 
