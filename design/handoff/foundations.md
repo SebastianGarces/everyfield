@@ -35,7 +35,7 @@ Every hue has the same steps. Use them like this.
 
 Semantic aliases exist for the most common uses: `--ef-positive`, `--ef-accent`, `--ef-measured`, `--ef-risk` and `--ef-attention`.
 
-Neutrals are cool grey. Cream `#F6F0E9` is for brand moments and marketing, not app surfaces. The brand green `#1CE362` is the logo color and the green 500 step.
+Neutrals are cool grey. Cream `#F6F0E9` is for brand moments and marketing, not app surfaces. The brand green `#1CE362` is the green 500 step and the color of the logo mark in the top bar. The wordmark next to it stays ink.
 
 ### Planned values
 
@@ -98,7 +98,7 @@ Every icon-only button needs an accessible name. The prototype takes it from the
 
 ## Shape and elevation
 
-Radii run `--ef-radius-xs` 6, `sm` 10, `md` 14 (buttons and inputs), `lg` 20, `card` 26, `frame` 34 and `pill` 999. Navigation has its own pair. The top-bar pills and rail groups use `--ef-nav-radius` (16px), and the items inside them use `--ef-nav-item-radius` (8px): nav links, rail icons, the search and bell buttons, the Ask Evry chip, the active state and the sliding hover highlight. Items sit 8px inside their container, so 16 minus 8 keeps the corners concentric. This replaced fully round pills on 2026-10-10. The prototype's Preview menu can still show the pill shape for comparison. Cards use `--ef-shadow-card`, floating controls `--ef-shadow-raised`, menus and dialogs `--ef-shadow-pop`, navigation pills `--ef-shadow-nav` and the active nav item `--ef-shadow-nav-active`.
+Radii run `--ef-radius-xs` 6, `sm` 10, `md` 14 (buttons and inputs), `lg` 20, `card` 26, `frame` 34 and `pill` 999. Navigation has its own pair. The top-bar pills and rail groups use `--ef-nav-radius` (20px), and the items inside them use `--ef-nav-item-radius` (14px): nav links, rail icons, the search and bell buttons, the Ask Evry chip, the active state and the sliding hover highlight. This replaced fully round pills on 2026-10-10. The prototype's Preview menu can still show the pill shape for comparison. Cards use `--ef-shadow-card`, floating controls `--ef-shadow-raised`, menus and dialogs `--ef-shadow-pop`, navigation pills `--ef-shadow-nav` and the active nav item `--ef-shadow-nav-active`.
 
 Spacing is a 4px grid: `--ef-space-1` 4 to `--ef-space-10` 40. Card padding is 22 to 30px. Gaps between cards are 20px.
 

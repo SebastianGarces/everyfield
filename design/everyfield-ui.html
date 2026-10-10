@@ -114,9 +114,9 @@
   --ef-radius-card: 26px;
   --ef-radius-frame: 34px;
   --ef-radius-pill: 999px;
-  /* navigation shape: top bar pills and rail groups, and the items inside them (8px inset, so 16 - 8) */
-  --ef-nav-radius: 16px;
-  --ef-nav-item-radius: 8px;
+  /* navigation shape: top bar pills and rail groups, and the items inside them */
+  --ef-nav-radius: 20px;
+  --ef-nav-item-radius: 14px;
 
   /* spacing (4px base) */
   --ef-space-1: 4px; --ef-space-2: 8px; --ef-space-3: 12px; --ef-space-4: 16px;
@@ -345,6 +345,7 @@ button { font: inherit; color: inherit; }
 .sidebar-brand svg.wordmark { height: 22px; width: auto; }
 .logo-mark { display: grid; place-items: center; width: 40px; height: 40px; flex: none; color: var(--ef-ink); }
 .logo-mark svg { width: 26px; height: auto; }
+.brand-pill .logo-mark { color: var(--ef-green); }   /* brand green mark, ink wordmark */
 .sidebar-brand .logo-mark { width: 34px; height: 34px; }
 .sidebar-brand .logo-mark svg { width: 24px; }
 .logo-chip {
@@ -4311,7 +4312,7 @@ body[data-shell="bare"] .main { max-width: none; }
   <h4>Role</h4>
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · view only</button></div>
   <h4>Nav corners</h4>
-  <div class="pp-opts" data-pp="navShape"><button data-v="square" aria-pressed="true">16px</button><button data-v="pill" aria-pressed="false">Pill (before)</button></div>
+  <div class="pp-opts" data-pp="navShape"><button data-v="square" aria-pressed="true">20px</button><button data-v="pill" aria-pressed="false">Pill (before)</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides edit actions across the app.</p>
