@@ -1036,8 +1036,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .sd-pr .grow { min-width: 0; }
 .sd-pr .list-title { font-size: 13px; }
 .sd-pr .list-sub { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Top network finding */
-.cx-card.insight .sd-ask { display: inline-flex; align-items: center; gap: 7px; padding-left: 7px; }
 @media (max-width: 640px) {
   .sd-pl { grid-template-columns: 84px minmax(0, 1fr) 14px 36px; gap: 8px; }
   .sd-th, .sd-area { grid-template-columns: minmax(0, 1fr) 38px 70px; }
@@ -1672,7 +1670,7 @@ body.pbar-hidden { padding-bottom: 0; }
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
       "hero": {
         "headline": "See every plant you send.",
-        "subhead": "Whether one church or a whole network sent them, see how each plant is doing, where your network needs help, and what every planter chose to share.",
+        "subhead": "Whether one church or a whole network sent them, see how each plant is doing and where your network needs help.",
         "cta_primary": "Request early access",
         "cta_secondary": "See how it works"
       },
@@ -1681,6 +1679,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
       "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
         "title": "Every plant you send, in one place.",
@@ -2281,11 +2280,12 @@ function visual(inner, caption) {
   return '<figure class="visual">' + inner +
     (caption ? '<figcaption class="caption">' + t(caption) + "</figcaption>" : "") + "</figure>";
 }
-function frame(active, title, sub, body, right, topRight) {
+/* Revision 27: opts.avatar gives a sending-side frame (no planter tabs, the network leader's initials). */
+function frame(active, title, sub, body, right, topRight, opts) {
   var tabs = ["Overview", "People", "Meetings", "Tasks", "Network"].filter(function (x) { return active === "Network" ? x !== "Tasks" : x !== "Network"; });
-  return '<div class="ef app-frame"><div class="af-top"><span class="af-brand">' + mark() + '</span><span class="af-pills">' +
-    tabs.map(function (x) { return '<span class="' + (x === active ? "on" : "") + '">' + x + "</span>"; }).join("") +
-    '</span><span class="af-sp"></span>' + (topRight || "") + '<span class="avatar tone-green">DR</span></div><div class="af-body"><div class="af-head"><div><div class="af-title">' +
+  return '<div class="ef app-frame"><div class="af-top"><span class="af-brand">' + mark() + '</span>' + (opts && opts.avatar ? "" : '<span class="af-pills">' +
+    tabs.map(function (x) { return '<span class="' + (x === active ? "on" : "") + '">' + x + "</span>"; }).join("") + "</span>") +
+    '<span class="af-sp"></span>' + (topRight || "") + '<span class="avatar tone-green">' + (opts && opts.avatar || "DR") + '</span></div><div class="af-body"><div class="af-head"><div><div class="af-title">' +
     title + '</div><div class="af-sub">' + sub + "</div></div>" + (right || "") + "</div>" + body + "</div></div>";
 }
 function coreGroupCard(withRhythm) {
@@ -2376,33 +2376,32 @@ function vNetwork() {
 /* Revision 24: the /oversight hero dashboard. Content from the dashboard mockup pages Network and Network Intelligence
    (Austin Sending Network, 14 plants). Same frame, density and white ring as the Monday dashboard. */
 var NET_PLANTS = [
-  ["Harvest Point Church", "Hyde Park, Austin, TX", "tone-green", "1 · Core group", "34", "Mar 14, 2027", "1 shared"],
-  ["Eastside Commons", "East Austin, Austin, TX", "tone-blue", "3 · Training", "46", "May 2, 2027", "4 shared"],
-  ["Mueller Fellowship", "Mueller, Austin, TX", "tone-violet", "0 · Discovery", "", "Not set", ""],
-  ["Alamo Heights Church", "San Antonio, TX", "tone-amber", "2 · Launch team", "28", "Sep 2027", "2 shared"],
-  ["Deep Ellum Collective", "Dallas, TX", "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 shared"]
+  ["Harvest Point Church", "Hyde Park, Austin, TX", "tone-green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
+  ["Eastside Commons", "East Austin, Austin, TX", "tone-blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
+  ["Mueller Fellowship", "Mueller, Austin, TX", "tone-violet", "0 · Discovery", "8", "Not set", ""],
+  ["Alamo Heights Church", "San Antonio, TX", "tone-amber", "2 · Launch team", "28", "Sep 2027", "2 findings"],
+  ["Deep Ellum Collective", "Dallas, TX", "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"]
 ];
 function vNetworkDash() {
-  var stats = [["Plants", "14", "11 share findings · 2 states"], ["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"], ["Committed adults", "412", "From 12 plants that share people"], ["Needs attention", "3", "From shared findings only", 1]];
+  var stats = [["Plants", "14", "In 2 states"], ["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"], ["Committed adults", "412", "Across 14 plants"], ["Needs attention", "3", "Need a look this month", 1]];
   var areas = [["All", 14], ["Austin", 5], ["San Antonio", 3], ["Dallas–Fort Worth", 3], ["Houston", 1], ["Oklahoma City", 2]];
-  var ns = function (v) { return v || '<span class="faint">Not shared</span>'; };
-  var plants = '<div class="card ovd-plants"><div class="card-header"><div class="grow"><div class="card-title">Plants</div><div class="card-description">In order of launch date. Select a plant to see what it shares.</div></div></div>' +
+  var plants = '<div class="card ovd-plants"><div class="card-header"><div class="grow"><div class="card-title">Plants</div><div class="card-description">In order of launch date.</div></div></div>' +
     '<div class="ovd-areas"><span class="ovd-lab">Area</span>' + areas.map(function (a, i) { return '<span class="ovd-chip' + (i ? "" : " on") + '">' + a[0] + " <b>" + a[1] + "</b></span>"; }).join("") + "</div>" +
     '<table><thead><tr><th>Plant</th><th>Phase</th><th class="hide-sm">Core group</th><th class="hide-sm">Launch</th><th class="hide-sm">Findings</th></tr></thead><tbody>' +
     NET_PLANTS.map(function (p) {
       return '<tr><td><div class="row" style="gap:10px"><span class="card-icon ' + p[2] + ' hide-sm" style="width:34px;height:34px">' + icon("pin") + '</span><div><div class="cell-title">' + p[0] + '</div><div class="cell-sub">' + p[1] + "</div></div></div></td>" +
-        '<td><span class="tag">' + p[3] + '</span></td><td class="hide-sm">' + ns(p[4]) + '</td><td class="hide-sm" style="white-space:nowrap">' + p[5] + '</td><td class="hide-sm">' + (p[6] ? '<span class="badge" data-size="sm" data-status="measured">' + p[6] + "</span>" : ns("")) + "</td></tr>";
+        '<td><span class="tag">' + p[3] + '</span></td><td class="hide-sm">' + p[4] + '</td><td class="hide-sm" style="white-space:nowrap">' + p[5] + '</td><td class="hide-sm">' + (p[6] ? '<span class="badge" data-size="sm" data-status="measured">' + p[6] + "</span>" : '<span class="faint">—</span>') + "</td></tr>";
     }).join("") + "</tbody></table></div>";
   var finding = '<div class="insight" data-tone="lilac"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
     '<div class="insight-metric"><span class="num">4 of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
     '<div class="insight-title">Emerging leadership is the most common gap before launch</div>' +
     '<div class="insight-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>' +
-    '<div class="insight-footer"><span class="btn" data-variant="light">See the plants ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Ask Evry why</span></div></div>';
+    '<div class="insight-footer"><span class="btn" data-variant="light">See the plants ' + icon("arrow") + "</span></div></div>";
   return frame("Network", 'Austin Sending Network<span class="badge ovd-badge hide-sm" data-status="measured">Network view</span>', "14 plants in Texas and Oklahoma, in launch order.",
     '<div class="ovd-tabs"><span class="on">Plants</span><span>Network Intelligence</span></div>' +
     '<div class="stat-grid ovd-stats">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value"' + (s[3] ? ' style="color:var(--ef-amber-display)"' : "") + ">" + s[1] + '</div><div class="faint t-sm">' + s[2] + "</div></div>"; }).join("") + "</div>" +
     '<div class="ovd-grid">' + plants + finding + "</div>",
-    '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a plant</span>", '<span class="af-evry">' + evryBot("sm") + '<span class="l">Ask Evry</span></span>');
+    '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a plant</span>", "", { avatar: "JM" });
 }
 function vEvry(ex) {
   var parts = ex.review.split(" · ");
@@ -2800,7 +2799,7 @@ var CX_MARK = {
   scope: function () {
     return cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Network Intelligence") +
       '<div class="sd-scope" data-st>' + SD_SCOPES.map(function (c, i) { var l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i ? " cx-t" + (i - 1) : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-      '<div class="sd-stats" data-st>' + ["Plants", "Share findings", "Launching in 12 months"].map(function (l) { return '<div class="sd-stat"><span class="num" data-n="sd">0</span><small>' + l + "</small></div>"; }).join("") + "</div>" +
+      '<div class="sd-stats" data-st>' + ["Plants", "With findings", "Launching in 12 months"].map(function (l) { return '<div class="sd-stat"><span class="num" data-n="sd">0</span><small>' + l + "</small></div>"; }).join("") + "</div>" +
       '<div class="sd-areas" data-st><div class="sd-th"><span>By area</span><span>Plants</span><span>Momentum</span></div>' +
       SD_AREAS.map(function (a, i) { return '<div class="sd-area"><b>' + a[0] + "</b><span>" + a[1] + '</span><span><span class="badge" data-size="sm" data-status="' + a[2] + '">' + a[3] + "</span></span>" + (i ? "" : '<span class="cx-hl"></span>') + "</div>"; }).join("") + "</div>";
   },
@@ -2810,7 +2809,7 @@ var CX_MARK = {
       '<div class="sd-sum" data-st><span>Launches in the next 12 months</span><span class="num" data-n="sum">0</span></div>';
   },
   lens: function () {
-    return cxHead(cxIcon("tone-amber", "eye"), "Network lenses", "From the findings plants share") +
+    return cxHead(cxIcon("tone-amber", "eye"), "Network lenses", "Across 11 plants with findings") +
       '<div class="sd-lenses">' + SD_LENSES.map(function (l, i) {
         var n = l[5];
         return '<div class="lens sd-lens" data-st><div class="lens-head"><span class="sd-li ' + l[2] + '">' + icon(l[1]) + '</span><span class="lens-name">' + l[0] + '</span><span class="badge" data-size="sm" data-status="' + l[3] + '">' + l[4] + "</span>" + (i ? "" : '<span class="sd-open cx-t0">' + icon("arrow") + "</span>") + "</div>" +
@@ -2825,7 +2824,7 @@ var CX_MARK = {
       '<div class="insight-metric" data-st><span class="num"><span data-n="top">0</span> of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
       '<div class="insight-title" data-st>Emerging leadership is the most common gap before launch</div>' +
       '<div class="insight-text" data-st>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</div>' +
-      '<div class="insight-footer" data-st><span class="btn" data-variant="light">See the plants ' + icon("arrow") + '</span><span class="btn sd-ask cx-t0" data-variant="glass">' + evryBot("sm", "idle") + "Ask Evry why</span></div>";
+      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the plants ' + icon("arrow") + "</span></div>";
   },
   share: function () {
     var rows = [["Phase and launch date", 1, 0], ["Health summary", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]];
@@ -3123,7 +3122,6 @@ var CX_RENDER = {
   top: function (I, t) {
     cxN(cxQ(I, '[data-n="top"]'), 4 * haOut(haP(t, 300, 800)));
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
-    haSet(cxQ(I, ".evry-bot"), "mood", t >= 2450 && t < 3500 ? "talking" : "idle");
   },
   /* Revision 25 /oversight chapter panels. Each plays once to its CX_SCN end and holds there, so no loop reset. */
   invite: function (I, t) {

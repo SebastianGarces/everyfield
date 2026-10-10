@@ -146,7 +146,7 @@
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
       "hero": {
         "headline": "See every plant you send.",
-        "subhead": "Whether one church or a whole network sent them, see how each plant is doing, where your network needs help, and what every planter chose to share.",
+        "subhead": "Whether one church or a whole network sent them, see how each plant is doing and where your network needs help.",
         "cta_primary": "Request early access",
         "cta_secondary": "See how it works"
       },
@@ -155,6 +155,7 @@
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
       "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
         "title": "Every plant you send, in one place.",
