@@ -254,6 +254,9 @@
 .insight[data-tone="sky"] { box-shadow: 0 18px 36px -24px rgba(40,90,170,.45); }
 .insight[data-tone="dawn"] { box-shadow: 0 18px 36px -24px rgba(190,110,40,.5); }
 .insight[data-tone="lilac"] { box-shadow: 0 18px 36px -24px rgba(110,80,200,.45); }
+/* Revision 29: shadow tints for sun and sea, so they follow the same InsightCard recipe as the four tones above. */
+.insight[data-tone="sun"] { box-shadow: 0 18px 36px -24px rgba(180,130,20,.5); }
+.insight[data-tone="sea"] { box-shadow: 0 18px 36px -24px rgba(30,140,120,.45); }
 .insight-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .insight-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--pill-bg); box-shadow: 0 0 0 1px var(--pill-edge) inset; font-weight: 600; font-size: 13px; }
 .insight-count { font-size: 12.5px; color: var(--on-3); }
@@ -1427,6 +1430,8 @@ body.pbar-hidden { padding-bottom: 0; }
 .cx-card.insight[data-tone="sky"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(40,90,170,.45); }
 .cx-card.insight[data-tone="dawn"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(190,110,40,.5); }
 .cx-card.insight[data-tone="lilac"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(110,80,200,.45); }
+.cx-card.insight[data-tone="sun"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(180,130,20,.5); }
+.cx-card.insight[data-tone="sea"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(30,140,120,.45); }
 /* The follow-up card has no shadow of its own: the ring sits on its white shell. The shell's bottom edge (set per frame) moves up
    instead of a bottom clip, so the ring follows the visible edge of the card. */
 .cx-shell { box-shadow: var(--ui-ring); }
@@ -3397,7 +3402,10 @@ function features(f, opts) {
    Desktop (above 900 px, no reduced motion): the section pins below the floating nav and vertical scroll moves the rail
    left 1:1 (tall outer track, sticky frame, translateX from scroll progress). Narrow screens and reduced motion: a native
    horizontal rail with scroll-snap, mouse drag, touch swipe and arrow keys. In both modes each card takes focus. */
-var PH_TONES = ["sky", "field", "dawn", "lilac", "field", "sky"];
+/* Revision 29: six different tones in each rail. Home: sky, field, dawn, lilac, sun, sea. /oversight (opts.tones): lilac, sea, dawn,
+   field, sky, sun, so sea is not next to field or sky, and dawn is not next to sun. */
+var PH_TONES = ["sky", "field", "dawn", "lilac", "sun", "sea"];
+var OV_PH_TONES = ["lilac", "sea", "dawn", "field", "sky", "sun"];
 var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
 var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
 function phNum(i) { return (i < 9 ? "0" : "") + (i + 1); }
@@ -3442,7 +3450,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art gsurf" data-tone="' + PH_TONES[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art gsurf" data-tone="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -3637,7 +3645,7 @@ function pageOversight() {
   var P = COPY.shared.oversight_page;
   return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
     problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
-    phSection(P.plants, { id: "plants", vig: ovVig }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
+    phSection(P.plants, { id: "plants", vig: ovVig, tones: OV_PH_TONES }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
 }
 /* Rail vignettes from the dashboard mockup page Network · Plant view (Eastside Commons). Only the top of each shows above the card text. */
 function ovVig(i) {
