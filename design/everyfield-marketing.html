@@ -1108,7 +1108,33 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-card .ov-plist .card-icon svg, .cx-card .ov-row .card-icon svg { width: 15px; height: 15px; }
 .cx-card .ov-st { justify-items: end; }
 .cx-card .ov-rows { margin-top: 12px; }
-.cx-card[data-k="invite"], .cx-card[data-k="choose"], .cx-card[data-k="plants"], .cx-card[data-k="help"] { min-width: 0; }
+.cx-card[data-k="invite"], .cx-card[data-k="senders"], .cx-card[data-k="plants"], .cx-card[data-k="help"] { min-width: 0; }
+/* Revision 26: plants grouped by sending church (#every-plant step 3). */
+.ov-grps { display: grid; gap: 8px; }
+.ov-grp { position: relative; isolation: isolate; padding: 10px 12px 11px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--ef-line); will-change: transform, opacity; }
+.ov-grp .cx-hl { inset: 0; border-radius: 14px; background: var(--ef-green-50); box-shadow: inset 0 0 0 1.5px rgba(15, 126, 60, .3); }
+.ov-gh { display: flex; align-items: center; gap: 10px; }
+.cx-card .ov-gh .card-icon { width: 30px; height: 30px; }
+.cx-card .ov-gh .card-icon svg { width: 14px; height: 14px; }
+.ov-gh .grow { min-width: 0; }
+.ov-gh .list-title { font-size: 13.5px; }
+.ov-gh .list-sub { font-size: 11.5px; margin-top: 1px; }
+.ov-gn { font-size: 12px; color: var(--ef-text-2); white-space: nowrap; }
+.ov-gn b { font-family: var(--mk-font-display); font-size: 18px; font-weight: 500; color: var(--ef-ink); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.ov-gp { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.ov-pc { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px 0 8px; border-radius: 99px; background: var(--ef-surface-2); font-size: 11.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: opacity; }
+.ov-pc i { width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
+.ov-pc i[data-ph="0"], .ov-pc i[data-ph="1"] { background: var(--ef-blue-500); }
+.ov-gs { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--ef-text-3); }
+/* Revision 26: the rail market card (card 03), a small by-area table with one row highlighted. */
+.ef .ovv-mk { display: grid; gap: 2px; margin-top: 12px; }
+.ef .ovv-mr { display: grid; grid-template-columns: minmax(0, 1fr) 64px 16px; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 10px; font-size: 13px; font-weight: 500; }
+.ef .ovv-mr > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef .ovv-mr.on { background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(15, 126, 60, .22); }
+.ef .ovv-bar { height: 6px; border-radius: 9px; background: var(--ef-surface-2); overflow: hidden; }
+.ef .ovv-bar i { display: block; height: 100%; border-radius: 9px; background: #B9C0BB; }
+.ef .ovv-mr.on .ovv-bar i { background: var(--ef-green-500); }
+.ef .ovv-mr b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .ov-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ef-line); will-change: transform, opacity; }
 .ov-row:first-child { border-top: 0; }
 .ov-row .grow { min-width: 0; }
@@ -1125,33 +1151,152 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ef .ovv-wk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 12px; font-size: 12px; color: var(--ef-text-2); }
 .ef .ovv-wk b { display: block; font-size: 14px; color: var(--ef-ink); font-weight: 600; }
 .ef .ovv-sh { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 500; }
-.ef .ovv-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ef-green-700); }
-.ef .ovv-tag svg { width: 13px; height: 13px; }
-.ef .ovv-tag.off { color: var(--ef-text-3); }
 .ef .ovv-help { margin-top: 12px; font-size: 15px; line-height: 1.3; }
 .ef .ovv-acts { display: flex; gap: 6px; margin-top: 12px; }
 .ef .ovv-acts .btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
 .ef .ovv-acts .btn svg { width: 14px; height: 14px; }
-/* The three sending paths: one column each, the chain reads top to bottom and every path ends at its plant. */
-.ovp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-gutter); max-width: 960px; margin: 0 auto; }
-.ovp-path { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 24px 20px 28px; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); }
-.ovp-cap { font-size: 14px; font-weight: 600; color: var(--mk-text-2); text-align: center; }
-.ovp-chain { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: auto; }
-.ovp-n { display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 18px 0 8px; border-radius: 99px; background: #FFFFFF; box-shadow: 0 0 0 1px var(--ef-line), 0 1px 2px rgba(24,29,25,.06); font-size: 15px; font-weight: 600; color: var(--ef-ink); white-space: nowrap; }
-.ovp-n .card-icon { width: 34px; height: 34px; }
-.ovp-n .card-icon svg { width: 16px; height: 16px; }
-.ovp-arr { display: grid; place-items: center; color: var(--mk-text-3); }
-.ovp-arr svg { width: 18px; height: 18px; transform: rotate(90deg); }
-.ovp-line { max-width: 600px; margin: clamp(24px, 3vw, 36px) auto 0; text-align: center; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
-.sec-ov-privacy .trust-grid { max-width: 1080px; margin: 0 auto; }
+.ovp-line { max-width: 720px; margin: clamp(24px, 3vw, 36px) auto 0; text-align: center; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
+/* Revision 26: the sending paths review options (sent=a|b|c). The review chip (.ovs-rv, as in Revision 14) sits in the section's top padding. */
+.ovs-rv { position: absolute; z-index: 3; top: clamp(18px, calc(var(--mk-section-space) / 2 - 20px), 44px); right: max(var(--mk-page-pad), calc((100% - var(--mk-max-width)) / 2 + var(--mk-page-pad)));
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #181D19; color: #FFFFFF; font: 500 12.5px/1 var(--mk-font-body); box-shadow: 0 0 0 1px rgba(255,196,138,.55), 0 10px 22px -12px rgba(24,29,25,.6); }
+.ovs-rv .ovs-rvl { display: inline-flex; align-items: center; gap: 6px; padding: 0 9px 0 10px; font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #FFC48A; }
+.ovs-rv .ovs-rvl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #FFC48A; }
+.ovs-rv button { height: 28px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.72); font: inherit; cursor: pointer; white-space: nowrap; }
+.ovs-rv button b { font-weight: 700; margin-right: 2px; }
+.ovs-rv button:hover { color: #FFFFFF; }
+.ovs-rv button[aria-pressed="true"] { background: #FFFFFF; color: #181D19; }
+.ovs-rv button:focus-visible { outline: 2px solid #FFC48A; outline-offset: 1px; }
+.sec-ov-paths .sec-head { margin-bottom: clamp(28px, 3.4vw, 48px); }
+.sec-ov-paths[data-sent="b"] .sec-head { margin-bottom: clamp(24px, 2.4vw, 32px); }
+.ovs-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Shared product detail: a plant header with a "Sent by" chip */
+.ovs-ph { background: #FFFFFF; border-radius: 18px; padding: 14px 16px 16px; color: var(--ef-text); font-size: 13px; line-height: 1.4; box-shadow: var(--ui-ring), 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -22px rgba(24,29,25,.42); }
+.ovs-pt { display: flex; align-items: center; gap: 10px; }
+.ovs-pt .grow { min-width: 0; }
+.ovs-pt .card-icon { width: 34px; height: 34px; }
+.ovs-pt .card-icon svg { width: 16px; height: 16px; }
+.ovs-pt .list-sub, .ovs-pt .list-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ovs-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ovs-by { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 11px 4px 8px; border-radius: 99px; background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(15,126,60,.2); color: var(--ef-green-700); font-size: 12px; font-weight: 500; line-height: 1.3; }
+.ovs-by b { font-weight: 600; color: var(--ef-ink); }
+.ovs-by svg { width: 14px; height: 14px; flex: none; }
+.ovs-dot { color: var(--ef-text-3); }
+.ovs-assign { display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--ef-text-2); text-decoration: underline; text-decoration-color: var(--ef-line-2); text-underline-offset: 3px; }
+.ovs-assign svg { width: 14px; height: 14px; }
+/* A: three cards, gradient art at the top like the rail cards */
+.ovs-a { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-gutter); max-width: 1200px; margin: 0 auto; padding: 0; list-style: none; }
+.ovs-card { display: flex; flex-direction: column; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
+.ovs-art.gsurf { display: grid; place-items: center; height: 196px; margin: 8px 8px 0; padding: 14px; border-radius: 20px; }
+.ovs-mini { width: min(340px, 100%); }
+.ovs-mini .ovs-ph { padding: 14px 14px 15px; }
+.ovs-mini .ovs-by { font-size: 11.5px; }
+.ovs-txt { padding: 20px 24px 26px; }
+.ovs-txt p { margin-top: 10px; font-size: 17px; line-height: 1.45; color: var(--mk-text); text-wrap: pretty; }
+/* B: segmented switch over one large card */
+.ovs-seg { display: flex; gap: 2px; width: max-content; max-width: 100%; margin: -8px auto clamp(18px, 1.8vw, 24px); padding: 4px; border-radius: 99px; background: var(--mk-surface-2); box-shadow: inset 0 0 0 1px var(--mk-line); }
+.ovs-tab { height: 40px; padding: 0 18px; border: 0; border-radius: 99px; background: transparent; font: 500 15px/1 var(--mk-font-body); color: var(--mk-text-2); cursor: pointer; white-space: nowrap; transition: background-color .25s var(--mk-ease), color .25s var(--mk-ease), box-shadow .25s var(--mk-ease); }
+.ovs-tab:hover { color: var(--mk-ink); }
+.ovs-tab[aria-selected="true"] { background: #FFFFFF; color: var(--mk-ink); box-shadow: 0 1px 2px rgba(24,29,25,.08), 0 0 0 1px rgba(24,29,25,.06); }
+.ovs-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.ovs-big { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); max-width: 1200px; height: 304px; margin: 0 auto; border-radius: var(--mk-radius-media); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
+.ovs-bt { display: grid; align-items: center; padding: 0 clamp(28px, 3.4vw, 52px); }
+.ovs-pane { grid-area: 1 / 1; opacity: 0; visibility: hidden; transform: translate3d(0, 8px, 0); transition: opacity .4s var(--mk-ease), transform .45s var(--mk-ease), visibility 0s linear .45s; }
+.ovs-pane.on { opacity: 1; visibility: visible; transform: none; transition: opacity .45s var(--mk-ease) .1s, transform .5s var(--mk-ease) .1s, visibility 0s; }
+.ovs-pane:focus-visible { outline: 2px solid #181D19; outline-offset: 6px; border-radius: 6px; }
+.ovs-pane p { margin-top: 14px; font-size: clamp(16.5px, 1.25vw, 18px); line-height: 1.55; color: var(--mk-text-2); max-width: 38ch; text-wrap: pretty; }
+.ovs-bv { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; margin: 8px; padding: 16px 24px; border-radius: calc(var(--mk-radius-media) - 8px); overflow: hidden; }
+.ovs-bv > .ovs-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; transition: opacity .5s var(--mk-ease); }
+.ovs-bv > .ovs-bg.on { opacity: 1; }
+.ovs-app { grid-area: 1 / 1; width: min(400px, 100%); padding: 16px 18px 18px; border-radius: 20px; background: #FFFFFF; font-size: 13px; line-height: 1.4; color: var(--ef-text);
+  box-shadow: var(--ui-ring), 0 0 0 1px rgba(24,29,25,.05), 0 26px 50px -26px rgba(24,29,25,.4); opacity: 0; visibility: hidden; transform: translate3d(0, 10px, 0) scale(.985);
+  transition: opacity .35s var(--mk-ease), transform .45s var(--mk-ease), visibility 0s linear .45s; }
+.ovs-app.on { opacity: 1; visibility: visible; transform: none; transition: opacity .45s var(--mk-ease) .12s, transform .55s var(--mk-ease) .12s, visibility 0s; }
+.ovs-app .cx-h { margin-bottom: 8px; }
+.ovs-app .list-row { padding: 9px 0; }
+.ovs-app .list-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ovs-app .list-row .grow { min-width: 0; }
+.ovs-g { padding: 8px 0; border-top: 1px solid var(--ef-line); }
+.ovs-g .ov-gp { margin-top: 6px; }
+.ovs-gt { font-weight: 600; font-size: 13.5px; }
+.ovs-gc { font-size: 12px; color: var(--ef-text-2); }
+.ovs-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ef-line); font-size: 12.5px; color: var(--ef-text-2); }
+.ovs-act { margin-top: 12px; }
+.ovs-act .btn { height: 34px; padding: 0 14px; font-size: 13px; }
+.ovs-act .btn svg { width: 14px; height: 14px; }
+/* C: one display sentence; the phrase rolls up in a green highlight; the matching chip lights up */
+.ovs-c { max-width: 1100px; margin: 0 auto; text-align: center; }
+.ovs-say { font-size: clamp(30px, 4.6vw, 66px); line-height: 1.14; text-wrap: balance; }
+.ovs-roll { display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: linear-gradient(100deg, #BFF5D3 0%, #DCFAE7 55%, #EEFCD9 100%);
+  transition: width .7s cubic-bezier(.65, 0, .35, 1); }
+.ovs-rl { display: block; transition: transform .7s cubic-bezier(.65, 0, .35, 1); will-change: transform; }
+.ovs-rl > span { display: block; width: max-content; height: 1.14em; line-height: 1.14em; padding: 0 .12em; }
+.ovs-now, .ovs-now .ovs-rl { transition: none !important; }
+.ovs-mbr { display: none; }
+.ovs-ccs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: clamp(28px, 3.2vw, 44px); }
+.ovs-cc { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 15px 6px 7px; border: 0; border-radius: 99px; background: var(--mk-surface-2); color: var(--mk-text-2); font: 500 14px/1.3 var(--mk-font-body); text-align: left; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--mk-line); opacity: .62; transition: opacity .35s var(--mk-ease), background-color .35s var(--mk-ease), box-shadow .35s var(--mk-ease), transform .35s var(--mk-ease); }
+.ovs-cc b { font-weight: 600; color: var(--mk-ink); }
+.ovs-cc .card-icon { width: 28px; height: 28px; flex: none; }
+.ovs-cc .card-icon svg { width: 14px; height: 14px; }
+.ovs-cc:hover { opacity: .85; }
+.ovs-cc[aria-pressed="true"] { opacity: 1; background: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(15,126,60,.28), 0 12px 26px -16px rgba(16,80,40,.5); transform: translate3d(0, -2px, 0); }
+.ovs-cc:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+@media (max-width: 900px) {
+  .ovs-a { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
+  .ovs-art.gsurf { height: 188px; }
+  .ovs-big { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; height: auto; }
+  .ovs-bt { padding: 28px 24px 8px; }
+  .ovs-bv { min-height: 300px; }
+}
 @media (max-width: 640px) {
-  .ovp { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .ovp-path { gap: 12px; padding: 16px 12px; }
-  .ovp-chain { flex-direction: row; gap: 6px; }
+  .ovs-rv { font-size: 12px; }
+  .ovs-rv button { padding: 0 8px; }
+  .ovs-rv .ovs-rvl { padding: 0 6px; }
+  .ovs-art.gsurf { padding: 16px 14px; }
+  .ovs-txt { padding: 18px 20px 22px; }
+  .ovs-seg { flex-direction: column; width: 100%; border-radius: 22px; }
+  .ovs-tab { width: 100%; border-radius: 18px; }
+  .ovs-bt { padding: 22px 20px 4px; }
+  .ovs-bv { margin: 6px; padding: 28px 12px; min-height: 0; }
+  .ovs-mbr { display: inline; }
+  .ovs-ccs { flex-direction: column; align-items: center; gap: 8px; }
+  .ovs-cc { font-size: 13px; }
+  .ovs-art.gsurf { height: 172px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ovs-pane, .ovs-pane.on, .ovs-app, .ovs-app.on, .ovs-bv > .ovs-bg.gsurf, .ovs-tab, .ovs-roll, .ovs-rl, .ovs-cc { transition: none !important; }
+  .ovs-pane, .ovs-app, .ovs-cc[aria-pressed="true"] { transform: none; }
+}
+/* Revision 26: FAQ (#faq). Title left, accordion right on desktop; thin dividers like the auto list. */
+.faq-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--mk-gutter); align-items: start; }
+.faq-title { grid-column: 1 / span 5; max-width: 13ch; position: sticky; top: 112px; }
+.faq-list { grid-column: 6 / span 7; justify-self: end; width: 100%; max-width: 720px; }
+.faq-i { border-top: 1px solid var(--mk-line); }
+.faq-i:last-child { border-bottom: 1px solid var(--mk-line); }
+.faq-h { margin: 0; font: inherit; }
+.faq-q { display: flex; align-items: center; justify-content: space-between; gap: 24px; width: 100%; padding: 22px 0; border: 0; background: none; color: var(--mk-text); cursor: pointer; text-align: left;
+  font-family: var(--mk-font-display); font-size: clamp(18px, 1.4vw, 21px); font-weight: 500; letter-spacing: -0.015em; line-height: 1.3; }
+.faq-q:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; border-radius: 6px; }
+.faq-pm { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--mk-surface-2); transition: background-color .3s var(--mk-ease); }
+.faq-q:hover .faq-pm { background: #EAE7E0; }
+.faq-pm::before, .faq-pm::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.7px; margin: -.85px 0 0 -6px; border-radius: 2px; background: var(--mk-ink); transition: transform .3s var(--mk-ease); }
+.faq-pm::after { transform: rotate(90deg); }
+.faq-i.open .faq-pm::after { transform: rotate(0deg); }
+.faq-a { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .3s var(--mk-ease), opacity .3s var(--mk-ease), visibility 0s linear .3s; }
+.faq-i.open .faq-a { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .3s var(--mk-ease), opacity .3s var(--mk-ease), visibility 0s; }
+.faq-in { min-height: 0; overflow: hidden; }
+.faq-in p { padding: 0 54px 24px 0; font-size: 17px; line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
+.faq-in a { color: var(--mk-link); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 900px) {
+  .faq-grid { display: block; }
+  .faq-title { position: static; max-width: 16ch; margin-bottom: 24px; }
+  .faq-list { max-width: none; }
+  .faq-q { padding: 18px 0; }
+  .faq-in p { padding-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .faq-a, .faq-i.open .faq-a, .faq-pm, .faq-pm::before, .faq-pm::after { transition: none !important; } }
+@media (max-width: 640px) {
   .ov-when span { display: none; }
-  .ovp-n { height: 40px; padding: 0 12px; font-size: 14px; }
-  .ovp-n .card-icon { display: none; }
-  .ovp-arr svg { width: 16px; height: 16px; transform: none; }
 }
 @media (max-width: 1120px) {
   .ovd-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1536,30 +1681,27 @@ body.pbar-hidden { padding-bottom: 0; }
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
-        "title": "Invite, share, see, help.",
+        "title": "Every plant you send, in one place.",
         "steps": [
           {
             "panel": "invite",
-            "icon": "users",
             "title": "Invite your plants.",
             "body": "Send an invite. The planter connects their plant in a few clicks."
           },
           {
-            "panel": "choose",
-            "icon": "eye",
-            "title": "They choose what to share.",
-            "body": "Each planter picks what your church or network sees, and can change it at any time."
+            "panel": "plants",
+            "title": "See every plant on one page.",
+            "body": "Phase, core group, launch date and findings for each plant, in launch order."
           },
           {
-            "panel": "plants",
-            "icon": "network",
-            "title": "See every plant on one page.",
-            "body": "Phase, core group, launch date and shared findings for each plant, in launch order."
+            "panel": "senders",
+            "title": "Each sending church, side by side.",
+            "body": "A network sees how each of its sending churches and their plants are doing."
           },
           {
             "panel": "help",
-            "icon": "heart",
             "title": "Help where it matters.",
             "body": "See where a plant could use help, and offer it."
           }
@@ -1600,9 +1742,9 @@ body.pbar-hidden { padding-bottom: 0; }
             "short": "A countdown to the launch date, with milestones and prep tasks done."
           },
           {
-            "label": "What the plant shares",
-            "title": "Counts, never names.",
-            "short": "See each area the plant shares with you, and the areas it keeps to itself."
+            "label": "By market",
+            "title": "See how plants do in every market.",
+            "short": "Compare plants by state and metro area: launch readiness, momentum and the most common gap."
           },
           {
             "label": "People and meetings",
@@ -1617,26 +1759,123 @@ body.pbar-hidden { padding-bottom: 0; }
           {
             "label": "Where help could matter",
             "title": "A clear place to help.",
-            "short": "When shared facts point to a need, the plant view names it, so you can offer help."
+            "short": "When the facts point to a need, the plant view names it, so you can offer help."
           }
         ]
       },
       "paths": {
         "headline": "However your plants are sent.",
-        "items": [
-          ["Church", "Plant"],
-          ["Network", "Church", "Plant"],
-          ["Network", "Plant"]
-        ],
-        "labels": ["A church sends a plant", "A network sends through a church", "A network sends a plant"],
-        "line": "A network also sees each of its sending churches. The tools are the same for both."
+        "line": "A network also sees each of its sending churches. The tools are the same for both.",
+        "a": {
+          "items": [
+            {
+              "label": "A church",
+              "body": "Grace Church sends Harvest Point Church on its own."
+            },
+            {
+              "label": "A network through a church",
+              "body": "The Austin Sending Network sends Eastside Commons through Grace Church."
+            },
+            {
+              "label": "A network",
+              "body": "The network sends Mueller Hope Church directly, and assigns a sending church later."
+            }
+          ]
+        },
+        "b": {
+          "headline": "Whoever sends the plant, see it in EveryField.",
+          "tabs": [
+            {
+              "label": "A church",
+              "title": "A church sees its plants.",
+              "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
+            },
+            {
+              "label": "A network through a church",
+              "title": "A network sees every plant, by sending church.",
+              "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+            },
+            {
+              "label": "A network",
+              "title": "A network can send a plant directly.",
+              "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
+            }
+          ]
+        },
+        "c": {
+          "lead": "Sent by",
+          "phrases": [
+            "a church",
+            "a network",
+            "a church in a network"
+          ],
+          "tail": "Seen in one place.",
+          "chips": [
+            "Sent by Grace Church",
+            "Sent by Austin Sending Network",
+            "Sent by Grace Church · Austin Sending Network"
+          ]
+        }
       },
-      "privacy": {
-        "headline": "Plants choose what you see.",
-        "points": [
-          "You see counts and summaries, and only for what each plant shares.",
-          "Names, people and private notes stay with the plant.",
-          "Coaches the planter invites can read the records, and can change nothing."
+      "faq": {
+        "headline": "Questions from sending churches and networks.",
+        "items": [
+          {
+            "id": "who",
+            "q": "Who on our side uses EveryField?",
+            "a": "Sending churches and networks use the same tools. A network also sees each of its sending churches and their plants."
+          },
+          {
+            "id": "planters",
+            "q": "Do our planters need to use EveryField?",
+            "a": "Yes. Each planter runs their plant in EveryField, and you invite them to connect their plant to your church or network."
+          },
+          {
+            "id": "see",
+            "q": "What can we see for each plant?",
+            "a": "Phase, launch date, core group size, gathering rhythm, ministry roles filled and findings, as counts and summaries the plant shares with you."
+          },
+          {
+            "id": "people",
+            "q": "Can we see the people in a plant?",
+            "a": "No. You see counts and summaries. Names and personal details stay with the plant."
+          },
+          {
+            "id": "intelligence",
+            "q": "What is Network Intelligence?",
+            "a": "It reads the findings your plants share and shows patterns across your network: lenses, the phase pipeline and the gap most plants have in common. A pattern needs at least two plants."
+          },
+          {
+            "id": "markets",
+            "q": "Can we compare plants by state or metro area?",
+            "a": "Yes. Switch between all plants, one state or one metro area, and every number follows."
+          },
+          {
+            "id": "sent-by-church",
+            "q": "Our plant was sent by a church in our network. Who sees it?",
+            "a": "Both the sending church and the network see it."
+          },
+          {
+            "id": "sent-by-network",
+            "q": "A planter came to our network directly. Can we add a sending church later?",
+            "a": "Yes. A network can send a plant on its own and assign a sending church at any time."
+          },
+          {
+            "id": "coaches",
+            "q": "Can coaches use it?",
+            "a": "Yes. Coaches the planter invites can read the plant's records and cannot change anything."
+          },
+          {
+            "id": "phase",
+            "q": "Does EveryField move a plant to the next phase or rate the planter?",
+            "a": "No. The planter sets the phase. EveryField does not change it or grade the planter."
+          },
+          {
+            "id": "start",
+            "q": "How do we get started?",
+            "a": "EveryField is in early access. Request access for your church or network, and we will be in touch.",
+            "link": "Request access"
+          }
         ]
       },
       "cta": {
@@ -1993,7 +2232,7 @@ function logo(extra) {
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-var state = { page: "home", story: "journey", at: "" };
+var state = { page: "home", story: "journey", at: "", sent: "a" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -2001,10 +2240,14 @@ function parseHash() {
   if (i >= 0) { q = h.slice(i + 1); h = h.slice(0, i); }
   var path = h.replace(/^\/+|\/+$/g, "");
   var params = new URLSearchParams(q);
+  /* Revision 26: a bare #sent=a|b|c opens /oversight at the sending paths with that option. */
+  var m = path.match(/^sent=([abc])$/);
+  if (m) return { page: "oversight", story: "journey", at: "sending-paths", sent: m[1] };
   return {
     page: PAGE[path] ? path : "home",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
-    at: params.get("at") || ""
+    at: params.get("at") || "",
+    sent: /^[abc]$/.test(params.get("sent")) ? params.get("sent") : "a"
   };
 }
 function hrefFor(page, at, over) {
@@ -2012,6 +2255,7 @@ function hrefFor(page, at, over) {
   var p = new URLSearchParams();
   p.set("story", s.story);
   if (at) p.set("at", at);
+  if (page === "oversight") p.set("sent", s.sent || "a");
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
 function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
@@ -2154,7 +2398,7 @@ function vNetworkDash() {
     '<div class="insight-title">Emerging leadership is the most common gap before launch</div>' +
     '<div class="insight-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>' +
     '<div class="insight-footer"><span class="btn" data-variant="light">See the plants ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Ask Evry why</span></div></div>';
-  return frame("Network", 'Austin Sending Network<span class="badge ovd-badge hide-sm" data-status="measured">Network view</span>', "14 plants in Texas and Oklahoma. You only see what each plant chooses to share.",
+  return frame("Network", 'Austin Sending Network<span class="badge ovd-badge hide-sm" data-status="measured">Network view</span>', "14 plants in Texas and Oklahoma, in launch order.",
     '<div class="ovd-tabs"><span class="on">Plants</span><span>Network Intelligence</span></div>' +
     '<div class="stat-grid ovd-stats">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value"' + (s[3] ? ' style="color:var(--ef-amber-display)"' : "") + ">" + s[1] + '</div><div class="faint t-sm">' + s[2] + "</div></div>"; }).join("") + "</div>" +
     '<div class="ovd-grid">' + plants + finding + "</div>",
@@ -2595,41 +2839,49 @@ var CX_MARK = {
     var plant = function (cls, ic, tone, name, sub, badge) { return '<div class="list-row ' + cls + '"' + (cls ? "" : " data-st") + '><span class="card-icon ' + tone + '">' + icon(ic) + '</span><div class="grow"><div class="list-title">' + name + '</div><div class="list-sub">' + sub + "</div></div>" + badge + "</div>"; };
     return cxHead(cxIcon("tone-teal", "network"), "Invite a plant", "Austin Sending Network") +
       '<div data-st><span class="ha-lab">Planter\'s email</span><div class="cx-in cx-t0"><span class="cx-fr"></span>' + cxTw("ov-mail", OV_MAIL) + "</div></div>" +
-      '<div class="ha-acts ov-acts" data-st>' + cxSwap('<span class="faint">The planter chooses what to share.</span>', '<span class="faint">Invite sent to Priya Shah</span>', "ov-fs") + cxBtn("cx-t1", "Send invite", "Invite sent") + "</div>" +
+      '<div class="ha-acts ov-acts" data-st>' + cxSwap('<span class="faint">The planter connects in a few clicks.</span>', '<span class="faint">Invite sent to Priya Shah</span>', "ov-fs") + cxBtn("cx-t1", "Send invite", "Invite sent") + "</div>" +
       '<div class="cx-sublab" data-st>Your plants</div>' +
       '<div class="ov-plist">' + plant("", "pin", "tone-green", "Harvest Point Church", "Hyde Park, Austin", '<span class="badge" data-size="sm" data-status="positive">Connected</span>') +
       plant("ov-new", "pin", "tone-blue", "Eastside Commons", "Priya Shah · East Austin", cxSwap('<span class="badge" data-size="sm" data-status="unknown">Invited</span>', '<span class="badge" data-size="sm" data-status="positive">Connected</span>', "ov-st")) + "</div>";
-  },
-  choose: function () {
-    var rows = [["Phase and launch date", 1, 0], ["People counts", 0, 0], ["Names and notes", 0, 1], ["Private check-in", 0, 1]];
-    return cxHead(cxIcon("tone-violet", "eye"), "Sharing with Austin Sending Network", "Eastside Commons · you choose") +
-      rows.map(function (r, i) { return '<div class="share-row" data-st>' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<span>" + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="cx-sw' + (i === 1 ? " cx-t0" : "") + '"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "><b></b><i></i></span></div>"; }).join("") +
-      '<div class="cx-prev" data-st><div class="t-xs faint">What Austin Sending Network sees</div><div class="row between"><span>Eastside Commons</span>' +
-      cxSwap('<span class="badge" data-size="sm" data-status="unknown">People not shared</span>', '<span class="badge" data-size="sm" data-status="positive">46 committed adults</span>') + "</div></div>";
   },
   plants: function () {
     return cxHead(cxIcon("tone-teal", "network"), "Plants", "Austin Sending Network · in launch order") +
       '<div class="sd-scope" data-st>' + OV_AREAS.map(function (c, i) { var l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i === 1 ? " cx-t0" : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
       '<div class="ov-rows">' + OV_ROWS.map(function (r) {
-        return '<div class="ov-row"><span class="card-icon ' + r[2] + '">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[3] + (r[4] ? " · " + r[4] + " adults" : "") + '</div></div><div class="ov-when"><b>' + r[5] + "</b><span>" + (r[6] || "Not shared") + "</span></div></div>";
+        return '<div class="ov-row"><span class="card-icon ' + r[2] + '">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[3] + (r[4] ? " · " + r[4] + " adults" : "") + '</div></div><div class="ov-when"><b>' + r[5] + "</b><span>" + r[6] + "</span></div></div>";
+      }).join("") + "</div>";
+  },
+  /* Revision 26: plants grouped by sending church (dashboard mockup page Network, sending churches). */
+  senders: function () {
+    return cxHead(cxIcon("tone-teal", "network"), "Sending churches", "Austin Sending Network · 3 churches, 5 plants") +
+      '<div class="ov-grps">' + OV_GROUPS.map(function (g, k) {
+        return '<div class="ov-grp' + (k === 0 ? " cx-t0" : "") + '"><span class="cx-hl"></span><div class="ov-gh"><span class="card-icon ' + g[1] + '">' + icon("heart") + '</span><div class="grow"><div class="list-title">' + g[0] + '</div><div class="list-sub">' + g[2] + '</div></div><span class="ov-gn"><b data-n="g">0</b> plant' + (g[3].length > 1 ? "s" : "") + "</span></div>" +
+          '<div class="ov-gp">' + g[3].map(function (p) { return '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>"; }).join("") + "</div>" +
+          '<div class="ov-gs"><span>' + g[4] + '</span><span class="badge" data-size="sm" data-status="' + g[5][0] + '">' + g[5][1] + "</span></div></div>";
       }).join("") + "</div>";
   },
   help: function () {
     return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Where help could matter</span><span class="insight-count">Eastside Commons</span></div>' +
       '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span></span><span class="unit">days to launch Sunday</span></div>' +
       '<div class="insight-title" data-st>Two leader roles are open, 205 days before launch</div>' +
-      '<div class="insight-text" data-st>Kids and Production have no leader yet. From shared Ministry teams and findings.</div>' +
+      '<div class="insight-text" data-st>Kids and Production have no leader yet. From Ministry teams and findings.</div>' +
       '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">' + cxSwap('<span class="ov-bl">Offer help ' + icon("arrow") + "</span>", '<span class="ov-bl">' + icon("check") + "Help offered</span>", "ov-off") + '</span><span class="btn" data-variant="glass">Later</span></div>';
   }
 };
 var OV_MAIL = "priya@eastsidecommons.org";
+/* Revision 26 sending churches: name, icon tone, place, plants [name, phase], summary, badge. */
+var OV_GROUPS = [
+  ["Grace Church", "tone-blue", "Hyde Park, Austin", [["Harvest Point Church", 1], ["Eastside Commons", 3]], "Next launch Mar 14, 2027", ["positive", "On track"]],
+  ["Redeemer Dallas", "tone-violet", "Uptown, Dallas", [["Deep Ellum Collective", 4], ["Oak Cliff Church", 2]], "Next launch Jan 24, 2027", ["positive", "On track"]],
+  ["Alamo City Church", "tone-amber", "San Antonio", [["Alamo Heights Church", 2]], "Kids leader role open", ["attention", "Could use help"]]
+];
 var OV_AREAS = [["All", 14], ["Austin", 5], ["San Antonio", 3]];
-/* Plants in launch order: name, area, icon tone, phase, committed adults, launch, shared findings. Rows outside Austin dim when Austin is selected. */
+/* Plants in launch order: name, area, icon tone, phase, committed adults, launch, findings. Rows outside Austin dim when Austin is selected. */
 var OV_ROWS = [
-  ["Deep Ellum Collective", 0, "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings shared"],
-  ["Harvest Point Church", 1, "tone-green", "1 · Core group", "34", "Mar 14, 2027", "1 finding shared"],
-  ["Eastside Commons", 1, "tone-blue", "3 · Training", "46", "May 2, 2027", "4 findings shared"],
-  ["Alamo Heights Church", 0, "tone-amber", "2 · Launch team", "28", "Sep 2027", "2 findings shared"]
+  ["Deep Ellum Collective", 0, "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],
+  ["Harvest Point Church", 1, "tone-green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
+  ["Eastside Commons", 1, "tone-blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
+  ["Alamo Heights Church", 0, "tone-amber", "2 · Launch team", "28", "Sep 2027", "2 findings"]
 ];
 /* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times.
    end (Revision 17, Plant Intelligence panels only): the time the last motion finishes; the panel plays once to it and holds. still = end there. */
@@ -2649,7 +2901,7 @@ var CX_SCN = {
   top: { L: 4800, still: 3600, end: 3600, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2400] },
   /* Revision 25 /oversight chapter panels. once: the stacking chapter plays the panel once to end and holds (no loop). */
   invite: { L: 7000, still: 5600, end: 5600, once: true, cur: [[0, "rest"], [500, "rest"], [1100, ".cx-t0"], [2800, ".cx-t0"], [3400, ".cx-t1"], [4000, ".cx-t1"], [4700, "rest"]], clicks: [1250, 3600] },
-  choose: { L: 6600, still: 3500, end: 3500, once: true, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] },
+  senders: { L: 5000, still: 3400, end: 3400, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2700, ".cx-t0"], [3400, "rest"]], clicks: [2250] },
   plants: { L: 5600, still: 3400, end: 3400, once: true, cur: [[0, "rest"], [1100, "rest"], [1800, ".cx-t0"], [2600, ".cx-t0"], [3400, "rest"]], clicks: [2100] },
   help: { L: 5600, still: 3600, end: 3600, once: true, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2400] }
 };
@@ -2677,9 +2929,10 @@ var CX_DEFS = {
   /* Revision 19: copy from shared.sending in marketing-copy.json. Tones sea, rose, sun, slate differ from the Plant Intelligence tones above. */
   sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.sending.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) },
-  /* Revision 25 /oversight: a stacking chapter like the week (shared.oversight_page.chapter, week tones and title highlight),
-     and the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
-  chapter: { title: COPY.shared.oversight_page.chapter.title, final: true, words: ["Invite", "share", "see", "help"], steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, WK_TONES[i], s.icon, s.title, s.body]; }) },
+  /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
+  /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Tones lilac, dawn, sky, field
+     differ from the network list below it (sea, rose, sun, slate). */
+  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["lilac", "dawn", "sky", "field"][i], "", s.title, s.body]; }) },
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) }
 };
@@ -2884,7 +3137,14 @@ var CX_RENDER = {
     cxFlip(cxQ(I, ".ov-st"), haOut(haP(t, 5000, 380)));
     cxPop(cxQ(I, ".ov-st > :last-child"), t, 5000, 1);
   },
-  choose: function (I, t) { CX_RENDER.share(I, t); },
+  senders: function (I, t) {
+    /* Churches rise in order and their plant counts count up, then Grace Church is selected. */
+    cxQA(I, ".ov-grp").forEach(function (g, k) { cxRise(g, t, 250 + k * 160, 1); });
+    cxQA(I, '[data-n="g"]').forEach(function (n, k) { cxN(n, OV_GROUPS[k][3].length * haOut(haP(t, 450 + k * 160, 700))); });
+    cxQA(I, ".ov-pc").forEach(function (c, k) { haSet(c, "opacity", haOut(haP(t, 800 + k * 70, 360)).toFixed(3)); });
+    cxPress(cxQ(I, ".cx-t0"), t, 2250, .03);
+    cxHl(cxQ(I, ".cx-t0 .cx-hl"), t, 2250, 1e9);
+  },
   plants: function (I, t) {
     /* Rows settle in launch order, then Austin is selected and the rows outside it dim. */
     cxQA(I, ".ov-row").forEach(function (r, k) { var p = haOut(haP(t, 300 + k * 110, 480)); haTO(r, 0, (1 - p) * 12, 1, p * (1 - .66 * (OV_ROWS[k][1] ? 0 : haOut(haP(t, 2250, 400))))); });
@@ -3461,13 +3721,14 @@ function pagePlanters() {
 }
 /* Revision 24: the /oversight frame. Hero and problem in the home style; the rest of the page is filled in Revision 25.
    Copy from shared.oversight_page (home story B keeps directions.oversight.sections). */
-/* Revision 25: the rest of /oversight, on the home engines: the stacking chapter (#chapter), the mirrored auto list (#network-intelligence),
-   the pinned rail of six cards (#plants, phSection with its own vignettes), the three sending paths, privacy in short and the closing CTA. */
+/* Revision 25: the rest of /oversight, on the home engines: the mirrored auto list (#network-intelligence), the pinned rail of six cards
+   (#plants, phSection with its own vignettes) and the closing CTA. Revision 26: the auto list #every-plant (panel right) replaces the
+   stacking chapter, the sending paths have three review options (sent=a|b|c) and an FAQ replaces the privacy section. */
 function pageOversight() {
   var P = COPY.shared.oversight_page;
-  return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "chapter")] }) +
-    problem(P.problem) + chapterSection("chapter", "sec-ov-chapter") + chapterSection("network-intelligence", "sec-ov-intelligence") +
-    phSection(P.plants, { id: "plants", vig: ovVig }) + ovPaths(P.paths) + ovPrivacy(P.privacy) + cta(P.cta);
+  return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
+    problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
+    phSection(P.plants, { id: "plants", vig: ovVig }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
 }
 /* Rail vignettes from the dashboard mockup page Network · Plant view (Eastside Commons). Only the top of each shows above the card text. */
 function ovVig(i) {
@@ -3481,8 +3742,9 @@ function ovVig(i) {
       '<div class="pv-stat"><span class="num">205</span><span class="pv-s">days to go</span></div>' +
       '<div class="pv-mt"><div class="row between"><span class="pv-it">Milestones done</span><span class="pv-k">3 of 9</span></div><div class="meter-hatch"><span style="width:calc(33.3% - 4px);background:var(--ef-green-500)"></span></div></div>';
   } else if (i === 2) {
-    b = pvHead("eye", "tone-violet", "What the plant shares", "Counts only", '<span class="pv-k">5 of 6</span>') + '<div class="pv-b">' +
-      [["People", 1], ["Meetings", 1], ["Activity updates", 0]].map(function (r) { return '<div class="ovv-sh"><span>' + r[0] + '</span><span class="ovv-tag' + (r[1] ? "" : " off") + '">' + icon(r[1] ? "check" : "lock") + (r[1] ? "Shared" : "Not shared") + "</span></div>"; }).join("") + "</div>";
+    b = pvHead("pin", "tone-teal", "By market", "Texas · 14 plants", '<span class="pv-k">Plants</span>') + '<div class="ovv-mk">' +
+      [["Greater Austin", 5], ["Dallas–Fort Worth", 3], ["Greater San Antonio", 3], ["Greater Houston", 2]].map(function (r, k) {
+        return '<div class="ovv-mr' + (k ? "" : " on") + '"><span>' + r[0] + '</span><span class="ovv-bar"><i style="width:' + (r[1] / 5 * 100) + '%"></i></span><b>' + r[1] + "</b></div>"; }).join("") + "</div>";
   } else if (i === 3) {
     b = pvHead("users", "tone-blue", "People", "Committed adults") +
       '<div class="pv-stat"><span class="num">46</span><span class="delta" data-dir="up">5 in 28 days</span></div>' +
@@ -3497,19 +3759,158 @@ function ovVig(i) {
   }
   return '<div class="pv">' + b + "</div>";
 }
-var OV_NODE = { Church: ["tone-blue", "heart"], Network: ["tone-teal", "network"], Plant: ["tone-green", "pin"] };
-function ovPaths(p) {
-  return '<section class="sec sec-ov-paths" id="sending-paths"><div class="wrap"><div class="sec-head center"><h2 class="display h2 sh-title">' + t(p.headline) + "</h2></div>" +
-    '<ul class="ovp ef">' + p.items.map(function (path, i) {
-      return '<li class="ovp-path"><span class="ovp-cap">' + t(p.labels[i]) + '</span><span class="ovp-chain">' + path.map(function (n, k) {
-        return (k ? '<span class="ovp-arr" aria-hidden="true">' + icon("arrow") + "</span>" : "") + '<span class="ovp-n"><span class="card-icon ' + OV_NODE[n][0] + '" aria-hidden="true">' + icon(OV_NODE[n][1]) + "</span>" + t(n) + "</span>";
-      }).join("") + "</span></li>";
-    }).join("") + '</ul><p class="ovp-line">' + t(p.line) + "</p></div></section>";
+/* Revision 26: three review options for the sending paths. The review chip stores the choice as sent=a|b|c in the hash (default a).
+   A: three real examples (cards with a gradient art area, like the rail). B: a segmented switch over one large card.
+   C: one display sentence whose phrase rolls, with three product chips. The facts are the same in each option. */
+ICON.plus = ICON.plus || '<path d="M12 5v14M5 12h14"/>';
+var OVS_TONES = ["sky", "lilac", "sun"];
+var OVS_OPTS = [["a", "Examples"], ["b", "Switch"], ["c", "Sentence"]];
+function ovsBy(ic, names) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map(function (n) { return "<b>" + n + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
+function ovsPlant(name, sub, by, extra) {
+  return '<div class="ovs-ph"><div class="ovs-pt"><span class="card-icon tone-green">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + name + '</div><div class="list-sub">' + sub + "</div></div></div>" +
+    '<div class="ovs-chips">' + by + "</div>" + (extra || "") + "</div>";
 }
-var OV_PRIV_ICONS = ["eye", "lock", "shield"];
-function ovPrivacy(p) {
-  return '<section class="sec sec-ov-privacy" id="privacy"><div class="wrap"><div class="sec-head center"><h2 class="display h2 sh-title">' + t(p.headline) + "</h2></div>" +
-    '<div class="trust-grid three">' + p.points.map(function (s, i) { return '<div class="trust-item"><span class="ti-icon">' + icon(OV_PRIV_ICONS[i]) + "</span><p>" + t(s) + "</p></div>"; }).join("") + "</div></div></section>";
+var OVS_A = [
+  function () { return ovsPlant("Harvest Point Church", "Hyde Park, Austin · 1 · Core group", ovsBy("heart", ["Grace Church"])); },
+  function () { return ovsPlant("Eastside Commons", "East Austin · 3 · Training", ovsBy("heart", ["Grace Church", "Austin Sending Network"])); },
+  function () { return ovsPlant("Mueller Hope Church", "Mueller, Austin · 0 · Discovery", ovsBy("network", ["Austin Sending Network"]), '<span class="ovs-assign">' + icon("plus") + "Assign a sending church</span>"); }
+];
+var OVS_B = [
+  function () {
+    return cxHead(cxIcon("tone-blue", "heart"), "Grace Church", "Your plants · in launch order") +
+      [["Harvest Point Church", "Hyde Park, Austin", "1 · Core group", "Mar 14, 2027"], ["Eastside Commons", "East Austin · with Austin Sending Network", "3 · Training", "May 2, 2027"]].map(function (r) {
+        return '<div class="list-row"><span class="card-icon tone-green">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><div class="ov-when"><b>' + r[3] + "</b><span>" + r[2] + "</span></div></div>";
+      }).join("");
+  },
+  function () {
+    return cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Plants by sending church") +
+      [["Grace Church", [["Harvest Point Church", 1], ["Eastside Commons", 3]]], ["Redeemer Dallas", [["Deep Ellum Collective", 4], ["Oak Cliff Church", 2]]]].map(function (g) {
+        return '<div class="ovs-g"><div class="row between"><span class="ovs-gt">' + g[0] + '</span><span class="ovs-gc">' + g[1].length + " plant" + (g[1].length > 1 ? "s" : "") + '</span></div><div class="ov-gp">' +
+          g[1].map(function (p) { return '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>"; }).join("") + "</div></div>";
+      }).join("");
+  },
+  function () {
+    return cxHead(cxIcon("tone-green", "pin"), "Mueller Hope Church", "Mueller, Austin · 0 · Discovery") +
+      '<div class="ovs-kv"><span>Sent by</span>' + ovsBy("network", ["Austin Sending Network"]) + "</div>" +
+      '<div class="ovs-kv"><span>Sending church</span><span class="badge" data-size="sm" data-status="unknown">No sending church yet</span></div>' +
+      '<div class="ovs-act"><span class="btn" data-variant="primary" data-size="sm">' + icon("plus") + "Assign a sending church</span></div>";
+  }
+];
+var OVS_C_ICONS = ["heart", "network", "heart"];
+function ovsReview(v) {
+  return '<div class="ovs-rv" role="group" aria-label="Review control, not part of the page: sending paths layout"><span class="ovs-rvl">Review</span>' +
+    OVS_OPTS.map(function (o) { return '<button type="button" data-ovs="' + o[0] + '" aria-pressed="' + (o[0] === v) + '"><b>' + o[0].toUpperCase() + "</b> " + o[1] + "</button>"; }).join("") + "</div>";
+}
+function ovPaths(p) {
+  var v = state.sent || "a", body;
+  var head = function (h) { return '<div class="sec-head center"><h2 class="display h2 sh-title">' + t(h) + "</h2></div>"; };
+  if (v === "b") {
+    var B = p.b;
+    body = head(B.headline) + '<div class="ovs-seg" role="tablist" aria-label="Who sends the plant">' + B.tabs.map(function (x, i) {
+      return '<button type="button" class="ovs-tab" role="tab" id="ovs-tab-' + i + '" aria-controls="ovs-pane-' + i + '" aria-selected="' + (i === 0) + '" tabindex="' + (i ? -1 : 0) + '">' + t(x.label) + "</button>";
+    }).join("") + '</div><div class="ovs-big"><div class="ovs-bt">' + B.tabs.map(function (x, i) {
+      return '<div class="ovs-pane' + (i ? "" : " on") + '" role="tabpanel" id="ovs-pane-' + i + '" aria-labelledby="ovs-tab-' + i + '" tabindex="0"><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>";
+    }).join("") + '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>'; }).join("") +
+      OVS_B.map(function (f, i) { return '<div class="ovs-app' + (i ? "" : " on") + '">' + f() + "</div>"; }).join("") + "</div></div>";
+  } else if (v === "c") {
+    var C = p.c;
+    body = '<div class="ovs-c"><h2 class="display ovs-say"><span class="ovs-sr">' + t(C.lead + " " + C.phrases.slice(0, -1).join(", ") + " or " + C.phrases[C.phrases.length - 1] + ". " + C.tail) + "</span>" +
+      '<span aria-hidden="true">' + t(C.lead) + ' <br class="ovs-mbr"><span class="ovs-roll"><span class="ovs-rl">' + C.phrases.map(function (s) { return "<span>" + t(s) + "</span>"; }).join("") + "</span></span>.<br>" + t(C.tail) + "</span></h2>" +
+      '<div class="ovs-ccs ef" role="group" aria-label="Who sends the plant">' + C.chips.map(function (s, i) {
+        var parts = s.replace(/^Sent by /, "").split(" · ");
+        return '<button type="button" class="ovs-cc" data-k="' + i + '" aria-pressed="' + (i === 0) + '"><span class="card-icon ' + (i === 1 ? "tone-teal" : "tone-blue") + '">' + icon(OVS_C_ICONS[i]) + "</span><span>Sent by " + parts.map(function (n) { return "<b>" + t(n) + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></button>";
+      }).join("") + "</div></div>";
+  } else {
+    body = head(p.headline) + '<ul class="ovs-a">' + p.a.items.map(function (x, i) {
+      return '<li class="ovs-card"><div class="ovs-art gsurf" data-tone="' + OVS_TONES[i] + '"><div class="ovs-mini ef" aria-hidden="true">' + OVS_A[i]() + '</div></div><div class="ovs-txt"><span class="feat-label">' + t(x.label) + "</span><p>" + t(x.body) + "</p></div></li>";
+    }).join("") + "</ul>";
+  }
+  return '<section class="sec sec-ov-paths" id="sending-paths" data-sent="' + v + '">' + ovsReview(v) + '<div class="wrap">' + body + '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
+}
+/* Option engines. B: tabs with arrow keys, Home and End; the text, the gradient and the product card crossfade. No auto advance.
+   C: the phrase rolls every 2800 ms while the section is on screen, not hovered and not focused. A chip click picks a phrase and stops the roll.
+   Reduced motion: C does not roll and shows the first phrase; B switches without motion. */
+var OVS = { tm: 0, io: null, root: null, k: 0, auto: false, on: false, hold: false };
+function ovsInit() {
+  clearInterval(OVS.tm); OVS.tm = 0;
+  if (OVS.io) OVS.io.disconnect(); OVS.io = null;
+  var root = OVS.root = document.querySelector("#view .sec-ov-paths");
+  if (!root || root.dataset.sent !== "c") return;
+  OVS.k = 0; OVS.auto = !REDUCED.matches; OVS.hold = false; OVS.on = !("IntersectionObserver" in window);
+  ovsSay(0, true);
+  if (!OVS.on) { OVS.io = new IntersectionObserver(function (es) { OVS.on = es[es.length - 1].isIntersecting; }, { threshold: .35 }); OVS.io.observe(root); }
+  var c = root.querySelector(".ovs-c");
+  c.addEventListener("mouseenter", function () { OVS.hold = true; });
+  c.addEventListener("mouseleave", function () { OVS.hold = false; });
+  c.addEventListener("focusin", function () { OVS.hold = true; });
+  c.addEventListener("focusout", function (e) { if (!c.contains(e.relatedTarget)) OVS.hold = false; });
+  OVS.tm = setInterval(function () { if (OVS.auto && OVS.on && !OVS.hold && !document.hidden) ovsSay((OVS.k + 1) % 3); }, 2800);
+}
+function ovsSay(k, now) {
+  var root = OVS.root; if (!root) return;
+  var roll = root.querySelector(".ovs-roll"); if (!roll) return;
+  var rl = roll.firstChild, it = rl.children;
+  OVS.k = k;
+  if (now) roll.classList.add("ovs-now");
+  roll.style.width = it[k].offsetWidth + "px";
+  rl.style.transform = "translate3d(0," + (-k * it[0].offsetHeight) + "px,0)";
+  Array.prototype.forEach.call(root.querySelectorAll(".ovs-cc"), function (b, i) { b.setAttribute("aria-pressed", String(i === k)); });
+  if (now) { void roll.offsetWidth; roll.classList.remove("ovs-now"); }
+}
+function ovsTab(k, focus) {
+  var root = OVS.root; if (!root) return;
+  var tabs = root.querySelectorAll(".ovs-tab");
+  Array.prototype.forEach.call(tabs, function (b, i) { b.setAttribute("aria-selected", String(i === k)); b.tabIndex = i === k ? 0 : -1; });
+  [".ovs-pane", ".ovs-bg", ".ovs-app"].forEach(function (s) { Array.prototype.forEach.call(root.querySelectorAll(s), function (e, i) { e.classList.toggle("on", i === k); }); });
+  if (focus) tabs[k].focus();
+}
+function ovsSwap() {
+  var sec = document.querySelector("#view .sec-ov-paths");
+  if (!sec) return;
+  var tmp = document.createElement("div");
+  tmp.innerHTML = ovPaths(COPY.shared.oversight_page.paths);
+  sec.parentNode.replaceChild(tmp.firstElementChild, sec);
+  ovsInit();
+}
+function ovsSwitch(v) {
+  if (!/^[abc]$/.test(v) || v === state.sent) return;
+  state.sent = v; last.sent = v;
+  history.replaceState(null, "", hrefFor(state.page, state.at));
+  ovsSwap();
+  var b = document.querySelector('#view .ovs-rv [data-ovs="' + v + '"]'); if (b) b.focus({ preventScroll: true });
+}
+document.addEventListener("click", function (e) {
+  var sw = e.target.closest && e.target.closest(".ovs-rv [data-ovs]");
+  if (sw) { ovsSwitch(sw.dataset.ovs); return; }
+  var tb = e.target.closest && e.target.closest(".ovs-tab");
+  if (tb) { ovsTab(Array.prototype.indexOf.call(tb.parentNode.children, tb)); return; }
+  var cc = e.target.closest && e.target.closest(".ovs-cc");
+  if (cc) { OVS.auto = false; ovsSay(+cc.dataset.k); return; }
+  var q = e.target.closest && e.target.closest(".faq-q");
+  if (q) faqSet(q.closest(".faq-i"), q.getAttribute("aria-expanded") !== "true");
+});
+document.addEventListener("keydown", function (e) {
+  var tb = e.target.closest && e.target.closest(".ovs-tab"); if (!tb) return;
+  var tabs = tb.parentNode.children, n = tabs.length, i = Array.prototype.indexOf.call(tabs, tb), k = -1;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") k = (i + 1) % n; else if (e.key === "ArrowLeft" || e.key === "ArrowUp") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
+  if (k < 0) return;
+  e.preventDefault(); ovsTab(k, true);
+});
+window.addEventListener("resize", function () { if (OVS.root && OVS.root.dataset.sent === "c" && OVS.root.isConnected) ovsSay(OVS.k, true); });
+/* Revision 26: FAQ in place of the privacy section. Title left, accordion right (desktop). Each question is a button that opens its answer
+   with a 300 ms height and fade; several can be open at once; all closed by default. #faq-<id> in at= opens that item (footer Coaches link). */
+function ovFaq(f) {
+  return '<section class="sec sec-ov-faq" id="faq"><div class="wrap"><div class="faq-grid"><h2 class="display h2 faq-title">' + t(f.headline) + '</h2><div class="faq-list">' + f.items.map(function (x) {
+    var id = "faq-" + x.id, a = t(x.a);
+    if (x.link) a = a.replace(t(x.link), '<a href="' + hrefFor("access", "network-form") + '">' + t(x.link) + "</a>");
+    return '<div class="faq-i" id="' + id + '"><h3 class="faq-h"><button type="button" class="faq-q" id="' + id + '-q" aria-expanded="false" aria-controls="' + id + '-a"><span>' + t(x.q) + '</span><span class="faq-pm" aria-hidden="true"></span></button></h3>' +
+      '<div class="faq-a" id="' + id + '-a"><div class="faq-in"><p>' + a + "</p></div></div></div>";
+  }).join("") + "</div></div></div></section>";
+}
+function faqSet(item, open) {
+  if (!item) return;
+  item.classList.toggle("open", open);
+  item.querySelector(".faq-q").setAttribute("aria-expanded", String(open));
 }
 function pageTrust() {
   var A = DIR.journey.sections, B = DIR.oversight.sections, P = COPY.shared.trust_page;
@@ -3586,7 +3987,7 @@ function navPill(force) {
   if (on) { pill.removeAttribute("inert"); pill.setAttribute("aria-hidden", "false"); } else { pill.setAttribute("inert", ""); pill.setAttribute("aria-hidden", "true"); }
 }
 window.addEventListener("scroll", function () { if (!NAVP.ticking) { NAVP.ticking = true; requestAnimationFrame(function () { navPill(); }); } }, { passive: true });
-var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["planters", "evry"], "Planters": ["planters", ""], "Sending churches and networks": ["oversight", ""], "Coaches": ["oversight", "privacy"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
+var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["planters", "evry"], "Planters": ["planters", ""], "Sending churches and networks": ["oversight", ""], "Coaches": ["oversight", "faq-coaches"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
 function renderFooter() {
   var f = COPY.shared.footer;
   document.getElementById("site-footer").innerHTML = '<div class="ft-card"><div class="ft-lead"><span class="ft-mark">' + mark() + '</span><h2 class="display">' + t(f.headline) + "</h2>" + btn(f.cta) + "</div>" +
@@ -3629,12 +4030,14 @@ function render(scrollMode) {
   renderBar();
   document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
   if (scrollMode === "top") window.scrollTo({ top: 0, behavior: "auto" });
+  if (state.page === "oversight" && !needView && last.sent !== state.sent) ovsSwap();
   if (scrollMode === "at" && state.at) {
     var target = document.getElementById(state.at);
+    if (target && target.classList.contains("faq-i")) faqSet(target, true);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); }
-  last = { page: state.page, story: state.story };
+  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); }
+  last = { page: state.page, story: state.story, sent: state.sent };
 }
 function setState(over, push) {
   Object.assign(state, over);
@@ -3683,7 +4086,7 @@ document.addEventListener("submit", function (e) {
   if (e.target.matches("[data-proto-form]")) { e.preventDefault(); e.target.querySelector(".form-msg").classList.add("show"); }
 });
 window.addEventListener("hashchange", onHash);
-if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); cxInit(); phInit(); });
+if (REDUCED.addEventListener) REDUCED.addEventListener("change", function () { setupMotion(); haInit(); cxInit(); phInit(); ovsInit(); });
 
 state = parseHash();
 history.replaceState(null, "", hrefFor(state.page, state.at));
