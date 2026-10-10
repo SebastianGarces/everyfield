@@ -82,6 +82,7 @@
   --mk-display-stretch: 100%;
 
   --mk-max-width: 1440px;
+  --mk-hero-extra: 56px; /* Revision 23: the hero panel's extra width on each side of the nav column, on wide screens */
   --mk-gutter: 16px;
   --mk-page-pad: clamp(16px, 3vw, 40px);
   --mk-section-space: clamp(72px, 8vw, 120px);
@@ -634,6 +635,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Revision 5: the panel is wider than the nav and the sections (Calendly: 24 px side margins at 1440). */
 .hero.hero-anim > .wrap { max-width: none; padding: 0 clamp(8px, 1.67vw, 24px); }
 .hero-anim .hero-panel { padding: clamp(56px, 9vw, 128px) clamp(14px, 4vw, 64px) clamp(16px, 2.2vw, 32px); }
+/* Revision 23: on ultrawide screens the panel stops at the nav width plus --mk-hero-extra on each side, centred.
+   Below that width it keeps the 8 to 24 px window margins. The gradient, mask and grain size to the panel. */
+.hero-anim .hero-panel { max-width: calc(var(--mk-max-width) + 2 * var(--mk-hero-extra)); margin-left: auto; margin-right: auto; }
 /* Revision 6 spacing at 1440: 128 top, 30 headline to subtext, 40 subtext to buttons, 80 buttons to card (56 + 24 stage), 96 under the card (64 stage + 32 panel). */
 .hero-anim .hero-title { max-width: 14ch; color: #2A332C; }
 .hero-anim .hero-row { margin-top: clamp(18px, 2.1vw, 30px); gap: clamp(24px, 2.8vw, 40px); }
