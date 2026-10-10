@@ -114,6 +114,9 @@
   --ef-radius-card: 26px;
   --ef-radius-frame: 34px;
   --ef-radius-pill: 999px;
+  /* navigation shape: top bar pills and rail groups, and the items inside them (8px inset, so 16 - 8) */
+  --ef-nav-radius: 16px;
+  --ef-nav-item-radius: 8px;
 
   /* spacing (4px base) */
   --ef-space-1: 4px; --ef-space-2: 8px; --ef-space-3: 12px; --ef-space-4: 16px;
@@ -270,24 +273,24 @@ button { font: inherit; color: inherit; }
   .topbar > .top-right { justify-self: end; }
 }
 .pill-surface {
-  background: var(--ef-surface-raised); border-radius: 999px;
+  background: var(--ef-surface-raised); border-radius: var(--ef-nav-radius);
   box-shadow: var(--ef-shadow-nav);
 }
 .brand-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 22px 0 10px; color: var(--ef-ink); }
 .brand-pill svg.wordmark { height: 21px; width: auto; }
 .topnav { display: flex; align-items: center; gap: 2px; height: var(--ef-topbar-h); padding: 0 8px; margin: 0 auto; }
 .topnav a {
-  height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 16px; border-radius: var(--ef-nav-item-radius); display: inline-flex; align-items: center; gap: 8px;
   font-size: 15px; color: var(--ef-ink-2); transition: background .15s;
 }
 .topnav a[aria-current="page"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); }
 
 .top-cluster { display: flex; align-items: center; gap: 6px; height: var(--ef-topbar-h); padding: 0 8px; }
-.top-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
+.top-icon { width: 44px; height: 44px; border-radius: var(--ef-nav-item-radius); display: grid; place-items: center; cursor: pointer; color: var(--ef-ink-2); position: relative; border: 0; background: none; }
 .top-icon:hover { background: var(--ef-surface-2); }
 .top-icon i { font-size: 20px; }
 .top-icon .ping { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: var(--ef-amber-500); box-shadow: 0 0 0 2px #fff; }
-.evry-chip { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 16px 0 10px; border-radius: 999px; cursor: pointer; color: var(--ef-ink); font-weight: 500;
+.evry-chip { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 16px 0 10px; border-radius: var(--ef-nav-item-radius); cursor: pointer; color: var(--ef-ink); font-weight: 500;
   background: var(--ef-surface-2); }
 .evry-chip:hover { background: var(--ef-surface-3); }
 .evry-chip .spark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-raised); box-shadow: 0 1px 2px rgba(24,29,25,.08); }
@@ -313,8 +316,8 @@ button { font: inherit; color: inherit; }
 
 /* ---- Icon rail  (<Rail>, <Rail.Group>, <Rail.Item>) ---- */
 .rail { padding: 18px 0 20px 22px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 92px; height: calc(100vh - 112px); z-index: 25; }
-.rail-group { width: 64px; padding: 10px 0; border-radius: 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.rail-item { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
+.rail-group { width: 64px; padding: 10px 0; border-radius: var(--ef-nav-radius); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rail-item { width: 46px; height: 46px; border-radius: var(--ef-nav-item-radius); display: grid; place-items: center; color: var(--ef-ink-2); position: relative; cursor: pointer; }
 .rail-item i { font-size: 20px; }
 .rail-item[aria-current="page"], .rail-item[aria-expanded="true"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-nav-active); }
 .rail-item .rail-tip { position: absolute; left: 60px; top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none; transition: .15s;
@@ -432,6 +435,7 @@ body[data-data="noaccess"] .page[data-states] > [data-state-view~="noaccess"],
 body[data-data="empty"]    .page[data-states] > [data-state-view~="empty"],
 body[data-data="firstweek"] .page[data-states] > [data-state-view~="firstweek"] { display: block; }
 body:not([data-data="live"]) .page[data-states] .page-actions [data-live-only] { display: none; }
+body[data-nav-shape="pill"] { --ef-nav-radius: 999px; --ef-nav-item-radius: 999px; }
 body[data-role="member"] [data-edit], body[data-role="member"] [data-org-admin] { display: none !important; }
 body[data-role="member"] .page[data-page="people"] table tr > :first-child { display: none; }
 .role-banner { display: none; align-items: center; gap: 12px; margin: 0 0 18px; padding: 12px 16px 12px 14px; border-radius: 16px; background: var(--ef-blue-50); box-shadow: 0 0 0 1px var(--ef-blue-100) inset; color: var(--ef-ink-2); font-size: var(--ef-text-md); }
@@ -4306,6 +4310,8 @@ body[data-shell="bare"] .main { max-width: none; }
 <div class="preview-pop" id="preview-pop" data-open="false" role="dialog" aria-label="Preview states">
   <h4>Role</h4>
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · view only</button></div>
+  <h4>Nav corners</h4>
+  <div class="pp-opts" data-pp="navShape"><button data-v="square" aria-pressed="true">16px</button><button data-v="pill" aria-pressed="false">Pill (before)</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides edit actions across the app.</p>
@@ -4713,8 +4719,8 @@ const HOVER_KINDS = [
   { sel: '.task-row',           bg: 'var(--ef-surface-raised)', radius: 16, shadow: '0 1px 2px rgba(24,29,25,.05)' },
   { sel: '.tree-item',          bg: 'var(--ef-surface-raised)', radius: 10, shadow: 'var(--ef-shadow-raised)' },
   { sel: '.table tbody tr',     bg: 'var(--ef-surface-raised)', radius: 14, shadow: '0 1px 2px rgba(24,29,25,.05)', group: el => el.closest('table').parentElement },
-  { sel: '.topnav a',           bg: 'var(--ef-surface-2)', radius: 999 },
-  { sel: '.rail-item',          bg: 'var(--ef-surface-2)', radius: 999 },
+  { sel: '.topnav a',           bg: 'var(--ef-surface-2)', radius: 'var(--ef-nav-item-radius)' },
+  { sel: '.rail-item',          bg: 'var(--ef-surface-2)', radius: 'var(--ef-nav-item-radius)' },
   { sel: '.segmented button',   bg: 'var(--ef-hover)', radius: 10 },
   { sel: '.tabs button',        bg: 'var(--ef-surface-2)', radius: 9, x: 10, y: -7, h: 2, restHidden: true },
   { sel: '.doc-dock a',         bg: 'rgba(255,255,255,.1)', radius: 999 },
@@ -4731,7 +4737,7 @@ function placeIndicator(g, el, instant) {
   const top = r.top - gr.top - g.clientTop + g.scrollTop + y;
   ind.toggleAttribute('data-instant', !!instant || (ind.style.opacity !== '1' && !ind.__parked));
   ind.__parked = false;
-  ind.style.setProperty('--hi-bg', k.bg); ind.style.setProperty('--hi-radius', k.radius + 'px'); ind.style.setProperty('--hi-shadow', k.shadow || 'none');
+  ind.style.setProperty('--hi-bg', k.bg); ind.style.setProperty('--hi-radius', typeof k.radius === 'number' ? k.radius + 'px' : k.radius); ind.style.setProperty('--hi-shadow', k.shadow || 'none');
   ind.style.width = (r.width + x * 2) + 'px'; ind.style.height = (r.height + h) + 'px';
   ind.style.transform = `translate(${left}px, ${top}px)`;
   ind.style.opacity = '1';
@@ -4978,7 +4984,7 @@ document.addEventListener('keydown', e => {
 
 
 /* Preview states from the design dock: role and data state on <body>. */
-document.body.dataset.role = 'owner'; document.body.dataset.data = 'live';
+document.body.dataset.role = 'owner'; document.body.dataset.data = 'live'; document.body.dataset.navShape = 'square';
 const PREVIEW_LABEL = { owner: 'Owner', member: 'Member', live: 'Live', firstweek: 'First week', loading: 'Loading', error: 'Error', noaccess: 'No access', empty: 'Empty' };
 function togglePreview(btn) {
   const pop = document.getElementById('preview-pop'), open = pop.dataset.open !== 'true';
@@ -4990,6 +4996,7 @@ document.getElementById('preview-pop').addEventListener('click', e => {
   const key = b.parentElement.dataset.pp;
   b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
   document.body.dataset[key] = b.dataset.v;
+  if (key === 'navShape') requestAnimationFrame(refreshHoverGroups);
   document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data];
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
 });
