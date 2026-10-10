@@ -1158,20 +1158,28 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ef .ovv-acts .btn svg { width: 14px; height: 14px; }
 .ovp-line { max-width: 720px; margin: clamp(24px, 3vw, 36px) auto 0; text-align: center; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
 /* Revision 28: the sending paths (#sending-paths). One display sentence over one large card. A single timer changes both.
-   The phrase highlight resizes from the old phrase's width to the new one (.7s, cubic-bezier(.65, 0, .35, 1)); "Sent by" and the period move with it.
-   Text never rolls: every .ovs-mv item (phrase, card text, product card) fades out over the first 40% (.28s ease-in) and the new one fades in
-   over the last 50% (.35s ease-out after .35s), so the phrase and the card content change together and the new phrase appears as the resize settles. */
+   Revision 30: the phrase rolls again as in option C (Revision 26): the old phrase (.ovs-ph) rolls up and out and the new one rolls up from
+   below, clipped by the highlight (.7s cubic-bezier(.65, 0, .35, 1)). The highlight resizes from the old phrase's width to the new one over the
+   same .7s, so the roll and the resize start and end together; "Sent by" and the period move with it. The phrase never fades.
+   With one shared curve the box edge cuts a long phrase mid roll, so ovsGo picks the resize curve by direction: growing leads the roll
+   (cubic-bezier(.15, 1, .3, 1)), shrinking trails it (the mirror, cubic-bezier(.7, 0, .85, 0)). Measured at 375/768/1440: once half of a phrase's line
+   shows, its text passes the box edge by at most .09em (6px at 1440); before that only the tops of tall letters show.
+   The card keeps a fixed frame and crossfades its content (.ovs-mv: card text and product card): out over the first 40% (.28s ease-in),
+   a short empty beat, then in over the last 50% (.35s ease-out after .35s), so the new card settles as the roll ends. */
 .sec-ov-paths { --ovs-t: .7s; }
 .ovs-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .ovs-say { max-width: 1100px; margin: 0 auto clamp(32px, 3.8vw, 56px); text-align: center; font-size: clamp(28px, 4.6vw, 66px); line-height: 1.14; }
 .ovs-roll { position: relative; display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: linear-gradient(100deg, #BFF5D3 0%, #DCFAE7 55%, #EEFCD9 100%);
   transition: width var(--ovs-t) cubic-bezier(.65, 0, .35, 1); }
-.ovs-roll > .ovs-mv { position: absolute; left: 0; top: 0; width: max-content; padding: 0 .12em; white-space: nowrap; }
-.ovs-roll > .ovs-mv:first-child { position: relative; }
+.ovs-ph { position: absolute; left: 0; top: 0; display: block; width: max-content; height: 1.14em; line-height: 1.14em; padding: 0 .12em; white-space: nowrap;
+  transform: translate3d(0, 100%, 0); transition: transform var(--ovs-t) cubic-bezier(.65, 0, .35, 1); will-change: transform; }
+.ovs-ph:first-child { position: relative; }
+.ovs-ph.on { transform: none; }
+.ovs-ph.out { transform: translate3d(0, -100%, 0); }
 .ovs-mbr { display: none; }
-.ovs-mv { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity calc(var(--ovs-t) * .3) ease-out, visibility 0s linear calc(var(--ovs-t) * .3); }
-.ovs-mv.on { opacity: 1; visibility: visible; transition: opacity calc(var(--ovs-t) * .45) ease-in calc(var(--ovs-t) * .55), visibility 0s; }
-.ovs-roll.ovs-now, .ovs-mv.ovs-now { transition: none !important; }
+.ovs-mv { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity calc(var(--ovs-t) * .4) ease-in, visibility 0s linear calc(var(--ovs-t) * .4); }
+.ovs-mv.on { opacity: 1; visibility: visible; transition: opacity calc(var(--ovs-t) * .5) ease-out calc(var(--ovs-t) * .5), visibility 0s; }
+.ovs-roll.ovs-now, .ovs-mv.ovs-now, .ovs-ph.ovs-now { transition: none !important; }
 .ovs-big { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); max-width: 1200px; height: 304px; margin: 0 auto; border-radius: var(--mk-radius-media); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
 .ovs-bt { display: grid; align-items: center; padding: 0 clamp(28px, 3.4vw, 52px); }
 .ovs-pane p { margin-top: 14px; font-size: clamp(16.5px, 1.25vw, 18px); line-height: 1.55; color: var(--mk-text-2); max-width: 38ch; text-wrap: pretty; }
@@ -1213,7 +1221,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .ovs-mbr { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ovs-roll, .ovs-mv, .ovs-mv.on, .ovs-bv > .ovs-bg.gsurf { transition: none !important; }
+  .ovs-roll, .ovs-ph, .ovs-mv, .ovs-mv.on, .ovs-bv > .ovs-bg.gsurf { transition: none !important; }
 }
 /* Revision 26: FAQ (#faq). Title left, accordion right on desktop; thin dividers like the auto list. */
 .faq-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--mk-gutter); align-items: start; }
@@ -3703,14 +3711,14 @@ var OVS_B = [
   }
 ];
 function ovPaths(p) {
-  var S = p.states, mv = function (i, c) { return ' class="' + (c ? c + " " : "") + "ovs-mv" + (i ? "" : " on") + '" data-i="' + i + '"'; };
+  var S = p.states, mv = function (i, c) { return ' class="' + c + (i ? "" : " on") + '" data-i="' + i + '"'; };
   var sr = p.lead + " " + S.slice(0, -1).map(function (x) { return x.phrase; }).join(", ") + " or " + S[S.length - 1].phrase + ". " + p.tail;
   return '<section class="sec sec-ov-paths" id="sending-paths"><div class="wrap"><div class="ovs-run">' +
     '<h2 class="display ovs-say"><span class="ovs-sr">' + t(sr) + '</span><span aria-hidden="true">' + t(p.lead) + ' <br class="ovs-mbr"><span class="ovs-roll">' +
-    S.map(function (x, i) { return "<span" + mv(i) + ">" + t(x.phrase) + "</span>"; }).join("") + "</span>.<br>" + t(p.tail) + "</span></h2>" +
-    '<div class="ovs-big"><div class="ovs-bt">' + S.map(function (x, i) { return "<div" + mv(i, "ovs-pane") + '><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>"; }).join("") +
+    S.map(function (x, i) { return "<span" + mv(i, "ovs-ph") + ">" + t(x.phrase) + "</span>"; }).join("") + "</span>.<br>" + t(p.tail) + "</span></h2>" +
+    '<div class="ovs-big"><div class="ovs-bt">' + S.map(function (x, i) { return "<div" + mv(i, "ovs-pane ovs-mv") + '><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>"; }).join("") +
     '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>'; }).join("") +
-    OVS_B.map(function (f, i) { return "<div" + mv(i, "ovs-app") + ">" + f() + "</div>"; }).join("") + '</div><button type="button" class="ovs-pp"></button></div></div>' +
+    OVS_B.map(function (f, i) { return "<div" + mv(i, "ovs-app ovs-mv") + ">" + f() + "</div>"; }).join("") + '</div><button type="button" class="ovs-pp"></button></div></div>' +
     '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
 }
 /* Engine. One setTimeout chain: every OVS_STEP ms ovsGo moves the phrase and the card in the same call, so both start on the same frame.
@@ -3734,12 +3742,19 @@ function ovsBtn() {
   b.innerHTML = next ? icon("arrow") : OVS.paused ? HA_PLAY_SVG : HA_PAUSE_SVG;
   b.setAttribute("aria-label", next ? "Show the next sending path" : OVS.paused ? "Play the sending paths" : "Pause the sending paths");
 }
+/* Revision 30: the phrase rolls up. The new phrase first jumps below the highlight without a transition (it can still be above from an
+   earlier step), then .on rolls it in while .out rolls the old one up. Phrases that are not old or new stay hidden outside the clip. */
 function ovsGo(k, now) {
   var root = OVS.root; if (!root) return;
-  var roll = root.querySelector(".ovs-roll"), els = root.querySelectorAll(".ovs-mv");
+  var roll = root.querySelector(".ovs-roll"), els = root.querySelectorAll(".ovs-mv, .ovs-ph"), ph = roll.children, j = OVS.k;
   OVS.k = k;
   if (now) { Array.prototype.forEach.call(els, function (e) { e.classList.add("ovs-now"); }); roll.classList.add("ovs-now"); }
-  roll.style.width = roll.children[k].offsetWidth + "px";
+  else if (j !== k) { ph[k].classList.add("ovs-now"); ph[k].classList.remove("out"); void ph[k].offsetWidth; ph[k].classList.remove("ovs-now"); }
+  var to = ph[k].offsetWidth;
+  roll.style.transitionTimingFunction = to > roll.offsetWidth ? "cubic-bezier(.15, 1, .3, 1)" : "cubic-bezier(.7, 0, .85, 0)";
+  roll.style.width = to + "px";
+  if (now) Array.prototype.forEach.call(ph, function (e) { e.classList.remove("out"); });
+  else if (j !== k) ph[j].classList.add("out");
   Array.prototype.forEach.call(els, function (e) { e.classList.toggle("on", +e.dataset.i === k); });
   Array.prototype.forEach.call(root.querySelectorAll(".ovs-bg"), function (e, i) { e.classList.toggle("on", i === k); });
   if (now) { void root.offsetWidth; roll.classList.remove("ovs-now"); Array.prototype.forEach.call(els, function (e) { e.classList.remove("ovs-now"); }); }
