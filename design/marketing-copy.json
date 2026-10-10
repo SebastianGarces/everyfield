@@ -155,6 +155,7 @@
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
       "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
       "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
@@ -239,58 +240,26 @@
         ]
       },
       "paths": {
-        "headline": "However your plants are sent.",
-        "line": "A network also sees each of its sending churches. The tools are the same for both.",
-        "a": {
-          "items": [
-            {
-              "label": "A church",
-              "body": "Grace Church sends Harvest Point Church on its own."
-            },
-            {
-              "label": "A network through a church",
-              "body": "The Austin Sending Network sends Eastside Commons through Grace Church."
-            },
-            {
-              "label": "A network",
-              "body": "The network sends Mueller Hope Church directly, and assigns a sending church later."
-            }
-          ]
-        },
-        "b": {
-          "headline": "Whoever sends the plant, see it in EveryField.",
-          "tabs": [
-            {
-              "label": "A church",
-              "title": "A church sees its plants.",
-              "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
-            },
-            {
-              "label": "A network through a church",
-              "title": "A network sees every plant, by sending church.",
-              "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
-            },
-            {
-              "label": "A network",
-              "title": "A network can send a plant directly.",
-              "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
-            }
-          ]
-        },
-        "c": {
-          "lead": "Sent by",
-          "phrases": [
-            "a church",
-            "a network",
-            "a church in a network"
-          ],
-          "tail": "Seen in one place.",
-          "chips": [
-            "Sent by Grace Church",
-            "Sent by Austin Sending Network",
-            "Sent by Grace Church · Austin Sending Network"
-          ]
-        }
+        "lead": "Sent by",
+        "tail": "Seen in one place.",
+        "states": [
+          {
+            "phrase": "a church",
+            "title": "A church sees its plants.",
+            "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
+          },
+          {
+            "phrase": "a network through a church",
+            "title": "A network sees every plant, by sending church.",
+            "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+          },
+          {
+            "phrase": "a network",
+            "title": "A network can send a plant directly.",
+            "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
+          }
+        ],
+        "line": "A network also sees each of its sending churches. The tools are the same for both."
       },
       "faq": {
         "headline": "Questions from sending churches and networks.",

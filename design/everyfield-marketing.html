@@ -1154,65 +1154,37 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ef .ovv-acts .btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
 .ef .ovv-acts .btn svg { width: 14px; height: 14px; }
 .ovp-line { max-width: 720px; margin: clamp(24px, 3vw, 36px) auto 0; text-align: center; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
-/* Revision 26: the sending paths review options (sent=a|b|c). The review chip (.ovs-rv, as in Revision 14) sits in the section's top padding. */
-.ovs-rv { position: absolute; z-index: 3; top: clamp(18px, calc(var(--mk-section-space) / 2 - 20px), 44px); right: max(var(--mk-page-pad), calc((100% - var(--mk-max-width)) / 2 + var(--mk-page-pad)));
-  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #181D19; color: #FFFFFF; font: 500 12.5px/1 var(--mk-font-body); box-shadow: 0 0 0 1px rgba(255,196,138,.55), 0 10px 22px -12px rgba(24,29,25,.6); }
-.ovs-rv .ovs-rvl { display: inline-flex; align-items: center; gap: 6px; padding: 0 9px 0 10px; font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #FFC48A; }
-.ovs-rv .ovs-rvl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #FFC48A; }
-.ovs-rv button { height: 28px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.72); font: inherit; cursor: pointer; white-space: nowrap; }
-.ovs-rv button b { font-weight: 700; margin-right: 2px; }
-.ovs-rv button:hover { color: #FFFFFF; }
-.ovs-rv button[aria-pressed="true"] { background: #FFFFFF; color: #181D19; }
-.ovs-rv button:focus-visible { outline: 2px solid #FFC48A; outline-offset: 1px; }
-.sec-ov-paths .sec-head { margin-bottom: clamp(28px, 3.4vw, 48px); }
-.sec-ov-paths[data-sent="b"] .sec-head { margin-bottom: clamp(24px, 2.4vw, 32px); }
+/* Revision 28: the sending paths (#sending-paths). One display sentence over one large card. A single timer changes both.
+   The phrase highlight resizes from the old phrase's width to the new one (.7s, cubic-bezier(.65, 0, .35, 1)); "Sent by" and the period move with it.
+   Text never rolls: every .ovs-mv item (phrase, card text, product card) fades out over the first 40% (.28s ease-in) and the new one fades in
+   over the last 50% (.35s ease-out after .35s), so the phrase and the card content change together and the new phrase appears as the resize settles. */
+.sec-ov-paths { --ovs-t: .7s; }
 .ovs-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-/* Shared product detail: a plant header with a "Sent by" chip */
-.ovs-ph { background: #FFFFFF; border-radius: 18px; padding: 14px 16px 16px; color: var(--ef-text); font-size: 13px; line-height: 1.4; box-shadow: var(--ui-ring), 0 1px 2px rgba(24,29,25,.06), 0 22px 40px -22px rgba(24,29,25,.42); }
-.ovs-pt { display: flex; align-items: center; gap: 10px; }
-.ovs-pt .grow { min-width: 0; }
-.ovs-pt .card-icon { width: 34px; height: 34px; }
-.ovs-pt .card-icon svg { width: 16px; height: 16px; }
-.ovs-pt .list-sub, .ovs-pt .list-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ovs-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.ovs-by { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 11px 4px 8px; border-radius: 99px; background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(15,126,60,.2); color: var(--ef-green-700); font-size: 12px; font-weight: 500; line-height: 1.3; }
-.ovs-by b { font-weight: 600; color: var(--ef-ink); }
-.ovs-by svg { width: 14px; height: 14px; flex: none; }
-.ovs-dot { color: var(--ef-text-3); }
-.ovs-assign { display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--ef-text-2); text-decoration: underline; text-decoration-color: var(--ef-line-2); text-underline-offset: 3px; }
-.ovs-assign svg { width: 14px; height: 14px; }
-/* A: three cards, gradient art at the top like the rail cards */
-.ovs-a { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-gutter); max-width: 1200px; margin: 0 auto; padding: 0; list-style: none; }
-.ovs-card { display: flex; flex-direction: column; border-radius: var(--mk-radius-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
-.ovs-art.gsurf { display: grid; place-items: center; height: 196px; margin: 8px 8px 0; padding: 14px; border-radius: 20px; }
-.ovs-mini { width: min(340px, 100%); }
-.ovs-mini .ovs-ph { padding: 14px 14px 15px; }
-.ovs-mini .ovs-by { font-size: 11.5px; }
-.ovs-txt { padding: 20px 24px 26px; }
-.ovs-txt p { margin-top: 10px; font-size: 17px; line-height: 1.45; color: var(--mk-text); text-wrap: pretty; }
-/* B: segmented switch over one large card */
-.ovs-seg { display: flex; gap: 2px; width: max-content; max-width: 100%; margin: -8px auto clamp(18px, 1.8vw, 24px); padding: 4px; border-radius: 99px; background: var(--mk-surface-2); box-shadow: inset 0 0 0 1px var(--mk-line); }
-.ovs-tab { height: 40px; padding: 0 18px; border: 0; border-radius: 99px; background: transparent; font: 500 15px/1 var(--mk-font-body); color: var(--mk-text-2); cursor: pointer; white-space: nowrap; transition: background-color .25s var(--mk-ease), color .25s var(--mk-ease), box-shadow .25s var(--mk-ease); }
-.ovs-tab:hover { color: var(--mk-ink); }
-.ovs-tab[aria-selected="true"] { background: #FFFFFF; color: var(--mk-ink); box-shadow: 0 1px 2px rgba(24,29,25,.08), 0 0 0 1px rgba(24,29,25,.06); }
-.ovs-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
-.ovs-big { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); max-width: 1200px; height: 304px; margin: 0 auto; border-radius: var(--mk-radius-media); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
+.ovs-say { max-width: 1100px; margin: 0 auto clamp(32px, 3.8vw, 56px); text-align: center; font-size: clamp(28px, 4.6vw, 66px); line-height: 1.14; }
+.ovs-roll { position: relative; display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: linear-gradient(100deg, #BFF5D3 0%, #DCFAE7 55%, #EEFCD9 100%);
+  transition: width var(--ovs-t) cubic-bezier(.65, 0, .35, 1); }
+.ovs-roll > .ovs-mv { position: absolute; left: 0; top: 0; width: max-content; padding: 0 .12em; white-space: nowrap; }
+.ovs-roll > .ovs-mv:first-child { position: relative; }
+.ovs-mbr { display: none; }
+.ovs-mv { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity calc(var(--ovs-t) * .3) ease-out, visibility 0s linear calc(var(--ovs-t) * .3); }
+.ovs-mv.on { opacity: 1; visibility: visible; transition: opacity calc(var(--ovs-t) * .45) ease-in calc(var(--ovs-t) * .55), visibility 0s; }
+.ovs-roll.ovs-now, .ovs-mv.ovs-now { transition: none !important; }
+.ovs-big { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); max-width: 1200px; height: 304px; margin: 0 auto; border-radius: var(--mk-radius-media); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
 .ovs-bt { display: grid; align-items: center; padding: 0 clamp(28px, 3.4vw, 52px); }
-.ovs-pane { grid-area: 1 / 1; opacity: 0; visibility: hidden; transform: translate3d(0, 8px, 0); transition: opacity .4s var(--mk-ease), transform .45s var(--mk-ease), visibility 0s linear .45s; }
-.ovs-pane.on { opacity: 1; visibility: visible; transform: none; transition: opacity .45s var(--mk-ease) .1s, transform .5s var(--mk-ease) .1s, visibility 0s; }
-.ovs-pane:focus-visible { outline: 2px solid #181D19; outline-offset: 6px; border-radius: 6px; }
 .ovs-pane p { margin-top: 14px; font-size: clamp(16.5px, 1.25vw, 18px); line-height: 1.55; color: var(--mk-text-2); max-width: 38ch; text-wrap: pretty; }
 .ovs-bv { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; margin: 8px; padding: 16px 24px; border-radius: calc(var(--mk-radius-media) - 8px); overflow: hidden; }
-.ovs-bv > .ovs-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; transition: opacity .5s var(--mk-ease); }
+.ovs-bv > .ovs-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; transition: opacity var(--ovs-t) cubic-bezier(.65, 0, .35, 1); }
 .ovs-bv > .ovs-bg.on { opacity: 1; }
-.ovs-app { grid-area: 1 / 1; width: min(400px, 100%); padding: 16px 18px 18px; border-radius: 20px; background: #FFFFFF; font-size: 13px; line-height: 1.4; color: var(--ef-text);
-  box-shadow: var(--ui-ring), 0 0 0 1px rgba(24,29,25,.05), 0 26px 50px -26px rgba(24,29,25,.4); opacity: 0; visibility: hidden; transform: translate3d(0, 10px, 0) scale(.985);
-  transition: opacity .35s var(--mk-ease), transform .45s var(--mk-ease), visibility 0s linear .45s; }
-.ovs-app.on { opacity: 1; visibility: visible; transform: none; transition: opacity .45s var(--mk-ease) .12s, transform .55s var(--mk-ease) .12s, visibility 0s; }
+.ovs-app { width: min(400px, 100%); padding: 16px 18px 18px; border-radius: 20px; background: #FFFFFF; font-size: 13px; line-height: 1.4; color: var(--ef-text);
+  box-shadow: var(--ui-ring), 0 0 0 1px rgba(24,29,25,.05), 0 26px 50px -26px rgba(24,29,25,.4); }
 .ovs-app .cx-h { margin-bottom: 8px; }
 .ovs-app .list-row { padding: 9px 0; }
 .ovs-app .list-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ovs-app .list-row .grow { min-width: 0; }
+.ovs-by { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 11px 4px 8px; border-radius: 99px; background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(15,126,60,.2); color: var(--ef-green-700); font-size: 12px; font-weight: 500; line-height: 1.3; }
+.ovs-by b { font-weight: 600; color: var(--ef-ink); }
+.ovs-by svg { width: 14px; height: 14px; flex: none; }
+.ovs-dot { color: var(--ef-text-3); }
 .ovs-g { padding: 8px 0; border-top: 1px solid var(--ef-line); }
 .ovs-g .ov-gp { margin-top: 6px; }
 .ovs-gt { font-weight: 600; font-size: 13.5px; }
@@ -1221,49 +1193,24 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ovs-act { margin-top: 12px; }
 .ovs-act .btn { height: 34px; padding: 0 14px; font-size: 13px; }
 .ovs-act .btn svg { width: 14px; height: 14px; }
-/* C: one display sentence; the phrase rolls up in a green highlight; the matching chip lights up */
-.ovs-c { max-width: 1100px; margin: 0 auto; text-align: center; }
-.ovs-say { font-size: clamp(30px, 4.6vw, 66px); line-height: 1.14; text-wrap: balance; }
-.ovs-roll { display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: linear-gradient(100deg, #BFF5D3 0%, #DCFAE7 55%, #EEFCD9 100%);
-  transition: width .7s cubic-bezier(.65, 0, .35, 1); }
-.ovs-rl { display: block; transition: transform .7s cubic-bezier(.65, 0, .35, 1); will-change: transform; }
-.ovs-rl > span { display: block; width: max-content; height: 1.14em; line-height: 1.14em; padding: 0 .12em; }
-.ovs-now, .ovs-now .ovs-rl { transition: none !important; }
-.ovs-mbr { display: none; }
-.ovs-ccs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: clamp(28px, 3.2vw, 44px); }
-.ovs-cc { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 15px 6px 7px; border: 0; border-radius: 99px; background: var(--mk-surface-2); color: var(--mk-text-2); font: 500 14px/1.3 var(--mk-font-body); text-align: left; cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--mk-line); opacity: .62; transition: opacity .35s var(--mk-ease), background-color .35s var(--mk-ease), box-shadow .35s var(--mk-ease), transform .35s var(--mk-ease); }
-.ovs-cc b { font-weight: 600; color: var(--mk-ink); }
-.ovs-cc .card-icon { width: 28px; height: 28px; flex: none; }
-.ovs-cc .card-icon svg { width: 14px; height: 14px; }
-.ovs-cc:hover { opacity: .85; }
-.ovs-cc[aria-pressed="true"] { opacity: 1; background: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(15,126,60,.28), 0 12px 26px -16px rgba(16,80,40,.5); transform: translate3d(0, -2px, 0); }
-.ovs-cc:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+/* Pause and play, as in the hero (.ha-pause). With reduced motion it is a "next" control. */
+.ovs-pp { position: absolute; right: 16px; bottom: 16px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: #181D19; cursor: pointer; }
+.ovs-pp:hover { background: rgba(255, 255, 255, .35); }
+.ovs-pp:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+.ovs-pp svg { width: 14px; height: 14px; }
 @media (max-width: 900px) {
-  .ovs-a { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
-  .ovs-art.gsurf { height: 188px; }
   .ovs-big { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; height: auto; }
   .ovs-bt { padding: 28px 24px 8px; }
-  .ovs-bv { min-height: 300px; }
+  .ovs-bv { min-height: 300px; padding-bottom: 52px; }
 }
 @media (max-width: 640px) {
-  .ovs-rv { font-size: 12px; }
-  .ovs-rv button { padding: 0 8px; }
-  .ovs-rv .ovs-rvl { padding: 0 6px; }
-  .ovs-art.gsurf { padding: 16px 14px; }
-  .ovs-txt { padding: 18px 20px 22px; }
-  .ovs-seg { flex-direction: column; width: 100%; border-radius: 22px; }
-  .ovs-tab { width: 100%; border-radius: 18px; }
   .ovs-bt { padding: 22px 20px 4px; }
-  .ovs-bv { margin: 6px; padding: 28px 12px; min-height: 0; }
+  .ovs-bv { margin: 6px; padding: 28px 12px 52px; min-height: 0; }
+  .ovs-pp { right: 12px; bottom: 12px; }
   .ovs-mbr { display: inline; }
-  .ovs-ccs { flex-direction: column; align-items: center; gap: 8px; }
-  .ovs-cc { font-size: 13px; }
-  .ovs-art.gsurf { height: 172px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ovs-pane, .ovs-pane.on, .ovs-app, .ovs-app.on, .ovs-bv > .ovs-bg.gsurf, .ovs-tab, .ovs-roll, .ovs-rl, .ovs-cc { transition: none !important; }
-  .ovs-pane, .ovs-app, .ovs-cc[aria-pressed="true"] { transform: none; }
+  .ovs-roll, .ovs-mv, .ovs-mv.on, .ovs-bv > .ovs-bg.gsurf { transition: none !important; }
 }
 /* Revision 26: FAQ (#faq). Title left, accordion right on desktop; thin dividers like the auto list. */
 .faq-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--mk-gutter); align-items: start; }
@@ -1679,6 +1626,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
       "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
       "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
@@ -1763,58 +1711,26 @@ body.pbar-hidden { padding-bottom: 0; }
         ]
       },
       "paths": {
-        "headline": "However your plants are sent.",
-        "line": "A network also sees each of its sending churches. The tools are the same for both.",
-        "a": {
-          "items": [
-            {
-              "label": "A church",
-              "body": "Grace Church sends Harvest Point Church on its own."
-            },
-            {
-              "label": "A network through a church",
-              "body": "The Austin Sending Network sends Eastside Commons through Grace Church."
-            },
-            {
-              "label": "A network",
-              "body": "The network sends Mueller Hope Church directly, and assigns a sending church later."
-            }
-          ]
-        },
-        "b": {
-          "headline": "Whoever sends the plant, see it in EveryField.",
-          "tabs": [
-            {
-              "label": "A church",
-              "title": "A church sees its plants.",
-              "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
-            },
-            {
-              "label": "A network through a church",
-              "title": "A network sees every plant, by sending church.",
-              "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
-            },
-            {
-              "label": "A network",
-              "title": "A network can send a plant directly.",
-              "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
-            }
-          ]
-        },
-        "c": {
-          "lead": "Sent by",
-          "phrases": [
-            "a church",
-            "a network",
-            "a church in a network"
-          ],
-          "tail": "Seen in one place.",
-          "chips": [
-            "Sent by Grace Church",
-            "Sent by Austin Sending Network",
-            "Sent by Grace Church · Austin Sending Network"
-          ]
-        }
+        "lead": "Sent by",
+        "tail": "Seen in one place.",
+        "states": [
+          {
+            "phrase": "a church",
+            "title": "A church sees its plants.",
+            "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
+          },
+          {
+            "phrase": "a network through a church",
+            "title": "A network sees every plant, by sending church.",
+            "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+          },
+          {
+            "phrase": "a network",
+            "title": "A network can send a plant directly.",
+            "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
+          }
+        ],
+        "line": "A network also sees each of its sending churches. The tools are the same for both."
       },
       "faq": {
         "headline": "Questions from sending churches and networks.",
@@ -2231,7 +2147,7 @@ function logo(extra) {
 function mark() { return '<svg viewBox="0 0 657 530" aria-hidden="true"><use href="#ef-mark"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-var state = { page: "home", story: "journey", at: "", sent: "a" };
+var state = { page: "home", story: "journey", at: "" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -2239,14 +2155,10 @@ function parseHash() {
   if (i >= 0) { q = h.slice(i + 1); h = h.slice(0, i); }
   var path = h.replace(/^\/+|\/+$/g, "");
   var params = new URLSearchParams(q);
-  /* Revision 26: a bare #sent=a|b|c opens /oversight at the sending paths with that option. */
-  var m = path.match(/^sent=([abc])$/);
-  if (m) return { page: "oversight", story: "journey", at: "sending-paths", sent: m[1] };
   return {
     page: PAGE[path] ? path : "home",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
-    at: params.get("at") || "",
-    sent: /^[abc]$/.test(params.get("sent")) ? params.get("sent") : "a"
+    at: params.get("at") || ""
   };
 }
 function hrefFor(page, at, over) {
@@ -2254,7 +2166,6 @@ function hrefFor(page, at, over) {
   var p = new URLSearchParams();
   p.set("story", s.story);
   if (at) p.set("at", at);
-  if (page === "oversight") p.set("sent", s.sent || "a");
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
 function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
@@ -3721,7 +3632,7 @@ function pagePlanters() {
    Copy from shared.oversight_page (home story B keeps directions.oversight.sections). */
 /* Revision 25: the rest of /oversight, on the home engines: the mirrored auto list (#network-intelligence), the pinned rail of six cards
    (#plants, phSection with its own vignettes) and the closing CTA. Revision 26: the auto list #every-plant (panel right) replaces the
-   stacking chapter, the sending paths have three review options (sent=a|b|c) and an FAQ replaces the privacy section. */
+   stacking chapter and an FAQ replaces the privacy section. Revision 28: the sending paths are one section (ovPaths). */
 function pageOversight() {
   var P = COPY.shared.oversight_page;
   return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
@@ -3757,22 +3668,11 @@ function ovVig(i) {
   }
   return '<div class="pv">' + b + "</div>";
 }
-/* Revision 26: three review options for the sending paths. The review chip stores the choice as sent=a|b|c in the hash (default a).
-   A: three real examples (cards with a gradient art area, like the rail). B: a segmented switch over one large card.
-   C: one display sentence whose phrase rolls, with three product chips. The facts are the same in each option. */
+/* Revision 28: the sending paths. One display sentence ("Sent by" + changing phrase + tail) over one large card. A single timer moves
+   both through the states in copy order (a church, a network through a church, a network) and loops. The facts match Revision 26 B. */
 ICON.plus = ICON.plus || '<path d="M12 5v14M5 12h14"/>';
 var OVS_TONES = ["sky", "lilac", "sun"];
-var OVS_OPTS = [["a", "Examples"], ["b", "Switch"], ["c", "Sentence"]];
 function ovsBy(ic, names) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map(function (n) { return "<b>" + n + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
-function ovsPlant(name, sub, by, extra) {
-  return '<div class="ovs-ph"><div class="ovs-pt"><span class="card-icon tone-green">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + name + '</div><div class="list-sub">' + sub + "</div></div></div>" +
-    '<div class="ovs-chips">' + by + "</div>" + (extra || "") + "</div>";
-}
-var OVS_A = [
-  function () { return ovsPlant("Harvest Point Church", "Hyde Park, Austin · 1 · Core group", ovsBy("heart", ["Grace Church"])); },
-  function () { return ovsPlant("Eastside Commons", "East Austin · 3 · Training", ovsBy("heart", ["Grace Church", "Austin Sending Network"])); },
-  function () { return ovsPlant("Mueller Hope Church", "Mueller, Austin · 0 · Discovery", ovsBy("network", ["Austin Sending Network"]), '<span class="ovs-assign">' + icon("plus") + "Assign a sending church</span>"); }
-];
 var OVS_B = [
   function () {
     return cxHead(cxIcon("tone-blue", "heart"), "Grace Church", "Your plants · in launch order") +
@@ -3794,107 +3694,69 @@ var OVS_B = [
       '<div class="ovs-act"><span class="btn" data-variant="primary" data-size="sm">' + icon("plus") + "Assign a sending church</span></div>";
   }
 ];
-var OVS_C_ICONS = ["heart", "network", "heart"];
-function ovsReview(v) {
-  return '<div class="ovs-rv" role="group" aria-label="Review control, not part of the page: sending paths layout"><span class="ovs-rvl">Review</span>' +
-    OVS_OPTS.map(function (o) { return '<button type="button" data-ovs="' + o[0] + '" aria-pressed="' + (o[0] === v) + '"><b>' + o[0].toUpperCase() + "</b> " + o[1] + "</button>"; }).join("") + "</div>";
-}
 function ovPaths(p) {
-  var v = state.sent || "a", body;
-  var head = function (h) { return '<div class="sec-head center"><h2 class="display h2 sh-title">' + t(h) + "</h2></div>"; };
-  if (v === "b") {
-    var B = p.b;
-    body = head(B.headline) + '<div class="ovs-seg" role="tablist" aria-label="Who sends the plant">' + B.tabs.map(function (x, i) {
-      return '<button type="button" class="ovs-tab" role="tab" id="ovs-tab-' + i + '" aria-controls="ovs-pane-' + i + '" aria-selected="' + (i === 0) + '" tabindex="' + (i ? -1 : 0) + '">' + t(x.label) + "</button>";
-    }).join("") + '</div><div class="ovs-big"><div class="ovs-bt">' + B.tabs.map(function (x, i) {
-      return '<div class="ovs-pane' + (i ? "" : " on") + '" role="tabpanel" id="ovs-pane-' + i + '" aria-labelledby="ovs-tab-' + i + '" tabindex="0"><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>";
-    }).join("") + '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>'; }).join("") +
-      OVS_B.map(function (f, i) { return '<div class="ovs-app' + (i ? "" : " on") + '">' + f() + "</div>"; }).join("") + "</div></div>";
-  } else if (v === "c") {
-    var C = p.c;
-    body = '<div class="ovs-c"><h2 class="display ovs-say"><span class="ovs-sr">' + t(C.lead + " " + C.phrases.slice(0, -1).join(", ") + " or " + C.phrases[C.phrases.length - 1] + ". " + C.tail) + "</span>" +
-      '<span aria-hidden="true">' + t(C.lead) + ' <br class="ovs-mbr"><span class="ovs-roll"><span class="ovs-rl">' + C.phrases.map(function (s) { return "<span>" + t(s) + "</span>"; }).join("") + "</span></span>.<br>" + t(C.tail) + "</span></h2>" +
-      '<div class="ovs-ccs ef" role="group" aria-label="Who sends the plant">' + C.chips.map(function (s, i) {
-        var parts = s.replace(/^Sent by /, "").split(" · ");
-        return '<button type="button" class="ovs-cc" data-k="' + i + '" aria-pressed="' + (i === 0) + '"><span class="card-icon ' + (i === 1 ? "tone-teal" : "tone-blue") + '">' + icon(OVS_C_ICONS[i]) + "</span><span>Sent by " + parts.map(function (n) { return "<b>" + t(n) + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></button>";
-      }).join("") + "</div></div>";
-  } else {
-    body = head(p.headline) + '<ul class="ovs-a">' + p.a.items.map(function (x, i) {
-      return '<li class="ovs-card"><div class="ovs-art gsurf" data-tone="' + OVS_TONES[i] + '"><div class="ovs-mini ef" aria-hidden="true">' + OVS_A[i]() + '</div></div><div class="ovs-txt"><span class="feat-label">' + t(x.label) + "</span><p>" + t(x.body) + "</p></div></li>";
-    }).join("") + "</ul>";
-  }
-  return '<section class="sec sec-ov-paths" id="sending-paths" data-sent="' + v + '">' + ovsReview(v) + '<div class="wrap">' + body + '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
+  var S = p.states, mv = function (i, c) { return ' class="' + (c ? c + " " : "") + "ovs-mv" + (i ? "" : " on") + '" data-i="' + i + '"'; };
+  var sr = p.lead + " " + S.slice(0, -1).map(function (x) { return x.phrase; }).join(", ") + " or " + S[S.length - 1].phrase + ". " + p.tail;
+  return '<section class="sec sec-ov-paths" id="sending-paths"><div class="wrap"><div class="ovs-run">' +
+    '<h2 class="display ovs-say"><span class="ovs-sr">' + t(sr) + '</span><span aria-hidden="true">' + t(p.lead) + ' <br class="ovs-mbr"><span class="ovs-roll">' +
+    S.map(function (x, i) { return "<span" + mv(i) + ">" + t(x.phrase) + "</span>"; }).join("") + "</span>.<br>" + t(p.tail) + "</span></h2>" +
+    '<div class="ovs-big"><div class="ovs-bt">' + S.map(function (x, i) { return "<div" + mv(i, "ovs-pane") + '><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>"; }).join("") +
+    '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>'; }).join("") +
+    OVS_B.map(function (f, i) { return "<div" + mv(i, "ovs-app") + ">" + f() + "</div>"; }).join("") + '</div><button type="button" class="ovs-pp"></button></div></div>' +
+    '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
 }
-/* Option engines. B: tabs with arrow keys, Home and End; the text, the gradient and the product card crossfade. No auto advance.
-   C: the phrase rolls every 2800 ms while the section is on screen, not hovered and not focused. A chip click picks a phrase and stops the roll.
-   Reduced motion: C does not roll and shows the first phrase; B switches without motion. */
-var OVS = { tm: 0, io: null, root: null, k: 0, auto: false, on: false, hold: false };
+/* Engine. One setTimeout chain: every OVS_STEP ms ovsGo moves the phrase and the card in the same call, so both start on the same frame.
+   OVS_STEP = 700 ms change + 4800 ms hold. The chain runs only while 30% of the sentence and card is on screen, the tab is visible and
+   the control is not paused; off screen the timeout is cleared, and a full step starts again on return.
+   Reduced motion: no auto advance; the first state shows, the control becomes "next" and changes state without motion. */
+var OVS_STEP = 5500;
+var OVS = { tm: 0, io: null, root: null, k: 0, paused: false, vis: false };
+function ovsRunning() { return OVS.root && OVS.root.isConnected && !OVS.paused && OVS.vis && !document.hidden && !REDUCED.matches; }
+function ovsSched() {
+  clearTimeout(OVS.tm); OVS.tm = 0;
+  if (ovsRunning()) OVS.tm = setTimeout(function () { OVS.tm = 0; ovsGo((OVS.k + 1) % 3); ovsSched(); }, OVS_STEP);
+}
+function ovsSize() {
+  var r = OVS.root && OVS.root.querySelector(".ovs-roll"); if (!r || !r.isConnected) return;
+  r.classList.add("ovs-now"); r.style.width = r.children[OVS.k].offsetWidth + "px"; void r.offsetWidth; r.classList.remove("ovs-now");
+}
+function ovsBtn() {
+  var b = OVS.root && OVS.root.querySelector(".ovs-pp"); if (!b) return;
+  var next = REDUCED.matches;
+  b.innerHTML = next ? icon("arrow") : OVS.paused ? HA_PLAY_SVG : HA_PAUSE_SVG;
+  b.setAttribute("aria-label", next ? "Show the next sending path" : OVS.paused ? "Play the sending paths" : "Pause the sending paths");
+}
+function ovsGo(k, now) {
+  var root = OVS.root; if (!root) return;
+  var roll = root.querySelector(".ovs-roll"), els = root.querySelectorAll(".ovs-mv");
+  OVS.k = k;
+  if (now) { Array.prototype.forEach.call(els, function (e) { e.classList.add("ovs-now"); }); roll.classList.add("ovs-now"); }
+  roll.style.width = roll.children[k].offsetWidth + "px";
+  Array.prototype.forEach.call(els, function (e) { e.classList.toggle("on", +e.dataset.i === k); });
+  Array.prototype.forEach.call(root.querySelectorAll(".ovs-bg"), function (e, i) { e.classList.toggle("on", i === k); });
+  if (now) { void root.offsetWidth; roll.classList.remove("ovs-now"); Array.prototype.forEach.call(els, function (e) { e.classList.remove("ovs-now"); }); }
+}
 function ovsInit() {
-  clearInterval(OVS.tm); OVS.tm = 0;
+  clearTimeout(OVS.tm); OVS.tm = 0;
   if (OVS.io) OVS.io.disconnect(); OVS.io = null;
   var root = OVS.root = document.querySelector("#view .sec-ov-paths");
-  if (!root || root.dataset.sent !== "c") return;
-  OVS.k = 0; OVS.auto = !REDUCED.matches; OVS.hold = false; OVS.on = !("IntersectionObserver" in window);
-  ovsSay(0, true);
-  if (!OVS.on) { OVS.io = new IntersectionObserver(function (es) { OVS.on = es[es.length - 1].isIntersecting; }, { threshold: .35 }); OVS.io.observe(root); }
-  var c = root.querySelector(".ovs-c");
-  c.addEventListener("mouseenter", function () { OVS.hold = true; });
-  c.addEventListener("mouseleave", function () { OVS.hold = false; });
-  c.addEventListener("focusin", function () { OVS.hold = true; });
-  c.addEventListener("focusout", function (e) { if (!c.contains(e.relatedTarget)) OVS.hold = false; });
-  OVS.tm = setInterval(function () { if (OVS.auto && OVS.on && !OVS.hold && !document.hidden) ovsSay((OVS.k + 1) % 3); }, 2800);
-}
-function ovsSay(k, now) {
-  var root = OVS.root; if (!root) return;
-  var roll = root.querySelector(".ovs-roll"); if (!roll) return;
-  var rl = roll.firstChild, it = rl.children;
-  OVS.k = k;
-  if (now) roll.classList.add("ovs-now");
-  roll.style.width = it[k].offsetWidth + "px";
-  rl.style.transform = "translate3d(0," + (-k * it[0].offsetHeight) + "px,0)";
-  Array.prototype.forEach.call(root.querySelectorAll(".ovs-cc"), function (b, i) { b.setAttribute("aria-pressed", String(i === k)); });
-  if (now) { void roll.offsetWidth; roll.classList.remove("ovs-now"); }
-}
-function ovsTab(k, focus) {
-  var root = OVS.root; if (!root) return;
-  var tabs = root.querySelectorAll(".ovs-tab");
-  Array.prototype.forEach.call(tabs, function (b, i) { b.setAttribute("aria-selected", String(i === k)); b.tabIndex = i === k ? 0 : -1; });
-  [".ovs-pane", ".ovs-bg", ".ovs-app"].forEach(function (s) { Array.prototype.forEach.call(root.querySelectorAll(s), function (e, i) { e.classList.toggle("on", i === k); }); });
-  if (focus) tabs[k].focus();
-}
-function ovsSwap() {
-  var sec = document.querySelector("#view .sec-ov-paths");
-  if (!sec) return;
-  var tmp = document.createElement("div");
-  tmp.innerHTML = ovPaths(COPY.shared.oversight_page.paths);
-  sec.parentNode.replaceChild(tmp.firstElementChild, sec);
-  ovsInit();
-}
-function ovsSwitch(v) {
-  if (!/^[abc]$/.test(v) || v === state.sent) return;
-  state.sent = v; last.sent = v;
-  history.replaceState(null, "", hrefFor(state.page, state.at));
-  ovsSwap();
-  var b = document.querySelector('#view .ovs-rv [data-ovs="' + v + '"]'); if (b) b.focus({ preventScroll: true });
+  if (!root) return;
+  OVS.paused = false; OVS.vis = !("IntersectionObserver" in window);
+  OVS.k = 0; ovsGo(0, true); ovsBtn();
+  if (!OVS.vis) {
+    OVS.io = new IntersectionObserver(function (es) { var v = es[es.length - 1].isIntersecting; if (v !== OVS.vis) { OVS.vis = v; ovsSched(); } }, { threshold: .3 });
+    OVS.io.observe(root.querySelector(".ovs-run"));
+  }
+  ovsSched();
 }
 document.addEventListener("click", function (e) {
-  var sw = e.target.closest && e.target.closest(".ovs-rv [data-ovs]");
-  if (sw) { ovsSwitch(sw.dataset.ovs); return; }
-  var tb = e.target.closest && e.target.closest(".ovs-tab");
-  if (tb) { ovsTab(Array.prototype.indexOf.call(tb.parentNode.children, tb)); return; }
-  var cc = e.target.closest && e.target.closest(".ovs-cc");
-  if (cc) { OVS.auto = false; ovsSay(+cc.dataset.k); return; }
+  var pp = e.target.closest && e.target.closest(".ovs-pp");
+  if (pp && OVS.root) { if (REDUCED.matches) ovsGo((OVS.k + 1) % 3); else { OVS.paused = !OVS.paused; ovsBtn(); ovsSched(); } return; }
   var q = e.target.closest && e.target.closest(".faq-q");
   if (q) faqSet(q.closest(".faq-i"), q.getAttribute("aria-expanded") !== "true");
 });
-document.addEventListener("keydown", function (e) {
-  var tb = e.target.closest && e.target.closest(".ovs-tab"); if (!tb) return;
-  var tabs = tb.parentNode.children, n = tabs.length, i = Array.prototype.indexOf.call(tabs, tb), k = -1;
-  if (e.key === "ArrowRight" || e.key === "ArrowDown") k = (i + 1) % n; else if (e.key === "ArrowLeft" || e.key === "ArrowUp") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
-  if (k < 0) return;
-  e.preventDefault(); ovsTab(k, true);
-});
-window.addEventListener("resize", function () { if (OVS.root && OVS.root.dataset.sent === "c" && OVS.root.isConnected) ovsSay(OVS.k, true); });
+document.addEventListener("visibilitychange", function () { if (OVS.root) ovsSched(); });
+window.addEventListener("resize", function () { if (OVS.root && OVS.root.isConnected) ovsSize(); });
 /* Revision 26: FAQ in place of the privacy section. Title left, accordion right (desktop). Each question is a button that opens its answer
    with a 300 ms height and fade; several can be open at once; all closed by default. #faq-<id> in at= opens that item (footer Coaches link). */
 function ovFaq(f) {
@@ -4028,14 +3890,13 @@ function render(scrollMode) {
   renderBar();
   document.title = (state.page === "home" ? "Home" : PAGE[state.page].name) + " · Story " + STORY[pageStory()].key + " · EveryField prototype";
   if (scrollMode === "top") window.scrollTo({ top: 0, behavior: "auto" });
-  if (state.page === "oversight" && !needView && last.sent !== state.sent) ovsSwap();
   if (scrollMode === "at" && state.at) {
     var target = document.getElementById(state.at);
     if (target && target.classList.contains("faq-i")) faqSet(target, true);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
   if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); }
-  last = { page: state.page, story: state.story, sent: state.sent };
+  last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
   Object.assign(state, over);
