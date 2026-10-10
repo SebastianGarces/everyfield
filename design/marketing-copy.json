@@ -15,12 +15,8 @@
         "href": "#planters"
       },
       {
-        "label": "For sending churches",
-        "href": "#sending-churches"
-      },
-      {
-        "label": "For networks",
-        "href": "#networks"
+        "label": "For sending churches and networks",
+        "href": "#oversight"
       },
       {
         "label": "Privacy",
@@ -45,8 +41,7 @@
           "title": "Who it is for",
           "links": [
             "Planters",
-            "Sending churches",
-            "Networks",
+            "Sending churches and networks",
             "Coaches"
           ]
         },
@@ -146,6 +141,19 @@
         }
       ],
       "link": "Learn more about the oversight view"
+    },
+    "oversight_page": {
+      "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
+      "hero": {
+        "headline": "See every plant you send.",
+        "subhead": "Whether one church or a whole network sent them, see how each plant is doing, where your network needs help, and what every planter chose to share.",
+        "cta_primary": "Request early access",
+        "cta_secondary": "See how it works"
+      },
+      "problem": {
+        "headline": "You usually hear about a struggling plant when it is already late.",
+        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
+      }
     }
   },
   "directions": [
@@ -234,7 +242,7 @@
                 "Coaches the planter invites can read that plant and change nothing",
                 "No access to the planter's people or private notes"
               ],
-              "cta": "See what sending churches see"
+              "cta": "See what sending churches and networks see"
             },
             {
               "id": "networks",
@@ -246,7 +254,7 @@
                 "Summaries only, and only what each plant chooses to share",
                 "The same rubric across every plant"
               ],
-              "cta": "See the network view"
+              "cta": "See what sending churches and networks see"
             }
           ]
         },
@@ -346,7 +354,7 @@
                 "Filter by phase, launch date or status",
                 "Sending churches in your network and their plants in one view"
               ],
-              "cta": "See the network view"
+              "cta": "See what sending churches and networks see"
             },
             {
               "id": "sending-churches",
@@ -358,7 +366,7 @@
                 "Invite a coach or step back, as the plant needs",
                 "Summaries only. The planter's people stay with the planter."
               ],
-              "cta": "See what sending churches see"
+              "cta": "See what sending churches and networks see"
             },
             {
               "id": "planters",
