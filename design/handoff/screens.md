@@ -25,6 +25,8 @@ All app pages are desktop only and sit inside the app shell (top bar, rail, cont
 | `#/wiki` | Wiki article with Source bar | `/wiki/[...slug]` | `/wiki/[...slug]` | WP-033, WP-034 | live, named source |
 | `#/wiki/edit` | Wiki editor for organization Owners and Admins | `/wiki/[...slug]/edit` | none | WP-033, WP-034, WP-035 | draft |
 | `#/intelligence` | Plant Intelligence | `/intelligence` | `/phase` | WP-038, WP-044 | live |
+| `#/intelligence/attestations` | Attestations: every human attestation grouped by lens, renewal states, answer dialog with history, monthly renewal pass. The same records open from Launch, Ministries, Settings and lens cards (PD-040) | `/intelligence/attestations` | `/phase` signals | WP-039, WP-040, WP-044 | live, member |
+| `#/me/check-in` | Weekly private check-in: four questions, note, 8-week history, corrections keep the earlier answer. Author only; Evry off on the page; never shown to others (PI-038, PI-040, PI-041) | `/me/check-in` | `/phase/checkins` | WP-039 | current week, correcting |
 | `#/launch` | Launch plan | `/launch` | none | WP-045, WP-046 | live |
 | `#/communication` | Communication | `/communication` | `/communication` | WP-027, WP-029 | live |
 | `#/documents` | Documents (wide) | `/documents` | `/documents` | WP-036, WP-037 | live |

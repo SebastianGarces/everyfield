@@ -95,6 +95,14 @@ Rules that apply to every component:
 | Data | Evidence coverage | `<CoverageBar>` | Category, bar, n of total |  | none |
 | Data | Area table | `<AreaTable>` | Area, plants, sharing, lens badges, gap | minimum 2 plants | Table |
 | Overlays | Lens plants dialog | `<LensPlantsDialog lens>` | Lens state, groups by state, plant rows (name, area, phase, reason, link), not-shared group | scope all/state/metro | Dialog |
+| Domain | Attestation row | `<AttestationRow key>` | Question, description, answer, attestor and date, renewal badge, also-on link, action | answer yes/no/unsure/none · renew state | none |
+| Domain | Attestation chip | `<AttestChip key>` | Icon, label, short state; opens the answer dialog | answer | none |
+| Overlays | Attestation dialog | `<AttestDialog key>` | Question, answer choice, true-as-of date, detail, reference, history |  | Dialog, RadioGroup |
+| Overlays | Renewal pass | `<RenewDialog>` | Monthly attestations with an answer each |  | Dialog |
+| Layout | Plant Intelligence tabs | `<IntelTabs>` | Overview, Attestations with count | current | Tabs |
+| Domain | Check-in form | `<CheckinForm week>` | Four questions (steady, strained, struggling), note, correction banner | mode current/correcting | RadioGroup |
+| Domain | Check-in history | `<CheckinHistory>` | Week, four dots, correction note, correct action | skipped | none |
+| Feedback | Private reminder | `<CheckinReminder>` | Icon, text, action, dismiss | author only | none |
 | Overlays | Feedback dialog | `<FeedbackDialog>` | Type, Description, Page details, Sent state | type bug/suggestion/question/other | Dialog, RadioGroup |
 | Overlays | Guide panel | `<GuidePanel>` | Article, Help fallback, Footer | kind article/help | Sheet |
 | Content | How-to steps | `<HowTo.Steps>` | Step, UI reference |  | none |
@@ -118,4 +126,4 @@ Rules that apply to every component:
 | Evry | Message | `<EvryMessage>` | Avatar, Bubble, Citation | role user/evry | none |
 | Evry | Review card | `<ReviewCard>` | Header, Note, Lines, Footer (Approve, Edit, Cancel) | state pending/revised/approved/failed/expired | none |
 
-98 components.
+106 components.

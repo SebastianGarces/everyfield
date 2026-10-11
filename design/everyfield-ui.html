@@ -518,6 +518,7 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 }
 .card[data-variant="callout"][data-tone="green"] { --c-tone: var(--ef-green-700); --c-tint: var(--ef-green-100); }
 .card[data-variant="callout"][data-tone="blue"]  { --c-tone: var(--ef-blue-600);  --c-tint: var(--ef-blue-100); }
+.card[data-variant="callout"][data-tone="violet"] { --c-tone: var(--ef-violet-600); --c-tint: var(--ef-violet-100); }
 .card[data-variant="callout"][data-tone="ink"]   { --c-tone: var(--ef-ink-2);     --c-tint: var(--ef-surface-2); }
 .callout-label { display: flex; align-items: center; gap: 10px; font-size: var(--ef-text-sm); font-weight: 600; color: var(--c-tone); }
 .callout-label .ci { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--c-tint); flex: none; }
@@ -1431,6 +1432,35 @@ body[data-shell="bare"] .main { max-width: none; }
 .renew-row:first-child { border-top: 0; }
 .renew-row .segmented button { padding: 0 12px; }
 
+
+/* ---- Weekly private check-in (<CheckinForm>, <CheckinHistory>) ---- */
+.ci-q { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 18px 0; border-top: 1px solid var(--ef-line); }
+.ci-q:first-of-type { border-top: 0; }
+.ci-q .ci-t { font-weight: 600; color: var(--ef-ink); font-size: 16px; }
+.ci-q .ci-s { font-size: var(--ef-text-sm); color: var(--ef-text-2); margin-top: 3px; }
+.ci-opts { display: flex; gap: 6px; }
+.ci-opts button { border: 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 12px; background: var(--ef-surface-2); color: var(--ef-ink-2); display: inline-flex; align-items: center; gap: 7px; }
+.ci-opts button::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.ci-opts button[data-v="steady"] { --c: var(--ef-green-500); }
+.ci-opts button[data-v="strained"] { --c: var(--ef-amber-500); }
+.ci-opts button[data-v="struggling"] { --c: var(--ef-magenta-500); }
+.ci-opts button[aria-pressed="true"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1.5px var(--ef-ink) inset, var(--ef-shadow-raised); }
+.ci-hist { display: grid; grid-template-columns: 110px repeat(4, 1fr) 28px; gap: 6px 10px; align-items: center; font-size: var(--ef-text-sm); }
+.ci-hist .h { font-size: 12px; color: var(--ef-text-3); font-weight: 600; }
+.ci-hist .wk { color: var(--ef-ink); font-weight: 500; }
+.ci-hist .wk small { display: block; font-weight: 400; font-size: 11.5px; color: var(--ef-amber-600); }
+.ci-dot { width: 100%; height: 10px; border-radius: 99px; background: var(--c, var(--ef-surface-2)); }
+.ci-dot[data-v="steady"] { --c: var(--ef-green-500); } .ci-dot[data-v="strained"] { --c: var(--ef-amber-500); } .ci-dot[data-v="struggling"] { --c: var(--ef-magenta-500); }
+.ci-dot[data-v="none"] { background: transparent; box-shadow: 0 0 0 1px var(--ef-line-2) inset; }
+.ci-row-btn { border: 0; background: none; cursor: pointer; color: var(--ef-text-3); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
+.ci-row-btn:hover { background: var(--ef-surface-2); color: var(--ef-ink); }
+.private-tag { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 99px; background: var(--ef-violet-100); color: var(--ef-violet-600); font-weight: 600; font-size: 13px; }
+body[data-private="true"] .evry-chip { opacity: .45; pointer-events: none; }
+body[data-role="member"] [data-author-only] { display: none !important; }
+.ci-banner { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; background: var(--ef-violet-50); box-shadow: 0 0 0 1px var(--ef-violet-100) inset; margin-bottom: 20px; }
+.ci-banner .ci-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--ef-violet-100); color: var(--ef-violet-600); flex: none; }
+.ci-banner .ci-ic i { font-size: 19px; }
+
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
 .modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
 .modal-panel[data-size="sm"] .modal-body { padding: 26px 30px 22px; }
@@ -2300,6 +2330,7 @@ body[data-shell="bare"] .main { max-width: none; }
   </div>
 
 
+  <div class="ci-banner" data-author-only><span class="ci-ic"><i class="hgi-stroke hgi-lock-key"></i></span><div class="grow"><div style="font-weight:600">Your weekly check-in is ready</div><div class="faint t-sm">Four quick questions for you, not the church. Only you can see this reminder and your answers.</div></div><a class="btn" data-variant="secondary" data-size="sm" href="#/me/check-in">Check in</a><button class="icon-btn" data-size="sm" title="Remind me later"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
   <div class="grid" style="grid-template-columns: 1fr 1fr 1.08fr; align-items:start">
     <!-- col 1 -->
     <div class="stack gap-6" style="gap:20px">
@@ -3842,6 +3873,9 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Attestation dialog</td><td><code class="k">&lt;AttestDialog key&gt;</code></td><td class="muted t-sm">Question, answer choice, true-as-of date, detail, reference, history</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Renewal pass</td><td><code class="k">&lt;RenewDialog&gt;</code></td><td class="muted t-sm">Monthly attestations with an answer each</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Plant Intelligence tabs</td><td><code class="k">&lt;IntelTabs&gt;</code></td><td class="muted t-sm">Overview, Attestations with count</td><td class="muted t-sm">current</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Tabs</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Check-in form</td><td><code class="k">&lt;CheckinForm week&gt;</code></td><td class="muted t-sm">Four questions (steady, strained, struggling), note, correction banner</td><td class="muted t-sm">mode current/correcting</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Check-in history</td><td><code class="k">&lt;CheckinHistory&gt;</code></td><td class="muted t-sm">Week, four dots, correction note, correct action</td><td class="muted t-sm">skipped</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Feedback</td><td class="cell-title">Private reminder</td><td><code class="k">&lt;CheckinReminder&gt;</code></td><td class="muted t-sm">Icon, text, action, dismiss</td><td class="muted t-sm">author only</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -4359,6 +4393,40 @@ body[data-shell="bare"] .main { max-width: none; }
   <div class="card" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-file-02"></i></span>Core values moved</div><p class="callout-text t-sm">Core values used to be a yes or no answer here. They now come from your saved Core values document, so the document is the evidence. <a href="#/documents" style="text-decoration:underline">Open Documents</a></p></div>
 </section>
 
+
+<!-- =================================================================
+     PAGE: WEEKLY PRIVATE CHECK-IN  (#/me/check-in) · PI-038/040/041, author-private (PD-002, PD-027)
+     ================================================================= -->
+<section class="page" data-page="checkin">
+  <header class="page-header">
+    <div class="titles">
+      <div class="breadcrumb"><span>Daniel Reyes</span><i class="hgi-stroke hgi-arrow-right-01"></i><span aria-current="page">Weekly check-in</span></div>
+      <div class="row gap-3"><h1 class="page-title xl">How are you, Daniel?</h1><span class="private-tag"><i class="hgi-stroke hgi-lock-key"></i>Only you</span></div>
+      <p class="page-sub">A short check-in for you, not for the church. Week of Monday, October 5.</p>
+    </div>
+  </header>
+  <div class="grid" style="grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); align-items:start">
+    <div class="stack" style="gap:20px">
+      <div class="card" id="ci-form">
+        <div id="ci-correcting" class="card-inset" style="display:none;margin-bottom:12px;background:var(--ef-amber-50);box-shadow:0 0 0 1px var(--ef-amber-100) inset"><div class="row gap-3"><i class="hgi-stroke hgi-edit-02" style="color:var(--ef-amber-600)"></i><span class="grow t-sm">Correcting the week of <b id="ci-cw" style="font-weight:600">Sep 21</b>. Your earlier answers stay in your history.</span><button class="btn" data-variant="ghost" data-size="sm" onclick="ciCorrect(null)">Back to this week</button></div></div>
+        <div class="card-header"><div class="grow"><div class="card-title" id="ci-title">This week</div><div class="card-description">Pick the word that fits. There is no score.</div></div><span class="faint t-sm">Saved Oct 6, 9:12 pm</span></div>
+        <div><div class="ci-q"><div><div class="ci-t">Spiritually</div><div class="ci-s">How is your own walk with God?</div></div><div class="ci-opts" role="radiogroup" aria-label="Spiritually"><button data-v="steady" aria-pressed="true">Steady</button><button data-v="strained" aria-pressed="false">Strained</button><button data-v="struggling" aria-pressed="false">Struggling</button></div></div><div class="ci-q"><div><div class="ci-t">Marriage and family</div><div class="ci-s">How are things at home?</div></div><div class="ci-opts" role="radiogroup" aria-label="Marriage and family"><button data-v="steady" aria-pressed="true">Steady</button><button data-v="strained" aria-pressed="false">Strained</button><button data-v="struggling" aria-pressed="false">Struggling</button></div></div><div class="ci-q"><div><div class="ci-t">Financially</div><div class="ci-s">How are your personal finances?</div></div><div class="ci-opts" role="radiogroup" aria-label="Financially"><button data-v="steady" aria-pressed="false">Steady</button><button data-v="strained" aria-pressed="true">Strained</button><button data-v="struggling" aria-pressed="false">Struggling</button></div></div><div class="ci-q"><div><div class="ci-t">Pace</div><div class="ci-s">Is your pace of life sustainable?</div></div><div class="ci-opts" role="radiogroup" aria-label="Pace"><button data-v="steady" aria-pressed="false">Steady</button><button data-v="strained" aria-pressed="true">Strained</button><button data-v="struggling" aria-pressed="false">Struggling</button></div></div></div>
+        <div class="field mt-3"><label class="field-label">A note for yourself (optional)</label><textarea class="input" maxlength="2000" style="min-height:90px" placeholder="What is on your mind this week?">Budget conversations with Ana are heavy. Taking Saturday fully off.</textarea><div class="row between"><span class="field-hint">Up to 2000 characters.</span><span class="field-hint">68 / 2000</span></div></div>
+        <div class="row between mt-4"><span class="faint t-sm">You can change this week until Sunday. After that, a correction keeps the earlier answer.</span><button class="btn" data-variant="primary">Save check-in</button></div>
+      </div>
+    </div>
+    <div class="stack" style="gap:20px">
+      <div class="card" data-variant="callout" data-tone="violet"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-lock-key"></i></span>Private to you</div><p class="callout-text t-sm">Only you can read your check-ins. They are never shown to your team, other Admins, your network or sending church, and never sent to Evry. They do not affect Plant Intelligence or any score. Evry is off while this page is open.</p></div>
+      <div class="card">
+        <div class="card-header"><div class="grow"><div class="card-title sm">Your last 8 weeks</div><div class="card-description">Select the pencil to correct a past week</div></div></div>
+        <div class="ci-hist"><span class="h">Week of</span><span class="h">Spiritual</span><span class="h">Family</span><span class="h">Finances</span><span class="h">Pace</span><span></span><div class="wk">Oct 5<small style="color:var(--ef-text-3)">this week</small></div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="strained" title="strained"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Oct 5" onclick="ciCorrect('Oct 5')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Sep 28</div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="steady" title="steady"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Sep 28" onclick="ciCorrect('Sep 28')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Sep 21<small>Corrected Sep 24 · Pace was Strained</small></div><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="struggling" title="struggling"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Sep 21" onclick="ciCorrect('Sep 21')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Sep 14</div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Sep 14" onclick="ciCorrect('Sep 14')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Sep 7<small>Skipped</small></div><span class="ci-dot" data-v="none" title="none"></span><span class="ci-dot" data-v="none" title="none"></span><span class="ci-dot" data-v="none" title="none"></span><span class="ci-dot" data-v="none" title="none"></span><span></span><div class="wk">Aug 31</div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Aug 31" onclick="ciCorrect('Aug 31')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Aug 24</div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Aug 24" onclick="ciCorrect('Aug 24')"><i class="hgi-stroke hgi-edit-02"></i></button><div class="wk">Aug 17</div><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="steady" title="steady"></span><span class="ci-dot" data-v="strained" title="strained"></span><span class="ci-dot" data-v="steady" title="steady"></span><button class="ci-row-btn" title="Correct this week" aria-label="Correct the week of Aug 17" onclick="ciCorrect('Aug 17')"><i class="hgi-stroke hgi-edit-02"></i></button></div>
+        <div class="row gap-4 mt-4 t-xs faint"><span class="row gap-2"><span class="ci-dot" data-v="steady" style="width:16px"></span>Steady</span><span class="row gap-2"><span class="ci-dot" data-v="strained" style="width:16px"></span>Strained</span><span class="row gap-2"><span class="ci-dot" data-v="struggling" style="width:16px"></span>Struggling</span><span class="row gap-2"><span class="ci-dot" data-v="none" style="width:16px"></span>Skipped</span></div>
+      </div>
+      <div class="card" data-size="sm"><p class="muted t-sm" style="margin:0">Having a hard week? This page never alerts anyone. If you want to talk, reaching out to someone you trust is your choice to make.</p></div>
+    </div>
+  </div>
+</section>
+
 <section class="page" data-page="stub">
   <header class="page-header"><div class="titles"><h1 class="page-title xl" data-stub-title>Section</h1><p class="page-sub" data-stub-sub></p></div></header>
   <div class="card"><div class="empty" style="padding:70px 24px"><div class="e-art"><i data-stub-icon class="hgi-stroke hgi-rocket-01"></i></div><div class="card-title sm">Not designed in this pass</div><p class="muted" style="max-width:360px">This screen uses the same kit. It is out of scope for the first visual pass.</p><a class="btn" data-variant="primary" data-size="sm" href="#/components" style="margin-top:8px">See the components</a></div></div>
@@ -4409,6 +4477,7 @@ body[data-shell="bare"] .main { max-width: none; }
   <a class="menu-item" href="#/overview" data-highlighted><i class="hgi-stroke hgi-church"></i>Harvest Point Church<i class="hgi-stroke hgi-tick-02" style="margin-left:auto;color:var(--ef-green-600)"></i></a>
   <a class="menu-item" href="#/network"><i class="hgi-stroke hgi-hierarchy"></i>Austin Sending Network</a>
   <div class="menu-sep"></div>
+  <a class="menu-item" href="#/me/check-in"><i class="hgi-stroke hgi-lock-key"></i>My weekly check-in<span class="kbd" style="background:var(--ef-violet-100);color:var(--ef-violet-600)">Private</span></a>
   <a class="menu-item" href="#/settings/account"><i class="hgi-stroke hgi-user"></i>Your account</a>
   <a class="menu-item" href="#/settings"><i class="hgi-stroke hgi-settings-02"></i>Church settings<span class="kbd">⌘,</span></a>
   <a class="menu-item" href="#/onboarding"><i class="hgi-stroke hgi-rocket-01"></i>Onboarding preview</a>
@@ -4708,7 +4777,7 @@ body[data-shell="bare"] .main { max-width: none; }
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
   'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
-  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network'], 'intelligence/attestations': ['attestations', 'intelligence']
+  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network'], 'intelligence/attestations': ['attestations', 'intelligence'], 'me/check-in': ['checkin', 'me']
 };
 const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
@@ -4740,6 +4809,8 @@ function showPage(page, nav) {
   }
   if (!el) { el = document.querySelector('.page[data-page="overview"]'); nav = 'overview'; page = 'overview'; }
   document.body.dataset.shell = BARE.has(page) ? 'bare' : 'app';
+  document.body.dataset.private = page === 'checkin' ? 'true' : 'false';
+  if (page === 'checkin') { if (typeof closeEvry === 'function') closeEvry(); if (typeof ciCorrect === 'function') ciCorrect(null, true); }
   document.body.dataset.width = el.dataset.width === 'wide' ? 'wide' : 'default';
   document.querySelectorAll('.page').forEach(p => p.dataset.active = p === el ? 'true' : 'false');
   document.querySelectorAll('[data-nav]').forEach(n => { if (n.dataset.nav === nav) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current'); });
@@ -5215,6 +5286,19 @@ function openAttest(k) {
 document.getElementById('ad-choice').addEventListener('click', e => { const b = e.target.closest('button'); if (b) document.querySelectorAll('#ad-choice button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') ['attest-dialog', 'renew-dialog'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
 renderAttestations();
+
+
+/* Weekly check-in: correcting a past week keeps the earlier answer in history. */
+const CI_WEEKS = { 'Sep 21': ['strained','steady','strained','struggling'], 'Sep 28': ['steady','steady','strained','steady'], 'Sep 14': ['steady','steady','steady','strained'], 'Aug 31': ['steady','strained','steady','strained'], 'Aug 24': ['steady','steady','steady','steady'], 'Aug 17': ['steady','steady','strained','steady'], 'Oct 5': ['steady','steady','strained','strained'] };
+function ciCorrect(wk, quiet) {
+  const box = document.getElementById('ci-correcting'); const vals = CI_WEEKS[wk || 'Oct 5'];
+  box.style.display = wk && wk !== 'Oct 5' ? '' : 'none';
+  if (wk) document.getElementById('ci-cw').textContent = wk;
+  document.getElementById('ci-title').textContent = wk && wk !== 'Oct 5' ? 'Week of ' + wk : 'This week';
+  document.querySelectorAll('#ci-form .ci-opts').forEach((g, i) => g.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === vals[i])));
+  if (!quiet) document.getElementById('ci-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+document.addEventListener('click', e => { const b = e.target.closest('.ci-opts button'); if (b) b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
