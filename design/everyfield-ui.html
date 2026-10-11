@@ -1395,6 +1395,42 @@ body[data-shell="bare"] .main { max-width: none; }
 .dl-row .dl-why { font-size: var(--ef-text-sm); color: var(--ef-ink-2); text-align: right; max-width: 280px; }
 .rubric-note { display: flex; align-items: center; gap: 10px; font-size: var(--ef-text-sm); color: var(--ef-text-2); margin: -6px 0 18px; }
 
+
+/* ---- Attestations (<AttestationRow>, <AttestChip>, <AttestDialog>) ---- */
+.intel-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--ef-surface-2); width: max-content; margin-bottom: 20px; }
+.intel-tabs a { padding: 8px 14px; border-radius: 10px; font-weight: 500; color: var(--ef-ink-2); display: inline-flex; align-items: center; gap: 8px; }
+.intel-tabs a[aria-current="page"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: var(--ef-shadow-raised); }
+.intel-tabs .count { font-size: 12px; font-weight: 600; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; display: inline-grid; place-items: center; background: var(--ef-amber-100); color: var(--ef-amber-600); }
+.att-group { margin-bottom: 20px; }
+.att-group-h { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.att-group-h .lens-icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ef-surface-2); }
+.att-group-h .lens-icon i { font-size: 16px; }
+.att-row { display: grid; grid-template-columns: minmax(0,1.6fr) 110px minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 16px 18px; border-top: 1px solid var(--ef-line); }
+.att-row:first-child { border-top: 0; }
+.att-q { font-weight: 600; color: var(--ef-ink); }
+.att-d { font-size: var(--ef-text-sm); color: var(--ef-text-2); margin-top: 3px; line-height: 1.45; }
+.att-also { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ef-text-2); margin-top: 8px; }
+.att-also a { color: var(--ef-ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.att-ans { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 99px; font-size: 13px; font-weight: 600; background: var(--ef-surface-2); color: var(--ef-text-2); width: max-content; }
+.att-ans[data-v="yes"] { background: var(--ef-green-100); color: var(--ef-green-700); }
+.att-ans[data-v="no"] { background: var(--ef-amber-100); color: var(--ef-amber-600); }
+.att-ans[data-v="unsure"] { background: var(--ef-blue-100); color: var(--ef-blue-600); }
+.att-ans[data-v="none"] { background: transparent; box-shadow: 0 0 0 1.5px var(--ef-line-2) inset; border: 0; color: var(--ef-text-2); }
+.att-when { font-size: var(--ef-text-sm); color: var(--ef-text-2); line-height: 1.45; }
+.att-when b { color: var(--ef-ink); font-weight: 500; }
+.att-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; border-radius: 10px; background: var(--ef-surface-2); font-size: 12.5px; color: var(--ef-ink-2); cursor: pointer; border: 0; font-family: inherit; text-align: left; }
+.att-chip:hover { background: var(--ef-surface-3); }
+.att-chip i { font-size: 15px; color: var(--ef-text-2); }
+.att-chip b { font-weight: 600; color: var(--ef-ink); }
+.att-chip[data-v="yes"] i { color: var(--ef-green-600); }
+.att-chip[data-v="no"] i, .att-chip[data-v="none"] i { color: var(--ef-amber-600); }
+.att-choice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.att-choice button { border: 0; cursor: pointer; font: inherit; padding: 12px; border-radius: 14px; background: var(--ef-surface-2); color: var(--ef-ink-2); font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.att-choice button[aria-pressed="true"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1.5px var(--ef-ink) inset, var(--ef-shadow-raised); }
+.renew-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid var(--ef-line); }
+.renew-row:first-child { border-top: 0; }
+.renew-row .segmented button { padding: 0 12px; }
+
 /* ---- Feedback dialog (<FeedbackDialog>) ---- */
 .modal-panel[data-size="sm"] { width: min(620px, 100%); height: auto; max-height: 100%; grid-template-columns: minmax(0,1fr); }
 .modal-panel[data-size="sm"] .modal-body { padding: 26px 30px 22px; }
@@ -2641,6 +2677,7 @@ body[data-shell="bare"] .main { max-width: none; }
         <div class="row between mt-4 t-sm"><span class="muted">Roles</span><b>7 of 8</b></div>
         <div class="meter-hatch mt-2"><span class="hatch" style="width:88%;--hatch:var(--ef-green-500)"></span></div>
         <div class="row between mt-3 t-sm"><span class="muted">Training</span><b>92%</b></div>
+        <div class="mt-3"><button class="att-chip" data-v="yes" onclick="event.preventDefault();event.stopPropagation();openAttest('worship_leader_agreed')"><i class="hgi-stroke hgi-user-check-01"></i><span><b>Worship leader agreed</b> · Aug 30</span></button></div>
       </a>
       <a class="card ministry-card" data-size="sm">
         <div class="row between"><span class="m-icon tone-blue"><i class="hgi-stroke hgi-coffee-01"></i></span><span class="badge" data-status="positive" data-size="sm">Staffed</span></div>
@@ -2657,6 +2694,7 @@ body[data-shell="bare"] .main { max-width: none; }
         <div class="row between mt-4 t-sm"><span class="muted">Roles</span><b>3 of 4</b></div>
         <div class="meter-hatch mt-2"><span class="hatch" style="width:75%;--hatch:var(--ef-blue-500)"></span></div>
         <div class="row between mt-3 t-sm"><span class="muted">Training</span><b>75%</b></div>
+        <div class="mt-3"><button class="att-chip" data-v="yes" onclick="event.preventDefault();event.stopPropagation();openAttest('prayer_leader_assigned')"><i class="hgi-stroke hgi-user-check-01"></i><span><b>Prayer leader assigned</b> · Sep 2</span></button></div>
       </a>
       <a class="card ministry-card" data-size="sm">
         <div class="row between"><span class="m-icon tone-violet"><i class="hgi-stroke hgi-user-multiple"></i></span><span class="badge" data-status="attention" data-size="sm">Gaps</span></div>
@@ -3046,6 +3084,7 @@ body[data-shell="bare"] .main { max-width: none; }
       <button class="btn" data-variant="primary"><i class="hgi-stroke hgi-loading-03"></i>Run new assessment</button>
     </div>
   </header>
+  <nav class="intel-tabs" aria-label="Plant Intelligence views"><a href="#/intelligence" aria-current="page">Overview</a><a href="#/intelligence/attestations">Attestations <span class="count">3</span></a></nav>
 
   <div class="grid" style="grid-template-columns: 1.9fr 1.1fr; align-items: stretch">
     <div class="card">
@@ -3079,8 +3118,8 @@ body[data-shell="bare"] .main { max-width: none; }
     <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-group"></i></span><span class="lens-name">Shared ownership</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">8 core members host or lead part of a meeting.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
     <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-user-multiple"></i></span><span class="lens-name">Critical mass</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">34 committed adults. No new commitment in 21 days.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
     <div class="lens" data-state="concern"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-link-01"></i></span><span class="lens-name">Core group cohesion</span><span class="badge" data-size="sm" data-status="risk">Concern</span></div><div class="lens-note">7 committed adults (21%) have not attended in 28 days.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
-    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-hand-prayer"></i></span><span class="lens-name">Prayer</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Weekly prayer gathering. Reaffirm soon, the answer is 34 days old.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-user-check-01"></i>Attested 34 d ago</span></div></div>
-    <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-coins-01"></i></span><span class="lens-name">Generosity and finance</span><span class="badge" data-size="sm" data-status="unknown">Unknown</span></div><div class="lens-note">No giving or budget answer yet. Unknown is not the same as weak.</div><div><button class="btn" data-variant="secondary" data-size="sm">Answer 3 questions</button></div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div><span class="evidence">No evidence yet</span></div></div>
+    <div class="lens" data-state="positive"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-hand-prayer"></i></span><span class="lens-name">Prayer</span><span class="badge" data-size="sm" data-status="positive">Strong</span></div><div class="lens-note">Weekly prayer gathering. The rhythm answer is 34 days old and needs renewing.</div><div><button class="btn" data-variant="secondary" data-size="sm" onclick="openAttest('prayer_rhythm_established')">Renew answer</button></div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span data-on></span><span data-on></span></div><span class="evidence"><i class="hgi-stroke hgi-user-check-01"></i>Attested 34 d ago</span></div></div>
+    <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-coins-01"></i></span><span class="lens-name">Generosity and finance</span><span class="badge" data-size="sm" data-status="unknown">Unknown</span></div><div class="lens-note">No giving or budget answer yet. Unknown is not the same as weak.</div><div><a class="btn" data-variant="secondary" data-size="sm" href="#/intelligence/attestations">Answer 2 questions</a></div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div><span class="evidence">No evidence yet</span></div></div>
     <div class="lens" data-state="watch"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-crown"></i></span><span class="lens-name">Emerging leadership</span><span class="badge" data-size="sm" data-status="attention">Watch</span></div><div class="lens-note">8 leaders for 10 ministries. Kids and Students have none.</div><div class="lens-foot"><div class="lens-meter"><span data-on></span><span data-on></span><span></span><span></span></div><span class="evidence"><i class="hgi-stroke hgi-analytics-01"></i>Measured</span></div></div>
     <div class="lens" data-state="unknown"><div class="lens-head"><span class="lens-icon"><i class="hgi-stroke hgi-graduation-scroll"></i></span><span class="lens-name">Comprehensive training</span><span class="badge" data-size="sm" data-status="unknown">Not raised</span></div><div class="lens-note">Not assessed in Phase 1. It becomes a focus in Phase 3.</div><div class="lens-foot"><div class="lens-meter"><span></span><span></span><span></span><span></span></div><span class="evidence">Later phase</span></div></div>
   </div>
@@ -3180,6 +3219,10 @@ body[data-shell="bare"] .main { max-width: none; }
     </div>
 
     <div class="stack" style="gap:20px">
+      <div class="card">
+        <div class="card-header"><div class="grow"><div class="card-title sm">Launch attestations</div><div class="card-description">Your statements for launch readiness</div></div><a class="btn" data-variant="ghost" data-size="sm" href="#/intelligence/attestations">All</a></div>
+        <div class="stack" style="gap:8px"><button class="att-chip" data-v="none" onclick="event.preventDefault();event.stopPropagation();openAttest('financial_base_established')"><i class="hgi-stroke hgi-alert-circle"></i><span><b>Launch funding viable</b> · not answered</span></button><button class="att-chip" data-v="no" onclick="event.preventDefault();event.stopPropagation();openAttest('systems_tested')"><i class="hgi-stroke hgi-alert-circle"></i><span><b>Launch systems tested</b> · not yet, Oct 1</span></button></div>
+      </div>
       <div class="card">
         <div class="card-header"><div class="grow"><div class="card-title sm">Launch Sunday outcome</div><div class="card-description">Opens on Mar 14. Recording it does not change your phase.</div></div><span class="card-icon tone-ink" style="width:36px;height:36px"><i class="hgi-stroke hgi-lock-key" style="font-size:17px"></i></span></div>
         <div class="stack gap-2">
@@ -3794,6 +3837,11 @@ body[data-shell="bare"] .main { max-width: none; }
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Evidence coverage</td><td><code class="k">&lt;CoverageBar&gt;</code></td><td class="muted t-sm">Category, bar, n of total</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Data</td><td class="cell-title">Area table</td><td><code class="k">&lt;AreaTable&gt;</code></td><td class="muted t-sm">Area, plants, sharing, lens badges, gap</td><td class="muted t-sm">minimum 2 plants</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Table</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Lens plants dialog</td><td><code class="k">&lt;LensPlantsDialog lens&gt;</code></td><td class="muted t-sm">Lens state, groups by state, plant rows (name, area, phase, reason, link), not-shared group</td><td class="muted t-sm">scope all/state/metro</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Attestation row</td><td><code class="k">&lt;AttestationRow key&gt;</code></td><td class="muted t-sm">Question, description, answer, attestor and date, renewal badge, also-on link, action</td><td class="muted t-sm">answer yes/no/unsure/none · renew state</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Attestation chip</td><td><code class="k">&lt;AttestChip key&gt;</code></td><td class="muted t-sm">Icon, label, short state; opens the answer dialog</td><td class="muted t-sm">answer</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Attestation dialog</td><td><code class="k">&lt;AttestDialog key&gt;</code></td><td class="muted t-sm">Question, answer choice, true-as-of date, detail, reference, history</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Overlays</td><td class="cell-title">Renewal pass</td><td><code class="k">&lt;RenewDialog&gt;</code></td><td class="muted t-sm">Monthly attestations with an answer each</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
+<tr><td class="faint t-sm">Layout</td><td class="cell-title">Plant Intelligence tabs</td><td><code class="k">&lt;IntelTabs&gt;</code></td><td class="muted t-sm">Overview, Attestations with count</td><td class="muted t-sm">current</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Tabs</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Feedback dialog</td><td><code class="k">&lt;FeedbackDialog&gt;</code></td><td class="muted t-sm">Type, Description, Page details, Sent state</td><td class="muted t-sm">type bug/suggestion/question/other</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Guide panel</td><td><code class="k">&lt;GuidePanel&gt;</code></td><td class="muted t-sm">Article, Help fallback, Footer</td><td class="muted t-sm">kind article/help</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Sheet</span></td></tr>
 <tr><td class="faint t-sm">Content</td><td class="cell-title">How-to steps</td><td><code class="k">&lt;HowTo.Steps&gt;</code></td><td class="muted t-sm">Step, UI reference</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -4288,6 +4336,29 @@ body[data-shell="bare"] .main { max-width: none; }
   </div>
 </section>
 
+
+<!-- =================================================================
+     PAGE: ATTESTATIONS  (#/intelligence/attestations) · PD-040 HumanAttestation, seven v2 keys
+     ================================================================= -->
+<section class="page" data-page="attestations">
+  <header class="page-header">
+    <div class="titles">
+      <h1 class="page-title xl">Plant Intelligence</h1>
+      <p class="page-sub">Some evidence only you can give. Each answer is your dated statement. Evry never answers for you.</p>
+    </div>
+    <div class="page-actions"><button class="btn" data-variant="primary" data-edit onclick="openDialog('renew-dialog')"><i class="hgi-stroke hgi-refresh"></i>Renew monthly answers</button></div>
+  </header>
+  <nav class="intel-tabs" aria-label="Plant Intelligence views"><a href="#/intelligence">Overview</a><a href="#/intelligence/attestations" aria-current="page">Attestations <span class="count">3</span></a></nav>
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card" data-size="sm"><div class="stat-label">Attestations</div><div class="stat-value">9</div><div class="faint t-sm mt-2">For your current phase</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Current</div><div class="stat-value">6</div><div class="faint t-sm mt-2">Answered and up to date</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Needs renewing</div><div class="stat-value" style="color:var(--ef-amber-display)">1</div><div class="faint t-sm mt-2">Monthly answers older than 30 days</div></div>
+    <div class="card" data-size="sm"><div class="stat-label">Not answered</div><div class="stat-value" style="color:var(--ef-amber-display)">2</div><div class="faint t-sm mt-2">Shown as Unknown, never as no</div></div>
+  </div>
+  <div id="att-groups"></div>
+  <div class="card" data-variant="callout" data-tone="ink"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-file-02"></i></span>Core values moved</div><p class="callout-text t-sm">Core values used to be a yes or no answer here. They now come from your saved Core values document, so the document is the evidence. <a href="#/documents" style="text-decoration:underline">Open Documents</a></p></div>
+</section>
+
 <section class="page" data-page="stub">
   <header class="page-header"><div class="titles"><h1 class="page-title xl" data-stub-title>Section</h1><p class="page-sub" data-stub-sub></p></div></header>
   <div class="card"><div class="empty" style="padding:70px 24px"><div class="e-art"><i data-stub-icon class="hgi-stroke hgi-rocket-01"></i></div><div class="card-title sm">Not designed in this pass</div><p class="muted" style="max-width:360px">This screen uses the same kit. It is out of scope for the first visual pass.</p><a class="btn" data-variant="primary" data-size="sm" href="#/components" style="margin-top:8px">See the components</a></div></div>
@@ -4366,7 +4437,7 @@ body[data-shell="bare"] .main { max-width: none; }
           <h2 style="font-size:26px">Church profile</h2><p class="muted mt-2">Used in emails, documents and Plant Intelligence.</p>
           <div class="mt-6">
             <div class="set-row"><div><div class="sl">Name</div><div class="sd">Shown on every document.</div></div><div class="input"><input value="Harvest Point Church"></div></div>
-            <div class="set-row"><div><div class="sl">Area</div><div class="sd">The place you are planting in.</div></div><div class="grid g-2" style="gap:10px"><div class="input"><input value="Hyde Park"></div><div class="input"><input value="Austin, Texas"></div></div></div>
+            <div class="set-row"><div><div class="sl">Area</div><div class="sd">The place you are planting in.</div><div class="mt-2"><button class="att-chip" data-v="yes" onclick="event.preventDefault();event.stopPropagation();openAttest('planting_area_chosen')"><i class="hgi-stroke hgi-user-check-01"></i><span><b>Planting area attested</b> · Jun 10</span></button></div></div><div class="grid g-2" style="gap:10px"><div class="input"><input value="Hyde Park"></div><div class="input"><input value="Austin, Texas"></div></div></div>
             <div class="set-row"><div><div class="sl">Time zone</div><div class="sd">Sets due dates, reminders and the start of each week.</div></div><div class="input select"><span>Central time (Chicago)</span><i class="hgi-stroke hgi-arrow-down-01"></i></div></div>
             <div class="set-row"><div><div class="sl">Inactive after</div><div class="sd">People with no contact for this long get an inactive badge.</div></div><div class="segmented" style="width:fit-content"><button>7 days</button><button aria-selected="true">14 days</button><button>21 days</button><button>30 days</button></div></div>
             <div class="set-row"><div><div class="sl">Daily digest</div><div class="sd">Open items sent to each seat.</div></div><div class="row gap-3"><div class="input select" style="width:160px"><span>7:00 am</span><i class="hgi-stroke hgi-arrow-down-01"></i></div><div class="segmented"><button aria-selected="true">Weekdays</button><button>Every day</button><button>Mondays</button></div></div></div>
@@ -4408,6 +4479,7 @@ body[data-shell="bare"] .main { max-width: none; }
           <div class="card mt-6" data-size="sm">
             <div class="row gap-3"><span class="card-icon tone-blue"><i class="hgi-stroke hgi-hierarchy"></i></span><div class="grow"><div style="font-weight:600">Austin Sending Network</div><div class="faint t-sm">Sending church · connected Mar 2</div></div><button class="btn" data-variant="ghost" data-size="sm">Leave</button></div>
             <div class="list mt-4">
+              <div class="kv"><div><div style="font-weight:500">Sending relationship</div><div class="faint t-sm">Counts as evidence for Plant Intelligence</div></div><button class="att-chip" data-v="yes" onclick="event.preventDefault();event.stopPropagation();openAttest('sending_relationship')"><i class="hgi-stroke hgi-user-check-01"></i><span><b>Attested</b> · Jan 15</span></button></div>
               <div class="kv"><div><div style="font-weight:500">Phase and launch date</div><div class="faint t-sm">Where you are and when you launch</div></div><button class="switch" aria-checked="true"></button></div>
               <div class="kv"><div><div style="font-weight:500">Core group size</div><div class="faint t-sm">A count only, no names</div></div><button class="switch" aria-checked="true"></button></div>
               <div class="kv"><div><div style="font-weight:500">Plant Intelligence findings</div><div class="faint t-sm">Shown to you first, then shared</div></div><button class="switch" aria-checked="false"></button></div>
@@ -4538,6 +4610,39 @@ body[data-shell="bare"] .main { max-width: none; }
   </div></div>
 </div>
 
+
+<!-- ================= ATTESTATION DIALOG and RENEWAL PASS ================= -->
+<div class="modal" id="attest-dialog" data-open="false" role="dialog" aria-modal="true" aria-labelledby="ad-q" onclick="if (event.target === this) closeDialog('attest-dialog')">
+  <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body">
+    <div class="modal-head"><div class="grow"><div class="faint t-sm" id="ad-group">Prayer</div><h2 id="ad-q" style="font-size:24px;margin-top:4px">Corporate prayer rhythm established</h2><p class="muted mt-2" style="margin-bottom:0" id="ad-d"></p></div><button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeDialog('attest-dialog')"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+    <div class="guide-section-h">Your answer</div>
+    <div class="att-choice" id="ad-choice" role="radiogroup" aria-label="Answer"><button data-v="yes" aria-pressed="false"><i class="hgi-stroke hgi-tick-02"></i>Yes</button><button data-v="no" aria-pressed="false"><i class="hgi-stroke hgi-cancel-01"></i>Not yet</button><button data-v="unsure" aria-pressed="false"><i class="hgi-stroke hgi-help-circle"></i>Not sure</button></div>
+    <div class="grid g-2 mt-4" style="gap:12px">
+      <div class="field"><label class="field-label">True as of</label><div class="input"><i class="hgi-stroke hgi-calendar-03"></i><input value="Oct 11, 2026"></div></div>
+      <div class="field"><label class="field-label">Detail (optional)</label><div class="input"><input id="ad-detail" placeholder="For example, who or when"></div></div>
+    </div>
+    <div class="field mt-3"><label class="field-label">Reference (optional)</label><div class="input"><i class="hgi-stroke hgi-link-01"></i><input placeholder="A document, meeting or note that supports it"></div></div>
+    <p class="faint t-sm" id="ad-renew" style="margin:12px 0 0"></p>
+    <div class="guide-section-h">History</div>
+    <div id="ad-history"></div>
+  </div>
+  <div class="modal-foot"><span class="faint t-sm grow">Recorded as your statement, with the date you choose.</span><button class="btn" data-variant="ghost" onclick="closeDialog('attest-dialog')">Cancel</button><button class="btn" data-variant="primary" onclick="closeDialog('attest-dialog')">Save answer</button></div>
+  </div></div>
+</div>
+
+<div class="modal" id="renew-dialog" data-open="false" role="dialog" aria-modal="true" aria-labelledby="rn-title" onclick="if (event.target === this) closeDialog('renew-dialog')">
+  <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body">
+    <div class="modal-head"><div class="grow"><h2 id="rn-title" style="font-size:24px">Renew your monthly answers</h2><p class="muted mt-2" style="margin-bottom:0">These three are renewed every 30 days. An old answer keeps its value and shows its age until you renew it.</p></div><button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeDialog('renew-dialog')"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+    <div class="mt-4">
+      <div class="renew-row"><div><div class="att-q">Corporate prayer rhythm established</div><div class="att-d">Last: Yes · 34 days ago · <span style="color:var(--ef-amber-600);font-weight:600">needs renewing</span></div></div><div class="segmented"><button aria-selected="true">Yes</button><button aria-selected="false">Not yet</button><button aria-selected="false">Not sure</button></div></div>
+      <div class="renew-row"><div><div class="att-q">Prayer woven into gatherings</div><div class="att-d">Last: Yes · 12 days ago · current until Oct 29</div></div><div class="segmented"><button aria-selected="true">Yes</button><button aria-selected="false">Not yet</button><button aria-selected="false">Not sure</button></div></div>
+      <div class="renew-row"><div><div class="att-q">Core group giving sacrificially</div><div class="att-d">Not answered yet</div></div><div class="segmented"><button aria-selected="false">Yes</button><button aria-selected="false">Not yet</button><button aria-selected="false">Not sure</button></div></div>
+    </div>
+  </div>
+  <div class="modal-foot"><span class="faint t-sm grow">Saved as true as of today, Oct 11.</span><button class="btn" data-variant="ghost" onclick="closeDialog('renew-dialog')">Cancel</button><button class="btn" data-variant="primary" onclick="closeDialog('renew-dialog')">Save answers</button></div>
+  </div></div>
+</div>
+
 <div class="scrim" id="scrim" onclick="closeEvry(); closeGuide()"></div>
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
@@ -4603,7 +4708,7 @@ body[data-shell="bare"] .main { max-width: none; }
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
   'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
-  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network']
+  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network'], 'intelligence/attestations': ['attestations', 'intelligence']
 };
 const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
@@ -5076,6 +5181,40 @@ function setScope(k) {
 }
 document.getElementById('scope-bar').addEventListener('click', e => { const b = e.target.closest('[data-scope]'); if (b) setScope(b.dataset.scope); });
 setScope('all');
+
+
+/* Attestations: one record per key, edited from the Attestations tab and from links in context. */
+const ATT = {"prayer_leader_assigned": {"group": "Prayer", "q": "Prayer leader assigned", "d": "Someone owns the prayer covering for the plant.", "v": "yes", "who": "Daniel Reyes", "date": "Sep 2", "age": 39, "renew": null, "detail": "Grace Kim", "also": "Ministries \u00b7 Prayer", "href": "#/ministries"}, "prayer_rhythm_established": {"group": "Prayer", "q": "Corporate prayer rhythm established", "d": "Your core group has a regular, recurring rhythm of praying together.", "v": "yes", "who": "Daniel Reyes", "date": "Sep 7", "age": 34, "renew": 30, "detail": "Weekly, Thursday evenings", "also": null, "href": null}, "prayer_in_gatherings": {"group": "Prayer", "q": "Prayer woven into gatherings", "d": "Prayer is a regular part of core-group and leadership gatherings.", "v": "yes", "who": "Daniel Reyes", "date": "Sep 29", "age": 12, "renew": 30, "detail": "", "also": "Meetings", "href": "#/meetings"}, "core_group_giving": {"group": "Generosity and finance", "q": "Core group giving sacrificially", "d": "People in your core group are learning to give sacrificially and regularly.", "v": "none", "who": "", "date": "", "age": null, "renew": 30, "detail": "", "also": null, "href": null}, "financial_base_established": {"group": "Generosity and finance", "q": "Launch funding viable", "d": "Funds and support available now are enough to launch and sustain ministry.", "v": "none", "who": "", "date": "", "age": null, "renew": null, "detail": "", "also": "Launch", "href": "#/launch"}, "systems_tested": {"group": "Launch readiness", "q": "Launch systems tested", "d": "A real dry run of check-in, giving and gathering logistics.", "v": "no", "who": "Daniel Reyes", "date": "Oct 1", "age": 10, "renew": null, "detail": "Giving was not tested yet", "also": "Launch", "href": "#/launch"}, "worship_leader_agreed": {"group": "Leadership", "q": "Worship leader agreed", "d": "A named person agreed to lead worship. An active worship assignment also counts.", "v": "yes", "who": "Daniel Reyes", "date": "Aug 30", "age": 42, "renew": null, "detail": "Tom Baker", "also": "Ministries \u00b7 Worship", "href": "#/ministries"}, "planting_area_chosen": {"group": "Foundations", "q": "Planting area chosen", "d": "The community, neighborhood or town you are planting in.", "v": "yes", "who": "Daniel Reyes", "date": "Jun 10", "age": 123, "renew": null, "detail": "Hyde Park, Austin", "also": "Settings \u00b7 Church profile", "href": "#/settings/church"}, "sending_relationship": {"group": "Foundations", "q": "Sending relationship identified", "d": "A real sending church or network stands behind this plant.", "v": "yes", "who": "Daniel Reyes", "date": "Jan 15", "age": 269, "renew": null, "detail": "Austin Sending Network", "also": "Settings \u00b7 Sharing", "href": "#/settings/sharing"}};
+const ATT_GROUPS = [["Prayer", "hgi-hand-prayer"], ["Generosity and finance", "hgi-coins-01"], ["Launch readiness", "hgi-start-up-02"], ["Leadership", "hgi-crown"], ["Foundations", "hgi-maps-location-01"]];
+const ATT_LABEL = { yes: 'Yes', no: 'Not yet', unsure: 'Not sure', none: 'Not answered' };
+function attRenewState(a) {
+  if (a.v === 'none') return ['Not answered', 'unknown'];
+  if (!a.renew) return ['Does not expire', 'plain'];
+  if (a.age > a.renew) return ['Needs renewing', 'attention'];
+  return ['Current for ' + (a.renew - a.age) + ' more days', 'positive'];
+}
+function attWhen(a) { return a.v === 'none' ? '<span class="faint">No answer yet</span>' : `<b>${a.who}</b><br>${a.date} · ${a.age} days ago${a.detail ? '<br>' + a.detail : ''}`; }
+function renderAttestations() {
+  const root = document.getElementById('att-groups'); if (!root) return;
+  root.innerHTML = ATT_GROUPS.map(([g, ic]) => {
+    const rows = Object.entries(ATT).filter(([, a]) => a.group === g);
+    return `<div class="att-group"><div class="att-group-h"><span class="lens-icon"><i class="hgi-stroke ${ic}"></i></span><h2 class="card-title sm">${g}</h2></div><div class="card" style="padding:4px 0">${rows.map(([k, a]) => { const [rs, rt] = attRenewState(a); return `<div class="att-row"><div><div class="att-q">${a.q}</div><div class="att-d">${a.d}</div>${a.also ? `<div class="att-also"><i class="hgi-stroke hgi-link-01"></i>Also on <a href="${a.href}">${a.also}</a></div>` : ''}</div><div><span class="att-ans" data-v="${a.v}">${ATT_LABEL[a.v]}</span></div><div class="att-when">${attWhen(a)}${a.v === 'none' ? '' : `<div class="mt-2"><span class="badge" data-size="sm" ${rt === 'plain' ? 'data-plain="true"' : `data-status="${rt}"`}>${rs}</span></div>`}</div><div><button data-edit class="btn" data-variant="${a.v === 'none' || (a.renew && a.age > a.renew) ? 'primary' : 'secondary'}" data-size="sm" onclick="openAttest('${k}')">${a.v === 'none' ? 'Answer' : (a.renew && a.age > a.renew ? 'Renew' : 'Update')}</button></div></div>`; }).join('')}</div></div>`;
+  }).join('');
+}
+function openAttest(k) {
+  const a = ATT[k];
+  document.getElementById('ad-group').textContent = a.group;
+  document.getElementById('ad-q').textContent = a.q;
+  document.getElementById('ad-d').textContent = a.d;
+  document.querySelectorAll('#ad-choice button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === a.v));
+  document.getElementById('ad-detail').value = a.detail || '';
+  document.getElementById('ad-renew').textContent = a.renew ? 'Renew this answer every 30 days. After that it keeps its value and shows its age.' : 'This answer does not expire. Update it if anything changes.';
+  document.getElementById('ad-history').innerHTML = a.v === 'none' ? '<p class="faint t-sm" style="margin:0">No answers yet. Not answered counts as Unknown, never as no.</p>' : `<div class="rev-row" data-current><span class="dot"></span><div><div style="font-weight:500">${ATT_LABEL[a.v]}${a.detail ? ' · ' + a.detail : ''}</div><div class="faint t-xs">${a.who} · ${a.date}</div></div><span class="faint t-xs">Current</span></div>${k === 'prayer_rhythm_established' ? '<div class="rev-row"><span class="dot"></span><div><div style="font-weight:500">Yes · Every other week</div><div class="faint t-xs">Daniel Reyes · Jul 30</div></div><span class="faint t-xs">Replaced</span></div>' : ''}`;
+  openDialog('attest-dialog');
+}
+document.getElementById('ad-choice').addEventListener('click', e => { const b = e.target.closest('button'); if (b) document.querySelectorAll('#ad-choice button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ['attest-dialog', 'renew-dialog'].forEach(id => { const d = document.getElementById(id); if (d && d.dataset.open === 'true') closeDialog(id); }); });
+renderAttestations();
 
 function toggleCollapse() { const f = document.getElementById('frame'); f.dataset.collapsed = f.dataset.collapsed === 'true' ? 'false' : 'true'; }
 document.addEventListener('keydown', e => {
