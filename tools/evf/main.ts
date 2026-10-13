@@ -3,7 +3,7 @@ import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, parseTask } from "./lib.ts";
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
-import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage } from "./feedback.ts";
+import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
 import { githubSetup, listShipped, prOpen, ship } from "./ship.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { verify } from "./verify.ts";
@@ -17,7 +17,7 @@ Planning (coordinator)
   evf shipped [--clear <task> ...]                            merged tasks waiting for a progress patch
 
 Task loop (implementor, ui-designer)
-  evf task start <task> [--ui-tier UI-n] [--no-stack] [--allow-unready] [--over-limit]
+  evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
   evf stack up|down|status <task>
   evf traces <task> [args...]        evf logs <task> [args...]
   evf verify <task> [--quick]                                 author proof
@@ -28,9 +28,10 @@ Verification (verifier)
   evf ship <task> [--max-updates N]                           report status and squash-merge
 
 Feedback desk (public feedback repo)
+  evf feedback queue [--json]                                 intake, due backlog and recovery
   evf feedback pull [--json]                                  untriaged issues filed by the app bot
   evf feedback triage <n> --class <p0..p3|feature-small|feature-large|duplicate|question|spam>
-        --reason "..." [--area <module>] [--feature <ID>] [--wp WP-NNN] [--duplicate-of <n>] [--reply "..."]
+        --reason "private reason" [--area <module>] [--feature <ID>] [--wp WP-NNN] [--duplicate-of <n>] [--reply "..."]
   evf feedback status [--json]   evf feedback ideas   evf feedback promote <n>   evf feedback labels
 
 Upkeep
@@ -75,6 +76,7 @@ function main(argv: string[]): number {
         if (!Number.isInteger(n) || n <= 0) throw new EvfError("Give the public issue number.");
         return n;
       };
+      if (sub === "queue") { console.log(JSON.stringify(feedbackQueue(root))); return 0; }
       if (sub === "pull") return feedbackPull(root, { json: flag(args, "--json") });
       if (sub === "status") return feedbackStatus(root, flag(args, "--json"));
       if (sub === "labels") return feedbackLabels(root);

@@ -1,25 +1,16 @@
 ---
 name: ship
-description: "Apply when a task is ready to merge. The author opens the PR with `evf pr open`; only the cross-model verifier merges with `evf ship`. No human review; the evf/verify status on the exact head commit is the merge bar."
+description: "Apply when a reviewed task is ready to open or merge a PR. Require current authorization, exact-head full independent scoped proof, verified protection and human review for feedback; ordinary merge policy remains pending."
 ---
 
 # Ship
 
-Every task ships as one PR, squash-merged into `main`. The PR is a record, not a review gate.
+The author opens one PR only after explicit external authorization and current full author proof. The verifier supplies a distinct trusted provider identity/model family and reproduces the reviewed current-stage case/gate portions at the same head/current main/policy fingerprint. Tooling checks do not qualify application acceptance.
 
-- **Author:** `evf pr open <task>` needs a passing, clean author proof for HEAD. It pushes the
-  branch, opens or updates the PR with the proof table, and sets `evf/verify` to pending. Edit
-  the PR body section "Rulings and shared changes" before you hand off.
-- **Verifier:** `evf ship <task>` needs your passing verifier proof. It reports `evf/verify`
-  success on the head commit and squash-merges. If GitHub says the branch is behind `main`, it
-  updates the branch, runs the quick check as verifier and tries again. A failed quick check
-  sets `evf/verify` to failure and stops.
-- After the merge, `evf ship` saves a progress record (`evf shipped`), stops the stack and
-  removes the task worktree. Call `ws.git.unregisterRoot` with the printed path.
+`evf ship` refuses ordinary autonomous merge until the owner chooses that policy. Feedback requires a configured human's approval at the exact final head, no outstanding requested changes, strict enforced branch protection and full author/verifier proofs. Comments/pending reviews do not erase a prior requested change. Never merge your own work, push directly to main or force-push.
 
-Rules:
+If main/branch changes, stop for new full author/verifier proof and renewed final-head human review. Quick checks support iteration and cannot reuse historical full proof. Prototypes stay drafts for owner product review.
 
-- Never merge your own work. Never push to `main` directly. Never force-push.
-- Fixes after a failed verification go on the same branch and PR.
-- Unfinished features merge dark behind a flag in the typed flag registry. The task that turns
-  the feature on removes the flag.
+Shipped records retain exact proven/deferred portions and merge commit; `package_completion` remains false. Package owners maintain progress at start, blockers, reviewed milestones and handoff. Only the integration owner applies reviewed canonical patches, checks all parts/full closure gates, refreshes the explorer and verifies it offline. `evf shipped --clear` acknowledges the inbox and preserves provenance.
+
+Protection configuration and paid providers remain separate owner actions. `evf github setup` reports a blocked policy receipt and performs no writes. See `tools/evf/README.md` for remaining setup and recovery boundaries.

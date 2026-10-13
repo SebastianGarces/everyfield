@@ -6,9 +6,10 @@ Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf d
 
 ## How work flows
 
-Intent coordinators plan and delegate. Every task runs in its own git worktree with its own
-stack, ships as one PR, and is merged by a verifier from the other model family after it
-reproduces the proof. There is no human review step. Proof is the merge bar.
+Intent coordinators plan and delegate. Each implementation task uses its own worktree and
+reviewed proof plan. Current authorization and prerequisite gates apply before execution.
+Feedback implementation PRs require human approval at the final head and an independently
+attested full verifier proof. Ordinary PR merge authority awaits an explicit owner policy.
 
 1. `bin/evf task start <task>`: worktree, stack and your task brief. Read the brief first.
 2. Build inside your owning paths. Tests follow the `test-standard` skill.
@@ -25,7 +26,7 @@ Run `bin/evf help` for every command.
 - Your shell starts in the workspace root. Task work happens in `.worktrees/<task>`; use the path
   `evf` prints or `git -C`. Never commit task work in the workspace root.
 - All UI work belongs to the `ui-designer` specialist on Opus 5.5.
-- A claim that something works needs a passing `evf verify` proof. A screenshot or a 200 is not proof.
+- Name the proof kind and scope. Tooling checks establish tooling behavior; application acceptance needs the reviewed runner, selected case/gate portions and real applicable layers.
 - Rule reversible ambiguities yourself and record them (skill `decisions`). Do not wait.
 - Keep evidence, screenshots and traces out of the repository. `evf` stores them under the git common dir.
 - Do not install a second copy of a rule in a host-specific hook or config. Put it in `evf` or a skill.
@@ -108,4 +109,4 @@ These instructions are additive and concern only work-package progress and the o
 ## Current documentation context
 Read docs/START-HERE.md and generate the assigned package context from docs/plan/context-manifest.json using docs/package-context.py. Current product chapters, catalogs and target schema directly define behavior; do not reconstruct a prior decision chronology or require v2. Read original reference passages and approved design sections on demand. This repository has no superseded-material archive. External evidence is an investigation path, not a package prerequisite. Preserve original reference bytes, unrelated assets, and design/everyfield-ui.html. Documentation status is separate from implementation authorization and evidence.
 
-The received workflow still requires reconciliation under G-WORKFLOW. Its old brief/ruling loaders and no-human-review routing are not authority to execute it or override current approved feedback PR review. This local documentation/tooling task is authorized; v3 application implementation and external operations remain separately gated.
+The received workflow is under independent local tooling reconciliation. G-WORKFLOW remains open until the reviewed runner/setup contract is supplied; this separately authorized local task does not authorize v3 implementation, paid providers, publication or protection configuration. Read tools/evf/README.md for proof, feedback and recovery boundaries.

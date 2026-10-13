@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
@@ -11,6 +12,7 @@ export type CheckDef = {
 };
 
 export type StackDef = {
+  usesPaidProviders: boolean;
   up?: Argv;
   down?: Argv;
   status?: Argv;
@@ -50,28 +52,17 @@ export type Dag = {
 };
 
 export type AcceptanceEntry = {
-  id: string;
-  shared_gate_id: string;
-  feature_id: string;
-  spec: string;
-  work_packages: string[];
-  positive_obligation: string;
-  operations?: string[];
-  validation_obligations?: string[];
-  permission_denial_obligations?: string[];
-  state_history_obligations?: string[];
-  failure_recovery_obligations?: string[];
-  required_test_layers?: string[];
+  id: string; shared_gate_id: string; feature_id: string;
+  requirement_ids: string[]; case_ids: string[]; work_packages: string[];
+  operations: string[]; required_test_layers: string[];
 };
-
-export type Ruling = {
-  id: string;
-  decision_id: string;
-  title: string;
-  ruling: string;
-  work_packages: string[];
-  status: string;
+export type Catalog = {
+  feature_source: string; acceptance_source: string; operation_source: string;
+  requirement_files: string[]; case_files: string[]; current_alias_source: string;
 };
+export type Requirement = { id: string; text: string; spec: string };
+export type Case = { id: string; fixture: string; expected: string; work_packages: string[] };
+export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; [key: string]: unknown };
 
 export type Part = "contract" | "api" | "ui" | null;
 
@@ -142,17 +133,49 @@ export function loadConfig(root: string): Config {
 }
 
 export function loadDag(root: string): Dag {
-  return readJson<Dag>(join(root, "docs/plan/dag.json"));
+  const dag = readJson<Dag>(join(root, "docs/plan/dag.json"));
+  const by = new Map(dag.packages.map(p => [p.id, p]));
+  const visiting = new Set<string>(), done = new Set<string>();
+  const visit = (id: string) => {
+    if (visiting.has(id)) fail(`Cyclic package dependency at ${id}.`);
+    if (done.has(id)) return;
+    const p = by.get(id); if (!p) fail(`Unknown prerequisite ${id}.`);
+    visiting.add(id); p.depends_on.forEach(visit); visiting.delete(id); done.add(id);
+  };
+  dag.packages.forEach(p => visit(p.id));
+  return dag;
 }
 
-export function loadRegistry(root: string): AcceptanceEntry[] {
-  const path = join(root, "docs/evidence/acceptance-registry.json");
-  return existsSync(path) ? readJson<AcceptanceEntry[]>(path) : [];
+export function currentCatalog(root: string): { catalog: Catalog; requirements: Map<string, Requirement>; cases: Map<string, Case>; registry: AcceptanceEntry[] } {
+  const catalog = readJson<Catalog>(join(root, "docs/catalog/index.json"));
+  const requirements = new Map(catalog.requirement_files.flatMap(path => readJson<{requirements: Requirement[]}>(join(root,path)).requirements).map(r => [r.id,r]));
+  const cases = new Map(catalog.case_files.flatMap(path => readJson<{cases: Case[]}>(join(root,path)).cases).map(r => [r.id,r]));
+  const registry = readJson<AcceptanceEntry[]>(join(root,catalog.acceptance_source));
+  if (!registry.length || !requirements.size || !cases.size) fail("Empty current context is not a valid implementation contract.");
+  for (const entry of registry) {
+    for (const id of entry.requirement_ids) if (!requirements.has(id)) fail(`Missing clause ${id} in ${entry.id}.`);
+    for (const id of entry.case_ids) if (!cases.has(id)) fail(`Missing case ${id} in ${entry.id}.`);
+  }
+  // These are current source contracts, even when no operation is selected by this task.
+  for (const path of [catalog.feature_source,catalog.operation_source,catalog.current_alias_source,'docs/catalog/shared-contracts.json','docs/schema/target.json','docs/plan/context-manifest.json']) readJson<unknown>(join(root,path));
+  return {catalog,requirements,cases,registry};
 }
-
-export function loadRulings(root: string): Ruling[] {
-  const path = join(root, "docs/decisions/user-rulings.json");
-  return existsSync(path) ? readJson<{ rulings: Ruling[] }>(path).rulings : [];
+export function loadRegistry(root: string): AcceptanceEntry[] { return currentCatalog(root).registry; }
+export function packageContext(root: string, wp: string): Context {
+  currentCatalog(root);
+  const check = run("python3", ["docs/package-context.py", "--check-manifest", "--root", root], {cwd:root});
+  if (check.code !== 0) fail(`Invalid current package context: ${check.stderr || check.stdout}`);
+  const manifest = readJson<{packages: Context[]}>(join(root,"docs/plan/context-manifest.json"));
+  const context = manifest.packages.find(p => p.id === wp);
+  if (!context) fail(`No current context for ${wp}.`);
+  return context;
+}
+/** Pin every committed policy/context byte; proof artifacts remain outside the checkout. */
+export function contractFingerprint(root: string): string {
+  const files = git(root,"ls-files","-z").split("\0").filter(p => p === 'AGENTS.md' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
+  const hash = createHash('sha256');
+  for (const path of files) hash.update(path+'\0').update(readFileSync(join(root,path))).update('\0');
+  return hash.digest('hex');
 }
 
 export function loadProgress(root: string): Record<string, { status: string }> {
@@ -181,16 +204,16 @@ export function findPackage(dag: Dag, wp: string): Package {
   return p;
 }
 
-const isWeb = (p: string) => p.startsWith("apps/web/");
+export const isUiPath = (p: string) => p.startsWith("apps/web/src/features/") || p.startsWith("apps/web/src/components/") || (p.startsWith("apps/web/src/app/") && !p.startsWith("apps/web/src/app/api/")) || p.startsWith("tests/browser/");
 const isContract = (p: string) => p.startsWith("packages/contracts/") || p.startsWith("tests/contracts/");
 
 /** Splits a package into the parts that ship as separate tasks. */
 export function partsOf(pkg: Package): Part[] {
-  const web = pkg.owning_paths.some(isWeb);
-  const nonWeb = pkg.owning_paths.some((p) => !isWeb(p));
+  const web = pkg.owning_paths.some(isUiPath);
+  const nonWeb = pkg.owning_paths.some((p) => !isUiPath(p));
   if (!web || !nonWeb) return [null];
   const contract = pkg.owning_paths.some(isContract);
-  const backend = pkg.owning_paths.some((p) => !isWeb(p) && !isContract(p));
+  const backend = pkg.owning_paths.some((p) => !isUiPath(p) && !isContract(p));
   const parts: Part[] = [];
   if (contract && backend) parts.push("contract");
   parts.push("api", "ui");
@@ -201,9 +224,9 @@ export function pathsForPart(pkg: Package, part: Part): string[] {
   const parts = partsOf(pkg);
   if (part === null) return pkg.owning_paths;
   if (!parts.includes(part)) fail(`${pkg.id} does not split into a "${part}" task. Valid: ${parts.map((p) => p ?? "(none)").join(", ")}.`);
-  if (part === "ui") return pkg.owning_paths.filter(isWeb);
+  if (part === "ui") return pkg.owning_paths.filter(isUiPath);
   if (part === "contract") return pkg.owning_paths.filter(isContract);
-  return pkg.owning_paths.filter((p) => !isWeb(p) && (parts.includes("contract") ? !isContract(p) : true));
+  return pkg.owning_paths.filter((p) => !isUiPath(p) && (parts.includes("contract") ? !isContract(p) : true));
 }
 
 export function hasRemote(root: string, cfg: Config): boolean {

@@ -10,7 +10,7 @@ large suite that nobody trusts slows every agent down, so each test must earn it
 
 ## Write a test only when one of these is true
 
-1. **Acceptance.** It proves a criterion from `docs/evidence/acceptance-registry.json`. Put the
+1. **Acceptance.** It proves a criterion from `docs/catalog/index.json and the selected current clauses/cases`. Put the
    shared gate ID in the test name: `AC-MTG-012: zero-attendee finalization creates one evaluation task`.
    `evf verify` selects acceptance tests by these IDs (`{acGrep}`).
 2. **Invariant.** It guards a rule the type system cannot hold: tenancy, permissions, privacy
@@ -51,6 +51,6 @@ fakes first (mail catcher, stubbed providers).
 
 - Every test name starts with `AC-`, `INV-` or `BUG-`. A test without one is a deletion candidate.
 - Each acceptance criterion needs a positive case, a denied-access case and an invalid-input or
-  failure case, as the registry entry lists. Cover them in as few tests as stay readable.
+  failure case, as the selected clauses/cases require. Cover them in as few tests as stay readable.
 - A flaky test is fixed or deleted the same day. Never retry a flaky test into a pass.
 - Deleting a useless test is a good change. Say why in the PR body.

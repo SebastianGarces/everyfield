@@ -13,8 +13,8 @@ wait for results. These are the EveryField additions.
 2. Integrate progress: `bin/evf shipped` lists merged tasks. Write their records into
    `docs/build-progress-updates/WP-NNN.json` per `docs/build-agent-workflow.md`, apply with
    `docs/update-build-explorer.py`, ship that as its own task PR, then `bin/evf shipped --clear <task>`.
-   Records with `package_id: null` are feedback fixes (`FB-<n>`); they change no package progress.
-   Clear them without a patch.
+   A split shipped record is a milestone, never automatic package completion. Record case/gate portions and deferred owners; full package closure needs all portions, parts and direct prerequisites. Records with `package_id: null` are feedback fixes (`FB-<n>`); they change no package progress.
+   Acknowledge them after reviewing the outcome; `--clear` retains provenance.
 3. Plan: `bin/evf plan <slice or WP IDs>` prints `@@@task` blocks with `dependsOn`,
    `conflictsWith` and effort. Paste them into the spec note. Do not hand-write task context.
 4. For each UI task, set the tier in its task note and run `bin/evf task brief <task> --ui-tier <tier>`.
@@ -39,9 +39,7 @@ UI tiers. When unsure, pick the higher tier.
 | UI-3 Design | A new pattern: data-dense views, multi-step flows, complex forms, heavy accessibility | `high` |
 | UI-4 Explore | No precedent. 2 or 3 live prototypes; Sebastian picks | `high` |
 
-Keep at most 3 Opus UI tasks running at once to protect the Claude plan. When Claude capacity is
-short, Sol may verify routine Sol tasks in a fresh session; Opus still verifies tenancy, privacy,
-migration and Evry tasks.
+Keep at most 3 Opus UI tasks running at once to protect the Claude plan. The default verifier uses a distinct provider identity and model family. A same-family capacity fallback needs an explicit reviewed operator policy before activation; never downgrade tenancy, privacy or Evry review silently.
 
 ## After an author finishes
 
@@ -63,3 +61,9 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-never-block-on-the-human/SKILL.md`
 - `.agents/skills/principle-separate-before-serializing-shared-state/SKILL.md`
 - `.agents/skills/principle-sequence-verifiable-units/SKILL.md`
+
+## Scope, gates and progress
+
+Use the current bounded packet and every selected page. Reviewed proof plans are installed in the root before task creation/rebase; task branches cannot mint their own proof authority. Separate current producer/native/contract portions from named later adapter portions for both cases and package gates. G-RUNTIME/G-RECOVERY are closure evidence, not prerequisites that prevent their producers starting; paid usage still requires its concrete G-SPEND approval.
+
+Package owners submit owned progress patches at start, blocker changes, reviewed milestones and handoff. The integration owner alone reviews/applies canonical progress, refreshes the offline explorer, checks it and records the integration commit. Acknowledged shipped records remain available for split prerequisites. Application kickoff, live services and ordinary merge policy remain separately gated. Feedback PR human review at the final head is mandatory.

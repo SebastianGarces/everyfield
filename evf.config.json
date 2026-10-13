@@ -7,11 +7,19 @@
   "stack": null,
   "checks": [
     {
-      "name": "evf-doctor",
+      "name": "workflow-regressions",
       "run": [
-        "bin/evf",
-        "doctor",
-        "--here"
+        "{node}",
+        "--test",
+        "tools/evf/tests/reconciliation.test.ts"
+      ]
+    },
+    {
+      "name": "current-context",
+      "run": [
+        "python3",
+        "docs/package-context.py",
+        "--check-manifest"
       ]
     },
     {
@@ -39,6 +47,27 @@
     "triageAuthors": [],
     "dailyFixLimit": 3,
     "internalLabel": "from-feedback",
-    "triageCron": "0 13 * * *"
+    "triageCron": "0 13 * * *",
+    "botAuthorId": null,
+    "triageActorIds": [],
+    "startApprovals": [],
+    "overLimitApprovals": [],
+    "ownerActorIds": [],
+    "promotionApprovals": [],
+    "replyApprovals": {},
+    "publicAreas": [],
+    "publicTemplates": []
+  },
+  "verification": {
+    "kind": "tooling",
+    "applicationQualified": false,
+    "attest": null,
+    "usesPaidProviders": false,
+    "proofPlans": {}
+  },
+  "mergePolicy": {
+    "ordinary": "pending-owner-decision",
+    "feedback": "human-reviewed",
+    "humanActorIds": []
   }
 }

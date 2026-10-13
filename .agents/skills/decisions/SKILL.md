@@ -10,12 +10,5 @@ task costs a day (`principle-never-block-on-the-human`).
 
 - **Code ruling** (naming, structure, a choice inside your owning paths): decide, and list it in
   the PR body under "Rulings and shared changes".
-- **Product ruling** (behavior the user sees, methodology, privacy): check
-  `docs/decisions/user-rulings.md` and the module spec first. If nothing covers it, choose the
-  option that preserves existing capability and is easiest to reverse. Add an entry to
-  `docs/decisions/user-rulings.json` and `user-rulings.md` with `status: "Proposed"`, the work
-  package IDs in `work_packages`, and your reasoning. Future task briefs for those packages
-  include it automatically. Sebastian accepts or changes proposed rulings later.
-- **Escalate** with `ws.agent.requestDiscussion` only for irreversible choices (data deletion,
-  external commitments), a conflict with an accepted ruling, or UI-4 prototype selection.
-  Continue with other work while you wait.
+- **Product ambiguity** (behavior, methodology, privacy): read the selected current clauses and original SME passages. Do not rewrite foundations, reconstruct old PD chains, recreate deleted decision registries, or treat a proposed amendment as permission. Record the concrete proposed change and affected feature/case/package IDs in the task review; accepted contract changes require owner/producer review before implementation. Continue independent authorized work while that decision is pending.
+- **Escalate** irreversible/external actions, a conflict with current approved behavior, sensitive scope or UI-4 selection through the existing owner channel. Local implementation naming/structure choices stay inside the current contract.

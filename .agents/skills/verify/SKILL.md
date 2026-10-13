@@ -1,45 +1,14 @@
 ---
 name: verify
-description: "Apply before you claim a task works, and when you verify another agent's task. Run `evf verify` against the running stack at a clean commit that includes the latest main. Assert each acceptance criterion; screenshots and a 200 are not a pass."
+description: "Apply before claiming a task works. Distinguish local tooling proof from independently attested application stage evidence at a clean unchanged head/current main with a reviewed case/gate portion plan."
 ---
 
 # Verify
 
-`evf verify <task>` is the only proof that counts. It runs the checks in `evf.config.json`
-against the task worktree and writes `proof.json` plus logs and artifacts to the evidence
-directory it prints. A proof can ship only when it passed, the worktree was clean, and HEAD
-included the latest `main`.
+Read the task's current bounded packet and every selected detail page. A reviewed proof plan accounts for every selected case and package gate: own-scope portions must pass, and later native/assistant/integration portions name actual downstream owners. Whole-target gates permit no deferral. Producer/part proof never establishes full package completion.
 
-## As the author (implementor or ui-designer)
+The author and independent verifier use distinct trusted provider identities/model families through the operator's signed runner. CLI `--role` selects requested work and grants no identity. The runner must reproduce real checks, applicable database/browser/tool layers and scoped evidence; it signs task/stage/head/base/policy/portion/check-digest bindings. Root proof plans and runner keys must be reviewed before task creation. No application runner is configured in this scaffold.
 
-1. Sync first: `git -C <worktree> fetch origin && git -C <worktree> merge origin/main`
-   (or rebase if the branch is not pushed yet).
-2. Iterate with `evf verify <task>` while you work. A dirty proof is fine for feedback; it
-   cannot ship.
-3. Make the acceptance tests real: one per criterion ID, each with an assertion on actual state
-   (DOM, response body, database row). Follow `test-standard`.
-4. For UI, also look at the running preview in Intent's browser (`ws.browser`): drive the flow,
-   read the console, check the accessibility tree. Fix what you see, not only what fails.
-5. Commit, run `evf verify <task>` on the clean commit, then `evf pr open <task>`.
+Run full verification after syncing and committing. HEAD, clean state, source fingerprint and base are checked again after commands/runner return. Exact log hashes and selected context are validated when consuming proof. Dirty or mutated checks, another task's artifact, stale main, a changed policy, same actor/family or historical full plus current quick cannot ship.
 
-## As the verifier
-
-You start without the author's context. Do not read the author's summary or chat. Read the
-task brief, the PR diff and the acceptance criteria.
-
-1. `evf task start <task> --no-stack` reuses the author's worktree, or check out the PR branch
-   there. Then `evf stack up <task>` for a fresh stack.
-2. `evf verify <task> --role verifier`. Your proof must pass on its own.
-3. Read the diff against the criteria. Look for criteria that have no real assertion, tests
-   that assert nothing, changes outside the owning paths, and the principle checks in
-   `.agents/roles/verifier.md`.
-4. Exercise one or two criteria by hand in the browser or with a real request. Try one denied
-   case the tests do not cover.
-5. Pass: run `evf ship <task>`. Fail: comment the failing criterion IDs and the evidence path on
-   the PR (`gh pr comment`), and report to the coordinator. Never fix the code yourself.
-
-## Evidence rules
-
-- Thin evidence is a fail. "Looks right" is not a result.
-- Any console error on a touched page fails the check unless the task explains it.
-- Keep screenshots and traces in the evidence directory, not in the repository.
+Read the diff against the selected clauses and try real denied/failure behavior. Keep screenshots/traces outside the checkout. Report actual scope and failures; a screenshot, source suite count or successful scaffold check is not application acceptance. Human review is additionally required for feedback PRs at their final head; ordinary merge autonomy remains pending. All external execution is separately authorized.

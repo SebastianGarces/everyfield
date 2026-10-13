@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
-import { startFeedbackTask } from "./feedback.ts";
+import { requireImplementation, requireSpend } from "./policy.ts";
+import { validAttestation, shippable } from "./verify.ts";
+import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
   baseRef,
   fail,
@@ -11,8 +13,9 @@ import {
   hasRemote,
   loadConfig,
   loadDag,
-  loadProgress,
   pathsForPart,
+  partsOf,
+  evfDataDir,
   requireWorktree,
   run,
   runtimeDir,
@@ -43,6 +46,8 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
   const cfg = loadConfig(root);
+  if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp);}
+  if(action==='up'&&cfg.stack) {if(typeof cfg.stack.usesPaidProviders!=='boolean')fail("Declare whether the stack uses paid providers before starting it.");if(cfg.stack.usesPaidProviders)requireSpend(root);}
   const argv = stackCmd(cfg, action);
   if (!argv) {
     const msg = `No stack "${action}" command in evf.config.json yet. The runtime packages (WP-003, WP-004) define it.`;
@@ -72,17 +77,27 @@ export function debugCmd(root: string, task: TaskRef, name: "traces" | "logs", e
 
 export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean }): number {
   const cfg = loadConfig(root);
+  if(opts.allowUnready) fail("--allow-unready is removed. Use a read-only brief to investigate; implementation requires closed gates and completed prerequisites.");
   if (task.kind === "fb") {
     const r = startFeedbackTask(root, task, opts.overLimit === true);
     console.log(`feedback: FB-${task.issue} is ${r.class}; internal issue #${(r as { internalIssue?: number }).internalIssue}.`);
   } else {
     const pkg = findPackage(loadDag(root), task.wp);
     pathsForPart(pkg, task.part);
-    const progress = loadProgress(root);
-    const unready = pkg.depends_on.filter((d) => progress[d]?.status !== "done");
-    if (unready.length && !opts.allowUnready) {
-      fail(`${task.wp} prerequisites are not canonically done: ${unready.join(", ")}. Ask the coordinator. Override only with --allow-unready.`);
+    requireImplementation(root,task.wp);
+    renderBrief(root,task,{}); // Resolve all current context before any worktree/remote mutation.
+    const parts=partsOf(pkg),anchor=task.part==='api'&&parts.includes('contract')?'contract':task.part==='ui'?(parts.includes('contract')?'contract':'api'):null;
+    if(anchor){
+      const path=join(evfDataDir(root),'shipped',`${task.wp.toLowerCase()}-${anchor}.json`);
+      if(!existsSync(path))fail(`Required ${task.wp}/${anchor} merged-part evidence is missing.`);
+      const record=JSON.parse(readFileSync(path,'utf8'));
+      if(record.task!==`${task.wp}/${anchor}`||record.package_id!==task.wp||record.part!==anchor||typeof record.merge_commit!=='string'||!gitOk(root,'merge-base','--is-ancestor',record.merge_commit,baseRef(root,cfg)))fail('Required split prerequisite is not integrated into current main.');
+      const key=(cfg as Config & {verification:{publicKey?:string}}).verification.publicKey,p=record.proof;
+      if(!p||p.role!=='verifier'||p.task!==record.task||!shippable(p)||!validAttestation(p,key))fail('Split prerequisite requires retained independently attested proof, not a caller-created milestone.');
+      const paths=pathsForPart(pkg,anchor),tested=git(root,'diff','--binary',p.base.sha,p.sha,'--',...paths),merged=git(root,'diff','--binary',`${record.merge_commit}^`,record.merge_commit,'--',...paths);
+      if(!tested||tested!==merged)fail('Split prerequisite merge does not preserve the signed tested owning-path change.');
     }
+
   }
 
   if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);

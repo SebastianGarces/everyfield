@@ -1,5 +1,6 @@
 import {
   acceptanceFor,
+  isUiPath,
   fail,
   findPackage,
   loadDag,
@@ -46,7 +47,7 @@ export function selectPackages(root: string, selectors: string[], includeDone: b
     if (slice) slice.required_packages.forEach((id) => ids.add(id));
     else ids.add(findPackage(dag, s.toUpperCase()).id);
   }
-  const order = dag.packages.map((p) => p.id);
+  const order = (dag as typeof dag & {topological_merge_order:string[]}).topological_merge_order;
   const skipped: string[] = [];
   const pkgs = [...ids]
     .sort((a, b) => order.indexOf(a) - order.indexOf(b))
@@ -65,7 +66,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
   const registry = loadRegistry(root);
   const progress = loadProgress(root);
   const inSet = new Set(pkgs.map((p) => p.id));
-  const finalKeys = new Map<string, string[]>();
+  const finalKeys = new Map(pkgs.map(p => [p.id, partsOf(p).filter(part => part !== "contract").map(part => keyOf(p.id,part))]));
   const blocks: Block[] = [];
   const external = new Set<string>();
 
@@ -85,7 +86,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
         const anchor = parts.includes("contract") ? keyOf(pkg.id, "contract") : part === "ui" ? keyOf(pkg.id, "api") : null;
         if (anchor) dependsOn.push(anchor);
       }
-      const ui = part === "ui";
+      const ui = part === "ui" || (part === null && pkg.owning_paths.every(isUiPath));
       blocks.push({
         key,
         taskId: part ? `${pkg.id}/${part}` : pkg.id,
