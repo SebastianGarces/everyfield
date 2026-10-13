@@ -13,6 +13,8 @@ wait for results. These are the EveryField additions.
 2. Integrate progress: `bin/evf shipped` lists merged tasks. Write their records into
    `docs/build-progress-updates/WP-NNN.json` per `docs/build-agent-workflow.md`, apply with
    `docs/update-build-explorer.py`, ship that as its own task PR, then `bin/evf shipped --clear <task>`.
+   Records with `package_id: null` are feedback fixes (`FB-<n>`); they change no package progress.
+   Clear them without a patch.
 3. Plan: `bin/evf plan <slice or WP IDs>` prints `@@@task` blocks with `dependsOn`,
    `conflictsWith` and effort. Paste them into the spec note. Do not hand-write task context.
 4. For each UI task, set the tier in its task note and run `bin/evf task brief <task> --ui-tier <tier>`.

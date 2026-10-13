@@ -13,10 +13,12 @@ import {
   type AcceptanceEntry,
   type TaskRef,
 } from "./lib.ts";
+import { renderFeedbackBrief } from "./feedback.ts";
 
 const UI_EFFORT: Record<string, string> = { "UI-1": "low", "UI-2": "medium", "UI-3": "high", "UI-4": "high" };
 
 export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string; full?: boolean }): string {
+  if (task.kind === "fb") return renderFeedbackBrief(root, task);
   const cfg = loadConfig(root);
   const dag = loadDag(root);
   const pkg = findPackage(dag, task.wp);

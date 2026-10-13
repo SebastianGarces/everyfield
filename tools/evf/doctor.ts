@@ -59,10 +59,13 @@ export function doctor(root: string): number {
   const unlisted = principleDirs.filter((p) => !agentsText.includes(`- \`${p}\`:`));
   check(unlisted.length === 0, `AGENTS.md lists all ${principleDirs.length} principles`, `AGENTS.md principle list is missing: ${unlisted.join(", ")}`);
 
+  const fbCfg = (cfg as { feedback?: { repo: string | null; botAuthor: string | null } }).feedback;
+  check(Boolean(fbCfg?.repo && fbCfg?.botAuthor), `feedback repo ${fbCfg?.repo} (bot ${fbCfg?.botAuthor})`, 'feedback.repo or feedback.botAuthor not set in evf.config.json; the feedback desk is idle', "WARN");
+
   const upstream = principlesStatus(root);
   results.push([upstream.level, upstream.message]);
 
-  const roleNames = ["coordinator", "implementor", "ui-designer", "verifier"];
+  const roleNames = ["coordinator", "implementor", "ui-designer", "verifier", "feedback-desk"];
   const roles = roleNames.filter((r) => !existsSync(join(root, ".agents/roles", `${r}.md`)));
   check(roles.length === 0, "role additions present", `missing role files: ${roles.join(", ")}`);
   const badRefs = roleNames

@@ -32,5 +32,13 @@
     "ref": "main",
     "license": "pstack/LICENSE",
     "checkEveryDays": 7
+  },
+  "feedback": {
+    "repo": null,
+    "botAuthor": null,
+    "triageAuthors": [],
+    "dailyFixLimit": 3,
+    "internalLabel": "from-feedback",
+    "triageCron": "0 13 * * *"
   }
 }

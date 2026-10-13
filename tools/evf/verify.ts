@@ -18,6 +18,7 @@ import {
   type TaskRef,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
+import { fbAcceptance } from "./feedback.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -52,7 +53,8 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Pro
   const dir = evidenceDir(root, task, sha, `${role}-${mode}${clean ? "" : "-dirty"}`);
   mkdirSync(dir, { recursive: true });
 
-  const acceptance = [...new Set(acceptanceFor(loadRegistry(root), task.wp).map((e) => e.shared_gate_id))];
+  const entries = task.kind === "fb" ? fbAcceptance(root, task) : acceptanceFor(loadRegistry(root), task.wp);
+  const acceptance = [...new Set(entries.map((e) => e.shared_gate_id))];
   const vars: Record<string, string> = {
     task: task.id,
     taskSlug: task.slug,
@@ -62,7 +64,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Pro
     worktree: wt,
     evidenceDir: dir,
     runtimeDir: runtimeDir(root, task),
-    acGrep: acceptance.length ? acceptance.join("|") : task.wp,
+    acGrep: [...acceptance, task.kind === "fb" ? `BUG-FB-${task.issue}` : ""].filter(Boolean).join("|") || task.wp,
     baseUrl: stackInfo(root, task).url ?? "",
     role,
     mode,

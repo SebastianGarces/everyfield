@@ -17,6 +17,7 @@ import {
   type TaskRef,
 } from "./lib.ts";
 import { stack } from "./task.ts";
+import { fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
 import { proofsFor, shippable, verify, type Proof } from "./verify.ts";
 
 function gh(cwd: string, args: string[]): string {
@@ -46,13 +47,27 @@ function prFor(wt: string, task: TaskRef): { number: number; url: string; state:
   return r.code === 0 ? (JSON.parse(r.stdout) as { number: number; url: string; state: string }) : null;
 }
 
-function prBody(root: string, task: TaskRef, proof: Proof): string {
+function taskTitle(root: string, task: TaskRef): string {
+  if (task.kind === "fb") return feedbackTitle(root, task.issue!);
   const pkg = findPackage(loadDag(root), task.wp);
+  return `${pkg.title}${task.part ? ` (${task.part})` : ""}`;
+}
+
+function taskPaths(root: string, task: TaskRef): string[] {
+  return task.kind === "fb" ? fbOwningPaths(root, task) : pathsForPart(findPackage(loadDag(root), task.wp), task.part);
+}
+
+function prBody(root: string, task: TaskRef, proof: Proof): string {
   const rows = proof.checks.map((c) => `| ${c.name} | ${c.passed ? "pass" : "FAIL"} | ${Math.round(c.durationMs / 1000)}s |`);
+  const internal = internalIssueOf(root, task);
+  const proto = isPrototype(root, task);
+  const paths = taskPaths(root, task);
   return [
-    `Task \`${task.id}\`: ${pkg.title}${task.part ? ` (${task.part})` : ""}.`,
+    `Task \`${task.id}\`: ${taskTitle(root, task)}.`,
+    ...(internal ? ["", `Closes #${internal}.`] : []),
+    ...(proto ? ["", "**Prototype for product review.** Sebastian merges or closes this PR. `evf ship` refuses prototypes.", "", "Preview steps and screenshots:", "- (author: add them here)"] : []),
     "",
-    `Owning paths: ${pathsForPart(pkg, task.part).map((p) => `\`${p}\``).join(", ")}.`,
+    `Owning paths: ${paths.length ? paths.map((p) => `\`${p}\``).join(", ") : "see the diff"}.`,
     `Acceptance criteria covered: ${proof.acceptance.length ? proof.acceptance.join(", ") : "package gates (no registry entries)"}.`,
     "",
     `Author proof at \`${proof.sha.slice(0, 10)}\` (${proof.mode}, base \`${proof.base.ref}\` ${proof.base.sha.slice(0, 10)} included):`,
@@ -63,7 +78,7 @@ function prBody(root: string, task: TaskRef, proof: Proof): string {
     "",
     `Evidence (local): \`${proof.evidenceDir}\``,
     "",
-    "This PR merges after the cross-model verifier reproduces the proof and runs `evf ship`. No human review is required.",
+    proto ? "" : "This PR merges after the cross-model verifier reproduces the proof and runs `evf ship`. No human review is required.",
     "",
     "Rulings and shared changes made in this task:",
     "- (author: list them here, or write \"none\")",
@@ -82,14 +97,21 @@ export function prOpen(root: string, task: TaskRef): number {
   pushBranch(wt, cfg, task);
   const bodyFile = join(tmpdir(), `evf-pr-${task.slug}.md`);
   writeFileSync(bodyFile, prBody(root, task, proof));
-  const pkg = findPackage(loadDag(root), task.wp);
+  const proto = isPrototype(root, task);
   const existing = prFor(wt, task);
   if (existing && existing.state === "OPEN") {
     gh(wt, ["pr", "edit", String(existing.number), "--body-file", bodyFile]);
     console.log(`pr: updated ${existing.url}`);
   } else {
-    const url = gh(wt, ["pr", "create", "--base", cfg.baseBranch, "--head", task.branch, "--title", `${task.id}: ${pkg.title}`, "--body-file", bodyFile]);
+    const extra = proto ? ["--draft", "--label", "prototype"] : [];
+    if (proto) gh(wt, ["label", "create", "prototype", "--force", "--description", "Prototype from feedback; waits for product review"]);
+    const url = gh(wt, ["pr", "create", "--base", cfg.baseBranch, "--head", task.branch, "--title", `${task.id}: ${taskTitle(root, task)}`, "--body-file", bodyFile, ...extra]);
     console.log(`pr: opened ${url}`);
+  }
+  if (proto) {
+    postStatus(wt, cfg, sha, "pending", "Prototype: waits for Sebastian's product review");
+    console.log("next: this is a prototype. Report the PR to the coordinator; Sebastian reviews it. Do not run evf ship.");
+    return 0;
   }
   postStatus(wt, cfg, sha, "pending", "Waiting for cross-model verification");
   console.log(`next: the coordinator delegates verification. The verifier runs: evf verify ${task.id} --role verifier, then evf ship ${task.id}`);
@@ -102,6 +124,7 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
   const cfg = loadConfig(root);
   requireRemote(root, cfg);
   const wt = requireWorktree(root, cfg, task);
+  if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
   const pr = prFor(wt, task);
   if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
   if (!proofsFor(root, task).some((p) => p.role === "verifier" && p.mode === "full" && shippable(p))) {
@@ -137,15 +160,14 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
 
 function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumber: number, proof: Proof): number {
   const mergeSha = gh(wt, ["pr", "view", String(prNumber), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);
-  const pkg = findPackage(loadDag(root), task.wp);
   const record = {
     task: task.id,
-    package_id: task.wp,
+    package_id: task.kind === "wp" ? task.wp : null,
     pr: prNumber,
     merge_commit: mergeSha,
     shipped_at: new Date().toISOString(),
     evidence: {
-      path: pathsForPart(pkg, task.part)[0] ?? "",
+      path: taskPaths(root, task)[0] ?? "",
       commit: mergeSha,
       test: `evf verify ${task.id} --role verifier (${proof.checks.map((c) => c.name).join(", ")})`,
       result: "passed",
@@ -156,7 +178,8 @@ function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumb
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${task.slug}.json`), `${JSON.stringify(record, null, 2)}\n`);
   console.log(`ship: merged PR #${prNumber} as ${mergeSha.slice(0, 10)}.`);
-  console.log(`progress: record saved for the coordinator (evf shipped).`);
+  if (task.kind === "fb") onFeedbackShipped(root, task);
+  else console.log(`progress: record saved for the coordinator (evf shipped).`);
 
   stack(root, task, "down", true);
   const removed = run("git", ["worktree", "remove", wt], { cwd: root });

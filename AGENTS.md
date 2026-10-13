@@ -16,6 +16,7 @@ reproduces the proof. There is no human review step. Proof is the merge bar.
 4. `bin/evf pr open <task>`. A verifier runs `bin/evf verify <task> --role verifier`, then `bin/evf ship <task>`.
 
 Task IDs: `WP-NNN`, or `WP-NNN/contract`, `WP-NNN/api`, `WP-NNN/ui` when a package splits.
+`FB-<n>` is a task from public feedback issue n: a bug fix, or a prototype that only Sebastian merges.
 Run `bin/evf help` for every command.
 
 ## Hard rules
@@ -39,6 +40,7 @@ Read the file for your specialist before you start:
 | `implementor` | `.agents/roles/implementor.md` |
 | `ui-designer` | `.agents/roles/ui-designer.md` |
 | `verifier` | `.agents/roles/verifier.md` |
+| `spec-writer` in the Feedback desk workspace | `.agents/roles/feedback-desk.md` |
 
 ## Where to look
 

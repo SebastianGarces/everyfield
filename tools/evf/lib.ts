@@ -77,6 +77,10 @@ export type Part = "contract" | "api" | "ui" | null;
 
 export type TaskRef = {
   id: string;
+  kind: "wp" | "fb";
+  /** Public feedback issue number for FB tasks. */
+  issue: number | null;
+  /** Work package for WP tasks; empty for FB tasks. */
   wp: string;
   part: Part;
   slug: string;
@@ -157,13 +161,18 @@ export function loadProgress(root: string): Record<string, { status: string }> {
 }
 
 export function parseTask(raw: string | undefined): TaskRef {
-  if (!raw) fail("Give a task ID, for example WP-022 or WP-022/ui.");
+  if (!raw) fail("Give a task ID, for example WP-022, WP-022/ui or FB-12.");
+  const fb = /^FB-(\d+)$/i.exec(raw.trim());
+  if (fb) {
+    const n = Number(fb[1]);
+    return { id: `FB-${n}`, kind: "fb", issue: n, wp: "", part: null, slug: `fb-${n}`, branch: `task/fb-${n}` };
+  }
   const m = /^(WP-\d{3})(?:\/(contract|api|ui))?$/i.exec(raw.trim());
-  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN or WP-NNN/contract|api|ui.`);
+  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, or FB-<issue>.`);
   const wp = m[1].toUpperCase();
   const part = (m[2]?.toLowerCase() ?? null) as Part;
   const slug = part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
-  return { id: part ? `${wp}/${part}` : wp, wp, part, slug, branch: `task/${slug}` };
+  return { id: part ? `${wp}/${part}` : wp, kind: "wp", issue: null, wp, part, slug, branch: `task/${slug}` };
 }
 
 export function findPackage(dag: Dag, wp: string): Package {

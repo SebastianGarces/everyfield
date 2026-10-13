@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
+import { startFeedbackTask } from "./feedback.ts";
 import {
   baseRef,
   fail,
@@ -69,16 +70,19 @@ export function debugCmd(root: string, task: TaskRef, name: "traces" | "logs", e
   return run(argv[0], [...argv.slice(1), ...extra], { cwd: wt, env: stackEnv(root, task, wt), inherit: true }).code;
 }
 
-export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boolean; noStack: boolean; uiTier?: string }): number {
+export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean }): number {
   const cfg = loadConfig(root);
-  const dag = loadDag(root);
-  const pkg = findPackage(dag, task.wp);
-  pathsForPart(pkg, task.part);
-
-  const progress = loadProgress(root);
-  const unready = pkg.depends_on.filter((d) => progress[d]?.status !== "done");
-  if (unready.length && !opts.allowUnready) {
-    fail(`${task.wp} prerequisites are not canonically done: ${unready.join(", ")}. Ask the coordinator. Override only with --allow-unready.`);
+  if (task.kind === "fb") {
+    const r = startFeedbackTask(root, task, opts.overLimit === true);
+    console.log(`feedback: FB-${task.issue} is ${r.class}; internal issue #${(r as { internalIssue?: number }).internalIssue}.`);
+  } else {
+    const pkg = findPackage(loadDag(root), task.wp);
+    pathsForPart(pkg, task.part);
+    const progress = loadProgress(root);
+    const unready = pkg.depends_on.filter((d) => progress[d]?.status !== "done");
+    if (unready.length && !opts.allowUnready) {
+      fail(`${task.wp} prerequisites are not canonically done: ${unready.join(", ")}. Ask the coordinator. Override only with --allow-unready.`);
+    }
   }
 
   if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
