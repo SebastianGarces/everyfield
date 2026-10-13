@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
-import { requireImplementation, requireSpend } from "./policy.ts";
+import { requireImplementation, requireSpend, requireTaskRisk } from "./policy.ts";
 import { validAttestation, shippable } from "./verify.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
   baseRef,
+  contractFingerprint,
   fail,
   findPackage,
   git,
@@ -46,7 +47,7 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
   const cfg = loadConfig(root);
-  if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp);}
+  if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp);requireTaskRisk(root,task);}
   if(action==='up'&&cfg.stack) {if(typeof cfg.stack.usesPaidProviders!=='boolean')fail("Declare whether the stack uses paid providers before starting it.");if(cfg.stack.usesPaidProviders)requireSpend(root);}
   const argv = stackCmd(cfg, action);
   if (!argv) {
@@ -58,6 +59,7 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
     fail(msg);
   }
   const wt = requireWorktree(root, cfg, task);
+  if(action==='up'&&contractFingerprint(root)!==contractFingerprint(wt))fail('Stack contract/policy must match the reviewed root before runtime execution.');
   mkdirSync(runtimeDir(root, task), { recursive: true });
   const r = run(argv[0], argv.slice(1), { cwd: wt, env: stackEnv(root, task, wt), inherit: true });
   if (r.code === 0 && action !== "down") {
@@ -84,7 +86,7 @@ export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boo
   } else {
     const pkg = findPackage(loadDag(root), task.wp);
     pathsForPart(pkg, task.part);
-    requireImplementation(root,task.wp);
+    requireImplementation(root,task.wp);requireTaskRisk(root,task);
     renderBrief(root,task,{}); // Resolve all current context before any worktree/remote mutation.
     const parts=partsOf(pkg),anchor=task.part==='api'&&parts.includes('contract')?'contract':task.part==='ui'?(parts.includes('contract')?'contract':'api'):null;
     if(anchor){

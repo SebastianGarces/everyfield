@@ -16,7 +16,7 @@ import {
   type Config,
   type TaskRef,
 } from "./lib.ts";
-import { requireImplementation } from "./policy.ts";
+import { requireImplementation, requireTaskRisk } from "./policy.ts";
 import { stack } from "./task.ts";
 import { cachedTriage, fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
 import { currentProof, type Proof } from "./verify.ts";
@@ -79,7 +79,7 @@ function prBody(root: string, task: TaskRef, proof: Proof): string {
     "",
     `Evidence (local): \`${proof.evidenceDir}\``,
     "",
-    proto ? "" : "Feedback implementation requires human approval at the final head plus independent full proof. Ordinary merge autonomy remains pending owner decision.",
+    proto ? "" : "Ordinary build PRs merge automatically after final-head tests, independent approved review and applicable gates. Feedback implementation PRs additionally require human approval; sensitive work escalates through Intent.",
     "",
     "Rulings and shared changes made in this task:",
     "- (author: list them here, or write \"none\")",
@@ -88,7 +88,7 @@ function prBody(root: string, task: TaskRef, proof: Proof): string {
 
 export function prOpen(root: string, task: TaskRef): number {
   const cfg = loadConfig(root);
-  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);
+  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);requireTaskRisk(root,task);
   requireRemote(root, cfg);
   const wt = requireWorktree(root, cfg, task);
   if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
@@ -124,15 +124,15 @@ const BEHIND = /not up to date|behind|base branch|head branch was modified|updat
 
 export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }): number {
   const cfg = loadConfig(root);
-  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);
+  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);requireTaskRisk(root,task);
   requireRemote(root, cfg);
   const wt = requireWorktree(root, cfg, task);
   if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
   const pr = prFor(wt, task);
   if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
   const policy=(cfg as Config & {mergePolicy:{ordinary:string;feedback:string;humanActorIds:number[]}}).mergePolicy;
-  if(task.kind==='wp') fail('Ordinary PR merge authority is pending explicit owner decision. No automatic merge policy is inferred.');
-  if(policy.feedback!=='human-reviewed'||!policy.humanActorIds.length) fail('Configure explicitly verified human reviewer IDs before merging feedback PRs.');
+  if(task.kind==='wp'&&policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
+  if(task.kind==='fb'&&(policy.feedback!=='human-reviewed'||!policy.humanActorIds.length)) fail('Configure explicitly verified human reviewer IDs before merging feedback PRs.');
 
 
   for (let attempt = 0; attempt <= opts.maxUpdates; attempt++) {
@@ -141,12 +141,16 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
     git(root,"fetch","--quiet",cfg.remote,cfg.baseBranch);
     const proof = currentProof(root,task,"verifier");
     const repo=nameWithOwner(wt);
-    const reviews=JSON.parse(gh(wt,["api","--paginate","--slurp",`repos/${repo}/pulls/${pr.number}/reviews`])).flat() as Array<{user:{id:number};state:string;commit_id:string}>;
     const protection=JSON.parse(gh(wt,["api",`repos/${repo}/branches/${cfg.baseBranch}/protection`]));
-    if(protection.required_status_checks?.strict!==true || (!Array.isArray(protection.required_status_checks?.contexts)||!protection.required_status_checks.contexts.includes(cfg.statusContext)) || protection.enforce_admins?.enabled!==true || (!Number.isSafeInteger(protection.required_pull_request_reviews?.required_approving_review_count)||protection.required_pull_request_reviews.required_approving_review_count<1) || protection.required_pull_request_reviews?.dismiss_stale_reviews!==true) fail('Verified strict branch protection, current-head reviews and enforced checks are required before automatic feedback merge. Configuration is a separate owner action.');
-    const latest=new Map<number,{state:string;commit_id:string}>();
-    for(const review of reviews) if(policy.humanActorIds.includes(review.user.id)&&["APPROVED","CHANGES_REQUESTED","DISMISSED"].includes(review.state))latest.set(review.user.id,review);
-    if([...latest.values()].some(r=>r.state==='CHANGES_REQUESTED')||![...latest.values()].some(r=>r.state==='APPROVED'&&r.commit_id===sha)) fail('Feedback PR needs a configured human approval at the exact final head, without outstanding requested changes.');
+    if(protection.required_status_checks?.strict!==true || !Array.isArray(protection.required_status_checks?.contexts) || !protection.required_status_checks.contexts.includes(cfg.statusContext) || protection.enforce_admins?.enabled!==true)fail('Verified strict branch protection and enforced final-head checks are required before automatic merge. Protection configuration is a separate owner action.');
+    if(task.kind==='fb') {
+      if(!Number.isSafeInteger(protection.required_pull_request_reviews?.required_approving_review_count)||protection.required_pull_request_reviews.required_approving_review_count<1||protection.required_pull_request_reviews?.dismiss_stale_reviews!==true)fail('Verified strict branch protection, current-head reviews and enforced checks are required before automatic feedback merge. Configuration is a separate owner action.');
+      const reviews=JSON.parse(gh(wt,["api","--paginate","--slurp",`repos/${repo}/pulls/${pr.number}/reviews`])).flat() as Array<{user:{id:number};state:string;commit_id:string}>;
+      const latest=new Map<number,{state:string;commit_id:string}>();
+      for(const review of reviews) if(policy.humanActorIds.includes(review.user.id)&&["APPROVED","CHANGES_REQUESTED","DISMISSED"].includes(review.state))latest.set(review.user.id,review);
+      if([...latest.values()].some(r=>r.state==='CHANGES_REQUESTED')||![...latest.values()].some(r=>r.state==='APPROVED'&&r.commit_id===sha))fail('Feedback PR needs a configured human approval at the exact final head, without outstanding requested changes.');
+    }
+
 
 
     pushBranch(wt, cfg, task);
@@ -157,11 +161,11 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
     const why = (merge.stderr || merge.stdout).trim();
     if (!BEHIND.test(why)) fail(`Merge refused: ${why}`);
     if (attempt === opts.maxUpdates) fail(`Branch still behind after ${opts.maxUpdates} updates. Try again later.`);
-    console.log(`ship: branch is behind ${cfg.baseBranch}. Updating and requiring full independent author/verifier proof and renewed human approval.`);
+    console.log(`ship: branch is behind ${cfg.baseBranch}. Updating and requiring full independent author/verifier proof${task.kind==='fb'?' and renewed human approval':''}.`);
     gh(wt, ["pr", "update-branch", String(pr.number)]);
     git(wt, "fetch", "--quiet", cfg.remote, task.branch);
     git(wt, "merge", "--quiet", "--ff-only", `${cfg.remote}/${task.branch}`);
-    fail('Branch updated. Stop for full author and verifier proofs plus human approval at the new final head; prior proofs/reviews are stale.');
+    fail(`Branch updated. Stop for full author and verifier proofs${task.kind==='fb'?' plus human approval':''} at the new final head; prior evidence is stale.`);
   }
   return 1;
 }
@@ -226,7 +230,7 @@ export function listShipped(root: string, clear: string[]): number {
 
 export function githubSetup(root: string, dryRun: boolean): number {
   // Branch protections are a separate owner-controlled action; never weaken them to zero reviews.
-  console.log(JSON.stringify({status:"blocked-owner-policy", feedback:"human review at final head required",ordinary:"pending explicit owner decision",configurationWrites:false},null,2));
+  console.log(JSON.stringify({status:"external-protection-setup-not-authorized", feedback:"human review at final head required",ordinary:"automatic after final-head tests and independent approved review",configurationWrites:false},null,2));
   if(!dryRun) fail("GitHub protection configuration is not authorized by local tooling reconciliation. Review the concrete repository policy separately.");
   return 0;
 }

@@ -5,12 +5,12 @@ import { baseRef, contractFingerprint, evidenceDir, evfDataDir, fail, fill, find
 import { stackEnv, stackInfo } from './task.ts';
 import { cachedTriage } from './feedback.ts';
 import { proofPlan, requiredPortions, requiredGatePortions, type ProofPlan, type Portion } from './proof-plan.ts';
-import { requireImplementation, requireSpend } from './policy.ts';
+import { requireImplementation, requireSpend, requireTaskRisk } from './policy.ts';
 
 export type Role='author'|'verifier';
 export type Mode='full'|'quick';
 export type CheckResult={name:string;command:string[];exitCode:number;durationMs:number;log:string;logSha:string;passed:boolean};
-type AttestationPayload={actorId:string;modelFamily:string;task:string;role:Role;mode:Mode;sha:string;baseSha:string;fingerprint:string;casePortions:Array<{caseId:string;portion:Portion}>;gatePortions:Array<{index:number;portion:Portion}>;checkDigest:string;passed:boolean};
+type AttestationPayload={actorId:string;modelFamily:string;task:string;role:Role;mode:Mode;sha:string;baseSha:string;fingerprint:string;casePortions:Array<{caseId:string;portion:Portion}>;gatePortions:Array<{index:number;portion:Portion}>;checkDigest:string;passed:boolean;review?:{verdict:'approved';reviewedSha:string;risk:ProofPlan['risk']}|null};
 type Attestation={payload:AttestationPayload;signature:string};
 export type Proof={schema:2;task:string;role:Role;mode:Mode;kind:'tooling'|'application';sha:string;clean:boolean;unchanged:boolean;fingerprint:string;base:{ref:string;sha:string;included:boolean};acceptance:string[];expectedCases:string[];expectedGates:string[];plan:ProofPlan|null;checks:CheckResult[];passed:boolean;qualified:boolean;attestation:Attestation|null;startedAt:string;finishedAt:string;evidenceDir:string};
 type Verification={usesPaidProviders:boolean;kind:'tooling'|'application';applicationQualified:boolean;attest:string[]|null;publicKey?:string;proofPlans?:Record<string,ProofPlan>};
@@ -18,11 +18,13 @@ const digest=(value:string|Buffer)=>createHash('sha256').update(value).digest('h
 export function validAttestation(p:Proof,publicKey:string|undefined):boolean {
  if(!p.attestation||!publicKey) return false;
  const a=p.attestation.payload;
+ if(p.role==='verifier'&&(a.review?.verdict!=='approved'||a.review.reviewedSha!==p.sha||a.review.risk!==p.plan?.risk))return false;
  if(a.task!==p.task||a.role!==p.role||a.mode!==p.mode||a.sha!==p.sha||a.baseSha!==p.base.sha||a.fingerprint!==p.fingerprint||a.checkDigest!==digest(JSON.stringify(p.checks))||a.passed!==true||typeof a.actorId!=='string'||!a.actorId||typeof a.modelFamily!=='string'||!a.modelFamily||!p.plan||JSON.stringify(a.casePortions)!==JSON.stringify(requiredPortions(p.plan))||JSON.stringify(a.gatePortions)!==JSON.stringify(requiredGatePortions(p.plan)))return false;
  try{return verifySignature(null,Buffer.from(JSON.stringify(a)),publicKey,Buffer.from(p.attestation.signature,'base64'));}catch{return false;}
 }
 export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  const wt=requireWorktree(root,loadConfig(root),task),cfg=loadConfig(wt);
+ if(contractFingerprint(root)!==contractFingerprint(wt))fail('Verification contract/policy must match the reviewed root before any check or runner executes; worktree flags cannot downgrade application/risk gates.');
  const settings=(cfg as typeof cfg & {verification?:Verification}).verification;
  if(!settings) fail('Configure an explicit tooling/application proof kind. Scaffold checks cannot qualify application acceptance.');
  if(hasRemote(root,cfg))git(root,'fetch','--quiet',cfg.remote,cfg.baseBranch);
@@ -30,7 +32,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;
  if(!wp) fail('Missing reviewed task context.');
  const context=packageContext(wt,wp);
- if(settings.kind==='application'){requireImplementation(root,wp);if(typeof settings.usesPaidProviders!=='boolean')fail('Declare actual provider usage before application proof.');if(settings.usesPaidProviders)requireSpend(root);}
+ if(settings.kind==='application'){requireImplementation(root,wp);requireTaskRisk(root,task);if(typeof settings.usesPaidProviders!=='boolean')fail('Declare actual provider usage before application proof.');if(settings.usesPaidProviders)requireSpend(root);}
  const plan=settings.kind==='application'?proofPlan(wt,task,wp,context.case_ids):null;
  const expectedGates=(findPackage(loadDag(wt),wp)).acceptance_gates;
  const included=gitOk(wt,'merge-base','--is-ancestor',baseSha,'HEAD');
@@ -47,7 +49,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  let attestation:Attestation|null=null;
  if(settings.kind==='application'&&settings.applicationQualified&&settings.attest) {
   // A separately trusted runner must reproduce/attest actual provider identity and evidence. CLI flags are only requests.
-  const request=join(dir,'attestation-request.json');writeFileSync(request,JSON.stringify({task:task.id,role,mode,sha,baseSha,fingerprint,casePortions:plan?requiredPortions(plan):[],plan,gatePortions:plan?requiredGatePortions(plan):[],checkDigest:digest(JSON.stringify(checks))}));
+  const request=join(dir,'attestation-request.json');writeFileSync(request,JSON.stringify({task:task.id,role,mode,sha,baseSha,fingerprint,reviewRequired:role==='verifier',casePortions:plan?requiredPortions(plan):[],plan,gatePortions:plan?requiredGatePortions(plan):[],checkDigest:digest(JSON.stringify(checks))}));
   const argv=fill(settings.attest,{...vars,request});const r=run(argv[0],argv.slice(1),{cwd:wt,env});
   if(r.code===0){try{attestation=JSON.parse(r.stdout);}catch{fail('Malformed independent runner attestation.');}}
  }

@@ -39,7 +39,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 test('INV-authorization: unready override and unopened application gate cannot mutate worktrees',()=>{
  const f=fixture();try{
   assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:true,noStack:true}),/allow-unready is removed/);
-  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH/);
+  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH|Missing reviewed task risk classification/);
   assert.equal(f.git('branch','--list','task/*'),'');
  }finally{f.close();}
 });
@@ -137,8 +137,8 @@ function qualifiedFixture(wp='WP-034') {
  const {publicKey,privateKey}=generateKeyPairSync('ed25519');
  const key=join(f.root,'fake-bin/key.pem'),signer=join(f.root,'fake-bin/attest.cjs');
  writeFileSync(key,privateKey.export({type:'pkcs8',format:'pem'}));
- writeFileSync(signer,`const fs=require('node:fs'),crypto=require('node:crypto');const r=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const p={actorId:r.role+'-actor',modelFamily:r.role==='author'?'Sol':(process.env.EVF_FIXTURE_FAMILY||'Opus'),task:r.task,role:r.role,mode:r.mode,sha:r.sha,baseSha:r.baseSha,fingerprint:r.fingerprint,casePortions:r.casePortions,gatePortions:r.gatePortions,checkDigest:r.checkDigest,passed:true};process.stdout.write(JSON.stringify({payload:p,signature:crypto.sign(null,Buffer.from(JSON.stringify(p)),fs.readFileSync(${JSON.stringify(key)})).toString('base64')}));`);
- const plan={gates:loadDag(f.root).packages.find(p=>p.id===wp)!.acceptance_gates.map((_,index)=>({index,requiredPortions:['domain'],deferred:[{portion:'native',ownerTask:'WP-035'}]})),stage:'producer',ownedPortion:'domain',requiresStack:false,cases:ctx.case_ids.map(id=>({id,requiredPortions:['domain'],deferred:id==='CASE-WIKI-001'?[{portion:'native',ownerTask:'WP-035'}]:[]}))};
+ writeFileSync(signer,`const fs=require('node:fs'),crypto=require('node:crypto');const r=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const p={actorId:r.role+'-actor',modelFamily:r.role==='author'?'Sol':(process.env.EVF_FIXTURE_FAMILY||'Opus'),task:r.task,role:r.role,mode:r.mode,sha:r.sha,baseSha:r.baseSha,fingerprint:r.fingerprint,casePortions:r.casePortions,gatePortions:r.gatePortions,checkDigest:r.checkDigest,passed:true,review:r.role==='verifier'&&process.env.EVF_FIXTURE_REVIEW!=='missing'?{verdict:'approved',reviewedSha:r.sha,risk:r.plan.risk}:null};process.stdout.write(JSON.stringify({payload:p,signature:crypto.sign(null,Buffer.from(JSON.stringify(p)),fs.readFileSync(${JSON.stringify(key)})).toString('base64')}));`);
+ const plan={risk:'ordinary',gates:loadDag(f.root).packages.find(p=>p.id===wp)!.acceptance_gates.map((_,index)=>({index,requiredPortions:['domain'],deferred:[{portion:'native',ownerTask:'WP-035'}]})),stage:'producer',ownedPortion:'domain',requiresStack:false,cases:ctx.case_ids.map(id=>({id,requiredPortions:['domain'],deferred:id==='CASE-WIKI-001'?[{portion:'native',ownerTask:'WP-035'}]:[]}))};
  f.cfg.verification={kind:'application',applicationQualified:true,usesPaidProviders:false,publicKey:publicKey.export({type:'spki',format:'pem'}),attest:[process.execPath,signer,'{request}'],proofPlans:{[wp]:plan}};
  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();f.task(wp.toLowerCase());
  return {...f,wp,plan};
@@ -269,9 +269,55 @@ test('INV-contract-freeze: a caller-created merged-part record cannot unlock imp
  const f=fixture();try{
   f.authorize();const path=join(f.root,'docs/build-progress.json'),p=JSON.parse(readFileSync(path,'utf8'));
   for(const x of Object.values(p.packages) as any[])x.status='done';writeFileSync(path,JSON.stringify(p));
+  f.cfg.verification.proofPlans['WP-005/api']={risk:'ordinary'};writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
   const dir=join(evfDataDir(f.root),'shipped');mkdirSync(dir,{recursive:true});
   writeFileSync(join(dir,'wp-005-contract.json'),JSON.stringify({task:'WP-005/contract',package_id:'WP-005',part:'contract',merge_commit:f.git('rev-parse','HEAD')}));
   assert.throws(()=>taskStart(f.root,parseTask('WP-005/api'),{allowUnready:false,noStack:true}),/retained independently attested proof/);
   assert.equal(f.git('branch','--list','task/*'),'');
+ }finally{f.close();}
+});
+
+test('INV-ordinary-auto-merge: independently reviewed final head reaches automatic merge without human approval',()=>{
+ const f=qualifiedFixture();try{
+  const wt=join(f.root,'.worktrees',f.wp.toLowerCase());importGit(wt,'merge','--ff-only','main');
+  const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
+  const s=f.getState();s.reviews=[];s.protection={required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:0,dismiss_stale_reviews:false}};f.setState(s);
+  const task=parseTask(f.wp);verify(f.root,task,'author','full');const proof=verify(f.root,task,'verifier','full');
+  assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/fixture merge barrier/);
+  const merge=f.getState().calls.find((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge');assert.equal(merge.args.at(-1),proof.sha);
+ }finally{f.close();}
+});
+
+test('INV-independent-review: passing tests and a signed verifier identity cannot replace final-head approved review',()=>{
+ const f=qualifiedFixture();try{
+  const task=parseTask(f.wp);verify(f.root,task,'author','full');
+  process.env.EVF_FIXTURE_REVIEW='missing';const p=verify(f.root,task,'verifier','full');delete process.env.EVF_FIXTURE_REVIEW;
+  assert.equal(p.checks[0].passed,true);assert.equal(p.qualified,false);assert.equal(p.passed,false);
+  assert.throws(()=>currentProof(f.root,task,'verifier'),/No current full independently attested/);
+ }finally{delete process.env.EVF_FIXTURE_REVIEW;f.close();}
+});
+test('INV-sensitive-escalation: ordinary automatic merge does not authorize sensitive/security/privacy/irreversible work',()=>{
+ const f=qualifiedFixture();try{
+  const task=parseTask(f.wp);
+  for(const risk of ['sensitive','security','privacy','irreversible']) {
+   f.cfg.verification.proofPlans[f.wp].risk=risk;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+   assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/escalate through Intent's existing owner channel/);
+   assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/escalate through Intent's existing owner channel/);
+  }
+  assert.equal(f.getState().calls.filter((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge').length,0);
+ }finally{f.close();}
+});
+
+import { existsSync } from 'node:fs';
+import { stack } from '../task.ts';
+test('INV-execution-policy: worktree tooling/risk edits cannot run checks or stack before reviewed-root gates',()=>{
+ const f=qualifiedFixture();try{
+  const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/executed.txt');
+  f.cfg.stack={usesPaidProviders:false,up:[process.execPath,'-e',`require('node:fs').writeFileSync(${JSON.stringify(marker)},'ran')`],status:[process.execPath,'-e','process.exit(0)']};
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();importGit(wt,'merge','--ff-only','main');
+  const changed=JSON.parse(readFileSync(join(wt,'evf.config.json'),'utf8'));changed.verification.kind='tooling';changed.verification.proofPlans[f.wp].risk='security';changed.checks=[{name:'unreviewed-check',run:f.cfg.stack.up}];writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
+  assert.throws(()=>verify(f.root,task,'verifier','full'),/match the reviewed root before any check/);
+  assert.throws(()=>stack(f.root,task,'up'),/match the reviewed root before runtime/);
+  assert.equal(existsSync(marker),false);
  }finally{f.close();}
 });

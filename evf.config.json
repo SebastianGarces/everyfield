@@ -66,8 +66,14 @@
     "proofPlans": {}
   },
   "mergePolicy": {
-    "ordinary": "pending-owner-decision",
+    "ordinary": "automatic-after-independent-review",
     "feedback": "human-reviewed",
-    "humanActorIds": []
+    "humanActorIds": [],
+    "ordinaryApproval": {
+      "sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
+      "approvedAtUtc": "2026-10-13T23:37:00Z",
+      "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
+    },
+    "sensitive": "owner-escalation-required"
   }
 }

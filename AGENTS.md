@@ -9,7 +9,7 @@ Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf d
 Intent coordinators plan and delegate. Each implementation task uses its own worktree and
 reviewed proof plan. Current authorization and prerequisite gates apply before execution.
 Feedback implementation PRs require human approval at the final head and an independently
-attested full verifier proof. Ordinary PR merge authority awaits an explicit owner policy.
+attested full verifier proof. Ordinary build PRs may merge automatically after final-head tests, independent approved review and applicable gates. Sensitive work escalates through Intent.
 
 1. `bin/evf task start <task>`: worktree, stack and your task brief. Read the brief first.
 2. Build inside your owning paths. Tests follow the `test-standard` skill.
@@ -47,7 +47,7 @@ Read the file for your specialist before you start:
 
 | Need | Read |
 |---|---|
-| Your package scope, clauses, cases, aliases and paths | `docs/plan/context.md` and `docs/package-context.py` (workflow brief adaptation pending) |
+| Your package scope, clauses, cases, aliases and paths | `docs/plan/context.md` and `docs/package-context.py` |
 | Full obligations of one criterion | `docs/catalog/index.json` and selected package detail pages |
 | Architecture, contracts, transactions, tenancy | `docs/architecture/architecture.md` |
 | Feature behavior | `docs/product/` (only the current sections selected by your packet) |

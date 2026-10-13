@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmS
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { acceptanceFor, evfDataDir, fail, findPackage, hasRemote, loadConfig, loadDag, loadRegistry, oneLine, packageContext, readJson, run, type AcceptanceEntry, type TaskRef } from "./lib.ts";
-import { requireImplementation } from "./policy.ts";
+import { requireImplementation, requireTaskRisk } from "./policy.ts";
 
 export const CLASSES = ["p0", "p1", "p2", "p3", "feature-small", "feature-large", "duplicate", "question", "spam"] as const;
 export type FeedbackClass = (typeof CLASSES)[number];
@@ -181,7 +181,7 @@ export function startFeedbackTask(root:string,task:TaskRef,overLimit:boolean):Tr
   actor(root);const fb=cfgOf(root),n=task.issue!,r=readTriage(root,n);
   if(!r) fail("No trusted feedback triage record.");
   if(!["p0","p1","p2","p3","feature-small"].includes(r.class)) fail("Only scoped bugs or small prototypes become feedback tasks.");
-  scope(root,r);
+  scope(root,r);requireTaskRisk(root,task);
   if(overLimit && r.class!=="p0") fail("Only a P0 with separately recorded owner approval can exceed the daily cap.");
   const key=sourceKey(r),prior=currentLedger(root).get(key),started=prior?.state==='started',day=new Date().toISOString().slice(0,10);
   // Sensitive work and budget exceptions require explicit reviewed owner authorization, never severity alone.

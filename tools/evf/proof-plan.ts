@@ -3,13 +3,15 @@ import { fail, findPackage, loadConfig, loadDag, currentCatalog, partsOf, parseT
 export type Portion='reference'|'platform'|'contract'|'domain'|'native'|'assistant'|'integration';
 export type CasePlan={id:string;requiredPortions:Portion[];deferred:Array<{portion:Portion;ownerTask:string}>};
 export type GatePlan={index:number;requiredPortions:Portion[];deferred:Array<{portion:Portion;ownerTask:string}>};
-export type ProofPlan={gates:GatePlan[];stage:'producer'|'contract'|'api'|'ui'|'full-target';ownedPortion:Portion;requiresStack:boolean;cases:CasePlan[]};
+export type Risk='ordinary'|'sensitive'|'security'|'privacy'|'irreversible';
+export type ProofPlan={risk:Risk;gates:GatePlan[];stage:'producer'|'contract'|'api'|'ui'|'full-target';ownedPortion:Portion;requiresStack:boolean;cases:CasePlan[]};
 const portions=['reference','platform','contract','domain','native','assistant','integration'];
 export function proofPlan(root:string,task:TaskRef,wp:string,expectedCases:string[]):ProofPlan {
  const cfg=loadConfig(root) as ReturnType<typeof loadConfig>&{verification:{proofPlans?:Record<string,ProofPlan>}};
  const plan=cfg.verification.proofPlans?.[task.id];
  if(!plan) fail('A reviewed task proof plan must select current-stage portions and explicitly account for later adapters before application qualification.');
  const stage=task.part??(['WP-056','WP-057'].includes(wp)?'full-target':'producer');
+ if(!['ordinary','sensitive','security','privacy','irreversible'].includes(plan.risk))fail('Every reviewed task proof plan needs an explicit risk classification; unknown risk grants no automatic authority.');
  if(plan.stage!==stage||!portions.includes(plan.ownedPortion)||typeof plan.requiresStack!=='boolean'||!Array.isArray(plan.cases))fail('Invalid reviewed proof stage.');
  const dag=loadDag(root),catalog=currentCatalog(root);
  const reaches=(owner:string,start:string,seen=new Set<string>()):boolean=>{

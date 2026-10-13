@@ -56,7 +56,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
  return {root,cfg,git,
   getState:()=>JSON.parse(readFileSync(statePath,'utf8')),
   setState:(s:unknown)=>writeFileSync(statePath,JSON.stringify(s)),
-  authorize:()=>{const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));},
+  authorize:()=>{const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...Array.from({length:86},(_,i)=>'WP-'+String(i+1).padStart(3,'0')),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
   close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}
