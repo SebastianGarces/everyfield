@@ -1,0 +1,16 @@
+#!/bin/sh
+# evf: EveryField v3 workflow CLI. Runs tools/evf/main.ts on Node 24+ (native TypeScript).
+set -e
+here=$(cd "$(dirname "$0")/.." && pwd)
+node_bin=node
+if ! "$node_bin" -e 'process.exit(+process.versions.node.split(".")[0] >= 24 ? 0 : 1)' 2>/dev/null; then
+  node_bin=""
+  for candidate in "$HOME"/.nvm/versions/node/v2[4-9]*/bin/node; do
+    [ -x "$candidate" ] && node_bin="$candidate"
+  done
+  if [ -z "$node_bin" ]; then
+    echo "evf: Node 24+ is required." >&2
+    exit 1
+  fi
+fi
+exec "$node_bin" --disable-warning=ExperimentalWarning "$here/tools/evf/main.ts" "$@"

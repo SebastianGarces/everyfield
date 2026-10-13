@@ -1,4 +1,93 @@
-# Scoped build-explorer maintenance instructions
+# EveryField v3: agent instructions
+
+EveryField v3 is a rebuild of EveryField v2. The plan is in `docs/`. Work is organized as work
+packages in `docs/plan/dag.json`, with acceptance criteria in `docs/evidence/acceptance-registry.json`.
+Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf doctor` checks).
+
+## How work flows
+
+Intent coordinators plan and delegate. Every task runs in its own git worktree with its own
+stack, ships as one PR, and is merged by a verifier from the other model family after it
+reproduces the proof. There is no human review step. Proof is the merge bar.
+
+1. `bin/evf task start <task>`: worktree, stack and your task brief. Read the brief first.
+2. Build inside your owning paths. Tests follow the `test-standard` skill.
+3. `bin/evf verify <task>` on a clean commit that includes the latest `main`.
+4. `bin/evf pr open <task>`. A verifier runs `bin/evf verify <task> --role verifier`, then `bin/evf ship <task>`.
+
+Task IDs: `WP-NNN`, or `WP-NNN/contract`, `WP-NNN/api`, `WP-NNN/ui` when a package splits.
+Run `bin/evf help` for every command.
+
+## Hard rules
+
+- Never push to `main`, never force-push, never merge your own PR.
+- Your shell starts in the workspace root. Task work happens in `.worktrees/<task>`; use the path
+  `evf` prints or `git -C`. Never commit task work in the workspace root.
+- All UI work belongs to the `ui-designer` specialist on Opus 5.5.
+- A claim that something works needs a passing `evf verify` proof. A screenshot or a 200 is not proof.
+- Rule reversible ambiguities yourself and record them (skill `decisions`). Do not wait.
+- Keep evidence, screenshots and traces out of the repository. `evf` stores them under the git common dir.
+- Do not install a second copy of a rule in a host-specific hook or config. Put it in `evf` or a skill.
+
+## Your role
+
+Read the file for your specialist before you start:
+
+| Intent specialist | File |
+|---|---|
+| `spec-writer` (Coordinator) | `.agents/roles/coordinator.md` |
+| `implementor` | `.agents/roles/implementor.md` |
+| `ui-designer` | `.agents/roles/ui-designer.md` |
+| `verifier` | `.agents/roles/verifier.md` |
+
+## Where to look
+
+| Need | Read |
+|---|---|
+| Your task's scope, criteria, rulings, paths | `bin/evf task brief <task>` (already in your task note) |
+| Full obligations of one criterion | `bin/evf ac <id>` |
+| Architecture, contracts, transactions, tenancy | `docs/architecture/architecture.md` |
+| Feature behavior | `docs/modules/` (only the sections your brief names) |
+| Accepted product rulings | `docs/decisions/user-rulings.md` |
+| What v2 taught us | `docs/lessons.md` |
+| When to write a test | skill `test-standard` |
+| Proving a task works | skill `verify` |
+| Opening and merging PRs | skill `ship` |
+| Debugging with traces, logs and the browser | skill `debug-with-traces` |
+| Recording a ruling | skill `decisions` |
+| Local previews | skill `portless-preview` |
+| UI quality | skill `better-interface` and the `better-*` suite |
+| Workflow config | `evf.config.json` |
+
+Skills live in `.agents/skills/`. `.claude/skills` links to the same folder.
+
+## Principles
+
+Each line is a skill in `.agents/skills/principle-<name>/`. Read the full skill when it applies.
+
+- `boundary-discipline`: Guards at system boundaries; trust internal types; pure business logic.
+- `build-the-lever`: Build the script, codemod or skill that does or proves the work.
+- `encode-lessons-in-structure`: A repeated correction becomes a lint, check or script, not more text.
+- `exhaust-the-design-space`: No precedent: build 2-3 prototypes and compare.
+- `experience-first`: User delight over implementation convenience.
+- `fix-root-causes`: Reproduce, ask why, fix at the cause; no silencing guards.
+- `foundational-thinking`: Get the data structures right first.
+- `guard-the-context-window`: Keep summaries in context; bulk goes to files and subagents.
+- `laziness-protocol`: Smallest change that works; bias toward deletion.
+- `make-operations-idempotent`: Same end state after crashes and retries.
+- `migrate-callers-then-delete-legacy-apis`: No compatibility layers inside the codebase.
+- `minimize-reader-load`: Fewer layers and less hidden state.
+- `model-the-domain`: Encode the domain in structure, not scattered conditionals.
+- `never-block-on-the-human`: Decide reversible things; present the result.
+- `outcome-oriented-execution`: Converge on the target design; no throwaway intermediate states.
+- `prove-it-works`: Verify the real artifact, not a proxy or a self-report.
+- `redesign-from-first-principles`: Integrate a requirement as if it were there from day one.
+- `separate-before-serializing-shared-state`: Remove shared writers before adding locks.
+- `sequence-verifiable-units`: Small steps, each ending in a checked state.
+- `subtract-before-you-add`: Remove dead weight first.
+- `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
+
+## Build-explorer maintenance
 
 These instructions are additive and concern only work-package progress and the offline documentation explorer. Preserve any other repository instructions. This maintenance workflow does not authorize v3 application implementation, database/runtime changes, deployment or external services.
 

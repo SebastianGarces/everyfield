@@ -1,0 +1,12 @@
+{
+  "baseBranch": "main",
+  "remote": "origin",
+  "worktreeDir": ".worktrees",
+  "statusContext": "evf/verify",
+  "maxAgentsMdLines": 150,
+  "stack": null,
+  "checks": [
+    { "name": "evf-doctor", "run": ["bin/evf", "doctor", "--here"] },
+    { "name": "build-explorer", "run": ["python3", "docs/update-build-explorer.py", "--root", ".", "--check"] }
+  ]
+}
