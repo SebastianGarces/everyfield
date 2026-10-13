@@ -25,3 +25,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# evf task worktrees
+.worktrees/
+
+# Local agent workspace files (screenshots, attachments, browser test output)
+.intent/
+.playwright-mcp/
