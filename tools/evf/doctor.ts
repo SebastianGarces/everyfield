@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, run } from "./lib.ts";
+import { principlesStatus } from "./principles.ts";
 
 type Level = "PASS" | "WARN" | "FAIL";
 
@@ -57,6 +58,9 @@ export function doctor(root: string): number {
   const agentsText = existsSync(agents) ? readFileSync(agents, "utf8") : "";
   const unlisted = principleDirs.filter((p) => !agentsText.includes(`- \`${p}\`:`));
   check(unlisted.length === 0, `AGENTS.md lists all ${principleDirs.length} principles`, `AGENTS.md principle list is missing: ${unlisted.join(", ")}`);
+
+  const upstream = principlesStatus(root);
+  results.push([upstream.level, upstream.message]);
 
   const roleNames = ["coordinator", "implementor", "ui-designer", "verifier"];
   const roles = roleNames.filter((r) => !existsSync(join(root, ".agents/roles", `${r}.md`)));

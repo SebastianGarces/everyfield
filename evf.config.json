@@ -30,6 +30,7 @@
     "path": "pstack/skills",
     "prefix": "principle-",
     "ref": "main",
-    "license": "pstack/LICENSE"
+    "license": "pstack/LICENSE",
+    "checkEveryDays": 7
   }
 }
