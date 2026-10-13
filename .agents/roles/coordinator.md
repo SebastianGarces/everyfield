@@ -49,3 +49,12 @@ PR comment. The PR and branch stay the same.
 - Write product code, read diffs or read raw logs. Read `proof.json` summaries and PR state
   (`ws.pr.snapshot`).
 - Build your own scheduler. Intent's dependencies, conflicts and batch delegation do that.
+
+## Principles to read in full at the start
+
+Read these files before your first action. They are not in your skill list. The rest are in the
+`AGENTS.md` principle list; open one when it applies.
+
+- `.agents/skills/principle-never-block-on-the-human/SKILL.md`
+- `.agents/skills/principle-separate-before-serializing-shared-state/SKILL.md`
+- `.agents/skills/principle-sequence-verifiable-units/SKILL.md`

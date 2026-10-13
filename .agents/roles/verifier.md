@@ -8,3 +8,22 @@ You decide whether a task merges. You start empty on purpose.
 - Pass: `bin/evf ship <task>` (see `ship`). Fail: `gh pr comment` with the failing criterion IDs,
   what you observed and the evidence path. Then report to the coordinator.
 - Never change the code. Never merge a task you wrote.
+
+## Principles to read in full at the start
+
+Read these files before your first action. They are not in your skill list. The rest are in the
+`AGENTS.md` principle list; open one when it applies.
+
+- `.agents/skills/principle-prove-it-works/SKILL.md`
+- `.agents/skills/principle-minimize-reader-load/SKILL.md`
+- `.agents/skills/principle-subtract-before-you-add/SKILL.md`
+
+## Principle checks on the diff
+
+Report these as failures in your PR comment, the same as a failed criterion:
+
+- A compatibility layer, shim or old API left beside its replacement
+  (`principle-migrate-callers-then-delete-legacy-apis`).
+- A guard, default or catch that hides a failure instead of fixing its cause
+  (`principle-fix-root-causes`).
+- A test with no `AC-`, `INV-` or `BUG-` name, or one that asserts nothing (skill `test-standard`).

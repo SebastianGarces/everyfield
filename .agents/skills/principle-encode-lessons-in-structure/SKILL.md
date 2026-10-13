@@ -1,6 +1,7 @@
 ---
 name: principle-encode-lessons-in-structure
 description: "Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text."
+disable-model-invocation: true
 ---
 
 # Encode Lessons in Structure
@@ -21,7 +22,7 @@ When you catch yourself writing the same instruction a second time:
 
 **Feedback loop:**
 - **Capture every correction.** When the human intervenes or tests fail, decide if it's a one-off or a pattern.
-- **Route to the right layer.** One-off -> a note in the task or PR. Recurring fix -> skill or lint rule. Systemic issue -> principle.
+- **Route to the right layer.** One-off -> brain note. Recurring fix -> skill or lint rule. Systemic issue -> principle.
 - **Close the loop.** Don't just record. Apply now or create a concrete todo.
 
 **Anti-patterns:**

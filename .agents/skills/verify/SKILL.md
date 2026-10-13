@@ -31,7 +31,8 @@ task brief, the PR diff and the acceptance criteria.
    there. Then `evf stack up <task>` for a fresh stack.
 2. `evf verify <task> --role verifier`. Your proof must pass on its own.
 3. Read the diff against the criteria. Look for criteria that have no real assertion, tests
-   that assert nothing, and changes outside the owning paths.
+   that assert nothing, changes outside the owning paths, and the principle checks in
+   `.agents/roles/verifier.md`.
 4. Exercise one or two criteria by hand in the browser or with a real request. Try one denied
    case the tests do not cover.
 5. Pass: run `evf ship <task>`. Fail: comment the failing criterion IDs and the evidence path on

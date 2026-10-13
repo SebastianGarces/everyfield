@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, run } from "./lib.ts";
@@ -43,8 +44,28 @@ export function doctor(root: string): number {
   }
   check(count > 0 && bad.length === 0, `${count} skills have valid frontmatter`, `skills with missing or mismatched name/description: ${bad.join(", ") || "(no skills found)"}`);
 
-  const roles = ["coordinator", "implementor", "ui-designer", "verifier"].filter((r) => !existsSync(join(root, ".agents/roles", `${r}.md`)));
+  const lockPath = join(root, "skills-lock.json");
+  const lock = existsSync(lockPath) ? (JSON.parse(readFileSync(lockPath, "utf8")) as { skills: Record<string, { sha256?: string }> }).skills : {};
+  const pinned = Object.entries(lock).filter(([, v]) => v.sha256);
+  const edited = pinned.filter(([name, v]) => {
+    const f = join(skillsDir, name, "SKILL.md");
+    return !existsSync(f) || createHash("sha256").update(readFileSync(f)).digest("hex") !== v.sha256;
+  });
+  check(pinned.length > 0 && edited.length === 0, `${pinned.length} verbatim skills match skills-lock.json`, `verbatim skills changed or missing (put adaptations in .agents/roles/ instead): ${edited.map(([n]) => n).join(", ") || "(none pinned)"}`);
+
+  const principleDirs = (existsSync(skillsDir) ? readdirSync(skillsDir) : []).filter((n) => n.startsWith("principle-")).map((n) => n.slice("principle-".length));
+  const agentsText = existsSync(agents) ? readFileSync(agents, "utf8") : "";
+  const unlisted = principleDirs.filter((p) => !agentsText.includes(`- \`${p}\`:`));
+  check(unlisted.length === 0, `AGENTS.md lists all ${principleDirs.length} principles`, `AGENTS.md principle list is missing: ${unlisted.join(", ")}`);
+
+  const roleNames = ["coordinator", "implementor", "ui-designer", "verifier"];
+  const roles = roleNames.filter((r) => !existsSync(join(root, ".agents/roles", `${r}.md`)));
   check(roles.length === 0, "role additions present", `missing role files: ${roles.join(", ")}`);
+  const badRefs = roleNames
+    .filter((r) => !roles.includes(r))
+    .flatMap((r) => [...readFileSync(join(root, ".agents/roles", `${r}.md`), "utf8").matchAll(/principle-([a-z-]+[a-z])/g)].map((m) => `${r}:${m[1]}`))
+    .filter((ref) => !principleDirs.includes(ref.split(":")[1]));
+  check(badRefs.length === 0, "role files name existing principles", `role files name unknown principles: ${badRefs.join(", ")}`);
 
   const dag = loadDag(root);
   const ids = new Set(dag.packages.map((p) => p.id));

@@ -12,3 +12,12 @@ All UI work in EveryField is yours. Follow `implementor.md` for the task loop; t
   Read the console. Judge hierarchy, spacing and copy, not only defects.
 - Acceptance tests for UI are Playwright tests named by criterion ID. Keep them few and about
   behavior, not markup.
+
+## Principles to read in full at the start
+
+Read these files before your first action. They are not in your skill list. The rest are in the
+`AGENTS.md` principle list; open one when it applies.
+
+- `.agents/skills/principle-experience-first/SKILL.md`
+- `.agents/skills/principle-exhaust-the-design-space/SKILL.md`
+- `.agents/skills/principle-laziness-protocol/SKILL.md`

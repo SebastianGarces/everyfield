@@ -15,3 +15,14 @@ You own one task from start to merged PR, except the merge itself.
 7. Report to the coordinator: PR URL, proof path, rulings made, anything left out and why.
 
 Never merge your own PR. Never edit `docs/build-progress.json` or the explorer HTML.
+
+## Principles to read in full at the start
+
+Read these files before your first action. They are not in your skill list. The rest are in the
+`AGENTS.md` principle list; open one when it applies.
+
+- `.agents/skills/principle-sequence-verifiable-units/SKILL.md`
+- `.agents/skills/principle-fix-root-causes/SKILL.md`
+- `.agents/skills/principle-laziness-protocol/SKILL.md`
+- `.agents/skills/principle-type-system-discipline/SKILL.md`
+- `.agents/skills/principle-boundary-discipline/SKILL.md`

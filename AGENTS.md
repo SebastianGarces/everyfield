@@ -63,7 +63,9 @@ Skills live in `.agents/skills/`. `.claude/skills` links to the same folder.
 
 ## Principles
 
-Each line is a skill in `.agents/skills/principle-<name>/`. Read the full skill when it applies.
+This is the only always-loaded copy. Each line is a file at `.agents/skills/principle-<name>/SKILL.md`.
+They are verbatim upstream copies (`skills-lock.json`): never edit them; put EveryField rules in a role
+file or skill. Your role file names the ones to read in full at the start. Open others when they apply.
 
 - `boundary-discipline`: Guards at system boundaries; trust internal types; pure business logic.
 - `build-the-lever`: Build the script, codemod or skill that does or proves the work.
