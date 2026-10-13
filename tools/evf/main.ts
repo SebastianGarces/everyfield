@@ -2,6 +2,7 @@ import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, parseTask } from "./lib.ts";
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
+import { principles } from "./principles.ts";
 import { githubSetup, listShipped, prOpen, ship } from "./ship.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { verify } from "./verify.ts";
@@ -27,6 +28,7 @@ Verification (verifier)
 
 Upkeep
   evf doctor [--here]  evf gc [--apply]          evf github setup [--dry-run]
+  evf principles [--apply] [--ref <sha>]                      compare or sync principles with pstack
 
 <task> is WP-NNN for a single-part package, or WP-NNN/contract, WP-NNN/api, WP-NNN/ui.`;
 
@@ -58,6 +60,8 @@ function main(argv: string[]): number {
       const here = flag(args, "--here");
       return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
     }
+    case "principles":
+      return principles(root, { apply: flag(args, "--apply"), ref: option(args, "--ref") });
     case "gc":
       return gc(root, flag(args, "--apply"));
     case "plan": {

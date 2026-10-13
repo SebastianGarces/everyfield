@@ -6,7 +6,30 @@
   "maxAgentsMdLines": 150,
   "stack": null,
   "checks": [
-    { "name": "evf-doctor", "run": ["bin/evf", "doctor", "--here"] },
-    { "name": "build-explorer", "run": ["python3", "docs/update-build-explorer.py", "--root", ".", "--check"] }
-  ]
+    {
+      "name": "evf-doctor",
+      "run": [
+        "bin/evf",
+        "doctor",
+        "--here"
+      ]
+    },
+    {
+      "name": "build-explorer",
+      "run": [
+        "python3",
+        "docs/update-build-explorer.py",
+        "--root",
+        ".",
+        "--check"
+      ]
+    }
+  ],
+  "principles": {
+    "repo": "cursor/plugins",
+    "path": "pstack/skills",
+    "prefix": "principle-",
+    "ref": "main",
+    "license": "pstack/LICENSE"
+  }
 }

@@ -17,6 +17,7 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-prove-it-works/SKILL.md`
 - `.agents/skills/principle-minimize-reader-load/SKILL.md`
 - `.agents/skills/principle-subtract-before-you-add/SKILL.md`
+- `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`
 
 ## Principle checks on the diff
 
@@ -26,4 +27,5 @@ Report these as failures in your PR comment, the same as a failed criterion:
   (`principle-migrate-callers-then-delete-legacy-apis`).
 - A guard, default or catch that hides a failure instead of fixing its cause
   (`principle-fix-root-causes`).
-- A test with no `AC-`, `INV-` or `BUG-` name, or one that asserts nothing (skill `test-standard`).
+- A test with no `AC-`, `INV-` or `BUG-` name, or one that would still pass if every imported
+  function returned `undefined` (`principle-test-behavior-not-implementation`, skill `test-standard`).

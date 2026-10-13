@@ -26,3 +26,4 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-laziness-protocol/SKILL.md`
 - `.agents/skills/principle-type-system-discipline/SKILL.md`
 - `.agents/skills/principle-boundary-discipline/SKILL.md`
+- `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`

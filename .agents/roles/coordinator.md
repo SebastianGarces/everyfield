@@ -7,6 +7,8 @@ wait for results. These are the EveryField additions.
 
 1. Bring the workspace root to `main`: `git pull --ff-only origin main` (agents read `AGENTS.md`
    from here). Run `bin/evf doctor`.
+   Run `bin/evf principles`. If it reports changes, plan one small task that runs
+   `bin/evf principles --apply`, updates the `AGENTS.md` list and role files, and ships as a PR.
 2. Integrate progress: `bin/evf shipped` lists merged tasks. Write their records into
    `docs/build-progress-updates/WP-NNN.json` per `docs/build-agent-workflow.md`, apply with
    `docs/update-build-explorer.py`, ship that as its own task PR, then `bin/evf shipped --clear <task>`.

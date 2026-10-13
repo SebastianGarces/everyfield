@@ -67,11 +67,13 @@ This is the only always-loaded copy. Each line is a file at `.agents/skills/prin
 They are verbatim upstream copies (`skills-lock.json`): never edit them; put EveryField rules in a role
 file or skill. Your role file names the ones to read in full at the start. Open others when they apply.
 
+- `attack-the-premise`: Two fixes with one premise failed? Question the premise, not the fix.
 - `boundary-discipline`: Guards at system boundaries; trust internal types; pure business logic.
 - `build-the-lever`: Build the script, codemod or skill that does or proves the work.
 - `encode-lessons-in-structure`: A repeated correction becomes a lint, check or script, not more text.
 - `exhaust-the-design-space`: No precedent: build 2-3 prototypes and compare.
 - `experience-first`: User delight over implementation convenience.
+- `explain-the-number`: Name what limits a measured number before you trust it.
 - `fix-root-causes`: Reproduce, ask why, fix at the cause; no silencing guards.
 - `foundational-thinking`: Get the data structures right first.
 - `guard-the-context-window`: Keep summaries in context; bulk goes to files and subagents.
@@ -87,6 +89,7 @@ file or skill. Your role file names the ones to read in full at the start. Open 
 - `separate-before-serializing-shared-state`: Remove shared writers before adding locks.
 - `sequence-verifiable-units`: Small steps, each ending in a checked state.
 - `subtract-before-you-add`: Remove dead weight first.
+- `test-behavior-not-implementation`: Call code as users do; assert the exact result.
 - `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
 
 ## Build-explorer maintenance

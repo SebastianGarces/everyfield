@@ -21,6 +21,12 @@ large suite that nobody trusts slows every agent down, so each test must earn it
 4. **Combinatorial logic.** Pure logic with many input combinations: policy tables, parsers,
    scheduling. Write one table-driven test, not one test per case. Name it `INV-` or `AC-`.
 
+## Assert behavior
+
+Follow `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`: call the subject as its
+users do and assert the literal result. A test that would pass if every import returned `undefined`
+is rewritten or deleted.
+
 ## Do not write
 
 - A test that restates a TypeScript type or a Zod schema.
