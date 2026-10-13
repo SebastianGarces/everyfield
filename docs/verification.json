@@ -1,0 +1,97 @@
+{
+  "verified_on_utc": "2026-10-13T18:42:39.510205+00:00",
+  "scope": "Documentation and plan verification; no application/runtime acceptance",
+  "independent_reviews": {
+    "whole-plan": {
+      "verdict": "passed",
+      "reviewer_model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f",
+      "review_scope": "Independent whole-plan documentation semantic review of the frozen candidate; not authorization or proof of application implementation",
+      "reviewed_at_utc": null
+    },
+    "losslessness": {
+      "verdict": "passed",
+      "reviewer_model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f",
+      "review_scope": "Independent semantic documentation-preservation review; neither implementation acceptance nor permission to install/delete.",
+      "reviewed_at_utc": "2026-10-13T18:41:43.200631+00:00"
+    }
+  },
+  "coverage": {
+    "original_feature_records": 499,
+    "current_features": 494,
+    "approved_exclusions_or_native_remaps": 5,
+    "original_acceptance_bundles": 723,
+    "current_bundles": 720,
+    "source_tables": 88,
+    "named_source_additions": 5,
+    "source_table_crosswalk_complete": true,
+    "original_detailed_case_definitions": 486,
+    "preservation_fields": 11732,
+    "recorded_approved_rulings": 60,
+    "current": {
+      "features": 494,
+      "acceptance": 720,
+      "requirements": 715,
+      "future_cases": 1086,
+      "operations": 662,
+      "tables": 120,
+      "columns": 1873,
+      "fks": 435,
+      "packages": 86,
+      "edges": 284
+    }
+  },
+  "documentation_checks": {
+    "passed": 30075,
+    "package_contexts": 86,
+    "detail_pages": 2784,
+    "max_page_bytes": 152039,
+    "page_budget_bytes": 196608,
+    "silent_omissions": 0,
+    "dag_acyclic": true,
+    "unordered_owning_path_overlaps": 0,
+    "reviewed_substantive_links": 156
+  },
+  "offline_explorer_checks": {
+    "passed": 38,
+    "legacy_import_export_preserved": true,
+    "all_target_tables_reachable": true,
+    "external_page_requests": 0,
+    "runtime_errors": 0,
+    "canonical_progress_unchanged": true,
+    "dialog_close_regression": "Import confirmation captures its own validated candidate; cancellation and a delayed previous close event cannot clear or apply a different candidate. Fresh offline38-check run passed with zero errors."
+  },
+  "preserved": {
+    "sme_original_reference_bytes": true,
+    "bootstrap_articles": 96,
+    "bootstrap_sections": 21,
+    "bootstrap_templates": 7,
+    "progress_packages": 86,
+    "progress_status": "not_started",
+    "progress_revision": 0,
+    "design_and_unreviewed_assets": true,
+    "existing_external_backup": true
+  },
+  "implementation_tests_run": 0,
+  "provider_changes": 0,
+  "new_archive": false,
+  "future_gates": [
+    "G-AUTH",
+    "G-SPEND",
+    "G-WORKFLOW",
+    "G-SETUP",
+    "G-RUNTIME",
+    "G-RECOVERY"
+  ],
+  "limits": [
+    "Dependency/runtime/real SQL/concurrency/model/provider/purge/restore proof remains future-not-run.",
+    "Historical exact Unmerge source callable remains unavailable; required native and reviewed-assistant target inverse is specified.",
+    "Official geography payload/checksum verification, real scoped accounts/credentials/restricted backup invocation, concrete spending and promised merged owner workflow remain future execution inputs."
+  ],
+  "provenance": "Detailed independent verdicts, exact baseline/source/field/case/approval/removal mappings and final installed-byte evidence remain in the external execution evidence directory. Default builder context consumes current contracts, not review chronology.",
+  "metadata_delta": "This record and the passed G-DESIGN label record the actual substantive-review result. The final scoped delta also fixes an independently reproduced explorer import dialog-close race through lexical candidate capture; cancellation/delayed-close/import/export regressions pass. Final review checks the resulting delta and installed fingerprint separately; the substantive fingerprint intentionally excludes these later changes.",
+  "local_baseline_integration": "Current approved plan incorporated with existing merged UI/design/workflow files preserved. Only documentation routing and workflow handoff receipt metadata change; application packages remain unstarted and execution gates remain. Original substantive independent-review fingerprints remain provenance, not a claim of workflow runtime verification."
+}

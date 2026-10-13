@@ -1,0 +1,1709 @@
+{
+  "domain": "launch",
+  "requirements": [
+    {
+      "id": "REQ-KNOW-034",
+      "feature_ids": [
+        "LCH-008",
+        "PI-009",
+        "PI-028"
+      ],
+      "text": "0 and28 church-local days qualify;29does not; unknown target remains Unknown.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-008--LCH-008",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-044",
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-035",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-002",
+        "PI-028"
+      ],
+      "text": "Uncompleted past target is overdue; explicit move/postpone preserves history and no automatic phase/date writes.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-002--LCH-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-036",
+      "feature_ids": [
+        "PI-009",
+        "PI-032"
+      ],
+      "text": "Calendar launch-window clocks never substitute for72 elapsed release hours or48hcontact performance.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-PI-032--PI-032"
+      ],
+      "case_ids": [
+        "B02-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-037",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004"
+      ],
+      "text": "All nine milestone and23 actual source-task identities remain with human completion; aggregate counts never automatically complete them. Preserve every actual task rather than force the former incorrect summary count.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004"
+      ],
+      "case_ids": [
+        "B02-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-038",
+      "feature_ids": [
+        "LCH-004",
+        "LCH-005",
+        "LCH-010"
+      ],
+      "text": "Reopening/correcting required linked work makes current evidence Needs review while retaining previous human completion history.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-004--LCH-004",
+        "AC-LCH-005--LCH-005",
+        "AC-LCH-010--LCH-010"
+      ],
+      "case_ids": [
+        "B02-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-039",
+      "feature_ids": [
+        "EVR-254",
+        "EVR-255",
+        "EVR-262",
+        "LCH-004"
+      ],
+      "text": "Current valid re-confirmation uses existing live-task authority; old completion history is not erased/relabelled.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-254--EVR-254",
+        "AC-EVR-255--EVR-255",
+        "AC-EVR-262--EVR-262",
+        "AC-EVR-EFFECT--EVR-254",
+        "AC-EVR-EFFECT--EVR-255",
+        "AC-EVR-EFFECT--EVR-262",
+        "AC-LCH-004--LCH-004"
+      ],
+      "case_ids": [
+        "B02-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-076"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-040",
+      "feature_ids": [
+        "EVR-165",
+        "MTG-001",
+        "MTG-002"
+      ],
+      "text": "Dedicated practice discriminant appears in create/list/filter/detail without silently recategorizing team rehearsal or Vision.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-MTG-001--MTG-001",
+        "AC-MTG-002--MTG-002"
+      ],
+      "case_ids": [
+        "B02-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-022",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-041",
+      "feature_ids": [
+        "EVR-171",
+        "LCH-003",
+        "MTG-002",
+        "PI-028"
+      ],
+      "text": "Three distinct actually held completed practice IDs count once; four remain satisfied and replay never adds events.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-LCH-003--LCH-003",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-042",
+      "feature_ids": [
+        "MTG-002",
+        "PI-028"
+      ],
+      "text": "Scheduled-only/future/cancelled/not-held practice records are not evidence; completion requires actual nonfuture occurrence.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-043",
+      "feature_ids": [
+        "MTG-010",
+        "MTG-012",
+        "PI-028"
+      ],
+      "text": "Attendance finalization, guest rows or task ticks never complete/duplicate a practice occurrence.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-MTG-010--MTG-010",
+        "AC-MTG-012--MTG-012",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-022",
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-044",
+      "feature_ids": [
+        "EVR-170",
+        "EVR-172",
+        "LCH-004",
+        "MTG-002",
+        "PI-028"
+      ],
+      "text": "Corrected occurrence/date/type and reopened/void duplicate change current count while preserving history and previous PI snapshot.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-170--EVR-170",
+        "AC-EVR-172--EVR-172",
+        "AC-EVR-EFFECT--EVR-170",
+        "AC-EVR-EFFECT--EVR-172",
+        "AC-LCH-004--LCH-004",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-045",
+      "feature_ids": [
+        "MTG-002"
+      ],
+      "text": "Merely hiding/archiving a genuine completed practice is distinguished from voiding invalid occurrence.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002"
+      ],
+      "case_ids": [
+        "B02-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-046",
+      "feature_ids": [
+        "MTG-002",
+        "MTG-005"
+      ],
+      "text": "Ordinary practice agenda/venue/guests remain usable; no Vision number/kit/card/evaluation/auto-first-timer tasks or team training credit.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002",
+        "AC-MTG-005--MTG-005"
+      ],
+      "case_ids": [
+        "B02-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-047",
+      "feature_ids": [
+        "LCH-003",
+        "MTG-002",
+        "PI-028"
+      ],
+      "text": "Reaching three actual practices grants no account authority and never advances phase or completes nine milestones/the23 actual source Tasks.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-014"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-048",
+      "feature_ids": [
+        "EVR-165",
+        "EVR-171",
+        "MTG-002"
+      ],
+      "text": "Current meeting/launch operations preserve scoped shared administration; no team-leader exception expansion or foreign event write.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-MTG-002--MTG-002"
+      ],
+      "case_ids": [
+        "B02-015"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-049",
+      "feature_ids": [
+        "EVR-165",
+        "EVR-171",
+        "EVR-172"
+      ],
+      "text": "Exact-reviewed Evry practice create/complete/correct uses shared domain operations with stale/duplicate receipts and current authority.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-172--EVR-172",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-EVR-EFFECT--EVR-172"
+      ],
+      "case_ids": [
+        "B02-016"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-050",
+      "feature_ids": [
+        "EVR-266",
+        "PI-015",
+        "PI-028"
+      ],
+      "text": "Promotion attestation states the chosen plan was actually executed; optional references, not mandatory every illustrative medium.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-266--EVR-266",
+        "AC-EVR-EFFECT--EVR-266",
+        "AC-PI-015--PI-015",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-017"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-039",
+        "WP-040",
+        "WP-044",
+        "WP-053",
+        "WP-055",
+        "WP-074"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-051",
+      "feature_ids": [
+        "PI-028"
+      ],
+      "text": "One sent communication/task tick is not the whole promotion plan; missing execution evidence remains Unknown.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-018"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-052",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "text": "Native launch debrief questionnaire replaces attestation and keeps outcome counts/notes/capture-the-day separately editable.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "B02-019"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-053",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "text": "Valid submitted No missingguests derives guest criterion Met; Yes positivecount derives Notmet; unanswered/draft Unknown. Debrief valid submission separately Met, with actual source wording/history preserved and no unrelated effects.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-020"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-054",
+      "feature_ids": [
+        "LCH-007",
+        "PI-009",
+        "PI-028"
+      ],
+      "text": "Native corrections/history preserve versions and current authority. Only valid approved questionnaire evidence derives the two current guest/debrief criterion/milestone states; arbitrary outcome/clock/unchecked edits never complete them. No automatic tasks or phase move.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-007--LCH-007",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-021"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-044",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-055",
+      "feature_ids": [
+        "EVR-256",
+        "EVR-257",
+        "EVR-419"
+      ],
+      "text": "Native/Evry Launch read/correct/guest/debrief/summary adapters use the same current authority/revision/history; every durable effect exact reviewed, no raw reflection/private-care model input or hidden task/send/phase effect.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "case_ids": [
+        "B02-022"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-052",
+        "WP-053",
+        "WP-055",
+        "WP-075",
+        "WP-076"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-056",
+      "feature_ids": [
+        "EVR-158",
+        "EVR-159",
+        "EVR-167",
+        "MTG-011",
+        "PPL-002"
+      ],
+      "text": "Guest minimum name with optional phone/email creates real People without fabricated surname, age/account/membership inference.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-158--EVR-158",
+        "AC-EVR-159--EVR-159",
+        "AC-EVR-167--EVR-167",
+        "AC-EVR-EFFECT--EVR-158",
+        "AC-EVR-EFFECT--EVR-159",
+        "AC-EVR-EFFECT--EVR-167",
+        "AC-MTG-011--MTG-011",
+        "AC-PPL-002--PPL-002"
+      ],
+      "case_ids": [
+        "B02-023"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-011",
+        "WP-012",
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-057",
+      "feature_ids": [
+        "EVR-167",
+        "MTG-011",
+        "PPL-002"
+      ],
+      "text": "Choosing an existing person links its explicit ID; same name never automatically merges and repeated create request is receipt-safe.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-167--EVR-167",
+        "AC-EVR-EFFECT--EVR-167",
+        "AC-MTG-011--MTG-011",
+        "AC-PPL-002--PPL-002"
+      ],
+      "case_ids": [
+        "B02-024"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-011",
+        "WP-012",
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-058",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "text": "Submitted missingguestanswer, not headcount/roster/outcomeRecorded, determines guest criterion; Yespositivecount remains reportedremaining without roster subtraction and no placeholders.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-025"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-059",
+      "feature_ids": [
+        "EVR-263",
+        "PI-024",
+        "PI-032"
+      ],
+      "text": "Owner/Admin opens the durable assessment OR72elapsed hours after availability releases it, whichever first.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-263--EVR-263",
+        "AC-EVR-EFFECT--EVR-263",
+        "AC-PI-024--PI-024",
+        "AC-PI-032--PI-032"
+      ],
+      "case_ids": [
+        "B02-026"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-044",
+        "WP-053",
+        "WP-055",
+        "WP-074"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-060",
+      "feature_ids": [
+        "EVR-264",
+        "PI-024",
+        "PI-032"
+      ],
+      "text": "Delivery/email open/model read/other-member read alone never marks eligible planter opportunity;72h starts at durable availability not queued draft.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-264--EVR-264",
+        "AC-EVR-READ--EVR-264",
+        "AC-PI-024--PI-024",
+        "AC-PI-032--PI-032"
+      ],
+      "case_ids": [
+        "B02-027"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-044",
+        "WP-052",
+        "WP-055",
+        "WP-073"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-061",
+      "feature_ids": [
+        "IDN-023",
+        "PI-031",
+        "PI-032"
+      ],
+      "text": "Same concern/evidence appears to planter; prior released results remain during new embargo only under current authorization/category scope.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032"
+      ],
+      "case_ids": [
+        "B02-028"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-044",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-062",
+      "feature_ids": [
+        "PI-032",
+        "PI-043",
+        "PI-044"
+      ],
+      "text": "Unreleased new assessment never feeds NI/Location; independent current health/results and all underlying category gates still apply.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-032--PI-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "case_ids": [
+        "B02-029"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-007",
+        "WP-010",
+        "WP-032",
+        "WP-041",
+        "WP-042",
+        "WP-043",
+        "WP-044",
+        "WP-047",
+        "WP-056",
+        "WP-057",
+        "WP-058",
+        "WP-073",
+        "WP-074"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-063",
+      "feature_ids": [
+        "IDN-023",
+        "LCH-006"
+      ],
+      "text": "Separate humanoperationalsummary preview/review/explicitpublish has current exactorg shared_findings and contributing-category access immediately; raw questionnaire/guest/privatecare remains private and modelassessment72hour/humanopened gate stays separate.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "B02-030"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-064",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "text": "Native/private author checkins stay outside all model/Evry/org/tool/log/evaluation paths; launch forms cannot import them.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-031"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-065",
+      "feature_ids": [
+        "LCH-006",
+        "MTG-002",
+        "PI-028"
+      ],
+      "text": "Active target catalog preserves unchanged canonical rubric/Playbook criterion keys and names chosen nativepractice/debrief commands explicitly. Current source inventory remains separate evidence; a declaration or retainedtable never manufactures active operation authority.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "B02-032"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-097",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-006",
+        "LCH-008"
+      ],
+      "text": "Actual Launch remains launches/launch_events with actual date separate from planned date; not a public_launch Meeting or Vision subtype.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "LAUNCH46-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-098",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PPL-002",
+        "PPL-004"
+      ],
+      "text": "Entering a new named guest in Launch attendance creates a real People person and Launch relation together; explicit existing-person selection links that person without making a duplicate.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002",
+        "AC-PPL-004--PPL-004",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "LAUNCH46-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-011",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-099",
+      "feature_ids": [
+        "LCH-006",
+        "PPL-002"
+      ],
+      "text": "A meaningful supplied name is sufficient; phone/email are optional. No invented surname, address, age, account, invitation or commitment.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "LAUNCH46-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-011",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-100",
+      "feature_ids": [
+        "LCH-006",
+        "PPL-016",
+        "PPL-017"
+      ],
+      "text": "Normal duplicate candidate selection is reused; same name is never automatic merge. Repeated create/link cannot double attendance or leave a Person without its intended link on failed transaction.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PPL-016--PPL-016",
+        "AC-PPL-017--PPL-017",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "LAUNCH46-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-015",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-101",
+      "feature_ids": [
+        "LCH-006",
+        "PI-009"
+      ],
+      "text": "Headcount remains independent from named guests and reported unentered count; not every counted attendee needs a People record, and anonymous/missing data produces no fake person.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "LAUNCH46-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-102",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PI-028"
+      ],
+      "text": "The missing-name question appears once in the debrief; Yes shows only its count field. No Finish guest entry button/receipt/attestation or second confirmation.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "LAUNCH46-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-038",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-103",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004",
+        "PI-001",
+        "PI-028"
+      ],
+      "text": "A current valid submitted No response derives guest_data_entered Met with dated author-reported questionnaire provenance; headcount zero/non-null or named roster size is not the proof.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004"
+      ],
+      "case_ids": [
+        "LAUNCH46-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-104",
+      "feature_ids": [
+        "LCH-004",
+        "PI-001",
+        "PI-028"
+      ],
+      "text": "A current valid submitted Yes with positive count derives guest_data_entered Not met/remaining and exposes that reported count separately; no automatic subtraction by roster size.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-004--LCH-004"
+      ],
+      "case_ids": [
+        "LAUNCH46-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-105",
+      "feature_ids": [
+        "LCH-006",
+        "PI-001",
+        "PI-028"
+      ],
+      "text": "Unanswered or provisional missing-name response is Unknown, never implicit No; a new incomplete draft does not overwrite the last valid submitted evidence.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "LAUNCH46-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-106",
+      "feature_ids": [
+        "LCH-006",
+        "PI-001",
+        "PI-028"
+      ],
+      "text": "Valid questionnaire submission gives debrief_done Met independently even when Yes/3 guests remain. Do not require a No to submit or declare the guest criterion Met from submission alone.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "LAUNCH46-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-107",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "text": "All six approved areas are represented; incomplete work saves as draft, deliberate valid submission and later edits retain question/version/actor/history. No new prose minimum, numeric quotas or per-topic menus.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "LAUNCH46-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-108",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-002",
+        "LCH-006",
+        "LCH-007",
+        "PI-009"
+      ],
+      "text": "Actual-date/count changes use the canonical Launch correction writer; debrief does not silently change planned date/actual occurrence or mark first_service_complete from narrative.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-002--LCH-002",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007"
+      ],
+      "case_ids": [
+        "LAUNCH46-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-109",
+      "feature_ids": [
+        "LCH-007",
+        "LCH-010",
+        "PI-028",
+        "PI-030"
+      ],
+      "text": "Correction/no-op/current revision/history remain attributable; changing the missing answer updates current derived criterion while historical readings and already advanced phase remain.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-PI-030--PI-030",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-010--LCH-010"
+      ],
+      "case_ids": [
+        "LAUNCH46-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-040",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-110",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004",
+        "LCH-010",
+        "PI-028"
+      ],
+      "text": "Guest/debrief criterion and corresponding current milestone display use the same native evidence; no second manual checkbox can fake completion. Other milestone/task workflows remain and no phase auto-advance/demotion occurs.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004",
+        "AC-LCH-010--LCH-010"
+      ],
+      "case_ids": [
+        "LAUNCH46-014"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-111",
+      "feature_ids": [
+        "IDN-023",
+        "LCH-006",
+        "LCH-008"
+      ],
+      "text": "Summary is separately editable short human text, previewed/reviewed before explicit publish; submission alone publishes nothing and raw answer bodies/guest records are not copied automatically.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "LAUNCH46-015"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-112",
+      "feature_ids": [
+        "IDN-022",
+        "IDN-023",
+        "PI-031",
+        "PI-043",
+        "PI-044"
+      ],
+      "text": "Published summary read uses current exact-org health/results shared_findings and actual contributing source categories; unrelated/nonaffiliated/revoked/disabled grants deny. No added consent toggle or organization native-write permission.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-022--IDN-022",
+        "AC-IDN-023--IDN-023",
+        "AC-PI-031--PI-031",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "case_ids": [
+        "LAUNCH46-016"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-007",
+        "WP-046",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-113",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PI-043"
+      ],
+      "text": "Published text excludes individual guest information, raw private/support narratives and protected source copies. Human reviews outgoing text; no promised automatic name detection/redaction or model-generated testimony.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008",
+        "AC-PI-043--PI-043"
+      ],
+      "case_ids": [
+        "LAUNCH46-017"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-114",
+      "feature_ids": [
+        "LCH-008",
+        "PI-032",
+        "PI-043",
+        "PI-044"
+      ],
+      "text": "Current direct summary becomes available on deliberate publish under current grants; PI/NI/Location assessments still use eligible human opened OR72elapsed-hour P15 release independently.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-032--PI-032",
+        "AC-LCH-008--LCH-008",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "case_ids": [
+        "LAUNCH46-018"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-044",
+        "WP-046",
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-115",
+      "feature_ids": [
+        "EVR-185",
+        "EVR-257",
+        "LCH-006",
+        "TSK-002"
+      ],
+      "text": "Next-step task creation is a separate previewed/reviewed ordinary Tasks command; questionnaire/summary submission alone creates/completes no task, contact, email, support dispatch or phase.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-TSK-002--TSK-002",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-185--EVR-185",
+        "AC-EVR-EFFECT--EVR-185",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257"
+      ],
+      "case_ids": [
+        "LAUNCH46-019"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-025",
+        "WP-053",
+        "WP-055",
+        "WP-068",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-116",
+      "feature_ids": [
+        "EVR-256",
+        "EVR-257",
+        "EVR-419",
+        "IDN-005",
+        "LCH-006"
+      ],
+      "text": "Native Owner/Admin current plant permissions and exact reviewed Evry writes share operations; Member/foreign/expired/stale operations cannot write guests/debrief/published summary.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "case_ids": [
+        "LAUNCH46-020"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-006",
+        "WP-052",
+        "WP-053",
+        "WP-075",
+        "WP-076",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-117",
+      "feature_ids": [
+        "PI-001",
+        "PI-009",
+        "PI-028"
+      ],
+      "text": "Current PI guest/debrief facts use only valid submitted/current corrected questionnaire answer and submission evidence; headcount/outcomeRecorded or arbitrary manual signal never substitutes and canonical SME keys/wording remain unchanged.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "LAUNCH46-021"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-118",
+      "feature_ids": [
+        "LCH-007",
+        "LCH-010",
+        "PPL-017"
+      ],
+      "text": "Launch link correction or Person merge accounts for active relations without duplicate guest links; scalar headcount and human-reported missing count are not silently recalculated from CRM.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-010--LCH-010"
+      ],
+      "case_ids": [
+        "LAUNCH46-022"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-015",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-119",
+      "feature_ids": [
+        "PI-001",
+        "PI-028",
+        "PI-038",
+        "PI-040",
+        "PI-043",
+        "PI-044"
+      ],
+      "text": "Bounded facts supply submission status, dated missing-name response/count and canonical date/counts to PI. Private check-in or raw reflection/support text never enters a PI evidence projection by accident.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-EVR-267--EVR-267",
+        "AC-EVR-READ--EVR-267",
+        "AC-EVR-268--EVR-268",
+        "AC-EVR-EFFECT--EVR-268",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "case_ids": [
+        "LAUNCH46-023"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-040",
+        "WP-042",
+        "WP-043",
+        "WP-046",
+        "WP-055"
+      ]
+    },
+    {
+      "id": "REQ-LCH-001",
+      "feature_ids": [
+        "LCH-001"
+      ],
+      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "scheduleLaunch",
+        "moveLaunch",
+        "postponeLaunch"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001"
+      ],
+      "case_ids": [
+        "CASE-LCH-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-LCH-002",
+      "feature_ids": [
+        "LCH-002"
+      ],
+      "text": "Launch journal reads scoped before/after planned/actual date/status, event kind, actual actor and occurrence/correction history. Minimal deleted-actor attribution remains without private account payload. Read failure is unavailable, not a fabricated empty journal.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "readLaunchJournal"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-002--LCH-002"
+      ],
+      "case_ids": [
+        "CASE-LCH-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-003",
+      "feature_ids": [
+        "LCH-003"
+      ],
+      "text": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history/audit/receipt transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "seedLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003"
+      ],
+      "case_ids": [
+        "CASE-LCH-003",
+        "LAUNCH-SEED-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-004",
+      "feature_ids": [
+        "LCH-004"
+      ],
+      "text": "Complete/reopen readiness milestone under current subject authority, expected revision and live associated-task guard in the same history/audit/receipt transaction. Required task reopening/correction makes current evidence Needs review while prior human completion history stays. Guest/debrief evidence is derived, not overridable by a manual checkbox.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "completeLaunchMilestone",
+        "reopenLaunchMilestone"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-004--LCH-004"
+      ],
+      "case_ids": [
+        "CASE-LCH-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-005",
+      "feature_ids": [
+        "LCH-005"
+      ],
+      "text": "Complete/reopen linked Launch prep Tasks only through ordinary task subject/assignee/administration rules. Current milestone progress derives from live Tasks; task deletion/reassignment/reopen changes that projection and never erases prior human completion or gains a Launch authorization bypass.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "completeLaunchTask",
+        "reopenLaunchTask"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-005--LCH-005"
+      ],
+      "case_ids": [
+        "CASE-LCH-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-LCH-006",
+      "feature_ids": [
+        "LCH-006"
+      ],
+      "text": "Record actual nonfuture Launch date/count/outcome separately from target, link real named guests with atomic same-plant Person/relation create or explicit existing selection, and save/submit versioned six-area debrief. A valid submitted No-unentered-guests derives guest_data_entered Met; Yes/positive count derives Not met; draft/unanswered Unknown. Valid submission independently derives debrief_done Met. Separately preview/review/publish human summary under current scoped sharing; no automatic task/contact/email/phase/guest placeholder.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [
+        "recordLaunchOutcome",
+        "launch.saveDebriefDraft",
+        "launch.submitDebrief",
+        "launch.correctDebrief",
+        "launch.readDebrief",
+        "launch.recordActualOccurrence",
+        "launch.addGuestAttendance",
+        "launch.correctGuestAttendance",
+        "launch.saveDebriefSummaryDraft",
+        "launch.publishDebriefSummary"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006"
+      ],
+      "case_ids": [
+        "CASE-LCH-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-007",
+      "feature_ids": [
+        "LCH-007"
+      ],
+      "text": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under expected revision with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
+      "spec": "docs/product/launch.md#actual-launch-and-named-guests",
+      "operations": [
+        "correctLaunchOutcome",
+        "launch.saveDebriefDraft",
+        "launch.submitDebrief",
+        "launch.correctDebrief",
+        "launch.readDebrief",
+        "launch.recordActualOccurrence",
+        "launch.addGuestAttendance",
+        "launch.correctGuestAttendance",
+        "launch.saveDebriefSummaryDraft",
+        "launch.publishDebriefSummary"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-007--LCH-007"
+      ],
+      "case_ids": [
+        "CASE-LCH-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-008",
+      "feature_ids": [
+        "LCH-008"
+      ],
+      "text": "Launch workspace/dashboard uses one church-local countdown and canonical planned/status/actual outcome/readiness facts, explicitly distinguishes zero/unknown/postponed/overdue/completed and exposes named-guest/debrief/summary workflow. Calendar0..28day window is distinct from48hour follow-up and72hour result-release clocks; load error is unavailable.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "readLaunchWorkspace",
+        "readLaunchCountdown",
+        "launch.saveDebriefDraft",
+        "launch.submitDebrief",
+        "launch.correctDebrief",
+        "launch.readDebrief",
+        "launch.recordActualOccurrence",
+        "launch.addGuestAttendance",
+        "launch.correctGuestAttendance",
+        "launch.saveDebriefSummaryDraft",
+        "launch.publishDebriefSummary"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-008--LCH-008"
+      ],
+      "case_ids": [
+        "CASE-LCH-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-009",
+      "feature_ids": [
+        "LCH-009"
+      ],
+      "text": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source revision, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "repairLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-009--LCH-009"
+      ],
+      "case_ids": [
+        "CASE-LCH-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-LCH-010",
+      "feature_ids": [
+        "LCH-010"
+      ],
+      "text": "Read milestone completion/reopen/correction history with actual named actor or minimal scrubbed deleted attribution and original event times. Reconfirm after live-task guard keeps prior completion history without relabeling it as a new past fact.",
+      "spec": "docs/product/launch.md#schedule-and-readiness",
+      "operations": [
+        "readMilestoneCompletionHistory"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-010--LCH-010"
+      ],
+      "case_ids": [
+        "CASE-LCH-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    },
+    {
+      "id": "REQ-LCH-011",
+      "feature_ids": [
+        "LCH-011"
+      ],
+      "text": "Recurring post-launch services/worship/volunteer scheduling is outside the active target; source declarations create no operation. Phase-six post-launch48hour guest follow-up remains Unknown/unmeasured without an approved actual obligations/contact/time origin, never substituted by prelaunch Vision success.",
+      "spec": "docs/product/launch.md#post-launch-measurement-and-proof",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-LCH-011--LCH-011"
+      ],
+      "case_ids": [
+        "CASE-LCH-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-046"
+      ]
+    }
+  ]
+}

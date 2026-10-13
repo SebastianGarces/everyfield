@@ -1,0 +1,861 @@
+# Plant Intelligence Rubric — v1
+
+**In force since 2026-08-21.** Every assessment generated from that date records
+`rubric_version: v1` and was produced by the framework this document describes.
+`ACTIVE_RUBRIC_VERSION` in `src/lib/phase-engine/rubric.ts` is `"v1"`, flipped by
+[#538](https://github.com/SebastianGarces/everyfield_v2/issues/538) once all 18
+[#469](https://github.com/SebastianGarces/everyfield_v2/issues/469) sub-issues had landed.
+
+`rubric-v0.md` is the historical record, not a superseded draft: assessments written
+before the flip recorded `v0` and are re-explained against v0's text, so both versions
+stay registered and resolvable.
+
+---
+
+## What this assesses, and what it does not
+
+**Plant Intelligence assesses progress toward a healthy launch under this planting
+methodology.** ✅ It does not assess the full health of a church: qualified shepherding,
+discipleship, theological alignment, meaningful membership, and pastoral care are outside
+its scope and belong to human judgment. **The judge must never issue a church-health
+verdict, positive or negative** — "a healthy church is forming here" is exactly as far
+out of scope as its opposite, and the second is the one a reader would find harder to
+argue with.
+
+The eight lenses are good at "is this plant successfully moving toward launch". That is
+the question they were mined from, and it is the only question this document answers.
+
+---
+
+## How to read this document
+
+v1 started as a copy of v0 and accumulated one ruled change at a time. Each sub-issue of
+#469 edited the section it owned and added its row to the change log below, so the whole
+v1 delta stays auditable from this file. A section with no change-log row carries the v0
+text unchanged — those are the places Bryan's review had nothing to correct.
+
+✅ means the number comes from the Launch Playbook or the wiki. v0 also used ⚠️ for a
+placeholder awaiting a practitioner ruling; **no threshold in this document carries one
+any more** — every ⚠️ v0 raised was ruled by the series and is recorded in the change log
+and in Appendix C question 3.
+
+The source review is `bryan-comments-review.md` — Bryan's comments (C01–C26), the
+recorded rulings, and the disposition of every one of them.
+
+### Change log
+
+| Change | Comments | Issue | What changed |
+|---|---|---|---|
+| Lens 2 stops inferring the planter is the bottleneck | C01, C13 | [#470](https://github.com/SebastianGarces/everyfield_v2/issues/470) | Lens 2 may claim who carries follow-up only from measured task ownership. Appendix B's "Delegate Follow-Up Responsibilities" sample replaced. |
+| Stalled growth is 28 days, and any +1 resets it | C02, C22 | [#471](https://github.com/SebastianGarces/everyfield_v2/issues/471) | Lens 3's single "3 weeks flat" ⚠️ becomes two ruled levels: slowed at 21 days, stalled at 28. The 28-day comparison window is kept. |
+| 50/100 are methodology benchmarks, not universal health | C03 | [#472](https://github.com/SebastianGarces/everyfield_v2/issues/472) | The numbers stay; the grammar around them changes, in Lens 3, in Phase 1, in the app copy and across the global wiki corpus. Undershoot is never an unhealthy verdict. |
+| Lens 4 is Cohesion, not Unity | C04 | [#473](https://github.com/SebastianGarces/everyfield_v2/issues/473) | Renamed heading, slug (`cohesion`) and scorecard label. Signals unchanged. Unity is named as a relational judgment the engine does not attempt; the "unity is fragile" sample is deleted. |
+| Prayer is rhythms, with a lighter attestation cycle | C05, C21 | [#474](https://github.com/SebastianGarces/everyfield_v2/issues/474) | Lens 5 is fed by two rhythm attestations and their age; the Prayer Leader title moves to Lens 7 coverage. "Has it happened in the last 30 days?" ships as freshness metadata plus a reaffirm chip, not as a third question. Unanswered is unknown. |
+| Generosity is split from Financial Readiness | C06, C21 | [#475](https://github.com/SebastianGarces/everyfield_v2/issues/475) | Lens 6 becomes two separately-scored signals under one heading. New `core_group_giving` attestation for giving culture; the existing funding key keeps its slug and narrows to solvency. Neither may be read as evidence for the other. |
+| 60 days is a Leadership Candidate Signal, not readiness | C07, C22 | [#476](https://github.com/SebastianGarces/everyfield_v2/issues/476) | The number stays and the claim goes. Interview and 4 C's records join the signal as recorded human judgments the engine may cite and may never make. "leadership-ready" and "the profile of an emerging leader" are banned as claims about a person. |
+| The Phase 1 gate is a cluster, not a headcount | C08, C23 | [#477](https://github.com/SebastianGarces/everyfield_v2/issues/477) | 30–40 kept. A fifth indicator — trajectory — joins the four, and the gate is scored as a conjunction with a "N of 5 hold" readout. No single mark clears it; unanswered blocks without failing. |
+| The planter gets 1 primary + 2 supplements | C09, C18 | [#478](https://github.com/SebastianGarces/everyfield_v2/issues/478) | §6 caps the planter's actionable list at three, enforced in the judge schema rather than asked for in the prompt. Positives are exempt and get their own surface; the drill-downs carry the rest. |
+| Sharing language matches the sending-invite spec | C10 | [#479](https://github.com/SebastianGarces/everyfield_v2/issues/479) | §7's universal "off by default" splits into the two real cases — self-started plants share nothing, invited plants start with sharing on and consent at the acceptance screen. Doc text only; the behaviour was already ruled (ledger row 187). |
+| Unshared plants read Limited visibility, never On track | C11 | [#480](https://github.com/SebastianGarces/everyfield_v2/issues/480) | The network posture becomes four-valued. Silence cannot forge "On track"; escalations still win; the label is neutral, not a warning. The v0 "please confirm" on the privacy trade is answered. |
+| Unfilled roles are a coverage gap, not "no emerging leaders" | C14 | [#481](https://github.com/SebastianGarces/everyfield_v2/issues/481) | Lens 7 coverage copy talks about assignment only; inferring the absence of leaders from role-fill data is banned. The two pipelines — people and coverage — are named as separate. Appendix B's sample replaced with Bryan's wording. |
+| The network register coaches, and the planter sees it first | C15, C16, C24, C25 | [#482](https://github.com/SebastianGarces/everyfield_v2/issues/482) | §7 gains a verdict ban-list, a same-concern pairing rule and pattern-not-cause — all three enforced on judge output. An assessment releases to oversight when the planter opens it, or after 72 hours. Appendix B's network samples rewritten. |
+| Every lens has an evidence quality, including unknown | C17 | [#483](https://github.com/SebastianGarces/everyfield_v2/issues/483) | New §5b: measured / attested / unknown per lens, derived from the snapshot and handed to the judge. Unknown is never healthy; the scorecard renders an insufficient-evidence tile. Appendix C question 2 resolved. |
+| Planter sustainability is captured, never inferred | C19 | [#484](https://github.com/SebastianGarces/everyfield_v2/issues/484) | New §5c: the engine may not claim planter wellbeing from any activity fact. A private weekly check-in captures it directly, outside the pipeline, and renders beside the assessment so launch-green cannot wash planter-red. |
+| We assess launch health, not church health | C20 | [#485](https://github.com/SebastianGarces/everyfield_v2/issues/485) | The document opens with the scope statement and names what is out of it. The judge is banned from church-health verdicts in either direction; the same sentence ships on `/phase`, on the oversight portfolio and in the FRD. |
+| Growth composition — transfer vs new believers | C26 | [#487](https://github.com/SebastianGarces/everyfield_v2/issues/487) | Lens 3 gains a light composition note counted from the existing `persons.source` field. Planter-audience only; conversion claims and cross-plant ranking are both banned; the post-alpha upgrade path is named. |
+| The remaining ⚠️ thresholds are ruled | C22, C23 | [#486](https://github.com/SebastianGarces/everyfield_v2/issues/486) | Two-level cadence (21 watch / 28 direct), percentage-based disengagement (20%, min 3), warmth-split follow-up staleness (7 warm / 14 cold), and a compound readiness trigger — time alone never escalates. Appendix C question 3 is now a record rather than a question. |
+| Assembly, coherence pass, and the flip | C12 | [#538](https://github.com/SebastianGarces/everyfield_v2/issues/538) | No new rubric content. Seams from 18 independent edits fixed (two verbatim duplications removed, CSF-2 and the network sections reordered, the network ban-list derived from the code that enforces it). C12 deferred: the vision-meeting **target** stays biweekly and is stated as an open Playbook parameter. `ACTIVE_RUBRIC_VERSION` → `"v1"`. |
+
+---
+
+## 1. How the engine works
+
+Once a day, for each plant that has had activity, the system:
+
+1. **Counts what is countable.** It queries the database for facts — how many people
+   have signed a core-group commitment, when the last vision meeting was held, how
+   many of the eight ministry roles have a leader, how many days until the launch date.
+2. **Looks up the relevant methodology.** It retrieves the passages from the Launch
+   Playbook and the wiki that relate to this plant's current phase and situation.
+3. **Applies this rubric.** A language model receives the facts, the methodology
+   passages, and this document, and writes the observations.
+4. **Saves the result.** Planters and network staff read the saved result instantly.
+   Nothing is generated while someone is waiting on a page.
+
+A plant with no activity since its last assessment is not re-assessed. Time itself
+counts as activity — a launch countdown moves whether or not anyone logs in.
+
+## 2. The one rule I will not break: facts versus judgment
+
+**The software counts. The language model interprets. These never mix.**
+
+Every number that appears in an observation — every count, date, percentage, and
+countdown — is computed by database query, never by the model. The model is given
+those numbers and is forbidden from producing its own. Each observation must name
+the specific facts that produced it, and I store those alongside it.
+
+This matters for one reason: **a single invented number destroys a planter's trust in
+everything else the system says.** A planter who reads "your core group has been at 18
+for three weeks" and knows it is actually 24 will never trust the tool again. So the
+model is never in a position to get a number wrong — it can only interpret numbers it
+was handed.
+
+What the model *does* contribute is judgment: which of twelve true observations
+matters most this week, how to say it without being discouraging, and which part of
+the methodology speaks to it.
+
+## 3. What the system can actually see today
+
+This bounds what any rule in this document can rely on. If a rule needs something not
+on this list, I either add the data capture or the rule waits.
+
+| Area | What is measured |
+|---|---|
+| **Core group** | Number of people with a signed core-group commitment; number with a launch-team commitment; net change over the last 28 days versus the 28 days before; **days since the most recent person's *first* core-group commitment** (the stall clock, which any new adult resets); **the mix of recorded sources** across committed members, and how many have none |
+| **Vision meetings** | Total completed; date of the most recent; days since; average gap between recent meetings; attendance at the last two and the direction between them |
+| **Follow-up** | How many contacts are in an active follow-up stage; how many days since the most neglected one was touched; how many are past the staleness threshold, **split by warmth — whether they came to a vision meeting in the last two weeks**; **who owns each open follow-up task** — how many have no live owner, how many stale ones have no live owner, how many distinct people own one, and how many the planter owns |
+| **Ministry roles** | Which of the eight roles (Worship, Children's, Assimilation, Small Groups, Admin/Finance, Facilities, Promotion, Technology) have a leader assigned |
+| **Individuals** | Per person: how long they have been in the system, how many vision meetings attended, how many teams they serve on, whether they hold a commitment, whether they lead a team — **and the human judgments already recorded about them**: how many 5-criteria interviews and 4 C's assessments exist, the most recent interview's result, and the most recent 4 C's total, each with its date |
+| **Training** | Programs defined, how many are required, completion rate across committed people |
+| **Launch** | Target launch date and days remaining (or days elapsed if past) |
+| **Planter attestations** | Things software cannot observe, which the planter confirms with a toggle: values documented, launch funding viable, core group giving sacrificially, systems tested, corporate prayer rhythm established, prayer woven into gatherings — **and, for every one of them, how many days ago it was confirmed** |
+
+**Known weak spots.** Generosity (lens 6) has no measured representation today — it rests
+on one attestation about giving culture until the financial feature ships.
+Prayer (lens 5) rests on planter self-attestation too, but on attestations about
+*rhythms* rather than about a title, carrying their own age — which is the most a
+software product should claim about prayer. See Appendix C, question 2.
+
+---
+
+## 4. Part A — The eight Critical Success Factor lenses
+
+These are evaluated for every plant in every phase. Each lens defines what feeds it,
+what healthy looks like, and what the engine should say when it is not.
+
+**Legend:** ✅ from the Playbook or wiki, or ruled by the review. No unruled placeholders remain.
+
+### Lens 1 · Vision Casting
+
+- **What feeds it:** vision-meeting cadence, attendance trend between the last two
+  meetings, inflow of new contacts, conversion of attendees into core-group members.
+- **Cadence target:** at least one vision meeting every **two weeks** ✅
+- **A slip has two levels, and they do not share a voice** ✅
+  - **Watch at 21 days.** The engine notices you are off cadence. It does not sound like
+    a crisis, because three weeks is not one: "it has been three weeks since your last
+    vision meeting."
+  - **Direct at 28 days.** Now the language can say plainly what is at stake — the vision
+    meeting is the engine of the whole launch.
+- **Healthy: meetings on cadence *and on a predictable rhythm*** ✅ — consistency, not
+  only frequency. Inconsistency makes it hard for even committed team members to know
+  when meetings happen, and that costs more than the occasional missed week.
+- **The target is every two weeks, ruled (C12, 2026-08-21).** That is what the Launch
+  Playbook states, and it is what the engine assesses against. Bryan (C12) ran weekly and
+  consistently — *once he had a core team*. The review read that as a vote for
+  *consistency* in the healthy definition, shipped above, and the ruling reads the weekly
+  rhythm as something a team grows into rather than the Phase 1 floor: measuring every
+  plant against 7 days would nag exactly the early-stage plants this lens exists to serve.
+  The engine never presents biweekly as the only defensible rhythm, and never tells a
+  planter meeting weekly that they are over-meeting.
+- **What it says:** cadence slipping, at the level the gap earns; attendance plateauing;
+  strong conversion worth reinforcing.
+
+### Lens 2 · Shared Ownership
+
+- **What feeds it:** **measured ownership of follow-up.** Every follow-up task carries an
+  assignee, and only members holding a committed status (core group, launch team, or
+  leader) may hold one. From those assignments the engine counts: follow-ups with no live
+  owner, stale follow-ups with no live owner, how many distinct people own follow-ups, and
+  how many the planter owns.
+- **Healthy:** invitations and follow-up spread across the core group — several distinct
+  owners, and few follow-ups sitting without one.
+- **The rule this lens exists to enforce:** stale follow-ups do not prove the planter is
+  carrying them. They may mean ownership was distributed badly, or that people did not do
+  what they agreed to. **The engine may claim who carries follow-up only from the owner
+  facts.** The v0 line "you are carrying all the follow-up yourself" is deleted from v1 and
+  may not be reconstructed from volume or staleness.
+- **Staleness depends on the contact** ✅ — a universal 14 days was wrong in both
+  directions at once: a week late for somebody who came on Tuesday, and fussy about
+  somebody who has been on the list since spring.
+  - **Warm** = attended a vision meeting in the last **14 days**. Ideal follow-up is
+    **48–72 hours**; flag at **7 days**; seriously stale at **14**.
+  - **Colder contacts:** 14 days stands.
+  - Warmth is a fact, not a status and not a guess: the thing that makes a contact warm
+    is that they just turned up.
+- **Ownership is task ownership, not relationship ownership.** The assignee owns the open
+  follow-up task, not the relationship with the contact; the person record is untouched. A
+  task assigned to somebody who has since been removed or demoted out of the committed set
+  counts as unowned, so an owner who leaves surfaces the follow-up again instead of hiding
+  it.
+- **What it says, when ownership is measured:** "You own 6 of the 9 open follow-ups.
+  Handing some to committed members spreads ownership of growth — the second Critical
+  Success Factor."
+- **What it says, when ownership is not measured:** "8 follow-ups are currently stale. Make
+  sure each one has a clear owner and reconnect with them this week." Staleness alone is
+  the finding; it names no cause.
+- **Network wording:** "Several follow-ups have been waiting longer than the follow-up
+  window. This may be worth a coaching conversation." Never an owner's name, never a cause.
+
+### Lens 3 · Critical Mass
+
+- **What feeds it:** committed core-group adult count, growth over the trailing 28 days,
+  days since the last new committed adult, distance to goal, projected trajectory against
+  the launch date, and the source recorded on each committed member's person record.
+- **These are this methodology's benchmarks, not a definition of a healthy plant.** ✅
+  50 committed adults is the lower end of the benchmark range and 100 is the target,
+  both drawn from the Launch Playbook. Different contexts and models reasonably launch
+  at very different sizes — Bryan's own plant launched at 25. The engine reports
+  distance and trajectory **relative to the benchmark**. It may not call a plant
+  unhealthy, or its size a failure, for being under 50, and insight copy says "the
+  Playbook benchmark", never "the requirement" or "needed for a healthy launch".
+  *(Network-level configurability of these numbers is a later product decision, not a
+  v1 change.)*
+- **Growth comparison window:** **28 days** versus the prior 28 ✅ *(kept — weekly is
+  noisy.)*
+- **Flat growth is two levels, not one** ✅
+  - **Momentum has slowed** at **21 days** since the last new committed adult.
+  - **Growth has stalled** only at **28 days**. The engine may not use the word
+    *stalled* for any shorter streak — one vision-meeting cycle can change the whole
+    picture inside three weeks.
+  - **Any new committed adult resets both clocks.** The engine measures days since the
+    most recent person's *first* core-group commitment, so one new adult puts the
+    streak back to zero. Somebody's second commitment — a launch-team card, a re-signed
+    core-group card — is not a new adult and resets nothing.
+  - This is a different measurement from the comparison window above. `growthDelta` can
+    read flat while somebody joined yesterday; the streak is the fact the word *stalled*
+    rests on.
+- **Healthy:** trending toward at least 50 committed adults on a trajectory that
+  reaches target before launch.
+- **Where the growth came from — light visibility, never a scoreboard.** ✅ The engine
+  counts committed members by the source already recorded on their person record
+  (personal referral, social media, vision meeting, website, event, partner church,
+  other), plus how many have none.
+  - **What it may say:** the mix — "9 of your 24 committed adults came through vision
+    meetings; 4 from a partner church; 5 have no recorded source" — and a gentle
+    observation when growth is predominantly from a partner church, which is a real
+    conversation and one the engine could not previously start.
+  - **What it may never say:** anything about conversions, professions of faith,
+    spiritual background, or Great Commission fruit. **Source records how a contact
+    reached the plant and nothing more.** A plant can grow from 20 to 60 entirely from
+    neighbouring churches — that is worth seeing, and it is not evidence about anybody's
+    faith.
+  - **Unseen is said.** Mostly-unrecorded sources read as "we cannot see where growth is
+    coming from yet", never as a quiet gap (§5b).
+  - **Never rank, score, or compare plants on composition.** This is a planter-audience
+    fact only; the network never sees it. A network league table of where growth comes
+    from is exactly the gamification this note exists to prevent.
+  - **The upgrade path, named and not built:** professions of faith, baptisms and
+    evangelistic relationships as records on the person profile. That is what would make
+    the Great Commission question answerable, and it is deliberately post-alpha —
+    counting conversions is the one place gamification would do real damage.
+- **What it says:** "you are at 22 committed adults with four months to launch — at
+  your current pace of two per week you will reach about 54, just over the minimum;
+  consider increasing vision-meeting frequency."
+
+### Lens 4 · Core Group Cohesion
+
+- **What feeds it:** core-group meeting cadence, attendance consistency, breadth of
+  engagement. *(Unchanged — the signals were never the problem.)*
+- **Healthy:** regular core-group gatherings with consistent attendance.
+- **This lens is not about unity, and used to be called that.** ✅ Attendance can tell
+  you whether the group is holding together. It cannot tell you whether the group is
+  *unified*: four people missing could be conflict, vacation, sickness, or work
+  schedules, and the data does not say which. **Actual unity stays a relational
+  judgment for the planter and their coach**, and the engine does not attempt it.
+- **What it says:** the measured pattern and nothing past it — core-group meetings
+  lapsing, or attendance dropping across several members this month. Never a spiritual
+  state. The v0 line "unity is fragile in this season" is deleted from v1.
+- **Flag cluster disengagement at: 20% of the active committed group over 28 days, never
+  fewer than 3 people.** ✅ Four of twelve is a crisis; four of seventy may be a holiday,
+  and an absolute count cannot tell them apart.
+  - **"Disengaging" has one definition, and it fits in a sentence:** a committed member
+    who attended **no** meeting in the last 28 days after attending at least one in the
+    28 before that. No scoring curve — a number nobody can explain back to a planter
+    about a real person is worse than a blunt one.
+  - **The denominator is the *active* committed group**, not everyone who ever signed. A
+    plant carrying forty dormant commitments would otherwise make any share look tiny.
+  - **A ministry-team leader among the disengaged makes the language one level more
+    direct** — a qualitative rule, not a weighting. Turning "leaders carry more weight"
+    into a coefficient would produce arithmetic nobody could defend.
+
+### Lens 5 · Prayer
+
+- **What feeds it:** two planter attestations about actual rhythms, **and how recently
+  they were confirmed** ✅
+  - *Corporate prayer rhythm established* — the core group has a regular, recurring
+    rhythm of praying together.
+  - *Prayer woven into gatherings* — prayer is a regular part of core-group and
+    leadership gatherings.
+- **The Prayer Leader title no longer feeds this lens.** ✅ A title does not mean the
+  plant prays. The toggle stays, and is cited under Lens 7 as **role coverage** — one of
+  the eight roles to fill — never as a Lens 5 health pass.
+- **Freshness is part of the fact, not a third question.** Every attestation records
+  when it was answered. An attestation confirmed longer ago than the **30-day reaffirm
+  window** ✅ is reported with its age — "you confirmed a prayer rhythm, 45 days ago —
+  is it still happening?" — and the toggle card offers a one-click *Still true*. A stale
+  answer is never silently treated as false, and never silently treated as current.
+- **Healthy:** a rhythm established and reaffirmed inside the window, with prayer woven
+  into gatherings.
+- **An unanswered prayer attestation is UNKNOWN, never healthy.** The engine says "we do
+  not have enough information to assess prayer health" rather than leaving a blank that
+  reads as a pass. *(This is the local case of the rule in §5b, which gives every lens an
+  evidence quality — measured, attested, or unknown. Prayer is the lens that rule was
+  written for.)*
+
+### Lens 6 · Generosity & Financial Readiness
+
+**Two questions, scored separately, never collapsed into one verdict.** ✅ A plant can be
+solvent on outside support while its core group gives nothing; a core group can give
+sacrificially in year two while the plant is still not solvent. Both are true situations
+and they call for opposite coaching, so the engine reports them apart.
+
+- **Generosity — is the core learning to give sacrificially?**
+  - *What feeds it:* the attestation *Core group giving sacrificially* — "People in your
+    core group are learning to give sacrificially and regularly" — and how recently it
+    was confirmed. It perishes on the same **30-day reaffirm window** as the prayer
+    rhythms: a giving culture is a claim about the present tense.
+  - *Healthy:* a giving culture attested and confirmed inside the window.
+- **Financial readiness — is there enough to launch and sustain ministry?**
+  - *What feeds it:* the attestation *Launch funding viable* — "Funds and support
+    available now are enough to launch and sustain ministry." This is the same stored
+    signal the Phase 1 financial gate reads; only its wording narrowed.
+  - *Healthy:* funding and support in hand for launch and the season after it.
+- **The engine may not read one as evidence for the other.** Outside-funded solvency is
+  not a generous core group. A generous core group is not a viable budget. The v0 line
+  "financial base not yet confirmed — Generosity and 'finances in place' are both launch
+  gates" fused them and is deleted from v1.
+- **Unanswered is unknown, never healthy** — per lens, so a plant may be healthy on one
+  and unknown on the other. A stale giving attestation is cited with its age, exactly as
+  prayer is.
+- **Forward note:** measured giving — who gives, how often, what share of the core group —
+  arrives with the financial feature. When it does it feeds **generosity**, not financial
+  readiness, and the lens gains a measured signal without being redesigned.
+
+### Lens 7 · Emerging Leadership
+
+- **What feeds it:** how many of the eight ministry roles are filled; per-person candidate
+  signals (sustained attendance, volunteering, tenure); the human judgments already
+  recorded about each candidate (interviews, 4 C's); coverage gaps as launch approaches.
+  *(v0 called the per-person half "readiness signals" — the word this lens exists to stop
+  using.)*
+- **Healthy:** leaders emerging from within the core group to own the eight
+  responsibilities; no critical role unfilled close to launch.
+- **What it says — two distinct kinds:**
+  - *Leadership Candidate Signal (individual):* "It has been 60 days of steady
+    attendance and serving for Sara — have you considered more for this person?"
+  - *Coverage gap:* "you added five core members last week but still have no Worship
+    Leader with launch three months out — of the eight roles, this is the one to focus
+    on now."
+- **Leadership Candidate Signal: 60 days** of unbroken attendance and volunteering ✅
+  *(renamed from "individual-readiness threshold"; the number was confirmed, the claim
+  was not.)*
+  - **The pattern opens a conversation. It never closes one.** Attendance and
+    volunteering can identify a potential leader. Character, doctrine, gifting,
+    relational maturity and teachability cannot be read off them, and the engine may
+    not infer any of the five from any fact it holds.
+  - **Banned as claims about a person:** "leadership-ready", "ready to lead", "the
+    profile of an emerging leader". The register is Bryan's own: *"it's been 60 days,
+    have you considered more for this person?"* — and "worth a leadership conversation".
+- **Recorded human judgments deepen the prompt, and only a human makes them.** The
+  product already stores the 5-criteria interview and the 4 C's assessment. For each
+  candidate the engine sees how many of each exist, the most recent interview's recorded
+  result, and the most recent 4 C's total, each with its date.
+  - *Present:* cite what the interviewer concluded and when — "Sara's interview was
+    recorded as ready, back in April."
+  - *Absent:* "no interview recorded yet — the 5-criteria interview is the next step."
+    A missing record is a **next step, never a mark against the person.**
+- **Individual candidate signals are planter-audience only.** The network sees leadership
+  development in aggregate and never an individual, which is the standing rule restated
+  here because this is the lens most likely to break it.
+- **Coverage insights are about ASSIGNMENT, never about the absence of leaders as
+  people.** ✅ Zero assigned ministry roles does not mean there are no emerging leaders;
+  there may be several people ready who simply have not been assigned yet. The engine may
+  say what the data says — "No ministry roles have been assigned yet, so leadership
+  coverage needs attention" — and no more.
+  - **Banned as inferences from role-fill data:** "a lack of emerging leadership", "no
+    emerging leaders", "leadership development needs attention" *as a conclusion about
+    people*. Role fill is a fact about the org chart, not about the congregation.
+- **Two pipelines, and they are not the same pipeline.**
+  - The **people pipeline** — who might lead. Fed by the Leadership Candidate Signal
+    above, and it is planter-audience only.
+  - The **coverage pipeline** — what is assigned. Fed by role fill, and it is the only
+    one the network hears about.
+  - When both facts are in hand the engine may connect them honestly, and only for the
+    planter: "No roles assigned yet — and 3 people are showing candidate signals.
+    Coverage needs attention, and you may already have the people." That is the useful
+    sentence, and it is only available because the two are counted separately.
+
+### Lens 8 · Comprehensive Training
+
+- **What feeds it:** training programs defined and assigned, completion rate across
+  team members, distance to launch.
+- **Healthy:** ministry-model and role training underway and on track to finish before
+  launch.
+- **What it says:** "Phase 3 is about training; you are six weeks in and none of your
+  six team members have completed Boot Camp — training must finish before pre-launch."
+
+---
+
+## 5. Part B — What matters most in each phase
+
+The eight lenses are always evaluated. Phase determines which ones get prioritized,
+and what "ready to move on" looks like.
+
+**Readiness marks are advisory.** The engine never blocks a planter from advancing.
+If a planter says they are in Phase 3, they are in Phase 3, and the engine adjusts.
+The readiness marks only shape what the engine *says*.
+
+### Phase 0 · Discovery
+- **Objective:** discern calling, define foundations (values, the Four Pillars), find a coach.
+- **Priority:** Are foundations documented? Is a coach assigned? Ready to begin vision meetings?
+- **Ready to advance when:** foundational modules complete, values documented, coach assigned. ✅
+
+### Phase 1 · Core Group Development
+- **Objective:** build toward this methodology's benchmark of 50–100 committed adults
+  through vision meetings and follow-up. The benchmark is what this model plans around,
+  not a universal definition of a healthy plant — see Lens 3.
+- **Priority:** vision-meeting cadence, core-group growth, shared ownership of follow-up,
+  and no warm contacts going cold.
+- **Ready to begin Launch Team Formation when all five hold** ✅ — and this gate is
+  **ready to begin the next phase, not ready to launch**, which is why 30–40 is the
+  number and not 50:
+  1. **Size** — 30–40 committed adults. ✅ *(Kept; this methodology's benchmark, see
+     Lens 3.)*
+  2. **Trajectory** — growth still moving: fewer than 28 days since the last new
+     committed adult (the Lens 3 stall clock).
+  3. **Finances** — launch funding viable.
+  4. **Leadership** — a worship leader identified.
+  5. **Geography** — the area is set.
+- **It is a CLUSTER, and the engine reads it as a conjunction.** No single mark clears
+  the gate, and there are no weights: **hitting 30 with no worship leader and no
+  financial base is not the gate.** A big number in one column may not buy off an empty
+  one — which is exactly the arithmetic a blended score would allow.
+- **An unanswered indicator blocks; it does not fail.** The readout names it as
+  unanswered rather than folding it into either column, because "you have not told us"
+  and "no" are different facts.
+- **The engine may not say "ready to advance" from any single indicator.** It cites the
+  cluster state — "4 of 5 hold" — and reserves the ready sentence for 5 of 5.
+- **Advancing stays the planter's decision.** The cluster is a readout, never an
+  automation; the engine has never blocked a phase change and does not start here.
+
+### Phase 2 · Launch Team Formation
+- **Objective:** transition core group into launch team; set the launch date; fill leadership.
+- **Priority:** all eight team leaders; launch date set. Once the date exists, the
+  countdown starts driving everything.
+- **Ready to advance when:** all eight team leaders assigned, launch date set. ✅
+
+### Phase 3 · Training & Preparation
+- **Objective:** comprehensively train all ministry teams.
+- **Priority:** training completion measured against time remaining; systems readiness.
+- **Ready to advance when:** team training complete, systems tested, three to four weeks
+  to launch. ✅
+
+### Phase 4 · Pre-Launch (final three to four weeks)
+- **Objective:** integration, testing, promotion executed.
+- **Priority:** pre-launch services held, promotion plan executed, final checklist;
+  countdown urgency is high.
+- **Ready to advance when:** pre-launch services done, promotion executed. ✅
+
+### Phase 5 · Launch Sunday
+- **Objective:** execute a high-impact first service.
+- **Priority:** the five priority details; readiness to capture guest information.
+- **Ready to advance when:** first service complete, guest data entered, debrief done. ✅
+
+### Phase 6 · Post-Launch
+- **Objective:** sustainable weekly rhythms while sustaining growth.
+- **Priority:** 48-hour guest follow-up rate ✅, assimilation journey, financial
+  sustainability, growth.
+- **Terminal phase** — focus shifts to ongoing health rather than advancement.
+
+---
+
+## 5b. Every lens knows what it knows
+
+**Each of the eight lenses carries an evidence quality, and the engine may never
+claim stronger evidence than the lens holds.** ✅
+
+| Quality | Meaning |
+|---|---|
+| **measured** | The database counted something for this lens. |
+| **attested** | Nothing is measured; the planter has answered for it. |
+| **unknown** | Nothing measured and nothing answered. |
+
+- **Unknown is not healthy.** A lens with no evidence produces at most an
+  insufficient-evidence statement — "We don't have enough information to assess prayer
+  yet" — and never a quiet blank that a reader can take for a pass. This is the whole
+  point: the two lenses the engine is blindest about are the two a scorecard would
+  otherwise render most calmly.
+- **Staleness degrades the phrasing, not the quality.** A prayer rhythm attested 45 days
+  ago is still *attested*; what has expired is the confirmation, so the copy says so and
+  the lens does not silently fall back to unknown. Throwing away an answer the planter
+  gave would be its own dishonesty.
+- **Inference is not an evidence quality**, because a *fact* is never inferred — only a
+  *conclusion* can be. Inference is permitted only where this rubric explicitly allows
+  it, and the copy must name the inference and its weakness. Lens 2 is the worked
+  example: it may claim who carries follow-up only from the measured owner facts, and
+  says so in as many words.
+- **The profile is derived, never stored.** It is recomputed from the same facts it
+  describes, so there is nothing that can drift away from them.
+
+## 5c. What we cannot see
+
+**Plant Intelligence assesses progress toward a launch. It does not assess the planter.** ✅
+
+A plant can hit every launch metric while the planter is falling apart — and every fact
+this engine holds is about the plant. Attendance, commitments, roles filled, training
+completed: none of them says whether the person carrying it is spiritually healthy,
+whether their marriage is surviving the process, whether they are financially
+sustainable, or whether they are building at a pace they can keep.
+
+- **The engine may never claim planter wellbeing, burnout, or capacity from any activity
+  fact.** A quiet week is not a tired planter. A busy month is not a thriving one. There
+  is no fact in the snapshot that licenses either sentence, to either audience.
+- **Planter sustainability is captured directly, weekly, and privately.** Four questions —
+  spiritually, marriage & family, financially, pace — three levels each, answered by the
+  planter for the planter. It is **not** a ninth lens, not an attestation, and not a
+  signal: it lives outside the assessment pipeline entirely and reaches no judge prompt,
+  no insight, and no oversight view.
+- **Launch-green may not wash planter-red.** The private check-in strip renders beside the
+  assessment, so a green scorecard is never shown without the planter's own state next to
+  it. The readings on that strip are computed deterministically from the planter's own
+  answers — no model reads them, writes about them, or paraphrases them back to anybody.
+
+## 6. How observations are labeled
+
+Every observation carries an urgency and an audience.
+
+**Urgency** — four levels: **positive** (reinforcing something going well),
+**info** (worth knowing), **watch** (needs attention soon), **urgent** (needs attention now).
+
+I deliberately kept *positive* as a first-class level. A tool that only ever reports
+problems becomes something planters avoid opening.
+
+**The planter gets one primary focus and at most two supplements.** ✅ Three actionable
+observations, primary first — no more, whatever else is true of the plant. A planter
+already has twenty-five things competing for their attention; the value of this tool is
+telling them which one to do first, and a list of seven is not that list.
+
+**Positive observations are reported separately and never occupy a focus slot.** The
+budget is *things to focus on this week*. Encouragement stays first-class — the engine
+still produces it, and a tool that only ever reports problems becomes one planters avoid
+opening — but it lands on its own surface rather than competing with the work. A plant
+having a good week does not lose a focus slot to hearing about it.
+
+**The budget forces prioritization, not silence.** Everything else the assessment found
+stays reachable through the drill-downs: the CSF scorecard, the exit criteria, the facts
+behind each observation. Nothing is deleted; three things are chosen.
+
+**Audience** — every observation is written for either the **planter** or the
+**network**, never both. The same underlying fact produces differently-worded output
+for each, and often produces output for only one.
+
+## 7. What the sending network sees
+
+This is the most sensitive design area in the feature, and the part most likely to
+affect whether planters trust the platform at all.
+
+Three rules govern it:
+
+1. **The planter sees it first — and that is now a mechanism, not a hope.** ✅ An
+   assessment is released to oversight when **the planter opens it**, or after **72
+   hours**, whichever comes first. The window exists so an org that pays per plant is
+   never blocked indefinitely by a planter on holiday; the gate exists so no planter
+   discovers their own diagnosis from their overseer.
+   - **Every network concern is also a planter concern.** The two audiences get
+     different wording — they should — but the same underlying concern must be raised to
+     both. A negative conclusion the planter was never shown is not permitted.
+   - **The planter's version carries the contributing signals**, so they hold the
+     explanation before anyone asks for it: "Growth has stalled, and two contributing
+     signals are vision cadence and stale follow-up."
+2. **Observations, never verdicts — and the register is coaching.** ✅ Network language
+   sounds like church planting, not like a quarterly review of an underperforming
+   business unit.
+   - **Banned for the network audience:** *intervention*, *failing*, *critical*,
+     *lack of*, *needs to be addressed*, *must be addressed*, *underperform*,
+     *at risk of failure*, *is behind*. *(The phrase "critical mass" is the name of Lens 3
+     and is always allowed — the check matches on word boundaries.)* The list has one
+     spelling: `NETWORK_VERDICT_PHRASES` in `src/lib/phase-engine/judge/network-register.ts`
+     both fails the judge's output and is interpolated into the rubric text the judge
+     reads, so the rule it is told and the rule it is held to cannot drift apart.
+   - **Pattern, not cause.** Name the measured pattern and point at a conversation:
+     "Core-group momentum has slowed. This may be worth a coaching conversation around
+     vision cadence, invitations, and follow-up." Say *why* only when the cause is
+     itself a measured fact. "Growth has been flat for four weeks" is allowed; telling a
+     network director what is causing it usually is not.
+3. **The planter controls what is shared. What it starts as depends on how the plant
+   got here.** ✅ There is no universal default, and the engine must not claim one.
+   *(Source: `product-docs/decisions.md` ledger row 187, 2026-08-15.)*
+   - **A self-started plant shares nothing** until the planter turns something on.
+   - **A plant that accepted a sending-church or network invitation starts with all
+     sharing on** — the six pull toggles and the push toggle alike. The consent is not
+     a toggle the planter has to find later; it is the **acceptance screen**, which
+     states in plain language what the overseer will see *before* the planter accepts.
+     That is the "sharing agreement established up front" Bryan asked about, and it is
+     why the org paying for a plant is not looking at nothing.
+   - **Either way the planter can turn any toggle off at any time**, and the overseer is
+     notified in **coarse** wording — "changed what it shares with you", never
+     per-toggle. Per-toggle wording maximises social pressure on the planter and poisons
+     the relationship the product exists to serve.
+   - When a category is off, the corresponding observations disappear from the network
+     view entirely — the gating is `share_*` per feature (oversight FRD, OV-002), not a
+     filter applied to finished text.
+   - **The engine never editorializes about a plant's sharing choices**, to either
+     audience. It does not tell the network that a plant turned something off, does not
+     tell the planter that sharing more would look better, and never describes sharing as
+     "off by default" as though it were a universal fact.
+
+**Individual people are never named to the network.** A planter may see "Sara looks
+like an emerging leader." The network sees, at most, that leadership development is
+progressing. Person-level observations are structurally excluded — not filtered by
+policy, but never generated for that audience in the first place.
+
+The network also receives a coarse per-plant posture for portfolio views. It is
+**four-valued**, and the fourth exists so that silence cannot be read as health ✅:
+
+| Posture | What it means |
+|---|---|
+| **Readiness focus** | Launch is near, or an elevated observation was raised. |
+| **Worth a look** | A medium-urgency observation this cycle. |
+| **Limited visibility** | The overseer cannot see enough to say. |
+| **On track** | Nothing elevated — **and nothing withheld**. |
+
+**A plant that shares no assessment data reads Limited visibility, never one of the
+three health postures.** Absence of warning signs is not a signal; on a private plant it
+is the absence of information, and the two must not look alike. "On track" is a claim,
+and a claim needs something to have been seen.
+
+**Escalations still win.** A visible elevated observation on a partly-private plant still
+reads Readiness focus, and a visible medium still reads Worth a look. What is on the
+screen is real, and hiding a genuine escalation behind "we cannot see everything" would be
+a worse error than the one this rule fixes. Limited visibility replaces **only** the
+on-track claim, which is the only one silence can forge.
+
+**It is a neutral fact, not a fault.** A planter is entitled to share nothing. The posture
+names a limit on the *overseer's view* — "Plant has chosen not to share assessment data" —
+and never a judgement about the plant, so it carries no warning colour and the engine
+never editorializes about it (see rule 3 above).
+
+**The engine escalates to "readiness focus" only when a near launch meets an unresolved
+gap.** ✅ Thirty days out is not a warning by itself: **time is never sufficient.** A
+launch inside the window — or past due — escalates only when the plant also has critical
+roles unfilled or required training incomplete.
+
+*"30 days from launch + 3 critical roles unfilled + training incomplete" is readiness
+focus. "30 days from launch + everything on track" is nothing to escalate* — and that is
+the month those planters least need a warning about themselves on their overseer's
+dashboard.
+
+A plant that shares nothing shows only its phase, so a healthy private plant and a
+struggling private plant carry the same information. **That trade is confirmed** ✅ — it
+is the right one for planter trust — on the one condition stated in the posture table
+above: such a plant reads Limited visibility, so the absence of warnings is labelled
+rather than left to be misread.
+
+---
+
+## Appendix A — Target observations
+
+These are the outputs I am aiming for, written as: *situation → what the engine says.*
+They double as my test cases.
+
+**Growth and core group**
+1. *Momentum slowed* — 21 days since the last new committed adult, Phase 1 → "No new
+   committed adults in three weeks. The vision meeting is the engine of growth — when
+   did you last hold one?"
+1b. *Stalled growth* — 28 days since the last new committed adult → "Your core group has
+   held at 18 for four weeks."
+2. *Trajectory against launch* — 22 committed, growing by two per week, launch in 16
+   weeks → "At your current pace you will reach about 54 by launch, just over the 50
+   minimum. To hit the 100 target you would need roughly five per week."
+
+**Vision meetings**
+3. *Cadence slip* — no meeting in 21 days, Phase 1 → "It has been three weeks since
+   your last vision meeting. The cadence is at least every two weeks — this is the
+   single most load-bearing habit of the launch."
+4. *Attendance plateau* — last three meetings roughly equal, few new contacts → "Attendance
+   is steady but few *new* people are coming. Are your core members inviting?"
+
+**Leadership**
+5. *Leadership candidate signal* — 60+ days of unbroken attendance and volunteering, not
+   yet a leader → "Sara has not missed a core-group meeting or volunteer slot in two
+   months. It has been 60 days — have you considered more for this person? No interview
+   recorded yet; the 5-criteria interview is the next step." *(v0 called this "the
+   profile of an emerging leader", which is a verdict the data cannot reach.)*
+6. *Coverage gap near launch* — Worship Leader unfilled, launch in 90 days → "You added
+   five core members last week — good — but still no Worship Leader with launch about
+   three months out. Of the eight roles, this is the one to focus on now."
+7. *Role progress* — six of eight filled in Phase 2 → "Six of eight launch roles are
+   assigned. Remaining: Children's Ministry, Promotion."
+7b. *Coverage with candidates* — no roles assigned, three candidate signals, planter
+   audience → "No roles assigned yet — and 3 people are showing candidate signals.
+   Coverage needs attention, and you may already have the people."
+
+**Follow-up**
+8. *Cold contacts* — vision-meeting attendees with no contact in 14 days → "Seven people
+   who came to a vision meeting have not been followed up with in two weeks. Warm
+   contacts go cold fast."
+8b. *Follow-ups without an owner* — 8 stale, no owner recorded on any → "8 follow-ups are
+   currently stale. Make sure each one has a clear owner and reconnect with them this week."
+8c. *Ownership concentrated* — 9 open follow-ups, 6 assigned to the planter → "You own 6 of
+   the 9 open follow-ups. Handing some to committed members spreads ownership of growth —
+   the second Critical Success Factor."
+
+**Launch readiness**
+9. *Gates open, clock running* — launch date set, two of eight roles filled, training not
+   started, ten weeks out → "Launch is ten weeks away. Training has not started and six
+   roles are unfilled — at this distance both should be in motion."
+10. *Ready to advance* — Phase 1, all five indicators holding → "All 5 hold: 38 adults,
+    growth still moving, funding viable, worship leader identified, area set. Ready to
+    begin Launch Team Formation when you are."
+10b. *Not the gate* — 38 committed, no worship leader, funding unanswered → "3 of 5
+    indicators hold; 1 is unanswered. Hitting 30 is not the gate — the combination is."
+
+**Cohesion, prayer, generosity**
+11. *Cluster disengagement* — four or more members' attendance dropped this month →
+    "Several core members' attendance has dropped this month — worth checking in."
+    *(v0 continued "Unity is fragile in this season". The engine does not know that;
+    it knows attendance dropped.)*
+12. *Missing role* — no Prayer Leader by mid-Phase 2 → "No Prayer Leader assigned yet —
+    one of the eight launch roles still to cover." *(A coverage observation under Lens 7.
+    It says nothing about whether the plant prays.)*
+12b. *Prayer unknown* — neither prayer attestation answered → "We do not have enough
+    information to assess prayer health yet. Two questions on your phase page would
+    change that."
+12c. *Prayer stale* — rhythm attested 45 days ago, window is 30 → "You confirmed a
+    corporate prayer rhythm 45 days ago — is it still happening?"
+
+**Network-facing** (conservative framing)
+13. *On track* — "Plant is tracking to plan — core group growing steadily, launch date
+    set, six of eight roles filled."
+14. *Stalling* — "Core-group growth has been flat for about four weeks and no vision
+    meeting was held in that window. May be worth a coaching touchpoint."
+15. *Readiness* — "Approaching Launch Team Formation readiness — core-group size and
+    worship leadership in place; financial base still unconfirmed."
+
+---
+
+## Appendix B — Real output, unedited
+
+Below is genuine output from the working system. **The plant is fictional** — one of
+twelve test plants I built to cover the range from cold-start to thriving. The plant
+below is deliberately a struggling one: an early-phase plant that has stalled.
+
+This is the tone question. Read it as if you were the planter.
+
+> **Situation as measured:** Phase 1 · 7 committed adults · no growth in 28 days ·
+> last vision meeting 30 days ago · attendance fell from 20 to 11 · 8 follow-ups
+> untouched, oldest 37 days · 0 of 8 ministry roles filled
+
+**Shown to the planter:**
+
+> ⚠️ **Increase Vision Meeting Frequency and Attendee Engagement**
+> Your vision meeting attendance has decreased from 20 to 11, with an average cadence
+> of 30 days between meetings. Increase the frequency of vision meetings to at least
+> bi-weekly to improve engagement and momentum.
+
+> ⚠️ **Give Every Stale Follow-Up a Clear Owner**
+> 8 follow-ups are currently stale. Make sure each one has a clear owner and reconnect
+> with them this week.
+
+*(v0 said "Delegate Follow-Up Responsibilities to Core Group Members — you have 8 stale
+follow-ups… start empowering core group members to take ownership." That told the planter
+why the follow-ups were stale, which the system did not know. This plant has no follow-up
+owners recorded, so v1 reports the staleness and stops. Once owners are assigned, the same
+situation produces the measured line instead: "You own 6 of the 9 open follow-ups…")*
+
+**Shown to the sending network** (same plant, same moment):
+
+> **Core-Group Momentum Has Slowed**
+> The core group has been at 7 committed adults for the last 28 days. This may be worth
+> a coaching conversation around vision cadence, invitations, and follow-up.
+
+*(v0 read "well below the target needed for healthy phase progression. Intervention to
+boost growth is needed to reach the critical mass target of at least 50 adults." Three
+problems in one paragraph: "intervention" and "needed" are a verdict; "well below the
+target" treats a methodology benchmark as a universal standard (Lens 3); and the planter
+is told about vision-meeting cadence while their overseer is told about growth — the same
+plant, two different headlines, which is exactly how a planter is ambushed.)*
+
+> **Ministry Roles Not Yet Assigned**
+> No ministry roles have been assigned yet, so leadership coverage needs attention.
+
+*(v0 read "None of the 8 key ministry roles are filled, indicating a lack of emerging
+leadership… leadership development needs attention." The engine knows the org chart is
+empty. It does not know whether the plant has leaders — it may have several nobody has
+assigned yet — and telling a network director otherwise is a judgement about people made
+from a fact about assignments.)*
+
+Every number above was computed from the database, not written by the model. Each
+observation links back to the relevant wiki articles — in this case "What is a Core
+Group?", "Growing Your Core Group", and "Your First Vision Meeting."
+
+**What changed in this sample, and why.** All three network observations were rewritten
+into the coaching register, and the pairing rule now forces the planter's list to cover
+the same concerns the network hears about. The v0 draft asked whether it was "correct
+that the network sees the growth stall while the planter is instead told about meeting
+cadence" — it was not, and that is the rule this version enforces rather than the question
+it asks.
+
+---
+
+## Appendix C — Decisions I need from you
+
+1. ~~**How many observations per assessment?**~~ *(Ruled: one primary + up to two
+   supplements, work items only. Positives are a separate surface and never crowd out a
+   focus slot — which also answers the second half of the question. See §6 and #478.)*
+
+2. ~~**Prayer and Generosity.**~~ *(Ruled, in three parts. Prayer is fed by two rhythm
+   attestations rather than a title (#474); generosity is split from financial readiness
+   and gets its own (#475); and thin coverage is now SHOWN as thin rather than left
+   blank — every lens carries an evidence quality, and unknown reads as insufficient
+   evidence (§5b, #483). The answer to "accept thin coverage or lean on attestation" is
+   both, honestly labelled.)*
+
+3. ~~**Every ⚠️ threshold in this document.**~~ *(All ruled. The table below is the
+   record; nothing in this document carries an unruled ⚠️ any more.)*
+
+   | Threshold | v0 | v1 | Where |
+   |---|---|---|---|
+   | Vision-meeting cadence slip | 21 days = flag | Watch at 21, direct at 28 | Lens 1, #486 |
+   | Growth comparison window | 28 days vs prior 28 | **Kept** | Lens 3, #471 |
+   | Growth "stalled" | 3 weeks flat | Slowed at 21 days, stalled at 28; any +1 resets | Lens 3, #471 |
+   | Cluster disengagement | 4 or more members | 20% of the active committed group, min 3 | Lens 4, #486 |
+   | Individual leadership readiness | 60 days | **Number kept**, renamed to a Candidate Signal | Lens 7, #476 |
+   | Follow-up staleness | 14 days, universal | Split by warmth: 48–72h ideal, 7 days warm, 14 days cold | Lens 2, #486 |
+   | Network "readiness focus" | 30 days out | Compound — 30 days out **and** an unresolved gap | §7, #486 |
+   | Phase 1 gate | 30–40 adults | **Kept**, scored as a five-indicator cluster | Phase 1, #477 |
+
+4. ~~**Network conservatism.**~~ *(Ruled: the philosophy was right and the wording was
+   not. The register is now a ban-list plus a pattern-not-cause rule, both enforced on
+   judge output rather than requested in prose, and the planter-first order is a release
+   gate rather than an intention. See §7 and #482.)*
+
+5. ~~**Anything absent.**~~ *(Answered, and it produced the two largest additions in v1:
+   planter sustainability (C19 → §5c, #484) and growth composition (C26 → Lens 3, #487).
+   The question stays open as a standing invitation rather than a blocker — a lens nobody
+   has named yet is still the most valuable thing a practitioner can report.)*
+
+6. **The vision-meeting target: every two weeks, or weekly?** *(C12 — ruled 2026-08-21:
+   the target stays every two weeks.)* Bryan met weekly and consistently — once he had a
+   core team. v1 took the half of that comment the data supports — **consistency** belongs
+   in Lens 1's healthy definition, and it shipped there — and the ruling keeps the target
+   at 14 days: weekly is a rhythm a team grows into, not the Phase 1 floor. Lens 1
+   assesses against every two weeks and remains barred from treating biweekly as the only
+   defensible rhythm or telling a weekly planter they are over-meeting. The record is in
+   `product-docs/decisions.md` (2026-08-21, C12).
+
+---
+
+## Glossary
+
+| Term | Meaning here |
+|---|---|
+| **Assessment** | One dated set of observations for one plant. A new one is produced when the plant has activity, at most about once a day. |
+| **Observation / insight** | A single finding: a title, a short explanation, an urgency, an audience, and the facts that produced it. |
+| **Fact snapshot** | The complete set of counted facts at the moment of assessment. Stored permanently, so any observation can be explained later. |
+| **Signal** | One measured fact (e.g. days since last vision meeting). |
+| **Attestation** | Something the planter confirms by hand because software cannot see it. |
+| **Phase** | Which of the seven stages (0–6) the plant is in. Planter-controlled; never changed automatically. |
+| **Readiness marks** | What "ready for the next phase" looks like. Advisory only — never blocking. |
+| **Rubric version** | Which version of this document produced a given assessment. This document is v1, in force since 2026-08-21. Assessments recorded before then carry v0 and are explained against `rubric-v0.md`. |
+| **Follow-up owner** | The assignee of an open follow-up task. Task ownership only — it says nothing about who owns the relationship with the contact. |

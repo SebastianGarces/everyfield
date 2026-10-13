@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "adapter_id": "plant-operational-evidence",
+  "version": "v1-2026-10-13",
+  "authority": "EveryField current approved evidence operationalization; original SME rubric text/numbers remain unchanged.",
+  "plant_rubric_path": "docs/reference/rubric-v1.md",
+  "plant_rubric_sha256": "5575450dff37bb730361f71a8152257622c5f089c84e448648f1c8543b1704c7",
+  "historical_executable_prompt_path": "docs/reference/plant-rubric-executable.ts",
+  "prompt_assembly": "Use whole original reviewed rubric-v1.md plus these explicit operational instructions and typed immutable facts. The historical executable prompt is retained for old-version explanation, not copied into the current prompt as competing authority. Store exact assembled prompt hash/version in each run.",
+  "instructions": [
+    "Assess launch progress only under this methodology. Do not issue positive or negative overall church-health, spiritual/character/doctrinal or pastoral verdicts. Existing 50/100,30–40,14/21/28 and60day numbers retain their original approved meanings.",
+    "The final C12 ruling is a biweekly 14-day cadence target with predictable rhythm; watch at 21/direct at 28. Earlier open-parameter/change-log text is historical. Weekly predictable practice is legitimate, never overmeeting.",
+    "Read only supplied typed deterministic facts and exact valid citations. Do not calculate a new number, infer an unanswered attestation, assert a missing value is zero/healthy/false or fabricate a reference passage. Every count/date/proportion/window must agree with persisted source facts.",
+    "Current known committed-adult size is a deduplicated active adult lower bound with complete/partial/unavailable evidence. At least 30 valid known adults can meet size while exact total remains unknown. Fewer known adults plus consequential unresolved candidates cannot establish failure. Household/stage/account/role/team data proves neither adulthood nor commitment.",
+    "Genuine first valid historical adult acquisitions drive trailing 28 versus prior 28 counts and last-acquisition timing independently of current size. A real withdrawal shrinks current size but preserves acquisition; correction can invalidate/change an erroneous event. Reactivation/repeated signature/team transfer is not a new adult. Slowed only at 21 or more days and stalled only at 28 or more days with sufficient timing certainty.",
+    "Current actual contact freshness comes from dated effective contacted outcome, never person.updatedAt/task completion/email opens. The 48 elapsed-hour originating-obligation task-completion measure is separate from contact success and local+2calendar-day due date; waiver supplies no success credit. Missing/manual origin is unmeasured.",
+    "Phase 6 post-launch 48-hour guest measure is unmeasured/Unknown when no approved post-launch origin supplies its relevant obligations and completion instants. Prelaunch Vision metric, Launch named guest links or debrief cannot substitute. Phase 6 has no exit criterion; add no services module or automatic follow-up generator.",
+    "Eight methodology responsibilities are separately mapped to stable actual role assignments; optional imported tenant teams are not mandatory configuration. Prayer Leader is separate coverage, never proof of Prayer lens or ninth conjunction. Phase 1 named agreed worship attestation or actual assignment suffices; Phase 2 all eight needs actual coverage.",
+    "Training uses saved explicit required person/program assignments with current earned/revoked/corrected completions, not current team membership/committed adult/headcount/completion-only denominator. Required empty/missing applicability is Unknown; 100 percent means every actual applicable obligation complete, never rounded display.",
+    "Candidate conversation requires dated 60 days of unbroken attendance AND volunteering, using dated records/typed planter person attestation with sustained period. Tenure/lifetime counts insufficient. Use only presence/count/date of recorded human interview/FourCs evidence; exclude raw judgments/scores/notes/results from all PI/Evry/model purposes. Infer no qualification, role or promotion. Candidate identities remain planter-only.",
+    "Seven legacy attestations stay separate. Prayer rhythms/gatherings/giving each retain own 30-day age/reaffirmation; aged answer stays attributed/aged, not false/current. Funding/systems/values/Prayer Leader keep source nonexpiry. Current criterion values-document evidence, real external relationship, worship agreement, chosen area and executed promotion are explicitly typed separate current operational facts.",
+    "Use current native launch facts and formal six-area debrief. First service, guest entry and debrief criteria are distinct; submitted No to the missing-name guest cue→guest criterion Met, Yes with a positive count→Not met, draft/unanswered→Unknown. Valid submitted debrief is Met even with Yes/remaining. No headcount-as-People, Finish/second attestation, synthetic Meeting or automatic phase effect.",
+    "Readiness is advisory and conjunction-only. Preserve 19 stable keys and separate software Playbook checklist; Unknown prevents ready without failing, one size indicator never clears the five-indicator Phase 1 cluster. Human transitions can advance/regress/skip with reason.",
+    "Plant outputs retain one primary and two supplements, separate positives, each lens evidence quality and exact source ages. Network audience uses only currently released aggregate-safe allowed category facts with same concern/evidence pairing; opened or 72 elapsed hours releases after durable availability andcurrent revocation always wins.",
+    "Private care answers, notes, existence, author/calendar/week/history/correction/nudge metadata are absent from all inputs, retrieval, outputs, traces, evaluations and Evry/organization paths. No absence/presence inference is allowed. Organization NI uses separate EveryField network v1 rubric, not this plant rubric."
+  ],
+  "semantic_fixture_bindings": [
+    "B01-005",
+    "B01-017",
+    "B01-021",
+    "NI-016",
+    "PI-GROW-001",
+    "PI-GROW-002",
+    "PI-GROW-003",
+    "PI-PHASE6-001",
+    "PI-DISC-001",
+    "PI-DISC-002",
+    "ASMT-007",
+    "ASMT-011"
+  ],
+  "model_semantic_evaluation": "future-not-run",
+  "current_metric_eligibility": {
+    "closed": true,
+    "start": "actual immutable originating occurrence Instant; not recordedAt or storage-createdAt proxy",
+    "valid_completion": "effective actual successful originating-task completion Instant >=start and <=asOf",
+    "denominator": "valid measured completion enters early; unresolved nonwaived enters at age>=48h; late valid completion is measured miss",
+    "numerator": "eligible valid completion<=start+48h inclusive",
+    "excluded_reasons": [
+      "immature_pending",
+      "waived",
+      "future_actual_origin",
+      "future_actual_completion",
+      "completion_before_origin",
+      "missing_or_invalid_origin",
+      "missing_actual_completion"
+    ],
+    "empty_denominator": "Unknown/unmeasured; never100percent",
+    "retired_origin": "Retain valid immutable source occurrence history",
+    "recording_time": "Keep occurrence/effective completion separate from recordedAt/database createdAt; later recording does not invalidate valid backdated evidence",
+    "measurement_label": "Originating-obligation TASK completion timeliness; never actual-contact success rate",
+    "successful_work_event": "Actual effective originating-task completion event under its approved branch; attempted_no_contact/administrative_completion can fulfill task; no_longer_needed remains waiver; never infer contacted from checkbox/provider acceptance",
+    "contact_evidence": "Only explicitly recorded typed contacted outcome and actual occurredAt changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not"
+  },
+  "provider_implicit_maxRetries": 0,
+  "urgency_to_persisted_severity": {
+    "model_vocabulary": [
+      "positive",
+      "info",
+      "watch",
+      "urgent"
+    ],
+    "persisted_vocabulary": [
+      "info",
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "mapping": {
+      "positive": "info",
+      "info": "low",
+      "watch": "medium",
+      "urgent": "high"
+    },
+    "critical": "reserved; never emitted by ordinary mapping",
+    "sort": "stable priority only within one result; original label semantics preserved in historical rows"
+  }
+}

@@ -1,0 +1,1039 @@
+{
+  "domain": "identity-access",
+  "requirements": [
+    {
+      "id": "REQ-IDN-001",
+      "feature_ids": [
+        "IDN-001"
+      ],
+      "text": "Accept normalized email and native secret, give one invalid-credentials response, renew valid sessions and reject expired/revoked/deleted identities at every domain operation. Better Auth replaces custom session hashing/cookies; preserve 30-day session life with renewal after remaining life falls below 15 days, immediate authoritative revocation and convergent repeated logout. A safe local return path preserves path/query and rejects external, protocol-relative, backslash-leading and control-character attacks. Login remains reachable with an expired cookie, so recovery cannot loop. Use an atomic shared attempt budget: login failure thresholds 5/normalized identifier and 20/trusted IP in a strict 15 minute window; success clears only that identifier/kind's in-window failures. Unknown IP skips only that IP axis, never identifier checks. Deployment must overwrite trusted IP headers. Concurrent attempts reserve/check budget under the same store rather than relying on request-local counts; budget store failure refuses authentication with a retryable message, without authenticating silently.",
+      "spec": "docs/product/identity-access.md#req-idn-001",
+      "operations": [
+        "auth.signIn",
+        "auth.signOut",
+        "auth.getSession"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001"
+      ],
+      "case_ids": [
+        "TARGET-IDN-001",
+        "ROLE43-018",
+        "ORG55-006"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-032"
+      ],
+      "work_packages": [
+        "WP-005"
+      ]
+    },
+    {
+      "id": "REQ-IDN-002",
+      "feature_ids": [
+        "IDN-002"
+      ],
+      "text": "Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8\u20131024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-sup plied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.",
+      "spec": "docs/product/identity-access.md#req-idn-002",
+      "operations": [
+        "identity.register",
+        "identity.resumeRegistration",
+        "identity.getRegistrationStatus"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002"
+      ],
+      "case_ids": [
+        "TARGET-IDN-002"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-008"
+      ]
+    },
+    {
+      "id": "REQ-IDN-003",
+      "feature_ids": [
+        "IDN-003"
+      ],
+      "text": "Retain an optional deployment-controlled beta gate, disabled by default for the fresh target unless explicitly enabled in that environment. An enabled gate accepts a valid configured code or an addressed live pending eligible invitation; forged, unrelated, expired or revoked invitations never bypass it. Account type choices follow the validated invitation subject. Show sufficient inviter/organization identity for informed acceptance, with no gate secret or sender-facing account-existence disclosure. Revalidate token and gate at submission.",
+      "spec": "docs/product/identity-access.md#req-idn-003",
+      "operations": [
+        "identity.getRegistrationOptions",
+        "invitations.describeOrigin"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-003--IDN-003"
+      ],
+      "case_ids": [
+        "TARGET-IDN-003"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030"
+      ],
+      "work_packages": [
+        "WP-008",
+        "WP-009"
+      ]
+    },
+    {
+      "id": "REQ-IDN-004",
+      "feature_ids": [
+        "IDN-004"
+      ],
+      "text": "Retain reproducible development/managed-preview persona switching only for fresh synthetic allow listed fixture accounts. The server checks explicit environment enablement, supported fixture ID and intended environment before issuing a fixture session. Production defaults disable and exclude the action/surface; flags or client role strings cannot create production privilege. Never clone real/customer accounts into fixtures.",
+      "spec": "docs/product/identity-access.md#req-idn-004",
+      "operations": [
+        "development.switchFixtureAccount"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-004--IDN-004"
+      ],
+      "case_ids": [
+        "TARGET-IDN-004"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-IDN-005",
+      "feature_ids": [
+        "IDN-005"
+      ],
+      "text": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allow list are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTO s; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
+      "spec": "docs/product/identity-access.md#req-idn-005",
+      "operations": [
+        "identity.getActor",
+        "identity.requireScope",
+        "identity.readMembership"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005"
+      ],
+      "case_ids": [
+        "TARGET-IDN-005",
+        "ROLE43-001",
+        "ROLE43-002",
+        "ROLE43-006",
+        "ROLE43-009",
+        "ORG55-001"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-032"
+      ],
+      "work_packages": [
+        "WP-006"
+      ]
+    },
+    {
+      "id": "REQ-IDN-006",
+      "feature_ids": [
+        "IDN-006"
+      ],
+      "text": "Native self avatar upload accepts nonempty JPG/JPEG/PNG/WebP up to 3 MiB with generated private keys and verified type. Authenticate delivery through an account/version route; no arbitrary raw key or bearer storage URL is returned. Upload new bytes, atomically save version/reference/audit, then cleanup old unreferenced bytes. A failed row update retains old avatar and schedules orphan cleanup; failed old-byte cleanup leaves new avatar usable. Removal clears reference before cleanup. Account deletion follows REQ-IDN-032.",
+      "spec": "docs/product/identity-access.md#req-idn-006",
+      "operations": [
+        "account.uploadAvatar",
+        "account.removeAvatar",
+        "account.getAvatar"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-006--IDN-006"
+      ],
+      "case_ids": [
+        "TARGET-IDN-006",
+        "ORG55-006"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-032"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-010"
+      ]
+    },
+    {
+      "id": "REQ-IDN-007",
+      "feature_ids": [
+        "IDN-007"
+      ],
+      "text": "Native self requests normalized valid different email with current-password proof. Keep one live hashed purpose-bound request expiring after 24 elapsed hours; new request supersedes prior. Confirmation requires the authenticated request owner, live token, current email/credential revision and unique target address. Under one account lock, claim token, swap login email, invalidate outstanding reset/email requests, append audit and old-address security-mail intent exactly once. Preserve account/Person identity. Login-email change does not silently rewrite independently edit able CRM contact email. Throttle outstanding/failed requests by current own login identifier 3/hour and trusted IP 10/hour, so target-address changes cannot evade budget. Delivery failure reports send state while preserving truthful request state.",
+      "spec": "docs/product/identity-access.md#req-idn-007",
+      "operations": [
+        "account.requestEmailChange",
+        "account.confirmEmailChange"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-007--IDN-007"
+      ],
+      "case_ids": [
+        "TARGET-IDN-007",
+        "ROLE43-018"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-010"
+      ]
+    },
+    {
+      "id": "REQ-IDN-008",
+      "feature_ids": [
+        "IDN-008"
+      ],
+      "text": "Require native current-secret proof for authenticated self, new 8\u20131024 character secret different from current, and immutable actor/current-session IDs from server. Lock account and compare credential/email revision; write new credentials, invalidate pending reset/email tokens, revoke all other sessions and append audit/security-mail intent atomically. Preserve only actual current session if still valid, report the other-session count. Independent password-change failure budget 5/own identifier and 20/trusted IP per 15 minutes; short/unchanged malformed requests validate without probing the new secret against the old before current-secret proof.",
+      "spec": "docs/product/identity-access.md#req-idn-008",
+      "operations": [
+        "account.changePassword"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-008--IDN-008"
+      ],
+      "case_ids": [
+        "TARGET-IDN-008",
+        "ROLE43-018"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-010"
+      ]
+    },
+    {
+      "id": "REQ-IDN-009",
+      "feature_ids": [
+        "IDN-009"
+      ],
+      "text": "Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Each consumes the request budget 3/normalized email and 10/trusted IP per hour before lookup. One live hashed purpose-bound token/account expires after 1 elapsed hour; request rotates prior. Redemption binds account from token, checks live/unconsumed token and captured email/credential revision, validates confirmed 8\u20131024 character new secret, and atomically replaces credentials, consumes all reset/email requests and revokes every session. Do not auto-sign-in. Success remains success if security-notice dispatch later fails; provider/database request failures are bounded and observable internally without enumeration.",
+      "spec": "docs/product/identity-access.md#req-idn-009",
+      "operations": [
+        "account.requestPasswordReset",
+        "account.resetPassword"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-009--IDN-009"
+      ],
+      "case_ids": [
+        "TARGET-IDN-009"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-005"
+      ]
+    },
+    {
+      "id": "REQ-IDN-010",
+      "feature_ids": [
+        "IDN-010"
+      ],
+      "text": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTO s. Preserve direct section URL s/hash compatibility, back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
+      "spec": "docs/product/identity-access.md#req-idn-010",
+      "operations": [
+        "settings.getSection",
+        "settings.saveSection"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-010--IDN-010"
+      ],
+      "case_ids": [
+        "TARGET-IDN-010",
+        "ORG55-001"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-032",
+        "REQ-IDN-031",
+        "REQ-IDN-033",
+        "REQ-IDN-022"
+      ],
+      "work_packages": [
+        "WP-010",
+        "WP-039"
+      ]
+    },
+    {
+      "id": "REQ-IDN-011",
+      "feature_ids": [
+        "IDN-011"
+      ],
+      "text": "Owner/Admin edit plant name and independent nullable street/city/region/country/profile fields; validate trimmed nonempty name and bounded fields, IANA timezone, weekday 0\u20136/hour 0\u201323, inactivity warning/alert 1\u2013365 with warning<alert. Fresh defaults are America/Chicago and weekly digest Sunday 16:00. Street is excluded from organization directory/oversight; configured locality uses the shared geography contract. Timezone changes preview future schedules/reminders; past instants, LocalDate deadlines and one-time appointments remain. Inactivity/overdue computations use church-local dates. Missing optional locality is not an inferred population/area.",
+      "spec": "docs/product/identity-access.md#req-idn-011",
+      "operations": [
+        "churches.getSettings",
+        "churches.updateSettings"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-011--IDN-011"
+      ],
+      "case_ids": [
+        "TARGET-IDN-011"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-031",
+        "REQ-IDN-033"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-010"
+      ]
+    },
+    {
+      "id": "REQ-IDN-012",
+      "feature_ids": [
+        "IDN-012"
+      ],
+      "text": "Expose current audience's closed category/channel/daily-weekly cadence preference matrix and truthful suppression state. Save only the authenticated account's allowed preferences, with rollback/visible error on refusal. Self suppression-clear applies only its current proven mailbox and does not grant unrelated consent; enabled org push preference cannot override plant consent. Notification-owned scheduling/digest contracts provide actual delivery, including Sunday 16:00 default weekly digest. No private-care preference/nudge metadata reaches email or assistant.",
+      "spec": "docs/product/identity-access.md#req-idn-012",
+      "operations": [
+        "notifications.getPreferences",
+        "notifications.updatePreferences",
+        "notifications.clearOwnSuppression"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-012--IDN-012"
+      ],
+      "case_ids": [
+        "TARGET-IDN-012"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-010",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-IDN-013",
+      "feature_ids": [
+        "IDN-013"
+      ],
+      "text": "For a proven eligible account create one plant, Owner membership, all-OFF self-start sharing settings and one stable account-linked CRM Person in the domain transaction. Trim required plant name; allow partial independent locality. Repeated intent returns the same plant; simultaneous seat acceptance/creation cannot create a second active seat, orphan authority or stray Person. Account-linked Owner is CRM leader-stage bootstrap history, not proof of commitment/adult eligibility. Actual church creation enters Phase 1, with a once-only church_creation history variant from no previous plant phase; it does not attest an existing journey or mark readiness/reading complete. Retry returns the actual current phase without overwriting later history. A successful basics step cannot be reentered to provision again. Global canonical seed is separate from customer creation.",
+      "spec": "docs/product/identity-access.md#req-idn-013",
+      "operations": [
+        "onboarding.createPlant",
+        "identity.ensureOwnerPerson"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-013--IDN-013"
+      ],
+      "case_ids": [
+        "TARGET-IDN-013",
+        "ROLE43-003",
+        "ROLE43-004",
+        "ROLE43-005",
+        "ROLE43-014",
+        "ORG55-006"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030",
+        "REQ-IDN-032"
+      ],
+      "work_packages": [
+        "WP-009",
+        "WP-011"
+      ]
+    },
+    {
+      "id": "REQ-IDN-014",
+      "feature_ids": [
+        "IDN-014"
+      ],
+      "text": "Retain the yes/no onboarding question as ordinary CRM/ministry-role data. Yes visibly assigns the ordinary lead ministry role to the existing Owner Person, reusing its role/container or creating only the shown minimal necessary role/container; no whole-template import occurs. A separate optional selected Senior Pastor template fill uses the ordinary membership operation and only a vacant selected role. No leaves routine Owner authority intact and shows no fabricated lead. A separate operating lead is a real Person with ordinary role and independently accepted Admin invitation where needed. The selected role/import preview discloses assignment, preserves an occupied/explicit leader and never copies readers/private care. Source vacant-owner claim/attestation privilege flows are superseded; no target operation activates authority from the answer. Missing lead title never suppresses required evaluation/follow-up: explicit eligible assignment or Needs owner remains visible.",
+      "spec": "docs/product/identity-access.md#req-idn-014",
+      "operations": [
+        "identity.answerLeadOnboarding",
+        "teams.assignRole"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-014--IDN-014"
+      ],
+      "case_ids": [
+        "TARGET-IDN-014",
+        "ROLE43-004",
+        "ROLE43-005",
+        "ROLE43-008",
+        "ROLE43-017",
+        "ORG55-004",
+        "ORG55-007"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-009",
+        "WP-017"
+      ]
+    },
+    {
+      "id": "REQ-IDN-015",
+      "feature_ids": [
+        "IDN-015"
+      ],
+      "text": "Persist basics/lead answer/journey/People facts and derive resume from them. Optional steps may be skipped; finishing stamps onboarding completion once and material source revision without claiming all facts are complete or generating an assessment synchronously. Existing-journey declaration is optional human attestation, separate from actual creation-entry Phase 1. A saved unsure/discerning/skip answer can complete that setup step but is not an attestation and keeps actual creation Phase 1. It never silently maps back to Phase 0; later explicit validated reasoned phase correction remains available. Native launch plan accepts no-date and cannot clear an existing schedule accidentally during onboarding; phase and launch writes are a single reviewed resumable intent if they cannot share the short transaction. Back/reentry cannot rerun finished provisioning. Missing facts remain visible after finish; no mandatory six-article gate for actual Phase 1 creation.",
+      "spec": "docs/product/identity-access.md#req-idn-015",
+      "operations": [
+        "onboarding.declareJourney",
+        "onboarding.complete",
+        "onboarding.getResume"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-015--IDN-015"
+      ],
+      "case_ids": [
+        "TARGET-IDN-015"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-009",
+        "WP-038",
+        "WP-045"
+      ]
+    },
+    {
+      "id": "REQ-IDN-016",
+      "feature_ids": [
+        "IDN-016"
+      ],
+      "text": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner locks account/profile, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one domain transaction, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account lock and one-active-seat arbiter.",
+      "spec": "docs/product/identity-access.md#req-idn-016",
+      "operations": [
+        "discovery.getProfile",
+        "discovery.convertToPlant",
+        "discovery.leaveRelationship"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-016--IDN-016"
+      ],
+      "case_ids": [
+        "TARGET-IDN-016"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-009"
+      ]
+    },
+    {
+      "id": "REQ-IDN-017",
+      "feature_ids": [
+        "IDN-017"
+      ],
+      "text": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending\u2192accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.",
+      "spec": "docs/product/identity-access.md#req-idn-017",
+      "operations": [
+        "seats.createInvitation",
+        "seats.listInvitations",
+        "seats.resendInvitation",
+        "seats.revokeInvitation",
+        "seats.acceptInvitation"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-017--IDN-017"
+      ],
+      "case_ids": [
+        "TARGET-IDN-017",
+        "ROLE43-006",
+        "ROLE43-007",
+        "ROLE43-009"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030"
+      ],
+      "work_packages": [
+        "WP-008"
+      ]
+    },
+    {
+      "id": "REQ-IDN-018",
+      "feature_ids": [
+        "IDN-005"
+      ],
+      "text": "Coach invitation, assignment, acceptance, roster and access are excluded from this product build. Do not create dormant coach grants, tables, routes, assistant operations or DTO allowances. The immutable feature ID is retained as the explicit source disposition; organization affiliation and ordinary seats remain separate approved capabilities. A real external mentoring relationship may be dated human evidence without an in-app coach identity/grant.",
+      "spec": "docs/product/identity-access.md#req-idn-018",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005"
+      ],
+      "case_ids": [
+        "TARGET-IDN-018"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": []
+    },
+    {
+      "id": "REQ-IDN-019",
+      "feature_ids": [
+        "IDN-019"
+      ],
+      "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under expected current role/revision. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
+      "spec": "docs/product/identity-access.md#req-idn-019",
+      "operations": [
+        "seats.listSeats",
+        "seats.setRole",
+        "seats.removeSeat"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-019--IDN-019"
+      ],
+      "case_ids": [
+        "TARGET-IDN-019",
+        "ROLE43-001",
+        "ROLE43-006",
+        "ROLE43-007",
+        "ROLE43-008",
+        "ROLE43-009",
+        "ROLE43-017"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-008",
+        "WP-017",
+        "WP-024"
+      ]
+    },
+    {
+      "id": "REQ-IDN-020",
+      "feature_ids": [
+        "IDN-020"
+      ],
+      "text": "Support five scoped subjects: plant\u2192sending church, plant\u2192network, sending church\u2192network, Discovery\u2192sending church and Discovery\u2192network. A plant Owner/Admin initiates its link; one exact receiving organization's Owner/Admin approves that organization, with no delegation or all-affiliate veto. Each link has independent state/consent and typed matching subject IDs. Keep normalized mailable recipient, 30 day expiry, at most 3 new invites/address in the rolling configured 30 day invitation window, no duplicate pending intent and exact readable inviter description. Creation/response/resend/revoke validates current actor/subject/revision. Multiple independent valid affiliations may coexist; competing acceptance cannot silently replace existing links or consent. Accepted receipt queues notice to plant, retries converge and mail failure does not undo a committed relationship.",
+      "spec": "docs/product/identity-access.md#req-idn-020",
+      "operations": [
+        "relationships.createInvitation",
+        "relationships.respondInvitation",
+        "relationships.resendInvitation",
+        "relationships.revokeInvitation"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-020--IDN-020"
+      ],
+      "case_ids": [
+        "TARGET-IDN-020",
+        "ROLE43-016",
+        "ORG55-002",
+        "AF-001",
+        "AF-002",
+        "AF-003",
+        "AF-004",
+        "AF-005",
+        "AF-006",
+        "AF-007",
+        "AF-008",
+        "AF-009",
+        "AF-010",
+        "AF-011",
+        "AF-012",
+        "AF-013",
+        "AF-014",
+        "AF-015",
+        "AF-016",
+        "AF-017",
+        "AF-018",
+        "AF-019",
+        "AF-020",
+        "AF-021",
+        "AF-022",
+        "AF-023",
+        "AF-024",
+        "AF-025",
+        "AF-026"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-030"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-008"
+      ]
+    },
+    {
+      "id": "REQ-IDN-021",
+      "feature_ids": [
+        "IDN-021"
+      ],
+      "text": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
+      "spec": "docs/product/identity-access.md#req-idn-021",
+      "operations": [
+        "relationships.leave",
+        "relationships.endOwnAffiliation",
+        "relationships.readHistory"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-021--IDN-021"
+      ],
+      "case_ids": [
+        "TARGET-IDN-021",
+        "ROLE43-016",
+        "ROLE43-017",
+        "ORG55-002",
+        "ORG55-003",
+        "AF-001",
+        "AF-002",
+        "AF-003",
+        "AF-004",
+        "AF-005",
+        "AF-006",
+        "AF-007",
+        "AF-008",
+        "AF-009",
+        "AF-010",
+        "AF-011",
+        "AF-012",
+        "AF-013",
+        "AF-014",
+        "AF-015",
+        "AF-016",
+        "AF-017",
+        "AF-018",
+        "AF-019",
+        "AF-020",
+        "AF-021",
+        "AF-022",
+        "AF-023",
+        "AF-024",
+        "AF-025",
+        "AF-026"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-007"
+      ]
+    },
+    {
+      "id": "REQ-IDN-022",
+      "feature_ids": [
+        "IDN-022"
+      ],
+      "text": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people\u2192share_people, meetings\u2192share_meetings, tasks\u2192share_tasks, ministry_teams\u2192share_ministry_teams, wiki\u2192share_wiki, activity\u2192share_activity, shared_findings\u2192shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
+      "spec": "docs/product/identity-access.md#req-idn-022",
+      "operations": [
+        "relationships.getSharing",
+        "relationships.setSharing"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-022--IDN-022"
+      ],
+      "case_ids": [
+        "TARGET-IDN-022",
+        "ROLE43-016",
+        "AF-027",
+        "AF-028",
+        "AF-029",
+        "AF-030",
+        "AF-031",
+        "AF-032",
+        "AF-033",
+        "AF-034",
+        "AF-035",
+        "AF-037",
+        "AF-038",
+        "AF-039",
+        "AF-040",
+        "AF-041"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-IDN-023",
+      "feature_ids": [
+        "IDN-023"
+      ],
+      "text": "List only current own-org related plants. Basic directory gives plant name/partial locality excluding street, attested phase/launch context, provenance and ordinary lead ministry-role Person display name (not assumed Owner); no contacts/private CRM. Aggregate sections distinguish withheld, shared-empty, shared-populated and unavailable: distinct People/status totals, recent 12 meeting cadence/attended totals, top-level actionable task counts/overdue, operational team/staffing/training coverage and Wiki reading counts. Each section uses its current consent and domain denominator; checklist/waived/cancelled tasks cannot inflate open counts. Organization intelligence/health uses its separate exact-org consent/release lineage and published-summary producer; same native/Evry bounded read. Sharing OFF/revoked affiliation removes cached/current/history body access that depends on it; unknown/foreign target is indistinguishable.",
+      "spec": "docs/product/identity-access.md#req-idn-023",
+      "operations": [
+        "oversight.listPlants",
+        "oversight.getPlantOverview",
+        "oversight.getHealth"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023"
+      ],
+      "case_ids": [
+        "TARGET-IDN-023",
+        "ORG55-003",
+        "ORG55-004",
+        "ORG55-005",
+        "AF-027",
+        "AF-028",
+        "AF-029",
+        "AF-030",
+        "AF-031",
+        "AF-032",
+        "AF-033",
+        "AF-034",
+        "AF-035",
+        "AF-037",
+        "AF-038",
+        "AF-039",
+        "AF-040",
+        "AF-041"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-IDN-024",
+      "feature_ids": [
+        "IDN-024"
+      ],
+      "text": "Network readers list/detail only sending churches currently associated with that exact network and pending unexpired scoped relationship invitations. Member detail lists only plants that both relate to that sending church and separately have a valid same-network relationship; parent hierarchy does not manufacture plant access. Counts exclude expired/revoked invitations and foreign-network plants. Empty states explain actual scope; links go through current per-plant consent-filtered overview. Sending-church seat does not gain network roster authority.",
+      "spec": "docs/product/identity-access.md#req-idn-024",
+      "operations": [
+        "oversight.listSendingChurches",
+        "oversight.getSendingChurch"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-024--IDN-024"
+      ],
+      "case_ids": [
+        "TARGET-IDN-024"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-047"
+      ]
+    },
+    {
+      "id": "REQ-IDN-025",
+      "feature_ids": [
+        "IDN-005"
+      ],
+      "text": "Coach plant collections/detail/photo/qualification/document read surfaces and all assignment-based exceptions are excluded from this product build. Preserve this feature's explicit source disposition without allowing it to widen organization aggregate or ordinary Member read scope. No coach-only authenticated context or assistant tools are registered.",
+      "spec": "docs/product/identity-access.md#req-idn-025",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005"
+      ],
+      "case_ids": [
+        "TARGET-IDN-025"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": []
+    },
+    {
+      "id": "REQ-IDN-026",
+      "feature_ids": [
+        "IDN-026"
+      ],
+      "text": "Implement the accepted target follow-through for formerly unwired organization settings: exact own sending-church/network Owner/Admin edit bounded name/contact/profile fields with protected org kind/identity, current revision and audit. No billing, ownership transfer, delete-org or wider intelligence/CRM access is implied. Personal self deletion and Owner-only church workspace deletion follow REQ-IDN-032 with explicit review, shared church history/minimal attribution and restricted native cancellation. Admin/Member/CRM lead cannot delete workspace or another login. Leaving Owner who keeps church running uses external manual exception; no claim/transfer/special rejoin UI.",
+      "spec": "docs/product/identity-access.md#req-idn-026",
+      "operations": [
+        "organizations.getProfile",
+        "organizations.updateProfile",
+        "account.requestDeletion",
+        "churches.requestWorkspaceDeletion"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026"
+      ],
+      "case_ids": [
+        "TARGET-IDN-026",
+        "ROLE43-002",
+        "ROLE43-017",
+        "ROLE43-018",
+        "ORG55-001",
+        "ORG55-006",
+        "ORG55-007",
+        "ORG55-008"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029",
+        "REQ-IDN-032"
+      ],
+      "work_packages": [
+        "WP-010",
+        "WP-007"
+      ]
+    },
+    {
+      "id": "REQ-IDN-027",
+      "feature_ids": [
+        "IDN-027"
+      ],
+      "text": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.",
+      "spec": "docs/product/identity-access.md#req-idn-027",
+      "operations": [
+        "relationships.leave",
+        "relationships.endOwnAffiliation"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-027--IDN-027"
+      ],
+      "case_ids": [
+        "TARGET-IDN-027",
+        "ROLE43-016",
+        "ORG55-002"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-007"
+      ]
+    },
+    {
+      "id": "REQ-IDN-028",
+      "feature_ids": [
+        "IDN-028"
+      ],
+      "text": "Cookie presence may optimize GET routing but never proves authentication. Login/session recovery remains reachable; every private route/API/action validates current session and subject. Overwrite any internal routed-URL stamp with the real URL; crawler scope is derived from real allow listed public Wiki path plus UA and returns only approved public metadata, never trusted client crawler/stamp headers. Mutating browser requests require configured canonical scheme/host/port Origin, with trusted deployment Host validation; reject missing/malformed/cross origin and HEAD/OPTIONS mutation attempts under the declared allow list. Exact independently authenticated exception routes are Resend raw-body signature webhook and sealed disable-only unsubscribe POST; GET unsubscribe is read only confirmation, wrong/expired/purpose tokens uniformly fail without mutating. Undo uses separate enable-only short proof and normal native origin. Jobs have a distinct bounded signed job end point admission, never a broad origin less prefix bypass. Safe return rejects external/protocol relative/backslash/control chars. Each admitted request still executes authoritative domain policy.",
+      "spec": "docs/product/identity-access.md#req-idn-028",
+      "operations": [
+        "identity.validateRequestBoundary",
+        "identity.safeReturn"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-028--IDN-028"
+      ],
+      "case_ids": [
+        "TARGET-IDN-028"
+      ],
+      "shared_contract_ids": [
+        "REQ-IDN-029"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-006",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-IDN-029",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-005",
+        "IDN-013",
+        "IDN-014",
+        "IDN-017",
+        "IDN-019",
+        "IDN-020",
+        "IDN-021",
+        "IDN-023",
+        "IDN-024",
+        "IDN-026"
+      ],
+      "text": "Derive the actor from a validated current session and active account, then load the current exact tenant membership inside each operation. Same-workspace accepted Owner and Admin have equal routine administration. Owner alone requests church-workspace deletion. Member retains tenant reads and authenticated own-duty actions explicitly listed by the domain; Member does not gain interview/4 Cs/private intake, another account's credentials or broad administration. Exact organization Owner/Admin can edit that organization's profile and end only its own affiliation. Organization readers receive consent-filtered aggregates, never plant CRM. Lead planter is an ordinary visible ministry-role Person and grants nothing; a distinct operating lead receives an ordinary accepted Admin seat. Owner protection checks the actual Owner role, so ordinary Admins remain removable. No con figurable permission grid, title elevation, ownership-claim/designation/transfer/special-rejoin engine or simultaneous active-seat expansion is part of this target.",
+      "spec": "docs/product/identity-access.md#req-idn-029",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-014--IDN-014",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-020--IDN-020",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-023--IDN-023",
+        "AC-IDN-024--IDN-024",
+        "AC-IDN-026--IDN-026"
+      ],
+      "case_ids": [
+        "TARGET-IDN-029",
+        "ROLE43-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-006"
+      ]
+    },
+    {
+      "id": "REQ-IDN-030",
+      "feature_ids": [
+        "IDN-002",
+        "IDN-003",
+        "IDN-013",
+        "IDN-016",
+        "IDN-017",
+        "IDN-020"
+      ],
+      "text": "Use one explicit staged protocol. Better Auth credential creation may succeed independently. The associated `app_account.registration_state=pending_domain` has no workspace or relationship authority; any session can only prove self identity, read bounded registration status, resume or cancel. After authenticated proof for that credential identity, one short domain transaction locks account and invitation/subject, validates current expiry/address/revision, claims the token, provisions the exact seat or relationship, creates/links the Person where required, records the domain receipt and audit, and enqueues required security/notification mail intent. It changes registration_state to active only after those domain effects succeed together. A failed domain transaction keeps the unprivileged resumable identity and consumes no grant/token. Retrying the same intent resumes and returns the original complete receipt; a different existing account must authenticate instead of receiving a new grant from email equality. Existing-address resume UI asks the person to sign in or use native mailbox recovery without telling an inviter whether the account exists. Revoke/accept/expiry races have one serialized winner. Canceling incomplete registration invalidates its sessions and incomplete credential identity through the same tracked lifecycle; no grant can survive. Security-mail dispatch occurs after commit and its failure never rolls back an already valid account or misreports it as uncreated.",
+      "spec": "docs/product/identity-access.md#req-idn-030",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-003--IDN-003",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-016--IDN-016",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-020--IDN-020"
+      ],
+      "case_ids": [
+        "TARGET-IDN-030"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-005",
+        "WP-006",
+        "WP-008"
+      ]
+    },
+    {
+      "id": "REQ-IDN-031",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-010",
+        "IDN-019",
+        "IDN-026"
+      ],
+      "text": "Native private weekly care requires a current same plant Owner/Admin and immutable originalAuthorAccountId equal to the authenticated account. Account/Person linkage, role/title edits and Person merge never change that author. Only that author reads, records, corrects, or sees their own history/trends/support question. Correction preserves prior revisions and history; individual private-care entry deletion is not authorized. Private-care deletion occurs only through the approved account-lifecycle purge and retention contract in REQ-IDN-032. No private body, note, existence, week/calendar, count, streak, nudge, revision or indirect signal enters Evry tools/context/proposals, model input/output, retrieval, PI, organization DTO s, ordinary exports, notifications/email, shared audit feeds, request logs, traces or evaluation fixtures. Technical logging contains no event that confirms a particular private-care stream exists. Personal deletion purges the private author stream under the account lifecycle; it never transfers to another Owner/Admin. Restricted encrypted recovery must enforce the same author and current-deletion rules before access.",
+      "spec": "docs/product/identity-access.md#req-idn-031",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-026--IDN-026"
+      ],
+      "case_ids": [
+        "TARGET-IDN-031",
+        "ROLE43-010",
+        "ROLE43-011",
+        "ROLE43-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-006",
+        "WP-010",
+        "WP-039",
+        "WP-050",
+        "WP-052",
+        "WP-053",
+        "WP-056"
+      ]
+    },
+    {
+      "id": "REQ-IDN-032",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-005",
+        "IDN-006",
+        "IDN-010",
+        "IDN-013",
+        "IDN-026"
+      ],
+      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active\u2192pending_deletion with subject/request ID/revision, requestedAt and cancelUntil = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancelUntil using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.",
+      "spec": "docs/product/identity-access.md#req-idn-032",
+      "operations": [
+        "account.requestDeletion",
+        "account.getDeletionStatus",
+        "account.cancelDeletion",
+        "churches.requestWorkspaceDeletion",
+        "churches.getDeletionStatus",
+        "churches.cancelDeletion"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-026--IDN-026"
+      ],
+      "case_ids": [
+        "TARGET-IDN-032"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-005",
+        "WP-006",
+        "WP-010",
+        "WP-037",
+        "WP-039",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "REQ-IDN-033",
+      "feature_ids": [
+        "IDN-010",
+        "IDN-011"
+      ],
+      "text": "Native private care uses confirmed personal IANA timezone, distinct from church timezone, and Monday week boundaries. Missing personal-zone preference asks for confirmation, never silently adopts UTC/church/device zone. Each author has a stable week ID/ordinal with frozen start/end Instants, zone and Monday date. Serialize answer/save/correction/roll over/zone-edit against the author calendar revision. A zone edit records a pending transition at the first strictly future Monday boundary in the requested zone; keep the open stable week until that boundary and create exactly one next ordinal when roll over executes. Historical IDs/author/zone/revisions are never rekeyed; multiple date-line edits, retries and concurrent answer saves cannot create a second answer or extra week/streak credit. Current UI previews exact boundary before the native edit, with no private metadata in ordinary audit/log/Evry. Answer up sert requires the exact author/week/revision and unchanged save is no-op. History/trend remain available to the author; twelve recent weeks is the engineering initial view port with paged older history, never a retention limit.\n\nThree truly adjacent answered weeks of Strained or Struggling in the same author/dimension raise a neutral native support question, for example \u201cWould it help to talk with someone you trust?\u201d Mixed Strained/Struggling qualifies; two weeks, cross-author/dimension, missing week or Steady does not. Correction recomputes display from effective records while retaining prior revisions. Date an older streak by its ending week and never label it current distress. No model counsel/pastoral judgment, email/org notice, task, PI invalidation or broad retention/former-author right follows from the question. REQ-IDN-031 governs every private path.",
+      "spec": "docs/product/identity-access.md#req-idn-033",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-011--IDN-011"
+      ],
+      "case_ids": [
+        "TARGET-IDN-033",
+        "B03-019",
+        "B03-020",
+        "B03-021",
+        "B03-022",
+        "B03-023",
+        "B03-024",
+        "B03-025",
+        "B03-026",
+        "B03-027",
+        "B03-028",
+        "B03-029",
+        "B03-030",
+        "B03-031",
+        "B03-032",
+        "B03-033",
+        "B03-034",
+        "B03-035"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-010",
+        "WP-039"
+      ]
+    }
+  ]
+}

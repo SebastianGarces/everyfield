@@ -1,0 +1,700 @@
+{
+  "domain": "operations",
+  "requirements": [
+    {
+      "id": "REQ-ADM-001",
+      "feature_ids": [
+        "ADM-001"
+      ],
+      "text": "Authenticated feedback stores original-author/private original, closed category, trimmed nonempty description\u22645000 and bounded canonical page label with occurrence/idempotency key before outward work. Original-author native listOwn/getOwnStatus uses dedicated25row-cursor DTO and current active account, never admin joins or another author. Stored success is distinct from publication/triage/implementation; suspended/deleted author denied.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [
+        "feedback.submit",
+        "feedback.listOwn",
+        "feedback.getOwnStatus"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001"
+      ],
+      "case_ids": [
+        "CASE-ADM-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-ADM-002",
+      "feature_ids": [
+        "ADM-002"
+      ],
+      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expectedrevision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [
+        "feedback.admin.list",
+        "feedback.admin.changeStatus",
+        "platformAdmin.authorize"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-002--ADM-002"
+      ],
+      "case_ids": [
+        "CASE-ADM-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-ADM-003",
+      "feature_ids": [
+        "ADM-003"
+      ],
+      "text": "Safe automatic feedback issue/triage uses separate PUBLICrepo with private original, frozen sanitized payload/hash/opaque occurrence and durable actual repoID/owner-name snapshot/issueID-number/URL.10second external timeout enters unknown and reconciles same marker in exact destination before retry; inaccessible/ambiguous remains held. Deterministic closed serializer never copies raw private text/IDs/URL/logs, richer publication exact-reviewed; actual merged owner workflow governs routing, no competing rubric/coding authority.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [
+        "feedback.createConfiguredIssue",
+        "feedback.triageIssue",
+        "feedback.notifyOperator",
+        "feedback.reconcileIssueLink"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-003--ADM-003"
+      ],
+      "case_ids": [
+        "CASE-ADM-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-ADM-004",
+      "feature_ids": [
+        "ADM-004"
+      ],
+      "text": "Home routing uses validated current account/seat/active subject and persisted onboarding facts: account-private Discovery/no plant, organization oversight, incomplete setup/resume or plant dashboard. Query parameters/browser dismissals cannot certify setup or bypass server predicates. Creation Phase 1 is independent of Discovery completion.",
+      "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
+      "operations": [
+        "dashboard.resolveHome",
+        "dashboard.readSetupGaps"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-004--ADM-004"
+      ],
+      "case_ids": [
+        "CASE-ADM-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-048"
+      ]
+    },
+    {
+      "id": "REQ-ADM-005",
+      "feature_ids": [
+        "ADM-005"
+      ],
+      "text": "Plant dashboard retains four independent metrics: recruited core_group/launch_team/leader excluding account-seat cohort; all nondeleted People; viewer-assigned overdue Tasks; completed Vision Meetings. Bounded 20-event feed uses actual source occurrence/correction history and per-item owning read projection. Quick actions require current write capability. Phase header uses actual saved phase; launch card uses canonical planned/status/countdown/readiness and recorded actual outcomes, without treating UI counters as rubric thresholds. Scoped dismissal state can hide optional prompts, never change evidence. No plant-private activity feed is an oversight substitute.",
+      "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
+      "operations": [
+        "dashboard.metrics",
+        "dashboard.activity",
+        "dashboard.availableActions",
+        "dashboard.promptState"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-005--ADM-005"
+      ],
+      "case_ids": [
+        "CASE-ADM-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-048"
+      ]
+    },
+    {
+      "id": "REQ-ADM-006",
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "text": "Public landing/examples are static synthetic illustrations with claims matching actual target. Invitation request validates normalized email and honeypot; it neither registers nor creates CRM/lead rows. Durable limited purpose-mail intent dedupes normalized email for a 24-hour window; bounded server rate limit 5 requests/address/day plus 20 trusted-IP requests/hour and global provider budget. Honeypot gets fake success; missing recipient/provider error gives contact fallback, not claimed invitation. No newsletter/double-opt-in/lead-management scope.",
+      "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
+      "operations": [
+        "marketing.requestInvitation",
+        "marketing.readProductExamples"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "case_ids": [
+        "CASE-ADM-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-ADM-007",
+      "feature_ids": [
+        "ADM-007"
+      ],
+      "text": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names actual selected vendors, model purpose/terms, immediate normal-access suspension, 30-day private cancellation hold, eligible live purge, \u22647 further days of recovery copies from completed live purge, minimal retained shared attribution and asynchronous/external-copy limits. Disclose shared Tigris provider/account backup risk and no customer recovery SLA. Avoid exact day-37 physical erasure or recalled public/mail/download claims.",
+      "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
+      "operations": [
+        "marketing.privacyPolicy",
+        "marketing.terms",
+        "marketing.sitemap"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-007--ADM-007"
+      ],
+      "case_ids": [
+        "CASE-ADM-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-ADM-008",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-003"
+      ],
+      "text": "Automatic public feedback serializer outputs only closed category/allowlisted public area/fixed product-summary wording/opaque random occurrence marker. Private original and actual immutable repo+issue locator are separate. Unknown unsafe fields hold; no raw original/title/URL/IDs/names/logs/attachments fallback. Richer exact payload requires authorized publication review; merged workflow handoff governs private triage/routing without granting coding authority.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [
+        "feedback.createConfiguredIssue",
+        "feedback.reconcileIssueLink"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-003--ADM-003"
+      ],
+      "case_ids": [
+        "PUBLIC-SERIALIZER-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-028",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002",
+        "ADM-003",
+        "OPS-009"
+      ],
+      "text": "A safe sanitized product summary creates/triages an issue automatically in the separate public feedback repository. Preserve the private original and store actual repository identity plus issue number/link/outcome; changing global repo configuration cannot rewrite historical issue links.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002",
+        "AC-ADM-003--ADM-003",
+        "AC-OPS-009--OPS-009"
+      ],
+      "case_ids": [
+        "PUB57-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-002",
+        "WP-031",
+        "WP-049",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-029",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002"
+      ],
+      "text": "Native listOwn/getOwnStatus uses authenticated original-account identity and a bounded original-author DTO. Guessing another feedbackID gives no private access; admin joins returning contact/church details are not reused and no public roadmap/status page is implied.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002"
+      ],
+      "case_ids": [
+        "PUB57-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-006",
+        "WP-049"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-030",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-003",
+        "ADM-007"
+      ],
+      "text": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-003--ADM-003",
+        "AC-ADM-007--ADM-007"
+      ],
+      "case_ids": [
+        "PUB57-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-006",
+        "WP-049",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-031",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002",
+        "ADM-003"
+      ],
+      "text": "When safe public summary cannot be established, retain private intake and truthful pending/held status, withhold unsafe bytes and avoid a blind raw-text fallback. This does not make normal safe publication manually gated or select a model/classifier threshold.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002",
+        "AC-ADM-003--ADM-003"
+      ],
+      "case_ids": [
+        "PUB57-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049",
+        "WP-050",
+        "WP-056"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-032",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002",
+        "ADM-003",
+        "OPS-009"
+      ],
+      "text": "Failure/unknown issue creation retains immutable intended payload/correlation and actual destination/receipt; reconcile before a new issue, without duplicate publication. Show actual native/publication/triage status; issue closure alone does not prove implementation, merged PR or deployment.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002",
+        "AC-ADM-003--ADM-003",
+        "AC-OPS-009--OPS-009"
+      ],
+      "case_ids": [
+        "PUB57-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031",
+        "WP-049",
+        "WP-050",
+        "WP-056"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-033",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-003",
+        "EVR-290"
+      ],
+      "text": "Reviewed Evry feedback submission shares native domain intake and original-author scope. Named automatic intake/triage does not grant general conversational durable-write autonomy or coding authority. Await owner merged workflow; no competing rubric, repo creation or required public roadmap.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-003--ADM-003",
+        "AC-EVR-290--EVR-290",
+        "AC-EVR-EFFECT--EVR-290"
+      ],
+      "case_ids": [
+        "PUB57-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049",
+        "WP-053",
+        "WP-055",
+        "WP-084"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-093",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002",
+        "ADM-003"
+      ],
+      "text": "Preserve durable native private feedback/triage and configured safe operator mail. Automatically create safe sanitized issue in a separate PUBLICfeedback repository, persisting actual destination/locator/receipt and truthful failure/unknown. Actual repository identity/configuration still future input, not a visibility choice or rawpublication grant.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002",
+        "AC-ADM-003--ADM-003"
+      ],
+      "case_ids": [
+        "FDB56-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-094",
+      "feature_ids": [
+        "ADM-002",
+        "ADM-003",
+        "OPS-009"
+      ],
+      "text": "Automatictriage uses safe minimal report and only the actual merged owner development workflow/version for severity/complexity/escalation. Missinghand-off remains explicit; no invented competing rubric or automaticimplementation class.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-002--ADM-002",
+        "AC-ADM-003--ADM-003",
+        "AC-OPS-009--OPS-009"
+      ],
+      "case_ids": [
+        "FDB56-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-002",
+        "WP-049",
+        "WP-050",
+        "WP-056"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-095",
+      "feature_ids": [
+        "ADM-003",
+        "OPS-009"
+      ],
+      "text": "Implementation/PRrouting waits for the actual merged authoritative owner workflow/version. Humanreview and explicit escalation remain; no automaticmerge/deploy or unspecifiedworktree inspection/merge.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-003--ADM-003",
+        "AC-OPS-009--OPS-009"
+      ],
+      "case_ids": [
+        "FDB56-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-049",
+        "WP-050",
+        "WP-056",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-096",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-003"
+      ],
+      "text": "Use only necessary sanitized issue/triage data with the selected destination permission/disclosure. Treat feedback as untrusted content, not commands/authority for agents or exfiltration. Preserve scoped records and failure/retry correlation without duplicate issues. The named intake/triage automation is not a blanket exception to exactly reviewed conversational Evry durable writes or private-care exclusions.",
+      "spec": "docs/product/operations.md#private-intake-and-public-feedback",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-003--ADM-003"
+      ],
+      "case_ids": [
+        "FDB56-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-006",
+        "WP-031",
+        "WP-049",
+        "WP-050",
+        "WP-053",
+        "WP-055",
+        "WP-056"
+      ]
+    },
+    {
+      "id": "REQ-OPS-001",
+      "feature_ids": [
+        "OPS-001"
+      ],
+      "text": "One authenticated bounded Next/Postgres executor, durable owed work, fairness/lease/fencing/lag/recovery catalog in execution. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "jobs.tickNotifications",
+        "jobs.tickAssessments",
+        "jobs.manualRun",
+        "jobs.inspectLag"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-001--OPS-001"
+      ],
+      "case_ids": [
+        "CASE-OPS-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-002",
+      "feature_ids": [
+        "OPS-002"
+      ],
+      "text": "Public liveness returns only bounded process status/time. Privileged readiness distinguishes DB/object/mail/callback backlog/job lag/reference/backup readiness with safe error correlation. Dependency failure cannot be a fake empty result. No sensitive details/token/address/body in public error or health.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "ops.liveness",
+        "ops.readiness",
+        "ops.errorCorrelation"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-002--OPS-002"
+      ],
+      "case_ids": [
+        "CASE-OPS-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-003",
+      "feature_ids": [
+        "OPS-003"
+      ],
+      "text": "Optional configured Sentry and isolated Langfuse/OTel retain content-free latency/token/status/build/run correlation. Validate explicit HTTPS endpoint except loopback, no embedded credentials/query/hash/public secrets; no implicit tracing-provider fallback. Bounded flush/telemetry outage cannot change domain result. Private-care body/existence/calendar/nudge metadata, credentials/mail body/addresses/model prompts/file bytes are excluded.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "ops.reportError",
+        "ops.traceOperation",
+        "ops.traceModelAttempt",
+        "ops.flushTelemetry"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-003--OPS-003"
+      ],
+      "case_ids": [
+        "CASE-OPS-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-004",
+      "feature_ids": [
+        "OPS-004"
+      ],
+      "text": "Required cross-domain consequences use one short owning transaction; attendance/obligation/task/audit/receipt consistency is not in-memory event delivery. Advisory named effects get durable outbox/job intent and idempotent consumer. Each consumer rechecks subject/scope. No public arbitrary-event RPC or universal workflow engine.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "domain.executeAtomicConsequences",
+        "events.appendRequiredOutbox",
+        "events.deliverIdempotentConsumer"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-004--OPS-004"
+      ],
+      "case_ids": [
+        "CASE-OPS-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-005",
+      "feature_ids": [
+        "OPS-005"
+      ],
+      "text": "Fresh versioned migration history/checksums and approved reference bootstrap; positively identified owned DB target, advisory lock and replay provenance. Preserve applied history and refuse conflicting checksum/unknown target. No db:push, legacy-chain requirement, live ledger patching or customer migration. Recovery uses recovery.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "ops.schemaValidate",
+        "ops.applyVersionedMigration",
+        "ops.inspectMigrationProvenance"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-005--OPS-005"
+      ],
+      "case_ids": [
+        "CASE-OPS-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-006",
+      "feature_ids": [
+        "OPS-006"
+      ],
+      "text": "Separate immutable approved references from synthetic demo/evaluation fixtures. Seed/reset only explicitly positively identified disposable owned environment with independent DB/storage/auth/mail/jobs and no copied production identities/credentials. Sentinel alone is insufficient. Repeat-equal bootstrap no-op and mismatches stop.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "reference.bootstrapApprovedBundle",
+        "fixtures.seedOwnedEnvironment",
+        "fixtures.resetOwnedEnvironment"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-006--OPS-006"
+      ],
+      "case_ids": [
+        "CASE-OPS-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-007",
+      "feature_ids": [
+        "OPS-007"
+      ],
+      "text": "Hermetic build with frozen lockfile and placeholder secrets; meaningful contract/browser/API/native SQL race/failure suites require explicit isolated endpoint and registered real execution. Mock counts/text checks cannot certify behavioral acceptance. Before real data close actual DB+matching-byte restore and retention/expiry proof.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "qa.verifyContracts",
+        "qa.verifyNativeTransactions",
+        "qa.verifyVerticalSlices",
+        "qa.hermeticBuild"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-007--OPS-007"
+      ],
+      "case_ids": [
+        "CASE-OPS-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-008",
+      "feature_ids": [
+        "OPS-008"
+      ],
+      "text": "Named managed preview records checkout/source revision/URL and isolated DB/storage/auth/provider destinations; no unrelated localhost evidence, dependency symlink or secret wholesale copy. Real mail/model/provider actions are disabled/stubbed unless separately authorized. Cleanup is scoped to that verified preview.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "dev.createIsolatedPreview",
+        "dev.inspectPreviewProvenance",
+        "dev.cleanupPreview"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-008--OPS-008"
+      ],
+      "case_ids": [
+        "CASE-OPS-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-009",
+      "feature_ids": [
+        "OPS-009"
+      ],
+      "text": "Requirement/case/issue traceability and optional engineering board integration only after merged owner workflow is received. Do not copy historical hardcoded private project/options/tokens or revive retired delivery gates. Live labels/status reread; missing integration visibly skips without product failure. Safe public intake/triage remains the accepted subset and does not wait for invented routing.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "engineering.trackWork",
+        "engineering.validateRequirements"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-009--OPS-009"
+      ],
+      "case_ids": [
+        "CASE-OPS-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-010",
+      "feature_ids": [
+        "OPS-010"
+      ],
+      "text": "Read-only tool/script inventory classifies diagnostic versus mutation, identifies target/credentials/environment and records named native proof coverage. Hooks/proof tools are installed only for chosen supported workflow. Preserve semantic tests/reproducibility rather than every historic adapter. Inventory is not permission to execute a script.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "engineering.inventoryTools",
+        "engineering.auditProofCoverage",
+        "engineering.installChosenHooks"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-010--OPS-010"
+      ],
+      "case_ids": [
+        "CASE-OPS-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-011",
+      "feature_ids": [
+        "OPS-011"
+      ],
+      "text": "Read-only source/retired-Evry diagnostics remain evidence. The new first-class Evry contract uses shared target domain operations; no legacy runtime/table restoration or assumption from a catalog probe. Existing v2 source/database remains untouched.",
+      "spec": "docs/product/operations.md#engineering-and-operational-scope",
+      "operations": [
+        "ops.inspectLegacyEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-011--OPS-011"
+      ],
+      "case_ids": [
+        "CASE-OPS-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-050"
+      ]
+    }
+  ]
+}

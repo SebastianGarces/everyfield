@@ -1,0 +1,1831 @@
+{
+  "domain": "methodology-intelligence",
+  "requirements": [
+    {
+      "id": "REQ-PHASE-001",
+      "feature_ids": [
+        "PHASE-001"
+      ],
+      "text": "One attributed idempotent existing-journey initial declaration per plant is distinct from actual new plant creation Phase 1 entry. No synthesized prior phases; retry returns original. Owner/Admin current exact plant authority. Declared phase is a number/integer0..6; no caller reason/kind. Server stores exact reserved initial-declaration sentence and kind, independent of creation.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.declare"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-001--PHASE-001"
+      ],
+      "case_ids": [
+        "DC-022",
+        "DC-031",
+        "PHASE-CASE-001",
+        "PHASE-CASE-009"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-002",
+      "feature_ids": [
+        "PHASE-002"
+      ],
+      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer0..6; reason is string trimmed1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.transition"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-002--PHASE-002"
+      ],
+      "case_ids": [
+        "PHASE-CASE-002",
+        "PHASE-CASE-009"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-003",
+      "feature_ids": [
+        "PHASE-003"
+      ],
+      "text": "Classify actual transition direction; preserve same-phase noop journal/event receipt without material fact bump, duplicate replay or invented progress/task creation. Validate ordinary integer bounds and reason/reserved-string rule before creating any same-phase noop receipt.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.classifyChange"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-003--PHASE-003"
+      ],
+      "case_ids": [
+        "PHASE-CASE-003",
+        "MW-CASE-015",
+        "PHASE-CASE-009"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-004",
+      "feature_ids": [
+        "PHASE-004"
+      ],
+      "text": "Advisory ready/approaching/not_ready/unknown follows current criterion conjunction and evidence; no single indicator/unknown silence clears phase cluster or moves phase.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.readReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-004--PHASE-004"
+      ],
+      "case_ids": [
+        "PHASE-CASE-004"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-005",
+      "feature_ids": [
+        "PHASE-005"
+      ],
+      "text": "Typed actual phase.changed and plant.assessment.created notices use transactionally required intents after durable result; privacy/current audience applies. Creation and same-phase events truthful, no fake progression.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.appendConsequences",
+        "intelligence.appendAssessmentConsequences"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-005--PHASE-005"
+      ],
+      "case_ids": [
+        "PHASE-CASE-005"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-026",
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-006",
+      "feature_ids": [
+        "PHASE-006"
+      ],
+      "text": "Actual phase context offers existing task templates and relevant Wiki content under current entitlement; reads/offers create no tasks, acceptance reviewed and preserves declined/edited/deleted choices.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "tasks.readPhaseOffer",
+        "wiki.recommendForPhase"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-006--PHASE-006"
+      ],
+      "case_ids": [
+        "PHASE-CASE-006"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-026",
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-007",
+      "feature_ids": [
+        "PHASE-007"
+      ],
+      "text": "Read attributed current/historical phase journal and actual chronology with creation/initial declaration distinctions, expected revision/concurrency and current permissions; no rewritten prior journey.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.readHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-007--PHASE-007"
+      ],
+      "case_ids": [
+        "DC-022",
+        "DC-031",
+        "PHASE-CASE-007"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PHASE-008",
+      "feature_ids": [
+        "PHASE-008"
+      ],
+      "text": "Seven exact phases and 19 criterion identities are portable original reference plus direct current operational evidence map; no terminal Phase 6 exit or new pastoral/services scope.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "phases.readCatalog"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-008--PHASE-008"
+      ],
+      "case_ids": [
+        "PI-DISC-001",
+        "PI-DISC-002",
+        "PHASE-CASE-008",
+        "MW-CASE-018"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032",
+        "WP-038"
+      ]
+    },
+    {
+      "id": "REQ-PI-001",
+      "feature_ids": [
+        "PI-001"
+      ],
+      "text": "Build one deterministic immutable fact snapshot at a fixed run asOf from one consistent database source revision, pin formula/schema/provenance and represent unavailable inputs explicitly; no independent mixed-time reads.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.buildFactSnapshot"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001"
+      ],
+      "case_ids": [
+        "ASMT-009",
+        "PI-CASE-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-002",
+      "feature_ids": [
+        "PI-002"
+      ],
+      "text": "Count each currently active explicitly classified adult once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts",
+        "intelligence.readCommittedAdultCohort"
+      ],
+      "acceptance_ids": [
+        "AC-PI-002--PI-002"
+      ],
+      "case_ids": [
+        "PI-GROW-001",
+        "PI-GROW-002",
+        "PI-GROW-003",
+        "PI-CASE-029",
+        "MW-CASE-003"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-003",
+      "feature_ids": [
+        "PI-003"
+      ],
+      "text": "Expose recorded recruited-contact source composition with explicit unknown-source count and cohort lineage only to permitted planter audiences. No conversion inference or organization/cross-plant composition/ranking.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-003--PI-003"
+      ],
+      "case_ids": [
+        "PI-CASE-002",
+        "MW-CASE-011"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-004",
+      "feature_ids": [
+        "PI-004"
+      ],
+      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly overmeeting warning.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-004--PI-004"
+      ],
+      "case_ids": [
+        "PI-CASE-003",
+        "PI-CASE-004"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-005",
+      "feature_ids": [
+        "PI-005"
+      ],
+      "text": "Derive cohesion from actual completed-meeting participation: absent last 28 days after prior 28 participation among active commitments, at least 20 percent and minimum three. Dated leader disengagement changes voice one level, never claims relational unity or qualification; missing evidence Unknown.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-005--PI-005"
+      ],
+      "case_ids": [
+        "PI-CASE-005"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-006",
+      "feature_ids": [
+        "PI-006"
+      ],
+      "text": "Measure eight stable methodology responsibility assignments separately from optional tenant teams, distinct people and Prayer Leader. Named agreed worship attestation or actual active assignment satisfies Phase 1 identification; all-eight Phase 2 uses actual assignments. No name-substring mapping, forced teams, ninth conjunction or automatic leader grants.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-006--PI-006"
+      ],
+      "case_ids": [
+        "B01-002",
+        "B01-005",
+        "B01-006",
+        "B01-016",
+        "B01-017",
+        "B01-018",
+        "B01-033",
+        "MW-CASE-006",
+        "MW-CASE-007"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-007",
+      "feature_ids": [
+        "PI-007"
+      ],
+      "text": "Sixty days of unbroken attendance AND volunteering needs dated records and/or dated person-scoped planter attestation for unobserved behavior. Human interview/4Cs are dated recorded judgments; tenure/lifetime totals do not prove continuity or qualification. Candidate identities are planter-only; suggested conversation never assigns/promotes. PI/Evry/model inputs exclude human Interview/FourCs scores, judgments, notes and qualification results; only operational evidence and recorded human-assessment presence/count/date can be projected.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-007--PI-007"
+      ],
+      "case_ids": [
+        "PI-CASE-006",
+        "MW-CASE-005",
+        "PI-PURPOSE-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-008",
+      "feature_ids": [
+        "PI-008"
+      ],
+      "text": "Required training uses saved explicit distinct current person/program assignments; bulk expansion previews exact reviewed people, later memberships do not recompute roster. 100 percent applicable obligations completes; empty/missing applicability Unknown. Earned/revoked/corrected completion independent from assignment and historical rosters.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-008--PI-008"
+      ],
+      "case_ids": [
+        "B01-019",
+        "B01-020",
+        "B01-021",
+        "MW-CASE-008",
+        "MW-CASE-009",
+        "MW-CASE-010"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-009",
+      "feature_ids": [
+        "PI-009"
+      ],
+      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0\u201328 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009"
+      ],
+      "case_ids": [
+        "PI-CASE-007",
+        "MW-CASE-011",
+        "MW-CASE-019",
+        "MW-CASE-020"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-010",
+      "feature_ids": [
+        "PI-010"
+      ],
+      "text": "Preserve historical follow-up proxy interpretation only under its exact old snapshot/formula version. Current profile updatedAt never supplies actual-contact freshness or completion; unknown true source is Unknown.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-010--PI-010"
+      ],
+      "case_ids": [
+        "PI-CASE-008"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-011",
+      "feature_ids": [
+        "PI-011"
+      ],
+      "text": "Count actual live follow-up task ownership, distinct eligible assignees/unowned/stale-unowned separately. Removed/ineligible owner is unowned; staleness or volume alone cannot blame the planter.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-011--PI-011"
+      ],
+      "case_ids": [
+        "PI-CASE-009",
+        "MW-CASE-012",
+        "MW-CASE-013"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-023",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-012",
+      "feature_ids": [
+        "PI-012"
+      ],
+      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48elapsedhours as measured misses and valid successful completion at/after source-start and by source-start+48hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-012--PI-012"
+      ],
+      "case_ids": [
+        "PI-PHASE6-001",
+        "MW-CASE-013",
+        "PI-METRIC-001",
+        "PI-TASK-CONTACT-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-023",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-013",
+      "feature_ids": [
+        "PI-013"
+      ],
+      "text": "Actual effective contacted occurrence updates 14 day contact freshness; attempted/administrative completion/waiver/task status/profile edit/mail opens never prove contact. Missing/future date Unknown; correction retains history.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFacts"
+      ],
+      "acceptance_ids": [
+        "AC-PI-013--PI-013"
+      ],
+      "case_ids": [
+        "PI-CASE-008",
+        "PI-CASE-010",
+        "MW-CASE-014",
+        "PI-METRIC-001",
+        "PI-TASK-CONTACT-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-023",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-014",
+      "feature_ids": [
+        "PI-014"
+      ],
+      "text": "Each of eight lenses exposes measured/attested/unknown evidence, exact source age and independent subdimensions. Unknown never passes. Typed human assertions retain actor/question/reference/occurrence/recording/correction lineage and cannot originate from model or private care.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.deriveLensEvidence",
+        "signals.attest",
+        "signals.reaffirm",
+        "signals.correct",
+        "signals.getHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PI-014--PI-014"
+      ],
+      "case_ids": [
+        "B01-024",
+        "B01-027",
+        "PI-CASE-006"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-039",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-015",
+      "feature_ids": [
+        "PI-015"
+      ],
+      "text": "Exactly seven legacy manual keys/questions with native current/history/correct/retract/reaffirm. Prayer rhythm, gatherings and giving each retain 30 day age/reaffirmation; stale answer never false/current by default. Funding, values, systems, Prayer Leader remain nonexpiring and independent.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "signals.listDefinitions",
+        "signals.attest",
+        "signals.reaffirm",
+        "signals.correct",
+        "signals.getHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PI-015--PI-015"
+      ],
+      "case_ids": [
+        "B01-017",
+        "B01-024",
+        "B01-025",
+        "B01-026",
+        "B01-027",
+        "MW-CASE-016"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-039",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-016",
+      "feature_ids": [
+        "PI-016"
+      ],
+      "text": "Resolve immutable original plant rubric v0/v1 and original Playbook by exact packaged hash, with final SME comment dispositions authoritative over stale compiled wording. Current operational prompt adapter is separately versioned; no silent history or methodology rewrite.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "reference.readRubricManifest",
+        "intelligence.readRubric"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016"
+      ],
+      "case_ids": [
+        "ASMT-011",
+        "MW-CASE-025"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-041"
+      ]
+    },
+    {
+      "id": "REQ-PI-017",
+      "feature_ids": [
+        "PI-017"
+      ],
+      "text": "Retrieve phase-relevant permitted methodology from the complete activated dense/sparse corpus; pin passage/source/revision/hash and whole rubric outside embeddings. Current entitlement on retrieval and old citation reads; no invented citation or departed organization body.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.retrieveMethodology",
+        "reference.embedQuery"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017"
+      ],
+      "case_ids": [
+        "PI-CASE-011",
+        "MW-CASE-017",
+        "MW-CASE-021"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-041"
+      ]
+    },
+    {
+      "id": "REQ-PI-018",
+      "feature_ids": [
+        "PI-018"
+      ],
+      "text": "Validate typed dual-audience judged draft before publication: exact facts/numbers/citations/concern pairing, safe allowed field projection, launch-progress scope, no church-health/character/pastoral verdict. Unknown and each attestation remain explicit.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.evaluateAssessment",
+        "intelligence.validateDraft"
+      ],
+      "acceptance_ids": [
+        "AC-PI-018--PI-018"
+      ],
+      "case_ids": [
+        "NI-038",
+        "PI-CASE-012"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-042"
+      ]
+    },
+    {
+      "id": "REQ-PI-019",
+      "feature_ids": [
+        "PI-019"
+      ],
+      "text": "Rejected output drafts use at most three bounded corrective drafts with accumulated actual violations under shared deadline/token budgets; exhaustion fails truthfully and retains previous complete result.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.evaluateAssessment"
+      ],
+      "acceptance_ids": [
+        "AC-PI-019--PI-019"
+      ],
+      "case_ids": [
+        "ASMT-010",
+        "PI-CASE-013"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-020",
+      "feature_ids": [
+        "PI-020"
+      ],
+      "text": "Provider retry at most four attempts per draft respects 429 Retry-After/headers, bounded 5xx/backoff/pacing and one deadline/token budget. Deferral/usage/attempt counters truthful; no paid call or account setting assumed by documentation. Every SDK/provider implicit retry setting is maxRetries=0; the one declared worker attempt budget owns every actual dispatch.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.callProvider"
+      ],
+      "acceptance_ids": [
+        "AC-PI-020--PI-020"
+      ],
+      "case_ids": [
+        "ASMT-010",
+        "PI-CASE-014",
+        "PI-PROVIDER-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-021",
+      "feature_ids": [
+        "PI-021"
+      ],
+      "text": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with fairness. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.selectAssessmentCandidates",
+        "intelligence.runAssessmentBatch"
+      ],
+      "acceptance_ids": [
+        "AC-PI-021--PI-021"
+      ],
+      "case_ids": [
+        "ASMT-001",
+        "PI-CASE-015",
+        "PI-PROVIDER-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-022",
+      "feature_ids": [
+        "PI-022"
+      ],
+      "text": "Separate demand, job lease generation, immutable run and publication pointer. Capture fixed snapshot before model work; pending/deferred/failed/superseded/complete recovery preserves prior valid complete results. Claim expiry/reclaim does not grant stale publication.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.executeDemand",
+        "intelligence.settleRun"
+      ],
+      "acceptance_ids": [
+        "AC-PI-022--PI-022"
+      ],
+      "case_ids": [
+        "ASMT-001",
+        "ASMT-002",
+        "ASMT-003",
+        "ASMT-004",
+        "ASMT-005",
+        "ASMT-006",
+        "ASMT-007",
+        "ASMT-008",
+        "ASMT-009",
+        "ASMT-010",
+        "ASMT-012"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-023",
+      "feature_ids": [
+        "PI-023"
+      ],
+      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and current pointer atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.publishAssessment",
+        "intelligence.computeSnapshotDelta"
+      ],
+      "acceptance_ids": [
+        "AC-PI-023--PI-023"
+      ],
+      "case_ids": [
+        "ASMT-001",
+        "ASMT-002",
+        "ASMT-003",
+        "ASMT-004",
+        "ASMT-005",
+        "ASMT-006",
+        "ASMT-007",
+        "ASMT-008",
+        "ASMT-009",
+        "ASMT-010",
+        "ASMT-012",
+        "PI-URGENCY-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-024",
+      "feature_ids": [
+        "PI-024"
+      ],
+      "text": "Read cached persisted assessments at zero model calls with exact asOf/reference/source/age/state; genuine eligible first-open marker governs opened-or-72-hour release. Phase difference remains visible rather than rebinding old snapshot standings.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readAssessment",
+        "intelligence.markAssessmentSeen"
+      ],
+      "acceptance_ids": [
+        "AC-PI-024--PI-024"
+      ],
+      "case_ids": [
+        "NI-016",
+        "ASMT-005",
+        "PI-CASE-016",
+        "MW-CASE-024"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-025",
+      "feature_ids": [
+        "PI-025"
+      ],
+      "text": "Preserve one primary focus, two supplements and separate positives; deterministic drilldowns keep the remaining observations without inventing missing judgments.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readFocus"
+      ],
+      "acceptance_ids": [
+        "AC-PI-025--PI-025"
+      ],
+      "case_ids": [
+        "PI-CASE-017"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-026",
+      "feature_ids": [
+        "PI-026"
+      ],
+      "text": "Resolve exact cited snapshot path/value/manual key and source passage hash; mismatch is visible/rejected at current publication, unknown path unverifiable. Display citations never grant underlying person/body access.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.resolveCitation",
+        "intelligence.formatCitedFact"
+      ],
+      "acceptance_ids": [
+        "AC-PI-026--PI-026"
+      ],
+      "case_ids": [
+        "PI-CASE-018"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-041",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-027",
+      "feature_ids": [
+        "PI-027"
+      ],
+      "text": "Render eight evidence-aware CSF lens standings with measured/attested/unknown, insufficient-evidence tiles and independent generosity/funding/prayer ages. Judge standing remains distinct from deterministic criterion measurement.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readScorecard"
+      ],
+      "acceptance_ids": [
+        "AC-PI-027--PI-027"
+      ],
+      "case_ids": [
+        "PI-CASE-019",
+        "PI-URGENCY-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-028",
+      "feature_ids": [
+        "PI-028"
+      ],
+      "text": "Preserve 19 stable criterion keys,18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readExitCriteria",
+        "intelligence.readCriterionEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "DC-001",
+        "DC-002",
+        "DC-003",
+        "DC-004",
+        "DC-005",
+        "DC-006",
+        "DC-007",
+        "DC-008",
+        "DC-009",
+        "DC-010",
+        "DC-011",
+        "DC-012",
+        "DC-013",
+        "DC-014",
+        "DC-015",
+        "DC-016",
+        "DC-017",
+        "DC-018",
+        "DC-019",
+        "DC-020",
+        "DC-021",
+        "DC-022",
+        "DC-023",
+        "DC-024",
+        "DC-025",
+        "DC-026",
+        "DC-027",
+        "DC-028",
+        "DC-029",
+        "DC-030",
+        "DC-031",
+        "DC-032",
+        "B01-005",
+        "B01-006",
+        "B01-007",
+        "B01-008",
+        "B01-009",
+        "B01-016",
+        "B01-017",
+        "B01-020",
+        "B01-021",
+        "B01-022",
+        "B01-023",
+        "B01-024",
+        "B01-025",
+        "B01-033",
+        "PI-GROW-001",
+        "PI-GROW-002",
+        "PI-DISC-001",
+        "PI-DISC-002",
+        "PI-PHASE6-001",
+        "PHASE-CASE-008",
+        "MW-CASE-018",
+        "MW-CASE-023"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-029",
+      "feature_ids": [
+        "PI-029"
+      ],
+      "text": "Read persisted historical trends and existing engine-derived alerts with original snapshot/source/formula versions and current permitted projections; correction affects current evidence, never overwrites past snapshots or adds new alert family.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readAssessmentHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PI-029--PI-029"
+      ],
+      "case_ids": [
+        "PI-CASE-020"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-030",
+      "feature_ids": [
+        "PI-030"
+      ],
+      "text": "Timeline distinguishes actual creation Phase 1 with no prior phase, one existing-journey declaration, reasoned actual transitions and native launch history. No synthetic ladder/meeting/phase effects.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readJourney"
+      ],
+      "acceptance_ids": [
+        "AC-PI-030--PI-030"
+      ],
+      "case_ids": [
+        "PI-CASE-021"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-046",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-031",
+      "feature_ids": [
+        "PI-031"
+      ],
+      "text": "Oversight resolves current exact-org health/category grants and released aggregate-safe results, independent directory access and four-valued rollup. Unshared is Limited visibility/Not shared, never On track or zero; no raw snapshots, individuals, private care or source composition.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "oversight.getHealth",
+        "oversight.readLaunchReadiness"
+      ],
+      "acceptance_ids": [
+        "AC-PI-031--PI-031"
+      ],
+      "case_ids": [
+        "PI-CASE-022"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-047",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-032",
+      "feature_ids": [
+        "PI-032"
+      ],
+      "text": "Same-concern identifier+evidence pairs plant and oversight observations. Eligible human opened OR 72 elapsed hours after durable availability releases; previous still-authorized result survives embargo. Permission revocation always wins, including NI/Location inputs.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.validateConcernPairing",
+        "intelligence.releaseAssessmentToOversight"
+      ],
+      "acceptance_ids": [
+        "AC-PI-032--PI-032"
+      ],
+      "case_ids": [
+        "NI-016",
+        "PI-CASE-023"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-033",
+      "feature_ids": [
+        "PI-033"
+      ],
+      "text": "Own authenticated currently authorized reader feedback binds exact insight/run/rubric, useful/not_useful and bounded optional comment with idempotency/history. No other-author overwrite, score/rubric/retraining effect; every Evry write exactly reviewed.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.submitFeedback",
+        "intelligence.readOwnFeedback"
+      ],
+      "acceptance_ids": [
+        "AC-PI-033--PI-033"
+      ],
+      "case_ids": [
+        "PI-CASE-024"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-034",
+      "feature_ids": [
+        "PI-034"
+      ],
+      "text": "Cold start shows genuine not_generated/queued/quiet/reference_not_ready states and useful deterministic next steps; no fabricated unmet criteria, empty-green assessment or model call while reading.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.readColdStartGuidance"
+      ],
+      "acceptance_ids": [
+        "AC-PI-034--PI-034"
+      ],
+      "case_ids": [
+        "PI-CASE-025",
+        "MW-CASE-024"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-PI-035",
+      "feature_ids": [
+        "PI-035"
+      ],
+      "text": "Bounded observability records run/status/last-draft violations/usage/version IDs with optional tracing safely failing. No raw prompts/outputs/private canaries/protected manifests or private-care existence/calendar/nudges in broad telemetry.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.recordAttemptTelemetry"
+      ],
+      "acceptance_ids": [
+        "AC-PI-035--PI-035"
+      ],
+      "case_ids": [
+        "NI-010",
+        "PI-CASE-026"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-PI-036",
+      "feature_ids": [
+        "PI-036"
+      ],
+      "text": "Offline reference/fleet language/numeric/privacy evaluation and bounded authorized operator triggers use synthetic permitted fixtures and exact pinned versions; future protocol/pass/fail declared, not falsely counted as runtime success or live account proof.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.runEvaluation",
+        "reference.auditLanguage",
+        "intelligence.requestOperatorRefresh"
+      ],
+      "acceptance_ids": [
+        "AC-PI-036--PI-036"
+      ],
+      "case_ids": [
+        "PI-CASE-027"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-PI-037",
+      "feature_ids": [
+        "PI-037"
+      ],
+      "text": "Every registered material producer commits domain mutation/history/audit/required intents/receipt and synchronous source revision in one DomainTransaction. Correction/merge/attendance/contact/role/training/phase/date/geography/reference/sharing are covered; after-commit wake-up only, private care excluded.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.markMaterialRevision",
+        "intelligence.scheduleAssessment",
+        "intelligence.selectAssessmentCandidates"
+      ],
+      "acceptance_ids": [
+        "AC-PI-037--PI-037"
+      ],
+      "case_ids": [
+        "ASMT-001",
+        "ASMT-002",
+        "ASMT-003",
+        "ASMT-004",
+        "ASMT-005",
+        "ASMT-006",
+        "ASMT-007",
+        "ASMT-008",
+        "ASMT-009",
+        "ASMT-010",
+        "ASMT-012",
+        "MW-CASE-001",
+        "MW-CASE-002",
+        "MW-CASE-003",
+        "MW-CASE-004",
+        "MW-CASE-005",
+        "MW-CASE-006",
+        "MW-CASE-007",
+        "MW-CASE-008",
+        "MW-CASE-009",
+        "MW-CASE-010",
+        "MW-CASE-011",
+        "MW-CASE-012",
+        "MW-CASE-013",
+        "MW-CASE-014",
+        "MW-CASE-015",
+        "MW-CASE-016",
+        "MW-CASE-017",
+        "MW-CASE-018",
+        "MW-CASE-019",
+        "MW-CASE-020",
+        "MW-CASE-021",
+        "MW-CASE-022",
+        "MW-CASE-023",
+        "MW-CASE-024",
+        "MW-CASE-025",
+        "MW-CASE-026"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-038",
+      "feature_ids": [
+        "PI-038"
+      ],
+      "text": "Native current same-plant Owner/Admin and immutable original account author save/read their four exact private questions with Steady/Strained/Struggling and an optional note of at most 2,000 characters; no successor/title/admin inheritance, Evry/model/org/export/log/audit access.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "privateCare.save",
+        "privateCare.readCurrent"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038"
+      ],
+      "case_ids": [
+        "PI-CARE-001",
+        "PI-CARE-003",
+        "PI-PURPOSE-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-PRIVATE-ORIGINAL-AUTHOR",
+        "C0-TIME"
+      ],
+      "work_packages": [
+        "WP-039"
+      ]
+    },
+    {
+      "id": "REQ-PI-039",
+      "feature_ids": [
+        "PI-039"
+      ],
+      "text": "Native twelve week viewport is not retention. Three adjacent same author/same dimension logical Monday weeks of Strained OR Struggling raise private support question; Steady/missing breaks, old streak dated, no outreach/model/PI effect.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "privateCare.readTrends",
+        "privateCare.readSupportNudge"
+      ],
+      "acceptance_ids": [
+        "AC-PI-039--PI-039"
+      ],
+      "case_ids": [
+        "PI-CARE-002"
+      ],
+      "shared_contract_ids": [
+        "SEC-PRIVATE-ORIGINAL-AUTHOR",
+        "C0-TIME"
+      ],
+      "work_packages": [
+        "WP-039"
+      ]
+    },
+    {
+      "id": "REQ-PI-040",
+      "feature_ids": [
+        "PI-040"
+      ],
+      "text": "Own native full private history keeps stable original author+plant+week IDs, personal-zone starts/ordinals and all corrections; current eligibility required, no cross-author/CRM merge ownership substitution.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "privateCare.readHistory"
+      ],
+      "acceptance_ids": [
+        "AC-PI-040--PI-040"
+      ],
+      "case_ids": [
+        "PI-CARE-003"
+      ],
+      "shared_contract_ids": [
+        "SEC-PRIVATE-ORIGINAL-AUTHOR",
+        "C0-TIME"
+      ],
+      "work_packages": [
+        "WP-039"
+      ]
+    },
+    {
+      "id": "REQ-PI-041",
+      "feature_ids": [
+        "PI-041"
+      ],
+      "text": "Correct only own existing private entry with expected revision, old/new native history and idempotency. Personal zone edit keeps the open week until first strictly future Monday in the requested zone then one next ordinal; serialize rollover/edit/save and preserve missing weeks without duplicate credit.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "privateCare.correct"
+      ],
+      "acceptance_ids": [
+        "AC-PI-041--PI-041"
+      ],
+      "case_ids": [
+        "PI-CARE-001",
+        "PI-CARE-002",
+        "PI-CARE-003",
+        "PI-PURPOSE-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-PRIVATE-ORIGINAL-AUTHOR",
+        "C0-TIME"
+      ],
+      "work_packages": [
+        "WP-039"
+      ]
+    },
+    {
+      "id": "REQ-PI-042",
+      "feature_ids": [
+        "PI-042"
+      ],
+      "text": "Failed assessment diagnostic reports actual final draft violation and distinct provider/output/persistence/deadline cause; completed result cannot be demoted after callback failure, no raw payload leakage.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "intelligence.describeRunFailure"
+      ],
+      "acceptance_ids": [
+        "AC-PI-042--PI-042"
+      ],
+      "case_ids": [
+        "ASMT-010",
+        "PI-CASE-028"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-043"
+      ]
+    },
+    {
+      "id": "REQ-PI-043",
+      "feature_ids": [
+        "PI-043"
+      ],
+      "text": "Use separately authored EveryField network v1 six-rule operational rubric with current exact organization sharing/category/release projections, at least two distinct relevant contributors per pattern, bounded shared plant name/state/reason/link, Not shared without zero credit, Unknown, no people/raw assessments/ranking/second consent. Versioned own feedback/run/history and shared bounded execution.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "organizationIntelligence.read",
+        "organizationIntelligence.readHistory",
+        "organizationIntelligence.requestRefresh",
+        "organizationIntelligence.submitFeedback",
+        "organizationLaunchSummary.readPublished"
+      ],
+      "acceptance_ids": [
+        "AC-PI-043--PI-043"
+      ],
+      "case_ids": [
+        "NI-001",
+        "NI-002",
+        "NI-003",
+        "NI-004",
+        "NI-005",
+        "NI-006",
+        "NI-007",
+        "NI-008",
+        "NI-009",
+        "NI-010",
+        "NI-011",
+        "NI-012",
+        "NI-013",
+        "NI-014",
+        "NI-015",
+        "NI-016",
+        "NI-017",
+        "NI-018",
+        "NI-019",
+        "NI-020",
+        "NI-021",
+        "NI-022",
+        "NI-023",
+        "NI-024",
+        "NI-025",
+        "NI-026",
+        "NI-027",
+        "NI-028",
+        "NI-029",
+        "NI-030",
+        "NI-031",
+        "NI-032",
+        "NI-033",
+        "NI-034",
+        "NI-035",
+        "NI-036",
+        "NI-037",
+        "NI-038",
+        "NI-039",
+        "NI-040",
+        "NI-041",
+        "NI-042",
+        "NI-043",
+        "NI-044",
+        "NEX-001",
+        "NEX-002",
+        "NEX-003",
+        "NEX-004",
+        "NEX-005",
+        "NEX-006",
+        "NEX-007",
+        "NEX-008",
+        "NEX-009",
+        "NEX-010",
+        "NEX-011",
+        "NEX-012",
+        "NEX-013",
+        "NEX-014",
+        "NEX-015",
+        "NEX-016",
+        "NEX-017",
+        "NEX-018",
+        "NEX-019",
+        "NEX-020",
+        "NEX-021",
+        "NEX-022",
+        "NEX-023",
+        "NEX-024",
+        "NEX-025",
+        "NEX-026",
+        "MW-CASE-022",
+        "MW-CASE-023"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-007",
+        "WP-032",
+        "WP-041",
+        "WP-042",
+        "WP-043",
+        "WP-044",
+        "WP-047",
+        "WP-073",
+        "WP-074",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "REQ-PI-044",
+      "feature_ids": [
+        "PI-044"
+      ],
+      "text": "Independently group eligible evidence by one pinned US metro/micro CBSA Region, actual country-qualified state/province, Country and Whole portfolio; each pattern needs two relevant plants at its level. Ambiguous selection explicit/unresolved, missing region preserves valid larger levels, correction effective commit/history version, no street/phase attestation/geographic guess.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "organizationIntelligence.readLocations",
+        "organizationIntelligence.readLocationHistory",
+        "geography.listReportingRegionCandidates",
+        "organizations.correctReportingLocation",
+        "organizationLaunchSummary.readPublished"
+      ],
+      "acceptance_ids": [
+        "AC-PI-044--PI-044"
+      ],
+      "case_ids": [
+        "LI-001",
+        "LI-002",
+        "LI-003",
+        "LI-004",
+        "LI-005",
+        "LI-006",
+        "LI-007",
+        "LI-008",
+        "LI-009",
+        "LI-010",
+        "LI-011",
+        "LI-012",
+        "LI-013",
+        "LI-014",
+        "LI-015",
+        "LI-016",
+        "LI-017",
+        "LI-018",
+        "NI-041",
+        "NI-044",
+        "GEO-001",
+        "GEO-002",
+        "GEO-003",
+        "GEO-004",
+        "GEO-005",
+        "GEO-006",
+        "GEO-007",
+        "GEO-008",
+        "GEO-009",
+        "GEO-010",
+        "GEO-011",
+        "GEO-012",
+        "GEO-013",
+        "NEX-019",
+        "NEX-020",
+        "NEX-021",
+        "NEX-022",
+        "MW-CASE-026"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-010",
+        "WP-032",
+        "WP-042",
+        "WP-043",
+        "WP-044",
+        "WP-047",
+        "WP-073",
+        "WP-074",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "REQ-PI-045",
+      "feature_ids": [
+        "PI-006",
+        "TEAM-003",
+        "TEAM-005",
+        "TEAM-006",
+        "TEAM-007",
+        "TEAM-011"
+      ],
+      "text": "Selected ministry/role imports and team metric units preserve actual configuration, stable keys, explicit safe role fill, current authority, idempotent receipts, Unknown composites and the 40/35/25 weights. Preview/read/skip creates zero rows; valid custom structure retained; only exact reviewed ordinary assignment creates occupants.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "teams.initialize",
+        "teams.importRoles",
+        "teams.health"
+      ],
+      "acceptance_ids": [
+        "AC-PI-006--PI-006",
+        "AC-TEAM-003--TEAM-003",
+        "AC-TEAM-005--TEAM-005",
+        "AC-TEAM-006--TEAM-006",
+        "AC-TEAM-007--TEAM-007",
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "case_ids": [
+        "B01-001",
+        "B01-002",
+        "B01-003",
+        "B01-004",
+        "B01-005",
+        "B01-006",
+        "B01-010",
+        "B01-011",
+        "B01-012",
+        "B01-013",
+        "B01-014",
+        "B01-015",
+        "B01-016",
+        "B01-017",
+        "B01-018",
+        "B01-028",
+        "B01-029",
+        "B01-030",
+        "B01-031",
+        "B01-032",
+        "B01-033",
+        "B01-034",
+        "B01-035",
+        "MW-CASE-006",
+        "MW-CASE-007"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-017",
+        "WP-018",
+        "WP-019",
+        "WP-040"
+      ]
+    },
+    {
+      "id": "REQ-PI-046",
+      "feature_ids": [
+        "DOC-016",
+        "IDN-014",
+        "IDN-015",
+        "PHASE-008",
+        "PI-028"
+      ],
+      "text": "Discovery actual native saved/imported values content and six-article one eligible reader checklist are independent from ungated actual plant creation into Phase 1. Exact account/private ownership, selected carry-forward and currently entitled source/revision persist without phantom tenant or body grant. Eligible reader is current Owner OR account-linked ordinary lead Person with current same-plant Admin seat; title and two-reader pooling confer no completion.",
+      "spec": "docs/product/methodology-intelligence.md",
+      "operations": [
+        "documents.designateCoreValues",
+        "documents.useForChurch",
+        "wiki.reading.updateProgress",
+        "onboarding.createPlant"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-014--IDN-014",
+        "AC-IDN-015--IDN-015",
+        "AC-PHASE-008--PHASE-008",
+        "AC-PI-028--PI-028"
+      ],
+      "case_ids": [
+        "DC-001",
+        "DC-002",
+        "DC-003",
+        "DC-004",
+        "DC-005",
+        "DC-006",
+        "DC-007",
+        "DC-008",
+        "DC-009",
+        "DC-010",
+        "DC-011",
+        "DC-012",
+        "DC-013",
+        "DC-014",
+        "DC-015",
+        "DC-016",
+        "DC-017",
+        "DC-018",
+        "DC-019",
+        "DC-020",
+        "DC-021",
+        "DC-022",
+        "DC-023",
+        "DC-024",
+        "DC-025",
+        "DC-026",
+        "DC-027",
+        "DC-028",
+        "DC-029",
+        "DC-030",
+        "DC-031",
+        "DC-032",
+        "B01-005",
+        "B01-006",
+        "B01-007",
+        "B01-008",
+        "B01-009",
+        "B01-016",
+        "B01-017",
+        "B01-020",
+        "B01-021",
+        "B01-022",
+        "B01-023",
+        "B01-024",
+        "B01-025",
+        "B01-032",
+        "B01-033",
+        "PI-GROW-001",
+        "PI-GROW-002",
+        "PI-DISC-001",
+        "PI-DISC-002",
+        "PI-PHASE6-001",
+        "PHASE-CASE-008",
+        "MW-CASE-018",
+        "MW-CASE-023"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "SEC-PRIVATE-ORIGINAL-AUTHOR",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-009",
+        "WP-034",
+        "WP-035",
+        "WP-038",
+        "WP-040"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "specification_version": "2026-10-13.current-1",
+  "feature_source": "docs/catalog/features.json",
+  "acceptance_source": "docs/catalog/acceptance.json",
+  "operation_source": "docs/catalog/operations.json",
+  "requirement_files": [
+    "docs/catalog/requirements/communications-notifications.json",
+    "docs/catalog/requirements/evry.json",
+    "docs/catalog/requirements/execution.json",
+    "docs/catalog/requirements/identity-access.json",
+    "docs/catalog/requirements/knowledge-documents.json",
+    "docs/catalog/requirements/launch.json",
+    "docs/catalog/requirements/manifest.json",
+    "docs/catalog/requirements/meetings-follow-up.json",
+    "docs/catalog/requirements/methodology-intelligence.json",
+    "docs/catalog/requirements/operations.json",
+    "docs/catalog/requirements/people.json",
+    "docs/catalog/requirements/recovery.json",
+    "docs/catalog/requirements/reference-release.json",
+    "docs/catalog/requirements/tasks.json",
+    "docs/catalog/requirements/teams-training.json"
+  ],
+  "case_files": [
+    "docs/acceptance/evry.json",
+    "docs/acceptance/intelligence.json",
+    "docs/acceptance/knowledge.json",
+    "docs/acceptance/people.json",
+    "docs/acceptance/schema.json"
+  ],
+  "counts": {
+    "active_features": 494,
+    "active_acceptance_bundles": 720,
+    "requirements": 715,
+    "future_cases": 1086
+  },
+  "implementation_tests_run": 0,
+  "current_alias_source": "docs/catalog/current-operation-aliases.json"
+}

@@ -1,0 +1,2551 @@
+{
+  "schema_version": 1,
+  "authority": "Closed material-writer inventory with actual current canonical producer bindings and named synthetic mutation fixtures. Concept family names preserve inventory only; each current write is bound explicitly, unsupported extra surfaces are excluded.",
+  "transaction_protocol": "DomainTransaction locks roots in stable scope/ID order; mutation+history+audit+required intents+receipt+one material revision bump per affected root commit together; after-commit wakeup only.",
+  "reference_protocol": "Activation generation changes atomically; subject sweep requests work independently, publication checks activation generation.",
+  "writers": [
+    {
+      "id": "MW-001",
+      "domain": "plant settings",
+      "operation_families": [
+        "onboarding.createPlant",
+        "settings.saveSection",
+        "settings.correctSection",
+        "organizations.correctReportingLocation"
+      ],
+      "material_inputs": "Actual creation, current phase entry, plant identity/name/current lifecycle, plant-local calendar/timezone, city/state-province/country and reporting association/version.",
+      "affected_roots": [
+        "plant",
+        "each currently affected exact organization"
+      ],
+      "work_packages": [
+        "WP-009",
+        "WP-010"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-001",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "onboarding.createPlant",
+        "settings.saveSection",
+        "plant.updateProfile",
+        "plant.setTimezone",
+        "organizations.correctReportingLocation"
+      ],
+      "operation_bindings": [
+        {
+          "family": "onboarding.createPlant",
+          "canonical_operation_ids": [
+            "onboarding.createPlant"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "settings.saveSection only request.section=plant material fields (identity/timezone/locality); notification choices/digest-only preference excludes PI. Reporting region uses organizations.correctReportingLocation.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "settings.saveSection",
+          "canonical_operation_ids": [
+            "settings.saveSection"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "settings.saveSection only request.section=plant material fields (identity/timezone/locality); notification choices/digest-only preference excludes PI. Reporting region uses organizations.correctReportingLocation.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "settings.correctSection",
+          "canonical_operation_ids": [
+            "settings.saveSection"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "settings.saveSection only request.section=plant material fields (identity/timezone/locality); notification choices/digest-only preference excludes PI. Reporting region uses organizations.correctReportingLocation.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "organizations.correctReportingLocation",
+          "canonical_operation_ids": [
+            "organizations.correctReportingLocation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "settings.saveSection only request.section=plant material fields (identity/timezone/locality); notification choices/digest-only preference excludes PI. Reporting region uses organizations.correctReportingLocation.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-001"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "settings.saveSection only request.section=plant material fields (identity/timezone/locality); notification choices/digest-only preference excludes PI. Reporting region uses organizations.correctReportingLocation."
+      ]
+    },
+    {
+      "id": "MW-002",
+      "domain": "people",
+      "operation_families": [
+        "people.create",
+        "people.quickAdd",
+        "people.update",
+        "people.import",
+        "people.applyImportCorrection"
+      ],
+      "material_inputs": "Person existence/display identity, explicit adult/child/unknown, recruitment source/stage where consumed, same-plant account-person eligibility and current soft-deletion/retirement. Phone/email/profile updatedAt never proves contact.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for actually allowed affected aggregates/directory"
+      ],
+      "work_packages": [
+        "WP-011",
+        "WP-012",
+        "WP-014"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-002",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "people.createPerson",
+        "people.updatePerson",
+        "people.executeBulkImport",
+        "people.recordAdultClassification",
+        "people.ensureAccountPerson"
+      ],
+      "operation_bindings": [
+        {
+          "family": "people.create",
+          "canonical_operation_ids": [
+            "people.createPerson"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.quickAdd",
+          "canonical_operation_ids": [
+            "people.createPerson"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.update",
+          "canonical_operation_ids": [
+            "people.updatePerson",
+            "people.recordAdultClassification"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.import",
+          "canonical_operation_ids": [
+            "people.executeBulkImport"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.applyImportCorrection",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-002"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only actually changed consumed values are material."
+      ]
+    },
+    {
+      "id": "MW-003",
+      "domain": "commitments",
+      "operation_families": [
+        "people.recordCommitment",
+        "people.withdrawCommitment",
+        "people.reactivateCommitment",
+        "people.correctCommitment",
+        "people.retractCommitment"
+      ],
+      "material_inputs": "Actual first occurrence/type/validity and current lifecycle; deduplicated genuine historical adult acquisition independently of current size; correction/retraction lineage.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed cohort/growth input"
+      ],
+      "work_packages": [
+        "WP-014",
+        "WP-015"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-003",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "people.createCommitment",
+        "people.withdrawCommitment",
+        "people.reactivateCommitment",
+        "people.correctPersonRecord"
+      ],
+      "operation_bindings": [
+        {
+          "family": "people.recordCommitment",
+          "canonical_operation_ids": [
+            "people.createCommitment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.withdrawCommitment",
+          "canonical_operation_ids": [
+            "people.withdrawCommitment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.reactivateCommitment",
+          "canonical_operation_ids": [
+            "people.reactivateCommitment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.correctCommitment",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.retractCommitment",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-003"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Commitment correction uses recordType=commitment and exact existing validity/date/type patch. Genuine withdrawal shrinks current size while valid acquisition remains; rejoin not new."
+      ]
+    },
+    {
+      "id": "MW-004",
+      "domain": "people correction and merge",
+      "operation_families": [
+        "people.correct",
+        "people.archive",
+        "people.restore",
+        "people.remove",
+        "people.merge",
+        "people.unmerge"
+      ],
+      "material_inputs": "Survivor/retirement, earliest valid acquisition, classification/current commitment, all registered Person-bearing attendance/assignment/completion/outcome/Launch references and identity projections; applicable correction/merge refusal preserves original receipt.",
+      "affected_roots": [
+        "plant",
+        "all exact organizations whose allowed contribution or named projection changes"
+      ],
+      "work_packages": [
+        "WP-015",
+        "WP-011"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-004",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "people.correctPersonRecord",
+        "people.deletePerson",
+        "people.restorePerson",
+        "people.mergePeople",
+        "people.unmergePeople"
+      ],
+      "operation_bindings": [
+        {
+          "family": "people.correct",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.archive",
+          "canonical_operation_ids": [
+            "people.deletePerson"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.restore",
+          "canonical_operation_ids": [
+            "people.restorePerson"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.remove",
+          "canonical_operation_ids": [
+            "people.deletePerson"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.merge",
+          "canonical_operation_ids": [
+            "people.mergePeople"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.unmerge",
+          "canonical_operation_ids": [
+            "people.unmergePeople"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact closed canonical producer input and trusted caller transaction; no caller-selected grant.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-004"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only actually changed consumed values are material."
+      ]
+    },
+    {
+      "id": "MW-005",
+      "domain": "human judgments",
+      "operation_families": [
+        "people.recordInterview",
+        "people.correctInterview",
+        "people.removeInterview",
+        "people.recordFourCs",
+        "people.correctFourCs",
+        "people.removeFourCs"
+      ],
+      "material_inputs": "Dated actual human interview/4Cs results/count/history for planter candidate evidence only; no individual organization payload.",
+      "affected_roots": [
+        "plant"
+      ],
+      "work_packages": [
+        "WP-013",
+        "WP-014",
+        "WP-015"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-005",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "people.createInterview",
+        "people.createAssessment",
+        "people.correctPersonRecord"
+      ],
+      "operation_bindings": [
+        {
+          "family": "people.recordInterview",
+          "canonical_operation_ids": [
+            "people.createInterview"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.correctInterview",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.removeInterview",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": "No approved wholesale Interview removal/retraction; exact human correction uses people.correctPersonRecord, preserving original author and no stage replay."
+        },
+        {
+          "family": "people.recordFourCs",
+          "canonical_operation_ids": [
+            "people.createAssessment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.correctFourCs",
+          "canonical_operation_ids": [
+            "people.correctPersonRecord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.removeFourCs",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data.",
+          "exclusion_reason": "No approved wholesale FourCs removal/retraction; exact assessment correction only."
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-005"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "recordType=assessment|interview corrections preserve original human provenance. No full record deletion; plant-only, never NI person data."
+      ]
+    },
+    {
+      "id": "MW-006",
+      "domain": "teams and responsibility mappings",
+      "operation_families": [
+        "teams.create",
+        "teams.update",
+        "teams.archive",
+        "teams.restore",
+        "teams.remove",
+        "teams.importSelected",
+        "roles.importSelected",
+        "roles.mapResponsibility"
+      ],
+      "material_inputs": "Actual team state, stable template/responsibility keys, explicit custom mapping and configured role slots; rename cannot change stable identity.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed coverage/training facts"
+      ],
+      "work_packages": [
+        "WP-016",
+        "WP-017"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-006",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "teams.create",
+        "teams.edit",
+        "teams.correct",
+        "teams.archive",
+        "teams.restore",
+        "teams.initialize",
+        "teams.importRoles",
+        "teams.createRole",
+        "teams.editRole"
+      ],
+      "operation_bindings": [
+        {
+          "family": "teams.create",
+          "canonical_operation_ids": [
+            "teams.create"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.update",
+          "canonical_operation_ids": [
+            "teams.edit",
+            "teams.correct"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.archive",
+          "canonical_operation_ids": [
+            "teams.archive"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.restore",
+          "canonical_operation_ids": [
+            "teams.restore"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.remove",
+          "canonical_operation_ids": [
+            "teams.archive"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.importSelected",
+          "canonical_operation_ids": [
+            "teams.initialize"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.importSelected",
+          "canonical_operation_ids": [
+            "teams.importRoles"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.mapResponsibility",
+          "canonical_operation_ids": [
+            "teams.createRole",
+            "teams.editRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-006"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only explicitly selected immutable templates import. Stable custom responsibility mapping uses exact ministryAreaKeys on teams.createRole/editRole (edit expectedMappingRevision); changing display names is not mapping."
+      ]
+    },
+    {
+      "id": "MW-007",
+      "domain": "role and team participants",
+      "operation_families": [
+        "roles.create",
+        "roles.update",
+        "roles.assign",
+        "roles.unassign",
+        "roles.correctAssignment",
+        "roles.remove",
+        "teams.addMember",
+        "teams.removeMember",
+        "teams.changeMembership",
+        "teams.correctMembership"
+      ],
+      "material_inputs": "Actual active/eligible role occupants and participant episodes used by staffing/attendance/coverage; ordinary lead Person display identity. Saved training roster never changes merely because membership changes.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed coverage/directory projection"
+      ],
+      "work_packages": [
+        "WP-017",
+        "WP-018"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-007",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "teams.createRole",
+        "teams.editRole",
+        "teams.assignRole",
+        "teams.removeRole",
+        "teams.retireRole",
+        "teams.assignMember",
+        "teams.endMembership",
+        "teams.appointLeader",
+        "teams.correct"
+      ],
+      "operation_bindings": [
+        {
+          "family": "roles.create",
+          "canonical_operation_ids": [
+            "teams.createRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.update",
+          "canonical_operation_ids": [
+            "teams.editRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.assign",
+          "canonical_operation_ids": [
+            "teams.assignRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.unassign",
+          "canonical_operation_ids": [
+            "teams.removeRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.correctAssignment",
+          "canonical_operation_ids": [
+            "teams.assignRole",
+            "teams.removeRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "roles.remove",
+          "canonical_operation_ids": [
+            "teams.retireRole"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.addMember",
+          "canonical_operation_ids": [
+            "teams.assignMember"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.removeMember",
+          "canonical_operation_ids": [
+            "teams.endMembership"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.changeMembership",
+          "canonical_operation_ids": [
+            "teams.assignMember",
+            "teams.endMembership"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "teams.correctMembership",
+          "canonical_operation_ids": [
+            "teams.correct"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-007"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Actual membership/role assignment and ordinary leadership stay separate from app seats. Saved training roster remains explicit."
+      ]
+    },
+    {
+      "id": "MW-008",
+      "domain": "training configuration",
+      "operation_families": [
+        "training.createProgram",
+        "training.updateProgram",
+        "training.archiveProgram",
+        "training.restoreProgram",
+        "training.removeProgram"
+      ],
+      "material_inputs": "Required flag/current applicability definition/program scope/archive status and explicit mapping used by current obligation projection.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed training input"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-008",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "teams.createProgram",
+        "teams.correctProgram",
+        "teams.archive",
+        "teams.restore"
+      ],
+      "operation_bindings": [
+        {
+          "family": "training.createProgram",
+          "canonical_operation_ids": [
+            "teams.createProgram"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.updateProgram",
+          "canonical_operation_ids": [
+            "teams.correctProgram"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.archiveProgram",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability.",
+          "exclusion_reason": "No independently approved program archive surface; actual team archive via teams.archive changes applicability without broadening scope."
+        },
+        {
+          "family": "training.restoreProgram",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability.",
+          "exclusion_reason": "No independently approved program restore surface; actual parent team restoration via teams.restore preserves program scope and lineage."
+        },
+        {
+          "family": "training.removeProgram",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability.",
+          "exclusion_reason": "No separate hard-delete command; valid program configuration/archival must use the approved exact program lifecycle branch, retaining completion lineage."
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-008"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only approved required/scope/lifecycle changes affect applicability; no automatic recomputation or invented hard deletion. Team archival acts on team-scoped applicability."
+      ]
+    },
+    {
+      "id": "MW-009",
+      "domain": "saved required-training roster",
+      "operation_families": [
+        "training.previewAssignments",
+        "training.saveAssignments",
+        "training.addAssignment",
+        "training.removeAssignment",
+        "training.correctAssignments"
+      ],
+      "material_inputs": "Saved exact reviewed distinct person/program assignment episodes; source team/leader selection expands only at command; zero-preview writes excluded.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed training input"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "condition": "Only saved add/remove/correction mutates applicability; preview creates no rows or revision.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-009",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "teams.setRequiredTrainingParticipants"
+      ],
+      "operation_bindings": [
+        {
+          "family": "training.previewAssignments",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute.",
+          "exclusion_reason": "Pure teams.previewRequiredTrainingParticipants; never saves roster, creates assignment, advances phase or increments source revision."
+        },
+        {
+          "family": "training.saveAssignments",
+          "canonical_operation_ids": [
+            "teams.setRequiredTrainingParticipants"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.addAssignment",
+          "canonical_operation_ids": [
+            "teams.setRequiredTrainingParticipants"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.removeAssignment",
+          "canonical_operation_ids": [
+            "teams.setRequiredTrainingParticipants"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.correctAssignments",
+          "canonical_operation_ids": [
+            "teams.setRequiredTrainingParticipants"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-009"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "setRequiredTrainingParticipants exact reviewed add/remove/correct changes + saved manifest. Preview is excluded; later membership does not recompute."
+      ]
+    },
+    {
+      "id": "MW-010",
+      "domain": "training earned evidence",
+      "operation_families": [
+        "training.recordCompletion",
+        "training.revokeCompletion",
+        "training.correctCompletion",
+        "training.removeErroneousCompletion"
+      ],
+      "material_inputs": "Current valid earned/revoked/corrected completion per assigned person/program, separate from assignment; historical rosters/completion preserved.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed training input"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-010",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "teams.attestCompletion",
+        "teams.revokeCompletion",
+        "teams.recompleteTraining"
+      ],
+      "operation_bindings": [
+        {
+          "family": "training.recordCompletion",
+          "canonical_operation_ids": [
+            "teams.attestCompletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "revokeCompletion exact existing person/program completion; recomplete correction changes earned evidence without changing saved denominator.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.revokeCompletion",
+          "canonical_operation_ids": [
+            "teams.revokeCompletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "revokeCompletion exact existing person/program completion; recomplete correction changes earned evidence without changing saved denominator.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.correctCompletion",
+          "canonical_operation_ids": [
+            "teams.recompleteTraining"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "revokeCompletion exact existing person/program completion; recomplete correction changes earned evidence without changing saved denominator.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "training.removeErroneousCompletion",
+          "canonical_operation_ids": [
+            "teams.revokeCompletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "revokeCompletion exact existing person/program completion; recomplete correction changes earned evidence without changing saved denominator.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-010"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "revokeCompletion exact existing person/program completion; recomplete correction changes earned evidence without changing saved denominator."
+      ]
+    },
+    {
+      "id": "MW-011",
+      "domain": "meeting occurrence",
+      "operation_families": [
+        "meetings.create",
+        "meetings.update",
+        "meetings.correctOccurrence",
+        "meetings.complete",
+        "meetings.reopen",
+        "meetings.cancel",
+        "meetings.delete"
+      ],
+      "material_inputs": "Type incl prelaunch practice, planned vs actual occurrence instant/local date, held/completed/cancelled validity, date/timezone correction, distinct practice count and actual Vision chronology.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed meeting/launch evidence"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-022"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-011",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "meetings.schedule",
+        "meetings.edit",
+        "meetings.changeStatus",
+        "meetings.correctPracticeOccurrence",
+        "meetings.delete"
+      ],
+      "operation_bindings": [
+        {
+          "family": "meetings.create",
+          "canonical_operation_ids": [
+            "meetings.schedule"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.update",
+          "canonical_operation_ids": [
+            "meetings.edit"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.correctOccurrence",
+          "canonical_operation_ids": [
+            "meetings.correctPracticeOccurrence",
+            "meetings.edit"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.complete",
+          "canonical_operation_ids": [
+            "meetings.changeStatus"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.reopen",
+          "canonical_operation_ids": [
+            "meetings.changeStatus"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.cancel",
+          "canonical_operation_ids": [
+            "meetings.changeStatus"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.delete",
+          "canonical_operation_ids": [
+            "meetings.delete"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-011"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Held/completed real occurrence/type/date only; cancellation/reopen removes it from completed occurrence facts. Planned practice is not actual."
+      ]
+    },
+    {
+      "id": "MW-012",
+      "domain": "attendance and finalization",
+      "operation_families": [
+        "meetings.recordAttendance",
+        "meetings.finalizeAttendance",
+        "meetings.correctAttendance",
+        "meetings.addGuest",
+        "meetings.removeAttendance",
+        "meetings.reopenFinalization"
+      ],
+      "material_inputs": "Actual same-plant distinct participation/completed attendance, guest Person link, first-Vision chronology, required obligation+managed task and finalization correction lineage commit together. RSVP/card/headcount do not substitute for attendance.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed meeting/followup inputs"
+      ],
+      "work_packages": [
+        "WP-022",
+        "WP-024"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-012",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "meetings.checkIn",
+        "meetings.setAttendance",
+        "meetings.clearAttendance",
+        "meetings.captureAttendanceBatch",
+        "meetings.finalizeAttendance",
+        "meetings.reconcileAttendance",
+        "meetings.createGuestContact",
+        "meetings.createWalkInContact",
+        "meetings.removeGuest"
+      ],
+      "operation_bindings": [
+        {
+          "family": "meetings.recordAttendance",
+          "canonical_operation_ids": [
+            "meetings.checkIn",
+            "meetings.setAttendance",
+            "meetings.captureAttendanceBatch"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.finalizeAttendance",
+          "canonical_operation_ids": [
+            "meetings.finalizeAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.correctAttendance",
+          "canonical_operation_ids": [
+            "meetings.reconcileAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.addGuest",
+          "canonical_operation_ids": [
+            "meetings.createGuestContact",
+            "meetings.createWalkInContact"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.removeAttendance",
+          "canonical_operation_ids": [
+            "meetings.clearAttendance",
+            "meetings.reconcileAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "meetings.reopenFinalization",
+          "canonical_operation_ids": [
+            "meetings.reconcileAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-012"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Finalization/reconciliation must atomically invoke tasks.ensureMeetingObligations in caller transaction for valid first-Vision origins; attendance alone never proves contact."
+      ]
+    },
+    {
+      "id": "MW-013",
+      "domain": "tasks and recurrence",
+      "operation_families": [
+        "tasks.create",
+        "tasks.update",
+        "tasks.assign",
+        "tasks.complete",
+        "tasks.reopen",
+        "tasks.markNoLongerNeeded",
+        "tasks.archive",
+        "tasks.delete",
+        "tasks.correct",
+        "tasks.advanceRecurrence",
+        "tasks.changeDependencies",
+        "tasks.updateChecklist"
+      ],
+      "material_inputs": "Live follow-up ownership/due/status/suppression or linked launch readiness; generated successor when it enters a consumed population. Complete/waiver do not imply contact.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed task/meeting/launch inputs"
+      ],
+      "work_packages": [
+        "WP-024",
+        "WP-025",
+        "WP-026",
+        "WP-027"
+      ],
+      "condition": "Bump when changed field or generated/deleted row changes an actual consumed follow-up/launch/trend population; unrelated decorative text is nonmaterial unless a documented consumer uses it.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-013",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "tasks.create",
+        "tasks.edit",
+        "tasks.complete",
+        "tasks.reopen",
+        "tasks.changeStatus",
+        "tasks.waive",
+        "tasks.delete",
+        "tasks.bulkComplete",
+        "tasks.bulkReschedule",
+        "tasks.completeOccurrence",
+        "tasks.configureRecurrence",
+        "tasks.replacePrerequisites",
+        "tasks.createSubtask",
+        "tasks.setSubtaskCompletion",
+        "tasks.importTemplate"
+      ],
+      "operation_bindings": [
+        {
+          "family": "tasks.create",
+          "canonical_operation_ids": [
+            "tasks.create"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.update",
+          "canonical_operation_ids": [
+            "tasks.edit"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.assign",
+          "canonical_operation_ids": [
+            "tasks.edit"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.complete",
+          "canonical_operation_ids": [
+            "tasks.complete"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.reopen",
+          "canonical_operation_ids": [
+            "tasks.reopen"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.markNoLongerNeeded",
+          "canonical_operation_ids": [
+            "tasks.waive"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.archive",
+          "canonical_operation_ids": [
+            "tasks.changeStatus"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.delete",
+          "canonical_operation_ids": [
+            "tasks.delete"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.correct",
+          "canonical_operation_ids": [
+            "tasks.edit",
+            "tasks.changeStatus"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.advanceRecurrence",
+          "canonical_operation_ids": [
+            "tasks.completeOccurrence"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.changeDependencies",
+          "canonical_operation_ids": [
+            "tasks.replacePrerequisites"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "tasks.updateChecklist",
+          "canonical_operation_ids": [
+            "tasks.createSubtask",
+            "tasks.setSubtaskCompletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-013"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only fields used in followup/Launch/required tasks. Inert template-definition or decorative text changes that no fact consumes are excluded; child tasks keep own lifecycle."
+      ]
+    },
+    {
+      "id": "MW-014",
+      "domain": "follow-up obligations and contact",
+      "operation_families": [
+        "followup.createObligation",
+        "followup.correctOrigin",
+        "followup.resolveObligation",
+        "followup.reopenObligation",
+        "followup.recordOutcome",
+        "followup.correctOutcome",
+        "followup.retractOutcome",
+        "people.recordContact",
+        "people.correctContact"
+      ],
+      "material_inputs": "Immutable origin plus corrected effective occurrence, due-date obligation validity, actual successful-contact time/outcome and lastContactAt projection; no profile-edit/task-complete/mail-open proxy.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed follow-up input"
+      ],
+      "work_packages": [
+        "WP-023",
+        "WP-024"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-014",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "tasks.createFollowUp",
+        "tasks.ensureMeetingObligations",
+        "tasks.assignFollowUp",
+        "tasks.reopenObligation",
+        "tasks.waive",
+        "tasks.settleManagedEvaluation",
+        "meetings.reconcileAttendance",
+        "followups.recordOutcome",
+        "followups.correctOutcome",
+        "communication.recordContactFromTask",
+        "communication.correctContactLog"
+      ],
+      "operation_bindings": [
+        {
+          "family": "followup.createObligation",
+          "canonical_operation_ids": [
+            "tasks.ensureMeetingObligations",
+            "tasks.createFollowUp"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.correctOrigin",
+          "canonical_operation_ids": [
+            "meetings.reconcileAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.resolveObligation",
+          "canonical_operation_ids": [
+            "tasks.complete",
+            "tasks.waive",
+            "tasks.settleManagedEvaluation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.reopenObligation",
+          "canonical_operation_ids": [
+            "tasks.reopenObligation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.recordOutcome",
+          "canonical_operation_ids": [
+            "followups.recordOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.correctOutcome",
+          "canonical_operation_ids": [
+            "followups.correctOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "followup.retractOutcome",
+          "canonical_operation_ids": [
+            "followups.correctOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.recordContact",
+          "canonical_operation_ids": [
+            "followups.recordOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "people.correctContact",
+          "canonical_operation_ids": [
+            "followups.correctOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-014"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only typed contacted occurredAt improves contact freshness. Completion/waiver affects obligation metric separately; first origin immutable, corrections through reconcileAttendance."
+      ]
+    },
+    {
+      "id": "MW-015",
+      "domain": "phase",
+      "operation_families": [
+        "phases.declare",
+        "phases.transition",
+        "phases.correct"
+      ],
+      "material_inputs": "Actual existing-journey declaration and reasoned forward/backward/skipped/corrected phase/journal, current source phase. Creation entry belongs to MW001.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed phase/result input"
+      ],
+      "work_packages": [
+        "WP-038"
+      ],
+      "condition": "Same-phase noop journals preserved once but no material bump or new phase-template creation effects.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-015",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "phases.declare",
+        "phases.transition"
+      ],
+      "operation_bindings": [
+        {
+          "family": "phases.declare",
+          "canonical_operation_ids": [
+            "phases.declare"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact same-phase noop preserves its journal/event receipt without material bump; initial declaration and actual creation are different entries.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "phases.transition",
+          "canonical_operation_ids": [
+            "phases.transition"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact same-phase noop preserves its journal/event receipt without material bump; initial declaration and actual creation are different entries.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "phases.correct",
+          "canonical_operation_ids": [
+            "phases.transition"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Exact same-phase noop preserves its journal/event receipt without material bump; initial declaration and actual creation are different entries.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-015"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Exact same-phase noop preserves its journal/event receipt without material bump; initial declaration and actual creation are different entries."
+      ]
+    },
+    {
+      "id": "MW-016",
+      "domain": "plant and criterion attestations",
+      "operation_families": [
+        "attestations.save",
+        "attestations.correct",
+        "attestations.retract",
+        "attestations.reaffirm"
+      ],
+      "material_inputs": "Seven exact legacy keys, separate prayer/giving ages, funding/systems/values/Prayer Leader nonexpiry; typed worship agreement/chosen area/real relationship/promotion/person60day assertions with source/question/period/actor/lineage.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations only for permitted aggregate/category input"
+      ],
+      "work_packages": [
+        "WP-039"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-016",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "signals.attest",
+        "signals.correct",
+        "signals.reaffirm"
+      ],
+      "operation_bindings": [
+        {
+          "family": "attestations.save",
+          "canonical_operation_ids": [
+            "signals.attest"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Seven legacy questions or approved typed evidence union; correction/retraction and reaffirmation exact key, no arbitrary expiry or blanket refresh.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "attestations.correct",
+          "canonical_operation_ids": [
+            "signals.correct"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Seven legacy questions or approved typed evidence union; correction/retraction and reaffirmation exact key, no arbitrary expiry or blanket refresh.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "attestations.retract",
+          "canonical_operation_ids": [
+            "signals.correct"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Seven legacy questions or approved typed evidence union; correction/retraction and reaffirmation exact key, no arbitrary expiry or blanket refresh.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "attestations.reaffirm",
+          "canonical_operation_ids": [
+            "signals.reaffirm"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Seven legacy questions or approved typed evidence union; correction/retraction and reaffirmation exact key, no arbitrary expiry or blanket refresh.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-016"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Seven legacy questions or approved typed evidence union; correction/retraction and reaffirmation exact key, no arbitrary expiry or blanket refresh."
+      ]
+    },
+    {
+      "id": "MW-017",
+      "domain": "native values documents",
+      "operation_families": [
+        "documents.create",
+        "documents.saveRevision",
+        "documents.designateValues",
+        "documents.import",
+        "documents.archive",
+        "documents.remove",
+        "documents.carryForwardSelected"
+      ],
+      "material_inputs": "Saved designated nonempty parsed native core-values/foundations content and reference/revision validity; unsaved draft/raw attachment/unrelated private document excluded. Pre-plant account evidence changes only account-scoped checklist until actual selected carry-forward.",
+      "affected_roots": [
+        "plant where actual plant criterion affected",
+        "account-scoped Discovery projection otherwise"
+      ],
+      "work_packages": [
+        "WP-035",
+        "WP-036"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-017",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "documents.saveNative",
+        "documents.importTextOrWord",
+        "documents.designateCoreValues",
+        "documents.archive",
+        "documents.useForChurch",
+        "documents.purgeOwnedForDeletion"
+      ],
+      "operation_bindings": [
+        {
+          "family": "documents.create",
+          "canonical_operation_ids": [
+            "documents.saveNative"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.saveRevision",
+          "canonical_operation_ids": [
+            "documents.saveNative"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.designateValues",
+          "canonical_operation_ids": [
+            "documents.designateCoreValues"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.import",
+          "canonical_operation_ids": [
+            "documents.importTextOrWord"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.archive",
+          "canonical_operation_ids": [
+            "documents.archive"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.remove",
+          "canonical_operation_ids": [
+            "documents.purgeOwnedForDeletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "documents.carryForwardSelected",
+          "canonical_operation_ids": [
+            "documents.useForChurch"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-017"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "saveNative discriminated create|edit actual own document/revision; imported replacement exact target. Account-only preplant documents not plant input until useForChurch. Removal is internal current deletion witness purge only."
+      ]
+    },
+    {
+      "id": "MW-018",
+      "domain": "Discovery reading",
+      "operation_families": [
+        "wiki.saveReadProgress",
+        "wiki.correctReadProgress",
+        "wiki.revokeErroneousCredit",
+        "wiki.resolveSourceEntitlement"
+      ],
+      "material_inputs": "Actual single eligible reader strict >80% canonical six-set credit, source/revision and legitimate retained progress; no pooling/disappearance from ordinary meaningful update.",
+      "affected_roots": [
+        "plant where checklist evidence affected",
+        "account-scoped Discovery projection otherwise"
+      ],
+      "work_packages": [
+        "WP-034",
+        "WP-040"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-018",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "wiki.reading.recordView",
+        "wiki.reading.updateProgress",
+        "wiki.setSourceOrder",
+        "wiki.organizationArticles.publish",
+        "wiki.organizationArticles.edit",
+        "wiki.organizationArticles.hide",
+        "associations.acceptInvitation",
+        "associations.end",
+        "seats.appointAdmin",
+        "seats.demote",
+        "seats.remove",
+        "people.ensureAccountPerson"
+      ],
+      "operation_bindings": [
+        {
+          "family": "wiki.saveReadProgress",
+          "canonical_operation_ids": [
+            "wiki.reading.updateProgress"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Native actual eligible reader proof only; model fetch never credit. Current source preference/publish/entitlement and reader eligibility may change remaining accessible evidence, never grant a body or pool readers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "wiki.correctReadProgress",
+          "canonical_operation_ids": [
+            "wiki.reading.updateProgress"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Native actual eligible reader proof only; model fetch never credit. Current source preference/publish/entitlement and reader eligibility may change remaining accessible evidence, never grant a body or pool readers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "wiki.revokeErroneousCredit",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "Native actual eligible reader proof only; model fetch never credit. Current source preference/publish/entitlement and reader eligibility may change remaining accessible evidence, never grant a body or pool readers.",
+          "exclusion_reason": "No new arbitrary credit-reset/retraction surface. Correct actual stored source/progress provenance through approved reading protocol only; entitlement changes preserve legitimate canonical credit."
+        },
+        {
+          "family": "wiki.resolveSourceEntitlement",
+          "canonical_operation_ids": [
+            "wiki.setSourceOrder",
+            "wiki.organizationArticles.publish",
+            "wiki.organizationArticles.hide",
+            "associations.acceptInvitation",
+            "associations.end"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Native actual eligible reader proof only; model fetch never credit. Current source preference/publish/entitlement and reader eligibility may change remaining accessible evidence, never grant a body or pool readers.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-018"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Native actual eligible reader proof only; model fetch never credit. Current source preference/publish/entitlement and reader eligibility may change remaining accessible evidence, never grant a body or pool readers."
+      ]
+    },
+    {
+      "id": "MW-019",
+      "domain": "Launch planning and readiness",
+      "operation_families": [
+        "launch.schedule",
+        "launch.move",
+        "launch.postpone",
+        "launch.recommit",
+        "launch.correctPlan",
+        "launch.initializeReadiness",
+        "launch.completeMilestone",
+        "launch.reopenMilestone",
+        "launch.linkTask",
+        "launch.unlinkTask"
+      ],
+      "material_inputs": "Current date/status+append history, nine-key/23-task seed validity, linked live task/reopened work, actual milestone completion distinct from current criterion evidence.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed launch/category input"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-019",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "launch.schedule",
+        "launch.move",
+        "launch.postpone",
+        "launch.ensureReadiness",
+        "launch.completeMilestone",
+        "launch.reopenMilestone",
+        "tasks.edit",
+        "tasks.delete",
+        "tasks.complete",
+        "tasks.reopen",
+        "tasks.waive",
+        "tasks.replacePrerequisites"
+      ],
+      "operation_bindings": [
+        {
+          "family": "launch.schedule",
+          "canonical_operation_ids": [
+            "launch.schedule"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.move",
+          "canonical_operation_ids": [
+            "launch.move"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.postpone",
+          "canonical_operation_ids": [
+            "launch.postpone"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.recommit",
+          "canonical_operation_ids": [
+            "launch.schedule"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.correctPlan",
+          "canonical_operation_ids": [
+            "launch.move",
+            "launch.postpone"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.initializeReadiness",
+          "canonical_operation_ids": [
+            "launch.ensureReadiness"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.completeMilestone",
+          "canonical_operation_ids": [
+            "launch.completeMilestone"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.reopenMilestone",
+          "canonical_operation_ids": [
+            "launch.reopenMilestone"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.linkTask",
+          "canonical_operation_ids": [
+            "tasks.edit"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.unlinkTask",
+          "canonical_operation_ids": [
+            "tasks.edit",
+            "tasks.delete"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-019"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Nested readiness task/milestone effects share caller transaction and bump root once; nine milestone keys/all23 tasks, initial due dates null."
+      ]
+    },
+    {
+      "id": "MW-020",
+      "domain": "Launch occurrence and guest participation",
+      "operation_families": [
+        "launch.recordOutcome",
+        "launch.correctOutcome",
+        "launch.createOrLinkGuest",
+        "launch.removeGuest",
+        "launch.correctAttendance"
+      ],
+      "material_inputs": "Actual occurrence/date/headcounts/outcome, distinct real same-plant People links and participation corrections, independent aggregate counts and history. No automatic followup/Meeting/phase effects.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for allowed launch/people input"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-020",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "launch.recordActualOccurrence",
+        "launch.recordOutcome",
+        "launch.correctOutcome",
+        "launch.addGuestAttendance",
+        "launch.correctGuestAttendance"
+      ],
+      "operation_bindings": [
+        {
+          "family": "launch.recordOutcome",
+          "canonical_operation_ids": [
+            "launch.recordOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.correctOutcome",
+          "canonical_operation_ids": [
+            "launch.correctOutcome"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.createOrLinkGuest",
+          "canonical_operation_ids": [
+            "launch.addGuestAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.removeGuest",
+          "canonical_operation_ids": [
+            "launch.correctGuestAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.correctAttendance",
+          "canonical_operation_ids": [
+            "launch.correctGuestAttendance"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-020"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Actual event/date/headcount/guest person links consumed; new People+guest links atomic. Missing names cue remains independent formal human answer."
+      ]
+    },
+    {
+      "id": "MW-021",
+      "domain": "Launch debrief and summary",
+      "operation_families": [
+        "launch.saveDebriefDraft",
+        "launch.submitDebrief",
+        "launch.correctDebrief",
+        "launch.publishSummary",
+        "launch.revisePublishedSummary",
+        "launch.withdrawSummary"
+      ],
+      "material_inputs": "Current valid six-area submitted questionnaire including missing-name No/Yes-positive-count; debrief completion independent. Separately reviewed editable bounded published summary and source-category provenance.",
+      "affected_roots": [
+        "plant",
+        "each exact currently permitted published-summary recipient organization"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ],
+      "condition": "Unsubmitted draft does not erase submitted criterion evidence; bump only if consumed current form/projection changes; publish/withdraw recipient projection bumps exact organization.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-021",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "launch.saveDebriefDraft",
+        "launch.submitDebrief",
+        "launch.correctDebrief",
+        "launch.saveDebriefSummaryDraft",
+        "launch.publishDebriefSummary"
+      ],
+      "operation_bindings": [
+        {
+          "family": "launch.saveDebriefDraft",
+          "canonical_operation_ids": [
+            "launch.saveDebriefDraft"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.submitDebrief",
+          "canonical_operation_ids": [
+            "launch.submitDebrief"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.correctDebrief",
+          "canonical_operation_ids": [
+            "launch.correctDebrief"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.publishSummary",
+          "canonical_operation_ids": [
+            "launch.publishDebriefSummary"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.revisePublishedSummary",
+          "canonical_operation_ids": [
+            "launch.saveDebriefSummaryDraft",
+            "launch.publishDebriefSummary"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "launch.withdrawSummary",
+          "canonical_operation_ids": [],
+          "disposition": "excluded-no-write-or-unapproved-surface",
+          "input_mapping": "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers.",
+          "exclusion_reason": "No distinct unapproved summary deletion operation. Correct an exact published revision via deliberate reviewed publication; current category/relationship revocation handles loss of organization visibility."
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-021"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Draft save cannot replace a valid submitted debrief; submit freezes exact six answers/evidence revision. Summary separate reviewed published projection affects only authorized org consumers."
+      ]
+    },
+    {
+      "id": "MW-022",
+      "domain": "affiliation and category sharing",
+      "operation_families": [
+        "affiliations.approve",
+        "affiliations.accept",
+        "affiliations.end",
+        "affiliations.correct",
+        "privacy.setSharing",
+        "organizations.endPlantAffiliation"
+      ],
+      "material_inputs": "Exact organization affiliation episode/current grant, shared_findings and every underlying category policy/revision; health+NI are one permission, independent push activity preference is not health.",
+      "affected_roots": [
+        "plant",
+        "only affected exact organizations"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-047"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-022",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "associations.acceptInvitation",
+        "associations.end",
+        "privacy.setSharing",
+        "settings.saveSection"
+      ],
+      "operation_bindings": [
+        {
+          "family": "affiliations.approve",
+          "canonical_operation_ids": [
+            "associations.acceptInvitation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "affiliations.accept",
+          "canonical_operation_ids": [
+            "associations.acceptInvitation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "affiliations.end",
+          "canonical_operation_ids": [
+            "associations.end"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "affiliations.correct",
+          "canonical_operation_ids": [
+            "associations.end",
+            "associations.acceptInvitation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "privacy.setSharing",
+          "canonical_operation_ids": [
+            "privacy.setSharing"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "organizations.endPlantAffiliation",
+          "canonical_operation_ids": [
+            "associations.end"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-022"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Only exact relationship episode/current category allowed projection. Settings affiliation activityPush change alone is not health permission."
+      ]
+    },
+    {
+      "id": "MW-023",
+      "domain": "membership and lifecycle authority",
+      "operation_families": [
+        "membership.activate",
+        "membership.changeRole",
+        "membership.remove",
+        "accounts.requestDeletion",
+        "accounts.cancelDeletion",
+        "workspaces.requestDeletion",
+        "workspaces.cancelDeletion",
+        "maintenance.purge",
+        "maintenance.restoreWithCurrentManifest"
+      ],
+      "material_inputs": "Current authorized-reader/author/actor/relationship eligibility and active subject boundaries; suspended/deleted input denied, restore rechecks current permissions/deletion manifest. Private-care bodies/counts absent from broad invalidation/audit.",
+      "affected_roots": [
+        "affected plant or organization roots where consumed grants/input change"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-006",
+        "WP-010",
+        "WP-050",
+        "WP-057"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-023",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "seats.acceptInvitation",
+        "seats.appointAdmin",
+        "seats.demote",
+        "seats.remove",
+        "account.requestDeletion",
+        "account.cancelDeletion",
+        "churches.requestWorkspaceDeletion",
+        "churches.cancelWorkspaceDeletion",
+        "maintenance.purgeEligibleSubject",
+        "maintenance.restoreWithCurrentManifest"
+      ],
+      "operation_bindings": [
+        {
+          "family": "membership.activate",
+          "canonical_operation_ids": [
+            "seats.acceptInvitation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "membership.changeRole",
+          "canonical_operation_ids": [
+            "seats.appointAdmin",
+            "seats.demote"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "membership.remove",
+          "canonical_operation_ids": [
+            "seats.remove"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "accounts.requestDeletion",
+          "canonical_operation_ids": [
+            "account.requestDeletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "accounts.cancelDeletion",
+          "canonical_operation_ids": [
+            "account.cancelDeletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "workspaces.requestDeletion",
+          "canonical_operation_ids": [
+            "churches.requestWorkspaceDeletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "workspaces.cancelDeletion",
+          "canonical_operation_ids": [
+            "churches.cancelWorkspaceDeletion"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "maintenance.purge",
+          "canonical_operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "maintenance.restoreWithCurrentManifest",
+          "canonical_operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-023"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Current scope/eligibility/deletion status revisions and revocations synchronize in source transaction. Internal purge only after approved hold and exact current request; restricted manifest restore has no general app/Evry route."
+      ]
+    },
+    {
+      "id": "MW-024",
+      "domain": "released PI and organization result",
+      "operation_families": [
+        "intelligence.publishPlantRun",
+        "intelligence.markEligibleSeen",
+        "intelligence.releaseElapsedWindow",
+        "intelligence.publishOrganizationRun"
+      ],
+      "material_inputs": "Immutable complete plant/result version available to exact organization under opened-or72h rule; released snapshot/structured concerns/strengths consumed by NI. Org result feedback not an input writer.",
+      "affected_roots": [
+        "eligible exact organizations receiving changed released plant-result input"
+      ],
+      "work_packages": [
+        "WP-043",
+        "WP-044",
+        "WP-047"
+      ],
+      "condition": "Completing a plant run advances its publication/projection revision, never its own source/material revision. Newly released result changes affected organization material input once. Org publication does not invalidate its own input.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-024",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "intelligence.publishAssessment",
+        "intelligence.markAssessmentSeen",
+        "intelligence.releaseAssessmentToOversight"
+      ],
+      "operation_bindings": [
+        {
+          "family": "intelligence.publishPlantRun",
+          "canonical_operation_ids": [
+            "intelligence.publishAssessment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Complete PI/release changes organization inputs and projection revision; never increment plant source for its own assessment or invalidate org source recursively on org publication.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "intelligence.markEligibleSeen",
+          "canonical_operation_ids": [
+            "intelligence.markAssessmentSeen"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Complete PI/release changes organization inputs and projection revision; never increment plant source for its own assessment or invalidate org source recursively on org publication.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "intelligence.releaseElapsedWindow",
+          "canonical_operation_ids": [
+            "intelligence.releaseAssessmentToOversight"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Complete PI/release changes organization inputs and projection revision; never increment plant source for its own assessment or invalidate org source recursively on org publication.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "intelligence.publishOrganizationRun",
+          "canonical_operation_ids": [
+            "intelligence.publishAssessment"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Complete PI/release changes organization inputs and projection revision; never increment plant source for its own assessment or invalidate org source recursively on org publication.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-024"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Complete PI/release changes organization inputs and projection revision; never increment plant source for its own assessment or invalidate org source recursively on org publication."
+      ]
+    },
+    {
+      "id": "MW-025",
+      "domain": "reference and geography activation",
+      "operation_families": [
+        "reference.activateGeneration",
+        "reference.rollbackActivation",
+        "geography.activateReference",
+        "reference.activatePlantOperationalPrompt",
+        "reference.activateNetworkRubric"
+      ],
+      "material_inputs": "Exact immutable source/rubric/prompt/corpus/formula/geography reference release and activation generation. Current per-article publication changes use knowledge entitlement and derivative protocol.",
+      "affected_roots": [
+        "reference activation generation",
+        "affected eligible plant/org demand via durable sweep"
+      ],
+      "work_packages": [
+        "WP-032",
+        "WP-033",
+        "WP-041"
+      ],
+      "condition": "Bump activation generation in activation transaction, compare independently at publication; no all-plant giant transaction or unvalidated candidate activation.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-025",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "reference.activateGeneration",
+        "reference.rollbackActivation"
+      ],
+      "operation_bindings": [
+        {
+          "family": "reference.activateGeneration",
+          "canonical_operation_ids": [
+            "reference.activateGeneration"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "reference.rollbackActivation",
+          "canonical_operation_ids": [
+            "reference.rollbackActivation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "geography.activateReference",
+          "canonical_operation_ids": [
+            "reference.activateGeneration"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "reference.activatePlantOperationalPrompt",
+          "canonical_operation_ids": [
+            "reference.activateGeneration"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "reference.activateNetworkRubric",
+          "canonical_operation_ids": [
+            "reference.activateGeneration"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-025"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Validated complete global reference activation number changes atomically; no mass tenant source bump required. All old-reference publication CAS checks fail and independent sweep recovers paused wakeup."
+      ]
+    },
+    {
+      "id": "MW-026",
+      "domain": "geography correction",
+      "operation_families": [
+        "organizations.correctReportingLocation",
+        "settings.correctLocality"
+      ],
+      "material_inputs": "One primary reporting association and revision plus actual country-qualified locality correction, separately from chosen planting-area attestation.",
+      "affected_roots": [
+        "plant",
+        "eligible exact organizations for current grouping input"
+      ],
+      "work_packages": [
+        "WP-010",
+        "WP-047"
+      ],
+      "condition": "Any committed change to the listed material values; exact no-op/replay does not bump.",
+      "transaction": "Same DomainTransaction as mutation+domain history+audit+required intent+receipt; increment each affected root once before commit.",
+      "future_fixture": "MW-CASE-026",
+      "native_evry_bulk_system_parity": true,
+      "canonical_operation_ids": [
+        "organizations.correctReportingLocation",
+        "settings.saveSection",
+        "plant.updateProfile"
+      ],
+      "operation_bindings": [
+        {
+          "family": "organizations.correctReportingLocation",
+          "canonical_operation_ids": [
+            "organizations.correctReportingLocation"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Official reporting association and actual locality distinct from human chosen-area/phase attestation; correction current effective commit and attributed historical reference retained.",
+          "exclusion_reason": null
+        },
+        {
+          "family": "settings.correctLocality",
+          "canonical_operation_ids": [
+            "settings.saveSection",
+            "plant.updateProfile"
+          ],
+          "disposition": "current-canonical-producer",
+          "input_mapping": "Official reporting association and actual locality distinct from human chosen-area/phase attestation; correction current effective commit and attributed historical reference retained.",
+          "exclusion_reason": null
+        }
+      ],
+      "case_ids": [
+        "MW-CASE-026"
+      ],
+      "preview_exclusions": [
+        "Exact no-op/replay, refused mutation and read-only preview do not change material revision.",
+        "Official reporting association and actual locality distinct from human chosen-area/phase attestation; correction current effective commit and attributed historical reference retained."
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "family": "private-care save/read/correction/week rollover/zone adjacency/nudge",
+      "reason": "No PI/NI revision, wakeup, broad audit or output; immutable-author native only."
+    },
+    {
+      "family": "insight/organization feedback ratings and comments",
+      "reason": "Product learning, not assessment input or automatic rubric change."
+    },
+    {
+      "family": "Wiki bookmark/feedback, unrelated document drafts, source candidate build",
+      "reason": "No current criterion/reference input changed; candidate activates only after full validation."
+    },
+    {
+      "family": "raw profile updatedAt, email opens/clicks, task completion as contact proxy",
+      "reason": "Not actual contact evidence; prohibited substitution."
+    },
+    {
+      "family": "unrelated display tags/skills/household edits, decorative task text",
+      "reason": "Nonmaterial unless an explicitly registered supported consumer uses that field; never infer adulthood/commitment."
+    },
+    {
+      "family": "push preference alone",
+      "reason": "Sharing activity transport is not health/category input permission; delivery owner still applies current dispatch rules."
+    }
+  ],
+  "coverage_check": "For every native/Evry/import/merge/correction/system writer in target operation catalog, declare one MW family or evidence-backed exclusion. WP040/WP056 reject unclassified material producers.",
+  "application_test_status": "future-not-run",
+  "executable_binding_contract": "Only named canonical producers under current closed catalog contracts may call intelligence.markMaterialRevision synchronously in the caller DomainTransaction. Current aliases can only narrow a branch and must not invent omitted deletes, archive protocols, grants or writer services."
+}

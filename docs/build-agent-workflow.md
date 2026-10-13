@@ -32,14 +32,14 @@ Read the current package revision immediately before preparing the patch. A patc
   "status": "in_progress",
   "evidence": [
     {
-      "path": "docs/decisions/source-authority-review.md",
+      "path": "docs/reference/manifest.json",
       "commit": "",
-      "test": "source authority review",
+      "test": "current reference manifest review",
       "result": "in_progress",
-      "note": "Review is underway; the source precedence decision is awaiting SME confirmation."
+      "note": "Review is underway; exact current reference checksums are being verified."
     }
   ],
-  "notes": "Awaiting the named source authority decision; no completion claim.",
+  "notes": "Awaiting the named reference verification; no completion claim.",
   "updated_by": "WP-001 owner",
   "updated_at": "2026-10-03T12:00:00Z"
 }

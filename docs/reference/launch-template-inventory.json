@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "source_path": "src/lib/launch/milestones.ts",
+  "preserved_copy": "docs/reference/launch-milestone-templates.ts",
+  "sha256": "81935ef968ba4864bafb38ee1326b615f21e3cedd6b4a4fd1c7e47389da05485",
+  "milestone_count": 9,
+  "task_count": 23,
+  "milestones": [
+    {
+      "template_key": "operations.equipment_on_site",
+      "task_count": 3,
+      "task_titles": [
+        "Order the remaining set-up equipment",
+        "Confirm delivery dates for everything still outstanding",
+        "Label and store the equipment where the team will find it"
+      ]
+    },
+    {
+      "template_key": "operations.setup_training",
+      "task_count": 3,
+      "task_titles": [
+        "Book the full-Saturday in-service training",
+        "Walk the team through set-up, tear-down and storage",
+        "Test and improve Worship Center acoustics and lighting"
+      ]
+    },
+    {
+      "template_key": "operations.worship_center",
+      "task_count": 2,
+      "task_titles": [
+        "Confirm the Worship Center booking",
+        "Schedule three uses of the room before Launch Sunday"
+      ]
+    },
+    {
+      "template_key": "launch_team.prayer_and_fasting",
+      "task_count": 2,
+      "task_titles": [
+        "Set the weekly fast day for the four weeks before launch",
+        "Plan the worship, prayer and shared meal that close each fast"
+      ]
+    },
+    {
+      "template_key": "launch_team.pre_launch_services",
+      "task_count": 3,
+      "task_titles": [
+        "Book the Worship Center for three pre-launch services",
+        "Run pre-launch service 1",
+        "Run pre-launch services 2 and 3"
+      ]
+    },
+    {
+      "template_key": "launch_team.ministry_training",
+      "task_count": 3,
+      "task_titles": [
+        "Finish children's ministry training: teachers, curriculum, check-in, safety",
+        "Finish the worship team run-through",
+        "Test assimilation end to end"
+      ]
+    },
+    {
+      "template_key": "promotion.plan",
+      "task_count": 2,
+      "task_titles": [
+        "Choose the promotion channels your budget supports",
+        "Set the launch team's personal invitation goal"
+      ]
+    },
+    {
+      "template_key": "promotion.implemented",
+      "task_count": 3,
+      "task_titles": [
+        "Send the press release to local media",
+        "Run the email blast and social posts",
+        "Distribute invitation cards, door hangers and mailers"
+      ]
+    },
+    {
+      "template_key": "promotion.partner_churches",
+      "task_count": 2,
+      "task_titles": [
+        "Email the launch announcement slide to every partner church",
+        "Confirm the partner organization's role in the service"
+      ]
+    }
+  ],
+  "count_disposition": "The preserved executable inventory has 23 tasks. The original source comment and historical plan’s 22 counts are stale prose; they do not authorize deletion of a task. Original source bytes remain unchanged.",
+  "verification": "Read-only structural count of the fixed constant; no source execution, application or database test.",
+  "source_head": "18fc1a505c64615fe9ef197dba0e2cd037063d31",
+  "source_file_last_change_commit": "ee475b909acfea56ab41b2c216c65371e852692d"
+}

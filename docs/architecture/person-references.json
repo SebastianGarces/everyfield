@@ -1,0 +1,1210 @@
+{
+  "schema_version": 1,
+  "status": "current-target-design; future-not-run",
+  "protocol_owner": "WP-015 People owner",
+  "protocol_file": "packages/domain/src/people/person-reference-registry.ts",
+  "registration_contract": {
+    "fields": [
+      "consumerId",
+      "owningPackage",
+      "typedReferencePath",
+      "currentScopePredicate",
+      "mergeDisposition",
+      "uniquenessArbiters",
+      "revisionWitness",
+      "retirementDisposition",
+      "inverseEligibility",
+      "fixtureIds"
+    ],
+    "api": [
+      "registerPersonConsumer(static typed descriptor)",
+      "collectMergeManifest(transaction, exact two PersonIds)",
+      "validateSafeInverse(transaction, stored manifest + current witnesses)"
+    ],
+    "implementation": "Small static registry consumed inside People transaction. No generalized entity graph/event-sourced platform.",
+    "discovery_check": "Schema/code review rejects every later PersonId FK/document/reference path absent from this registry; test fixture enumeration compares physical target consumer paths and registry."
+  },
+  "incremental_closure": "WP-015 proves then-present registrations. Every later producer must add its descriptor and actual merge/retire/inverse/conflict fixtures before own closure. WP-056/057 whole-target manifest closure remains future acceptance.",
+  "source_unmerge": "Native previewUnmerge/unmergePeople safe inverse is retained, including reviewed assistant counterpart. Manual exceptional correction is additional fallback after safe conflict refusal, never a replacement for retained inverse.",
+  "consumers": [
+    {
+      "consumer_id": "account-link",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-006",
+        "WP-011"
+      ],
+      "references": [
+        "account_person_link.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "account_person_link",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-006",
+            "WP-011"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "linkedAccountBlocks",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Original authenticated account link survives merge; two linked profiles refuse; inverse requires same account ownership witness.",
+      "owner_path": "packages/domain/src/people/service.ts",
+      "fixture_ids": [
+        "PERSONREF-ACCOUNT-LINK-MERGE",
+        "PERSONREF-ACCOUNT-LINK-RETIRE",
+        "PERSONREF-ACCOUNT-LINK-UNMERGE",
+        "PERSONREF-ACCOUNT-LINK-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-011",
+      "registry_export": "personReferenceDescriptor_account_link",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "household-tag-skill-note",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-012",
+        "WP-013",
+        "WP-014",
+        "WP-015"
+      ],
+      "references": [
+        "household.head_person_id,plant_id",
+        "person_tag.person_id,plant_id",
+        "person_skill.person_id,plant_id",
+        "person_activity.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "household",
+          "columns": [
+            "head_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-012"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_tag",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-013"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_skill",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-013"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_activity",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-014"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveAndDeduplicate",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Preserve head/member uniqueness and original note author; combine duplicate tags/skills only by reviewed rule; historical actor attribution stays.",
+      "owner_path": "packages/domain/src/people/fields.ts",
+      "fixture_ids": [
+        "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE",
+        "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
+        "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE",
+        "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-012",
+      "registry_export": "personReferenceDescriptor_household_tag_skill_note",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "assessment-interview-commitment",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-014",
+        "WP-015"
+      ],
+      "references": [
+        "person_4c_assessment.person_id,plant_id",
+        "person_interview.person_id,plant_id",
+        "person_commitment.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "person_4c_assessment",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-014"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_interview",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-014"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_commitment",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-014"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveCurrentPreserveHistory",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Preserve actual event chronology, private entitlement, original human recording; genuine acquisition date survives withdrawal; rejoin adds no new acquisition.",
+      "owner_path": "packages/domain/src/people/assessments.ts",
+      "fixture_ids": [
+        "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE",
+        "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE",
+        "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE",
+        "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-014",
+      "registry_export": "personReferenceDescriptor_assessment_interview_commitment",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "team-role-leader",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-016",
+        "WP-017",
+        "WP-018"
+      ],
+      "references": [
+        "ministry_team.leader_person_id,plant_id",
+        "team_membership.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "ministry_team",
+          "columns": [
+            "leader_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-016"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "team_membership",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-017"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveAndDeduplicate",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "One active role arbiter and recorded leadership scope remain valid; title never grants account access; conflict refuses whole merge.",
+      "owner_path": "packages/domain/src/teams/roles.ts",
+      "fixture_ids": [
+        "PERSONREF-TEAM-ROLE-LEADER-MERGE",
+        "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
+        "PERSONREF-TEAM-ROLE-LEADER-UNMERGE",
+        "PERSONREF-TEAM-ROLE-LEADER-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-017",
+      "registry_export": "personReferenceDescriptor_team_role_leader",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "training-applicability-completion",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-019"
+      ],
+      "references": [
+        "training_assignment_episode.person_id,plant_id",
+        "training_completion.person_id,plant_id",
+        "training_assignment_episode.reviewed_selection_manifest"
+      ],
+      "physical_references": [
+        {
+          "table": "training_assignment_episode",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-019"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "training_completion",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-019"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [
+        {
+          "table": "training_assignment_episode",
+          "field": "reviewed_selection_manifest",
+          "policy": "Immutable reviewed source Person IDs and selector revisions preserved as historical snapshot; derive current alias via same-plant redirect, never rewrite selected history."
+        }
+      ],
+      "merge_behavior": "moveAndDeduplicate",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Deduplicate person/program applicability and completion separately; retain dates/revocations/versioned assignments; no roster recompute.",
+      "owner_path": "packages/domain/src/teams/training.ts",
+      "fixture_ids": [
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-019",
+      "registry_export": "personReferenceDescriptor_training_applicability_completion",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "meeting-invitation-rsvp-attendance-card",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-021",
+        "WP-022",
+        "WP-023",
+        "WP-028"
+      ],
+      "references": [
+        "meeting_participation.person_id,plant_id",
+        "meeting_participation.invited_by_person_id,plant_id",
+        "meeting_invitation.inviter_person_id,plant_id",
+        "meeting_invitation.invitee_person_id,plant_id",
+        "meeting_rsvp_token.person_id,plant_id",
+        "vision_response.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "meeting_participation",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021",
+            "WP-022"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "meeting_participation",
+          "columns": [
+            "invited_by_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021",
+            "WP-022"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "meeting_invitation",
+          "columns": [
+            "inviter_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "meeting_invitation",
+          "columns": [
+            "invitee_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "meeting_rsvp_token",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021",
+            "WP-028"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "vision_response",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-021"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveAndDeduplicate",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Deduped per meeting/person under reviewed RSVP/card conflict choices; stable origin obligation/task IDs; do not repeat first-Vision consequences.",
+      "owner_path": "packages/domain/src/meetings/invitations.ts",
+      "fixture_ids": [
+        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-MERGE",
+        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
+        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNMERGE",
+        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-021",
+      "registry_export": "personReferenceDescriptor_meeting_invitation_rsvp_attendance_card",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "task-person-follow-up",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-023",
+        "WP-024",
+        "WP-025"
+      ],
+      "references": [
+        "follow_up_obligation.person_id,plant_id",
+        "task_relation.person_id,plant_id",
+        "follow_up_outcome.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "follow_up_obligation",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-024"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "task_relation",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-024"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "follow_up_outcome",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-023"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveCurrentPreserveHistory",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "owner_path": "packages/domain/src/followups/service.ts",
+      "fixture_ids": [
+        "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
+        "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
+        "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
+        "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-023",
+      "registry_export": "personReferenceDescriptor_task_person_follow_up",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "communication-recipient-contact",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-028",
+        "WP-029"
+      ],
+      "references": [
+        "communication_recipient.person_id,plant_id",
+        "email_intent.frozen_payload"
+      ],
+      "physical_references": [
+        {
+          "table": "communication_recipient",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-029"
+          ],
+          "merge_policy": "Repoint live Person identity only after reviewed same-communication collision handling; immutable reviewed addresses/body/provider receipts remain unchanged. Unmerge cannot resend or undo a delivered message.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [
+        {
+          "table": "email_intent",
+          "field": "frozen_payload",
+          "policy": "Reviewed immutable audience/body; merge cannot expand/retry unknown provider intent."
+        }
+      ],
+      "merge_behavior": "moveCurrentPreserveHistory",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse refuses changed/irreversible relationships.",
+      "owner_path": "packages/domain/src/communication/history.ts",
+      "fixture_ids": [
+        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE",
+        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
+        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE",
+        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-029",
+      "registry_export": "personReferenceDescriptor_communication_recipient_contact",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "document-commitment-evidence",
+      "producer_work_packages": [
+        "WP-037"
+      ],
+      "references": [
+        "generated_document.merge_snapshot"
+      ],
+      "physical_references": [],
+      "snapshot_references": [
+        {
+          "table": "generated_document",
+          "field": "merge_snapshot",
+          "policy": "Immutable generated bytes/data provenance, no regeneration or disclosure inferred from person merge."
+        }
+      ],
+      "merge_behavior": "immutableEvidenceReference",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Exact generated bytes/source versions stay immutable; current redirect resolved only on fresh authorized query; private files require existing owner/purpose.",
+      "owner_path": "packages/domain/src/documents/service.ts",
+      "fixture_ids": [
+        "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-MERGE",
+        "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-RETIRE",
+        "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-UNMERGE",
+        "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-037",
+      "registry_export": "personReferenceDescriptor_document_commitment_evidence",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "intelligence-snapshot-citation",
+      "producer_work_packages": [
+        "WP-040",
+        "WP-041",
+        "WP-043",
+        "WP-044",
+        "WP-047"
+      ],
+      "references": [
+        "intelligence_assessment_run.fact_snapshot",
+        "phase_transition.fact_snapshot"
+      ],
+      "physical_references": [],
+      "snapshot_references": [
+        {
+          "table": "intelligence_assessment_run",
+          "field": "fact_snapshot",
+          "policy": "Immutable scoped historical input; current model/body projection uses current authority, history never updated by merge."
+        },
+        {
+          "table": "phase_transition",
+          "field": "fact_snapshot",
+          "policy": "Immutable human-decision evidence; no hidden current-state authority."
+        }
+      ],
+      "merge_behavior": "immutableEvidenceReference",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Historical fixed-asOf facts/citations retain original record identity plus safe authorized redirect; no changing recorded report time or raw org projection.",
+      "owner_path": "packages/domain/src/intelligence/facts.ts",
+      "fixture_ids": [
+        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-MERGE",
+        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
+        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
+        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-040",
+      "registry_export": "personReferenceDescriptor_intelligence_snapshot_citation",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "launch-named-guest",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-046"
+      ],
+      "references": [
+        "launch_person_attendance.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "launch_person_attendance",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-046"
+          ],
+          "merge_policy": "Reviewed same-parent/person unique-key collision choice required: preserve prior history, select explicit canonical survivor row or refuse contradictory evidence, append correction/move receipt. Never silently drop card/attendance/assignment/role evidence.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveAndDeduplicate",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Actual attendance/one named guest count per occurrence; headcount/unnamed count never becomes Person; debrief independently submitted.",
+      "owner_path": "packages/domain/src/launch/outcomes.ts",
+      "fixture_ids": [
+        "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-046",
+      "registry_export": "personReferenceDescriptor_launch_named_guest",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "assistant-verified-context-proposal",
+      "producer_work_packages": [
+        "WP-051",
+        "WP-053",
+        "WP-054",
+        "WP-059",
+        "WP-060",
+        "WP-061",
+        "WP-062",
+        "WP-063",
+        "WP-064",
+        "WP-065",
+        "WP-066",
+        "WP-067",
+        "WP-068",
+        "WP-069",
+        "WP-070",
+        "WP-071",
+        "WP-072",
+        "WP-073",
+        "WP-074",
+        "WP-075",
+        "WP-076",
+        "WP-079",
+        "WP-080"
+      ],
+      "references": [
+        "assistant_plan.affected_resource_manifest",
+        "assistant_message.reference_citations",
+        "assistant_artifact.source_references"
+      ],
+      "physical_references": [],
+      "snapshot_references": [
+        {
+          "table": "assistant_plan",
+          "field": "affected_resource_manifest",
+          "policy": "Review digest binds exact Person/resource IDs/revisions; merge invalidates stale approval, never rewrites reviewed plan."
+        }
+      ],
+      "merge_behavior": "invalidateReviewResolveFresh",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Saved review digest never silently retargeted after merge; historical receipt immutable; current references fresh-authorized and ambiguity/retirement explicit.",
+      "owner_path": "packages/evry/src/context/compiler.ts",
+      "fixture_ids": [
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [
+        "assistant_message.reference_citations",
+        "assistant_artifact.source_references"
+      ],
+      "registration_owner_work_package": "WP-051",
+      "registry_export": "personReferenceDescriptor_assistant_verified_context_proposal",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "person-redirect-merge-history",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-011",
+        "WP-012",
+        "WP-015"
+      ],
+      "references": [
+        "person.merged_into_person_id,plant_id",
+        "person_merge.source_person_id,plant_id",
+        "person_merge.survivor_person_id,plant_id",
+        "person_merge.reference_move_manifest"
+      ],
+      "physical_references": [
+        {
+          "table": "person",
+          "columns": [
+            "merged_into_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-011",
+            "WP-012"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_merge",
+          "columns": [
+            "source_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-015"
+          ],
+          "merge_policy": "Historical source/survivor identity is immutable receipt evidence; never repoint prior merge identities during later merges. Preserve referenced retired row.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        },
+        {
+          "table": "person_merge",
+          "columns": [
+            "survivor_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-015"
+          ],
+          "merge_policy": "Historical source/survivor identity is immutable receipt evidence; never repoint prior merge identities during later merges. Preserve referenced retired row.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [
+        {
+          "table": "person_merge",
+          "field": "reference_move_manifest",
+          "policy": "Immutable row identities/pre-post revisions, not a mutable Person foreign-key registry."
+        }
+      ],
+      "merge_behavior": "immutableReceiptIdentity",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Current same-plant redirect resolves explicitly; historical source/survivor/merge manifest stays original identity, not silently repointed on later merge.",
+      "owner_path": "packages/domain/src/people/merge.ts",
+      "fixture_ids": [
+        "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE",
+        "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE",
+        "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE",
+        "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-015",
+      "registry_export": "personReferenceDescriptor_person_redirect_merge_history",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "meeting-checklist-person",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-020"
+      ],
+      "references": [
+        "meeting_checklist_item.assigned_person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "meeting_checklist_item",
+          "columns": [
+            "assigned_person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-020"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveCurrentPreserveHistory",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Meeting logistics assignment is Person identity; no login grant inferred; source task account assignment remains different.",
+      "owner_path": "packages/domain/src/meetings/service.ts",
+      "fixture_ids": [
+        "PERSONREF-MEETING-CHECKLIST-PERSON-MERGE",
+        "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE",
+        "PERSONREF-MEETING-CHECKLIST-PERSON-UNMERGE",
+        "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-020",
+      "registry_export": "personReferenceDescriptor_meeting_checklist_person",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "candidate-person-attestation",
+      "producer_work_packages": [
+        "WP-004",
+        "WP-039"
+      ],
+      "references": [
+        "person_attestation.person_id,plant_id"
+      ],
+      "physical_references": [
+        {
+          "table": "person_attestation",
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "target_columns": [
+            "id",
+            "plant_id"
+          ],
+          "current_scope_predicate": "Person.id + plant_id composite match; exact current ActorContext; original-author/source purpose restrictions independently checked",
+          "producer_work_packages": [
+            "WP-004",
+            "WP-039"
+          ],
+          "merge_policy": "Lock same-plant referenced row, preview collision, move only with recorded pre/post revisions; preserve snapshots and irreversible effects.",
+          "inverse_policy": "Guarded inverse to recorded row identity/version; refuse conflicting post-merge changes with typed correction path."
+        }
+      ],
+      "snapshot_references": [],
+      "merge_behavior": "moveCurrentPreserveHistory",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Dated human attendance AND volunteering evidence keeps actual60day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
+      "owner_path": "packages/domain/src/intelligence/signals.ts",
+      "fixture_ids": [
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE",
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE",
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE",
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [],
+      "registration_owner_work_package": "WP-039",
+      "registry_export": "personReferenceDescriptor_candidate_person_attestation",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "shared-receipt-audit-person-subject",
+      "producer_work_packages": [
+        "WP-002",
+        "WP-004"
+      ],
+      "references": [
+        "command_receipt.result.authorized_person_evidence_refs",
+        "audit_event.resource_id when resource_type=person"
+      ],
+      "physical_references": [],
+      "snapshot_references": [],
+      "merge_behavior": "immutableEvidenceReference",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Receipt/audit subject identity is immutable historical evidence; current resolution remains same-plant authorized; no private-care content/existence or copied sensitive Person fields.",
+      "owner_path": "packages/contracts/src/common/audit-envelope.ts",
+      "fixture_ids": [
+        "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE",
+        "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-RETIRE",
+        "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-UNMERGE",
+        "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [
+        "command_receipt.result.authorized_person_evidence_refs",
+        "audit_event.resource_id when resource_type=person"
+      ],
+      "registration_owner_work_package": "WP-002",
+      "registry_export": "personReferenceDescriptor_shared_receipt_audit_person_subject",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    },
+    {
+      "consumer_id": "notification-person-subject",
+      "producer_work_packages": [
+        "WP-030",
+        "WP-031",
+        "WP-081",
+        "WP-082"
+      ],
+      "references": [
+        "inbox_entry.resource_id when resource_type=person"
+      ],
+      "physical_references": [],
+      "snapshot_references": [],
+      "merge_behavior": "immutableEvidenceReference",
+      "retirement_behavior": "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+      "unmerge_behavior": "Must provide exact moved-reference manifest and CAS/revision/uniqueness witness; unchanged safe inverse restores old reference; changed or irreversible reference refuses whole inverse.",
+      "semantic_rule": "Historical safe notification preserves exact recipient/event identity; current Person link re-authorizes and may resolve redirect; retirement never grants foreign/raw contact or private-care access.",
+      "owner_path": "packages/domain/src/notifications/service.ts",
+      "fixture_ids": [
+        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE",
+        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE",
+        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE",
+        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-CONFLICT"
+      ],
+      "closure_gate": "Before its producer package closes, register reference paths/predicate/uniqueness/revision witnesses and run these actual fixtures against shared merge/retirement/inverse; early WP-015 completion covers only installed consumers.",
+      "additional_typed_reference_paths": [
+        "inbox_entry.resource_id when resource_type=person"
+      ],
+      "registration_owner_work_package": "WP-030",
+      "registry_export": "personReferenceDescriptor_notification_person_subject",
+      "registration_rule": "Actual consumer-owned implementation exports its typed descriptor and fixtures; WP-015 integrator registers installed descriptors. Other later producers remain independently responsible for their listed paths and fixtures."
+    }
+  ],
+  "case_ids": [
+    "PERSONREF-ACCOUNT-LINK-MERGE",
+    "PERSONREF-ACCOUNT-LINK-RETIRE",
+    "PERSONREF-ACCOUNT-LINK-UNMERGE",
+    "PERSONREF-ACCOUNT-LINK-CONFLICT",
+    "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE",
+    "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
+    "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE",
+    "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-CONFLICT",
+    "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE",
+    "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE",
+    "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE",
+    "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT",
+    "PERSONREF-TEAM-ROLE-LEADER-MERGE",
+    "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
+    "PERSONREF-TEAM-ROLE-LEADER-UNMERGE",
+    "PERSONREF-TEAM-ROLE-LEADER-CONFLICT",
+    "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE",
+    "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE",
+    "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE",
+    "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT",
+    "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-MERGE",
+    "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
+    "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNMERGE",
+    "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT",
+    "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
+    "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
+    "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
+    "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT",
+    "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE",
+    "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
+    "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE",
+    "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-CONFLICT",
+    "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-MERGE",
+    "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-RETIRE",
+    "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-UNMERGE",
+    "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-CONFLICT",
+    "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-MERGE",
+    "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
+    "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
+    "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-CONFLICT",
+    "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+    "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+    "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE",
+    "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+    "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
+    "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
+    "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
+    "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
+    "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE",
+    "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE",
+    "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE",
+    "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT",
+    "PERSONREF-MEETING-CHECKLIST-PERSON-MERGE",
+    "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE",
+    "PERSONREF-MEETING-CHECKLIST-PERSON-UNMERGE",
+    "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT",
+    "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE",
+    "PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE",
+    "PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE",
+    "PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT",
+    "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE",
+    "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-RETIRE",
+    "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-UNMERGE",
+    "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-CONFLICT",
+    "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE",
+    "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE",
+    "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE",
+    "PERSONREF-NOTIFICATION-PERSON-SUBJECT-CONFLICT"
+  ]
+}

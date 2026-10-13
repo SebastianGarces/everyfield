@@ -1,7 +1,7 @@
 # EveryField v3: agent instructions
 
 EveryField v3 is a rebuild of EveryField v2. The plan is in `docs/`. Work is organized as work
-packages in `docs/plan/dag.json`, with acceptance criteria in `docs/evidence/acceptance-registry.json`.
+packages in `docs/plan/dag.json`, with current clauses and cases indexed by `docs/catalog/index.json`.
 Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf doctor` checks).
 
 ## How work flows
@@ -46,11 +46,11 @@ Read the file for your specialist before you start:
 
 | Need | Read |
 |---|---|
-| Your task's scope, criteria, rulings, paths | `bin/evf task brief <task>` (already in your task note) |
-| Full obligations of one criterion | `bin/evf ac <id>` |
+| Your package scope, clauses, cases, aliases and paths | `docs/plan/context.md` and `docs/package-context.py` (workflow brief adaptation pending) |
+| Full obligations of one criterion | `docs/catalog/index.json` and selected package detail pages |
 | Architecture, contracts, transactions, tenancy | `docs/architecture/architecture.md` |
-| Feature behavior | `docs/modules/` (only the sections your brief names) |
-| Accepted product rulings | `docs/decisions/user-rulings.md` |
+| Feature behavior | `docs/product/` (only the current sections selected by your packet) |
+| Current approved product contract | `docs/START-HERE.md` and selected current clauses |
 | What v2 taught us | `docs/lessons.md` |
 | When to write a test | skill `test-standard` |
 | Proving a task works | skill `verify` |
@@ -104,3 +104,8 @@ These instructions are additive and concern only work-package progress and the o
 - The integration owner reviews and merges package patches with `python3 docs/update-build-explorer.py --root . --check`, `--apply`, then `--check`. A stale revision requires evidence reconciliation before resubmission. Preserve submitted patches and use the canonical applied SHA records for idempotent replay.
 - Before a package is closed, complete the mandatory checklist in `docs/build-agent-workflow.md`, integrate its evidence and progress, refresh the single `everyfield-build-explorer.html`, and verify the file offline. Keep browser-local overrides separate and source `embedded-local-state` empty.
 - Preserve inline CSS, JavaScript, graph data, unrelated review documents and existing instructions. Only the integration owner changes shared canonical progress or refreshes embedded progress. Use `--refresh-html` followed by `--check` to repair an interrupted integration; canonical progress takes precedence.
+
+## Current documentation context
+Read docs/START-HERE.md and generate the assigned package context from docs/plan/context-manifest.json using docs/package-context.py. Current product chapters, catalogs and target schema directly define behavior; do not reconstruct a prior decision chronology or require v2. Read original reference passages and approved design sections on demand. This repository has no superseded-material archive. External evidence is an investigation path, not a package prerequisite. Preserve original reference bytes, unrelated assets, and design/everyfield-ui.html. Documentation status is separate from implementation authorization and evidence.
+
+The received workflow still requires reconciliation under G-WORKFLOW. Its old brief/ruling loaders and no-human-review routing are not authority to execute it or override current approved feedback PR review. This local documentation/tooling task is authorized; v3 application implementation and external operations remain separately gated.

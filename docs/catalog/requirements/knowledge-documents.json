@@ -1,0 +1,2596 @@
+{
+  "domain": "knowledge-documents",
+  "requirements": [
+    {
+      "id": "REQ-DOC-001",
+      "feature_ids": [
+        "DOC-001"
+      ],
+      "text": "Filterable/contextual library of 11 templates and 12 offered template-format combinations; commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.templates.list",
+        "documents.templates.get",
+        "documents.templates.contextual"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-001--DOC-001"
+      ],
+      "case_ids": [
+        "CASE-DOC-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-002",
+      "feature_ids": [
+        "DOC-002"
+      ],
+      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field\u22642000 characters and combined\u226416KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact\u22648MiB/XML\u22642millionchars/1000blocks/XLSX20sheets500rows50cols. Render failure is truthful; no mutating GET.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.resolveContext",
+        "documents.preview",
+        "documents.generate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-002--DOC-002"
+      ],
+      "case_ids": [
+        "CASE-DOC-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036",
+        "WP-037"
+      ]
+    },
+    {
+      "id": "REQ-DOC-003",
+      "feature_ids": [
+        "DOC-003"
+      ],
+      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.history.list",
+        "documents.history.get",
+        "documents.download",
+        "documents.reconcileOrphans"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003"
+      ],
+      "case_ids": [
+        "CASE-DOC-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036",
+        "WP-037"
+      ]
+    },
+    {
+      "id": "REQ-DOC-004",
+      "feature_ids": [
+        "DOC-004"
+      ],
+      "text": "Core Group Commitment Card \u2014 PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.commitment-card"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-004--DOC-004"
+      ],
+      "case_ids": [
+        "CASE-DOC-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-005",
+      "feature_ids": [
+        "DOC-005"
+      ],
+      "text": "Response Card \u2014 PDF; quarter-page Vision guest contact/involvement, church.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.response-card"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-005--DOC-005"
+      ],
+      "case_ids": [
+        "CASE-DOC-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-006",
+      "feature_ids": [
+        "DOC-006"
+      ],
+      "text": "Guest Sign-in Sheet \u2014 PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.guest-sign-in-sheet"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-006--DOC-006"
+      ],
+      "case_ids": [
+        "CASE-DOC-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-007",
+      "feature_ids": [
+        "DOC-007"
+      ],
+      "text": "Vision Meeting Agenda \u2014 PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.vision-meeting-agenda"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-007--DOC-007"
+      ],
+      "case_ids": [
+        "CASE-DOC-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-008",
+      "feature_ids": [
+        "DOC-008"
+      ],
+      "text": "Expectations of a Core Group Member \u2014 DOCX; presence/GROW-PRAY-GIVE/team participation.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.member-expectations"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-008--DOC-008"
+      ],
+      "case_ids": [
+        "CASE-DOC-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-009",
+      "feature_ids": [
+        "DOC-009"
+      ],
+      "text": "Launch Team Commitment \u2014 DOCX; member commitment approaching Launch Sunday.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.launch-team-commitment"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-009--DOC-009"
+      ],
+      "case_ids": [
+        "CASE-DOC-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-010",
+      "feature_ids": [
+        "DOC-010"
+      ],
+      "text": "Vision Meeting Follow-up Letter \u2014 DOCX; guest thank-you/next-step invitation.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.follow-up-letter"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-010--DOC-010"
+      ],
+      "case_ids": [
+        "CASE-DOC-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-011",
+      "feature_ids": [
+        "DOC-011"
+      ],
+      "text": "Board/Elder Meeting Agenda \u2014 DOCX; prayer/minutes/financial/ministry/action items.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.board-meeting-agenda"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-011--DOC-011"
+      ],
+      "case_ids": [
+        "CASE-DOC-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-012",
+      "feature_ids": [
+        "DOC-012"
+      ],
+      "text": "First-Year Budget \u2014 XLSX; 12-month income/expense with live formulas/totals.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.first-year-budget"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-012--DOC-012"
+      ],
+      "case_ids": [
+        "CASE-DOC-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-013",
+      "feature_ids": [
+        "DOC-013"
+      ],
+      "text": "Budget Worksheet \u2014 XLSX; monthly/annual planner with live formulas/totals.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.budget-worksheet"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-013--DOC-013"
+      ],
+      "case_ids": [
+        "CASE-DOC-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-014",
+      "feature_ids": [
+        "DOC-014"
+      ],
+      "text": "Launch Sunday Checklists \u2014 PDF; authoritative checklist content/layout.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "documents.render.launch-sunday-checklists"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-014--DOC-014"
+      ],
+      "case_ids": [
+        "CASE-DOC-014"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-DOC-015",
+      "feature_ids": [
+        "DOC-015"
+      ],
+      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG\u226410MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for5minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [
+        "storage.putPrivateObject",
+        "storage.readAuthorizedObject",
+        "storage.createAuthorizedDownload",
+        "storage.deleteUnreferencedObject"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015"
+      ],
+      "case_ids": [
+        "CASE-DOC-015"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-004",
+        "WP-037"
+      ]
+    },
+    {
+      "id": "REQ-DOC-016",
+      "feature_ids": [
+        "DOC-016"
+      ],
+      "text": "Native owned_documents have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under10MiB/40MiBexpanded/2000entries/2milliontext/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
+      "spec": "docs/product/knowledge-documents.md#native-owned-writing",
+      "operations": [
+        "documents.listOwned",
+        "documents.getAuthorized",
+        "documents.saveNative",
+        "documents.importTextOrWord",
+        "documents.designateCoreValues",
+        "documents.archive",
+        "documents.readCoreValuesEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-016--DOC-016"
+      ],
+      "case_ids": [
+        "CASE-DOC-016"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036",
+        "WP-037"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-015",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-004",
+        "WIKI-009"
+      ],
+      "text": "After a publisher-marked meaningful revision, keep existing completed reading/percentage evidence and show Updated since you read it for the authorized current article; original source/revision evidence remains attributable.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-004--WIKI-004",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WIKI49-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-016",
+      "feature_ids": [
+        "WIKI-004",
+        "WIKI-009"
+      ],
+      "text": "Typo-only publication does not create an update notice or reset credit. Meaningfulness is an explicit publisher flag in existing article/revision metadata, never an automatic semantic classifier.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-004--WIKI-004",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WIKI49-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-017",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-004"
+      ],
+      "text": "Rereading is optional; opening a new revision retains prior completed credit and records actual source/revision progress. Current source rights remain required; no hidden/departed body, new source/reader eligibility or threshold is inferred.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "WIKI49-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-018",
+      "feature_ids": [
+        "PI-028",
+        "TEAM-008",
+        "TEAM-009",
+        "WIKI-004"
+      ],
+      "text": "Article updates leave existing Discovery completion and completed/revoked training records unchanged. Exact six approved identities and strict>80% rule remain; no forced checkbox reset or training revocation.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009",
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "WIKI49-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-038",
+        "WP-044",
+        "WP-019"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-078",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "text": "Use one Vercel-hosted Next app, Neon with an interactive PostgreSQL driver and existing app-owned Better Auth; prove scoped read-lock-write/rollback and least-privilege runtime separately from operator migration connection. No second auth service or standalone worker is selected.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "case_ids": [
+        "PROVIDER48-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-079",
+      "feature_ids": [
+        "DOC-002",
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "EVR-025",
+        "EVR-104",
+        "EVR-132",
+        "EVR-136",
+        "EVR-138",
+        "EVR-275",
+        "EVR-423",
+        "IDN-006",
+        "PPL-005",
+        "PPL-014"
+      ],
+      "text": "Tigris private objects serve existing avatar, person-photo, commitment, generated/native-document and staged-file lifecycles. Resolve server-owned keys/versions and retain current owner/tenant/MIME/size/replacement/delete/history rules, ordinary orphan recovery and exact-reviewed Evry mutations; no new generic file framework/table.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-002--DOC-002",
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-104--EVR-104",
+        "AC-EVR-132--EVR-132",
+        "AC-EVR-136--EVR-136",
+        "AC-EVR-138--EVR-138",
+        "AC-EVR-275--EVR-275",
+        "AC-EVR-423--EVR-423",
+        "AC-EVR-EFFECT--EVR-136",
+        "AC-EVR-EFFECT--EVR-138",
+        "AC-EVR-READ--EVR-104",
+        "AC-EVR-READ--EVR-132",
+        "AC-EVR-READ--EVR-275",
+        "AC-EVR-READ--EVR-423",
+        "AC-IDN-006--IDN-006",
+        "AC-PPL-005--PPL-005",
+        "AC-PPL-014--PPL-014"
+      ],
+      "case_ids": [
+        "PROVIDER48-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-004",
+        "WP-010",
+        "WP-012",
+        "WP-014",
+        "WP-036",
+        "WP-037",
+        "WP-054",
+        "WP-059",
+        "WP-060",
+        "WP-061",
+        "WP-079",
+        "WP-052",
+        "WP-053",
+        "WP-055"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-080",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "EVR-104",
+        "EVR-132",
+        "EVR-275",
+        "EVR-423",
+        "IDN-006",
+        "PPL-005",
+        "PPL-014"
+      ],
+      "text": "Check current subject/object/category authority before issuing an exact-object short-lived presigned URL; deny foreign/revoked issuance and never expose storage secrets or accept arbitrary client keys. Direct delivery is supported; already-issued bearer URLs may survive later grant revocation until expiry. Prove expiry/cache/deletion behavior; no false instantaneous recall promise or forced byte proxy.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-EVR-104--EVR-104",
+        "AC-EVR-132--EVR-132",
+        "AC-EVR-275--EVR-275",
+        "AC-EVR-423--EVR-423",
+        "AC-EVR-READ--EVR-104",
+        "AC-EVR-READ--EVR-132",
+        "AC-EVR-READ--EVR-275",
+        "AC-EVR-READ--EVR-423",
+        "AC-IDN-006--IDN-006",
+        "AC-PPL-005--PPL-005",
+        "AC-PPL-014--PPL-014"
+      ],
+      "case_ids": [
+        "PROVIDER48-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-010",
+        "WP-012",
+        "WP-014",
+        "WP-037",
+        "WP-059",
+        "WP-061",
+        "WP-079",
+        "WP-052",
+        "WP-055"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-081",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "text": "Selected VercelNext/Neon/app-ownedBetterAuth/privateTigris/Resend settings, synthetic preview isolation, DBplusbyte restore and current file/tenant authority must be proven. Seven-day recovery/daily snapshots/separate privateTigris backup and ordinary measured1h/4h are selected target; actual paidplan/spend/configuration/credentials/restore remains unauthorized by documentation.",
+      "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "case_ids": [
+        "PROVIDER48-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-090",
+      "feature_ids": [
+        "REF-001",
+        "REF-002",
+        "REF-006",
+        "REF-008",
+        "WIKI-010"
+      ],
+      "text": "Use the exact verified available global96article/21section/7system-message-template bundle as future starter content; preserve IDs/slugs/topology/hashes and authoritative SME Playbook/rubric. Editorial contradictions remain named SME work. Seven message templates are not the11 generated-document templates; no tenant/customer rows or live export/bootstrap execution.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-REF-001--REF-001",
+        "AC-REF-002--REF-002",
+        "AC-REF-006--REF-006",
+        "AC-REF-008--REF-008",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "case_ids": [
+        "CONTENT50-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-032",
+        "WP-033"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-091",
+      "feature_ids": [
+        "PI-028",
+        "WIKI-001",
+        "WIKI-004"
+      ],
+      "text": "One currently authorized published global/church/network version of the same canonical article supplies credit; no every-version requirement or draft credit. Preserve exact read source/revision/account evidence, six Discovery identities and strict>80% per eligible lead/Owner; never match unrelated same-title articles or combine different people to manufacture completion.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "CONTENT50-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035",
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-092",
+      "feature_ids": [
+        "PI-028",
+        "WIKI-001",
+        "WIKI-004"
+      ],
+      "text": "Retained reading completion does not authorize hidden/unpublished/departed source bodies or a retained copy. Current source grants still apply; keep already-approved source priority and body-revocation rules, with no new authoring/permission/threshold or automatic reading/Discovery/training reset.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "CONTENT50-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035",
+        "WP-038",
+        "WP-044"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-120",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-121",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-122",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "G1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-123",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-124",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-125",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S-add-v1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-126",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N-add-v1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-127",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "Resolve both distinct stable identities: S-add-v1, N-add-v1.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-128",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-129",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-130",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-131",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-132",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-133",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-014"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-134",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-015"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-136",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "G1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-017"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-137",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "Plant-local writing uses account/plant-owned Church Documents under current document policy; no new plant Wiki editor/override/precedence grant. Existing currently entitled plant-local Wiki reading remains available; existing S1 edit remains canonical resolver candidate.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-018"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-138",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "G2 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-019"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-139",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "N1 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-020"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-140",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "S1 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-021"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-141",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied. Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-022"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-142",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "N1 Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WR-023"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-143",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "unavailable Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WR-024"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-144",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "G1 Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WR-025"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-145",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "content_access_denied Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WR-026"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-146",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "content_access_denied Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WR-027"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-147",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "authorized_for_own_org_editorial_operations",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-028"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-148",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "authorized_for_own_org_editorial_operations",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-029"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-149",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "authorized_for_own_org_editorial_operations",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-030"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-150",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "authorized_for_own_org_editorial_operations",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-031"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-151",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "editorial_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-032"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-152",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "editorial_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-033"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-153",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "editorial_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-034"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-154",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "editorial_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-035"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-155",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "editorial_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-036"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-156",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "exact_human_review_required_then_same_domain_authorization",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-037"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-157",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "G1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-038"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-158",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-039"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-159",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-040"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-160",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-041"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-162",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-043"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-163",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-044"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-164",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden_default_S2_source_view_accessible",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-045"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-165",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "union_distinct_identities",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-046"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-166",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "recompute_surviving_entitlements_no_blanket_revocation",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-047"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-167",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-048"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-168",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-049"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-169",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-050"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-170",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-051"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-171",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-052"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-172",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "G1",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-053"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-173",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "G1_read_context_only",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-054"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-174",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S2_read_context_only",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-055"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-175",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden_default_other_sources_accessible",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-056"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-176",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "hidden_default_global_source_accessible",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-057"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-177",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "source_body_access_denied",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-058"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-178",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "only_current_eligible_published_sources",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-059"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-179",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "recheck_live_entitlement",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-060"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-180",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "union_distinct_identities",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-061"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-181",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "edited_fork_intact_with_review_notice Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-062"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-182",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "Current plant Owner/Admin explicit orderwrite with expectedrevision/history; exact Evryreview; no CRMtitle or orgeditor preferencegrant.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-063"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-183",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "authorized_source_view_browse_entry",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-064"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-184",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "no_extra_content_or_preference_grant",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-065"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-185",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S3",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-066"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-186",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "N2",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-067"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-187",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "S2_surviving_stored_order_without_preference_write",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-068"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-188",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "invalid_order_rejected_no_write",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-069"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-189",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "order_authorization_denied_no_write",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-070"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-190",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "revision_conflict_requires_new_review",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-071"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-191",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "source_order_required_no_arbitrary_winner",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-072"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-192",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "default_recomputed_source_view_rights_unchanged",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-073"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-193",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "skip_ended_source_without_saved_order_rewrite",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WR-074"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-001",
+      "feature_ids": [
+        "WIKI-001"
+      ],
+      "text": "Render current eligible published tutorial/how-to/explanation/reference/overview/guide content; no foreign body. Curated global MDX is compiled only after release validation with fixed safe components and no executable expressions/imports. Organization/native content uses sanitized editor nodes, never arbitrary MDX code.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.articles.list",
+        "wiki.articles.get",
+        "wiki.articles.resolveVisibleCorpus"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001"
+      ],
+      "case_ids": [
+        "CASE-WIKI-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-002",
+      "feature_ids": [
+        "WIKI-002"
+      ],
+      "text": "Phase/sidebar Getting-started, Journey 0\u20136, frameworks/reference/resources; deterministic order/title/slug; H2/H3 TOC, breadcrumbs, accessible mobile drawer, same-parent siblings and eligible related IDs. Missing/duplicate references skip safely; non-ASCII/spaces/path delimiters have one encoding contract.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.navigation",
+        "wiki.articleNeighbors",
+        "wiki.tableOfContents"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-002--WIKI-002"
+      ],
+      "case_ids": [
+        "CASE-WIKI-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-003",
+      "feature_ids": [
+        "WIKI-003"
+      ],
+      "text": "English weighted Postgres full-text title/excerpt/content, bounded web-search query \u2264200 characters, phase filter and 20/page. Safe highlight snippets; results/empty/unavailable distinct. Authenticated search actions never use crawler allowance. Source view uses the exact same resolver.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.search"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-003--WIKI-003"
+      ],
+      "case_ids": [
+        "CASE-WIKI-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-004",
+      "feature_ids": [
+        "WIKI-004"
+      ],
+      "text": "Per-reader not-started/in-progress/completed history, actual progress/resume/recent and visible-corpus statistics. Validate actual currently accessible article/source/version, not only well-formed slug. Passive reopen updates viewed time, never fabricated completion or downgrade. Reading identity follows canonical article with attributed source/revision evidence.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [
+        "wiki.reading.recordView",
+        "wiki.reading.updateProgress",
+        "wiki.reading.recent",
+        "wiki.reading.resume",
+        "wiki.reading.stats"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "CASE-WIKI-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-005",
+      "feature_ids": [
+        "WIKI-005"
+      ],
+      "text": "Own explicit desired bookmark state, unique(reader,canonical article), idempotent set/unset and current visible-source resolution. Hidden/foreign/departed entries do not leak body/count through list.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.bookmarks.list",
+        "wiki.bookmarks.set"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-005--WIKI-005"
+      ],
+      "case_ids": [
+        "CASE-WIKI-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-006",
+      "feature_ids": [
+        "WIKI-006"
+      ],
+      "text": "Own helpful/unhelpful vote under current plant/article/source scope; closed input and revision/no-op semantics. Account-private Discovery reading does not manufacture a church vote. No new admin analysis surface.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.feedback.getMine",
+        "wiki.feedback.setMine"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-006--WIKI-006"
+      ],
+      "case_ids": [
+        "CASE-WIKI-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-007",
+      "feature_ids": [
+        "WIKI-007"
+      ],
+      "text": "Print/PDF uses the exact currently rendered entitled body, structured paragraphs/headings/lists/tables/callouts, local fonts, safe filename/source/footer. Failure offers print fallback; no saved generated-document record or assumed embedded-widget export.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.article.print",
+        "wiki.article.exportPdf"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-007--WIKI-007"
+      ],
+      "case_ids": [
+        "CASE-WIKI-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-008",
+      "feature_ids": [
+        "WIKI-008"
+      ],
+      "text": "Contextual route/wildcard WikiGuide returns current authorized excerpt/reference with source/version citation; missing/unauthenticated/gone/unavailable are distinct. Fetch alone does not write reading progress. Guide text cannot instruct Evry to execute.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.contextGuide",
+        "wiki.referenceExcerpt"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "CASE-WIKI-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-009",
+      "feature_ids": [
+        "WIKI-009"
+      ],
+      "text": "Scoped publication/cache refresh uses authenticated operator/editor operations, typed source/version and bounded invalidation. Unset secret/operator authority refuses. Cache slug escaping differs from URL escaping only through one tested contract. No retired unscoped editor mutations.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "reference.invalidateWikiCache",
+        "wiki.organizationArticles.add",
+        "wiki.organizationArticles.edit",
+        "wiki.organizationArticles.hide",
+        "wiki.organizationArticles.publish"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "CASE-WIKI-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-010",
+      "feature_ids": [
+        "WIKI-010"
+      ],
+      "text": "Approved starter and later global reference installation, reproducible manifest/derivatives, repeat-equal no-op and atomic activation are governed by reference release. Never copy unversioned stored embeddings.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "reference.exportApprovedWiki",
+        "reference.validateBundle",
+        "reference.installApprovedWiki",
+        "reference.rebuildEmbeddings"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "case_ids": [
+        "CASE-WIKI-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-033",
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-011",
+      "feature_ids": [
+        "WIKI-011"
+      ],
+      "text": "Sessionless global published Wiki metadata/article previews for supported social/search fetcher classifications only on exact /wiki paths. Public preview is deliberately public even if UA is spoofed; it carries no plant/personal shell or data. Human WhatsApp WebView, unknown UA/path, /wikileaks, action requests, private routes and invalid sessions retain normal auth. Trusted actual route metadata replaces client routing headers.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.publicPreviewMetadata",
+        "wiki.renderGlobalPreview",
+        "auth.classifyPublicPreview"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-011--WIKI-011"
+      ],
+      "case_ids": [
+        "CASE-WIKI-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-012",
+      "feature_ids": [
+        "WIKI-004"
+      ],
+      "text": "Discovery foundations qualifies only when one actual Owner or ordinary lead linked to the actual reader account with a current same-plant Admin seat completes each of all six canonical articles at strictly>0.80, using any currently entitled published same-canonical source version. Ordinary Admin/lead qualifies only through that current linked actual-reader authority; title adds no grant. Owner0/6+eligible lead6/6 qualifies; two readers3/6 each do not. Article update retains credit; creation Phase1 is independent.",
+      "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
+      "operations": [
+        "wiki.reading.updateProgress",
+        "documents.readCoreValuesEvidence"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-004--WIKI-004"
+      ],
+      "case_ids": [
+        "DISC-READER-001",
+        "DISC-READER-002",
+        "DISC-READER-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-013",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "text": "Resolve per canonical identity first eligible explicit published edit/hide in stored sending-church order, then sending-network order, then global. Preferred=head in one order owner. Winning hide removes default only; independent authorized source browse remains. Ended recognition skipped without rewrite; new recognition cannot silently restore old rank. No org edition/adoption gate or new plantWiki authoring.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.setSourceOrder",
+        "wiki.articles.resolveVisibleCorpus"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WIKI-ORDER-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-WIKI-014",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008"
+      ],
+      "text": "Current source entitlement applies to body/history/citation/search/count/navigation/related/guide/export/cache/stream/Evry retrieval. Departure denies former-org bodies across active/old/rollback references while valid independent grants survive; retain only minimal identity/completion metadata and redact denied hosted excerpts. External downloaded copies cannot be recalled.",
+      "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
+      "operations": [
+        "wiki.articles.get",
+        "wiki.search",
+        "wiki.article.exportPdf",
+        "wiki.referenceExcerpt"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-007--WIKI-007",
+        "AC-WIKI-008--WIKI-008"
+      ],
+      "case_ids": [
+        "WIKI-ENTITLEMENT-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-034",
+        "WP-035"
+      ]
+    }
+  ]
+}

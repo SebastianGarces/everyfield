@@ -1,0 +1,137 @@
+{
+  "domain": "execution",
+  "requirements": [
+    {
+      "id": "REQ-KNOW-082",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-006",
+        "OPS-008"
+      ],
+      "text": "Development uses existing accounts/suitable free allowances. Any added paid plan or recurring service has an expected monthly cost proposal and explicit user approval before commitment; list usage assumptions and material limits rather than claim all development is guaranteed free.",
+      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-006--OPS-006",
+        "AC-OPS-008--OPS-008"
+      ],
+      "case_ids": [
+        "OPS54-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-083",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate privateTigris encrypteddaily bucket and measured ordinary1hRPO/4hRTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
+      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "case_ids": [
+        "OPS54-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "text": "Selected same-app authenticated Next/Postgres executor uses unique durable occurrence job, SKIPLOCKED claim generation/default5min lease/30s heartbeat/checkpoint CAS. assessment.refresh explicitly overrides the default with120second job/attempt lease and individual provider call\u226445seconds. Tick budget remains270seconds,4concurrent,2pertenant,10pertenantpage with rotating type+tenant fairness and durable owed cursors. External uncertainty has handler-specific reconciliation; pure failures\u22643backoffs; safe operator reason/current scope recovery. No per-feature queue or workflow platform.",
+      "spec": "docs/architecture/execution.md#claim-and-transaction-protocol",
+      "operations": [
+        "jobs.manualRun",
+        "jobs.inspectLag",
+        "notifications.claimDue"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "case_ids": [
+        "EXEC-001",
+        "EXEC-002",
+        "EXEC-003",
+        "EXEC-004",
+        "EXEC-005",
+        "EXEC-006",
+        "EXEC-007",
+        "EXEC-008",
+        "EXEC-009",
+        "EXEC-010",
+        "EXEC-011",
+        "EXEC-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ]
+    },
+    {
+      "id": "REQ-OPS-015",
+      "feature_ids": [
+        "ADM-007",
+        "OPS-001",
+        "OPS-007"
+      ],
+      "text": "Development uses suitable existing free allowances; before paid plans/services/spend obtain explicit approval of concrete measured low/expected/high monthly envelope, recovery/model retry costs, operator load and limits. Before real customer data actual config/key-exclusion/retention/expiry/coherentDB+byte restore and external-effect reconciliation proof must pass. Documentation/prices/selected destination do not authorize setup/restore or certify recovery.",
+      "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
+      "operations": [
+        "engineering.validateRequirements",
+        "qa.verifyVerticalSlices"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-007--ADM-007",
+        "AC-OPS-001--OPS-001",
+        "AC-OPS-007--OPS-007"
+      ],
+      "case_ids": [
+        "COST-GATE-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031",
+        "WP-049",
+        "WP-050"
+      ]
+    }
+  ]
+}

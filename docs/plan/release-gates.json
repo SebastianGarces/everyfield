@@ -1,0 +1,107 @@
+{
+  "specification_version": "2026-10-13.current-1",
+  "gates": [
+    {
+      "id": "G-DESIGN",
+      "title": "Whole target design and independent review",
+      "owner": "Root integration owner",
+      "closure": "Current domain/schema/operation/acceptance/packet contracts resolve all reviewed design findings; independent losslessness and whole-plan reviews pass; no substantive open design gap.",
+      "status": "passed-independent-documentation-review",
+      "work_packages": [],
+      "evidence": "docs/verification.json#independent_reviews",
+      "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f"
+    },
+    {
+      "id": "G-AUTH",
+      "title": "Implementation kickoff",
+      "owner": "Owner",
+      "closure": "Separate explicit implementation authorization for this frozen version; all86packages currently unstarted.",
+      "status": "not-authorized",
+      "work_packages": []
+    },
+    {
+      "id": "G-SPEND",
+      "title": "Concrete paid spending",
+      "owner": "Owner + operations",
+      "closure": "Approve itemized tiers/usage/low-expected-high monthly envelope and recovery/operator costs before any subscription or usage commitment. No vendor/destination re-vote.",
+      "status": "awaiting-concrete-approval",
+      "work_packages": [
+        "WP-003",
+        "WP-050",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "G-WORKFLOW",
+      "title": "Merged development workflow",
+      "owner": "Owner-provided external handoff",
+      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric.",
+      "status": "received-reconciliation-required",
+      "work_packages": [
+        "WP-049",
+        "WP-050",
+        "WP-055",
+        "WP-084"
+      ],
+      "source": {
+        "repository": "/Users/sebastian/dev/everyfield_v3",
+        "ref": "refs/heads/main",
+        "verified_commit": "4a93fb803628175df33bb0cf07f4c1b050251fde",
+        "workflow_commit": "ae35de50614ac0275e0410e54316f0b115c909f2",
+        "core_commit": "84e9b17ac0b2732d2fbf0bc2e89f0942d5be0e60",
+        "owner_receipt_utc": "2026-10-13 19:06 UTC",
+        "entrypoints": [
+          "bin/evf",
+          "tools/evf/main.ts",
+          ".agents/roles/coordinator.md",
+          ".agents/roles/feedback-desk.md"
+        ],
+        "remote_publication": "unverified; no remote configured"
+      }
+    },
+    {
+      "id": "G-SETUP",
+      "title": "Real environment/account and restricted backup setup",
+      "owner": "Platform/operations",
+      "closure": "Actual project/repository IDs, scoped credentials, paid-account privacy settings and restricted scheduled operator backup invocation are configured only under later authorization; prove no backup keys in ordinary app/build/preview.",
+      "status": "future-configuration-proof",
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-049",
+        "WP-050",
+        "WP-058"
+      ]
+    },
+    {
+      "id": "G-RUNTIME",
+      "title": "Compatibility, concurrency and UI/model proof",
+      "owner": "Each named package owner",
+      "closure": "Execute all named future gates against actual selected runtime and database. Auth rollback, same-tenant constraints, watermark/CAS races, current sharing, approved effects, tool usefulness, native/browser parity and negative fixtures pass.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-056",
+        "WP-057"
+      ]
+    },
+    {
+      "id": "G-RECOVERY",
+      "title": "Before real customer data",
+      "owner": "DB/file/operations + release owner",
+      "closure": "Measured coherent DB+bytes restore meets ordinary1hRPO/4hRTO; fresh surviving daily24h fallback, current deletion barriers, receipt reconciliation, recoverable scoped keys and provider expiry/cleanup demonstrate accepted boundaries; reviewed privacy disclosure.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-037",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ]
+    }
+  ],
+  "owner_product_questions": [],
+  "implementation_tests_run": 0,
+  "provider_changes": 0
+}

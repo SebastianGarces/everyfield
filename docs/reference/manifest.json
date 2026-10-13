@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "release_identity": "everyfield-reference-inputs-2026-10-13",
+  "purpose": "portable immutable original sources plus unchanged approved starter inputs; activation is a separate explicit release record",
+  "original_sme_changed": false,
+  "application_tests_run": 0,
+  "files": [
+    {
+      "path": "docs/reference/playbook.md",
+      "source_path": "product-docs/launch-playbook.md",
+      "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+      "bytes": 34025,
+      "last_change_commit": "4192fa24ed86d856df58b811168bb43e1986f67c",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/rubric-v0.md",
+      "source_path": "product-docs/features/phase-engine/rubric-v0.md",
+      "sha256": "969c1fd0e796eb4af311bc691b26ccbefbfd1fa7b4f6fa3b02aee46d456a9f6e",
+      "bytes": 24071,
+      "last_change_commit": "78f4ef9b6bef82e47adec52af33ca8c7807b1ae7",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/rubric-v1.md",
+      "source_path": "product-docs/features/phase-engine/rubric-v1.md",
+      "sha256": "5575450dff37bb730361f71a8152257622c5f089c84e448648f1c8543b1704c7",
+      "bytes": 60237,
+      "last_change_commit": "8375526e0b1429f8ee0b81abed3a2dc104da74ea",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/bryan-comments-review.md",
+      "source_path": "product-docs/features/phase-engine/bryan-comments-review.md",
+      "sha256": "d15ea5328380f4406fed465c83b0ecd6ed3771e376424d313ae9e36d4803d3f6",
+      "bytes": 47981,
+      "last_change_commit": "8375526e0b1429f8ee0b81abed3a2dc104da74ea",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/plant-rubric-executable.ts",
+      "source_path": "src/lib/phase-engine/rubric.ts",
+      "sha256": "e847ad196edb2d80d7d08744a8f4d5fad06feef389943d38ef12cb5d746e71d7",
+      "bytes": 35115,
+      "last_change_commit": "1db2f5f3841bb91f1809868309aaab73846814cc",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/manual-signals.ts",
+      "source_path": "src/lib/phase-engine/manual-signals.ts",
+      "sha256": "513dfbde8b50db48543f5b6fb93ae7e954f71af9de0dfd1da9bcebd44879c88b",
+      "bytes": 9247,
+      "last_change_commit": "1358c1106c764fb705a5169dc6964fffcb0a386d",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/task-templates.ts",
+      "source_path": "src/lib/tasks/templates.ts",
+      "sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851",
+      "bytes": 37259,
+      "last_change_commit": "7ea51b6c69eb606343acc73ecf1ceb36c73d99b0",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/ministry-role-templates.ts",
+      "source_path": "src/lib/ministry-teams/role-templates.ts",
+      "sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f",
+      "bytes": 23284,
+      "last_change_commit": "9d94806d23e54aee8cf0dfdebaae651c7a3b60ee",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/document-templates.ts",
+      "source_path": "src/lib/documents/templates.ts",
+      "sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+      "bytes": 8054,
+      "last_change_commit": "9031033c6e9f9eec3b30976f7fae7cc07e956161",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/communication-system-templates.ts",
+      "source_path": "src/lib/communication/system-templates.ts",
+      "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
+      "bytes": 11411,
+      "last_change_commit": "2c8d874f724f68dc80e0c111d74a1a6592c19a89",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/article-checklist.md",
+      "source_path": "product-docs/wiki/article-checklist.md",
+      "sha256": "fc55ded589f7afa797d5d28a30e8e7f8731336b16ed656df9cd256fce54bb4b5",
+      "bytes": 21313,
+      "last_change_commit": "5f2aa0315eac356cf788951731de10afb26104b3",
+      "preserved_hash_match": true,
+      "content_authority": "original SME/source evidence; unchanged"
+    },
+    {
+      "path": "docs/reference/phase-exit-criteria.ts",
+      "source_path": "src/lib/phase-engine/assessment/exit-criteria.ts",
+      "sha256": "d4b714e6f3e7b5cc1f091cbe580b57c2be5692b5aba5932c378a646f0978a7b0",
+      "bytes": 42525,
+      "preserved_hash_match": null,
+      "content_authority": "historical executable criterion mapping; current target evidence differs as specified"
+    },
+    {
+      "path": "docs/reference/bootstrap/README.md",
+      "source_path": "docs/evidence/reference-bootstrap/README.md",
+      "sha256": "9dc66d8ffa104ed97eaa9a6ae463feff6a6dc3e113a7ca186997b007d8fa6011",
+      "bytes": 3073,
+      "preserved_hash_match": true,
+      "content_authority": "accepted unchanged starter snapshot; no live DB export"
+    },
+    {
+      "path": "docs/reference/bootstrap/global-seed-payload.json",
+      "source_path": "docs/evidence/reference-bootstrap/global-seed-payload.json",
+      "sha256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+      "bytes": 921307,
+      "preserved_hash_match": true,
+      "content_authority": "accepted unchanged starter snapshot; no live DB export"
+    },
+    {
+      "path": "docs/reference/bootstrap/manifest.json",
+      "source_path": "docs/evidence/reference-bootstrap/manifest.json",
+      "sha256": "b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b",
+      "bytes": 163283,
+      "preserved_hash_match": true,
+      "content_authority": "accepted unchanged starter snapshot; no live DB export"
+    },
+    {
+      "path": "docs/reference/bootstrap/mdx-syntax.json",
+      "source_path": "docs/evidence/reference-bootstrap/mdx-syntax.json",
+      "sha256": "9ff709532dffdb79a75fd6390d1854c0c4993f140aa66d7cdc50e50e190962a9",
+      "bytes": 89,
+      "preserved_hash_match": true,
+      "content_authority": "accepted unchanged starter snapshot; no live DB export"
+    },
+    {
+      "path": "docs/reference/bootstrap/verification.json",
+      "source_path": "docs/evidence/reference-bootstrap/verification.json",
+      "sha256": "c6fd5dec1bcae2874dfd3f1042eecd487c5ca680e051c23a1c87800d8be32bd6",
+      "bytes": 1524,
+      "preserved_hash_match": true,
+      "content_authority": "accepted unchanged starter snapshot; no live DB export"
+    },
+    {
+      "path": "docs/reference/launch-milestone-templates.ts",
+      "source_path": "src/lib/launch/milestones.ts",
+      "sha256": "81935ef968ba4864bafb38ee1326b615f21e3cedd6b4a4fd1c7e47389da05485",
+      "bytes": 32873,
+      "preserved_hash_match": null,
+      "content_authority": "Unchanged original nine-milestone/23-task source catalog; actual fixed arrays, not the stale 22-task comment, determine inventory.",
+      "source_head": "18fc1a505c64615fe9ef197dba0e2cd037063d31",
+      "last_change_commit": "ee475b909acfea56ab41b2c216c65371e852692d"
+    },
+    {
+      "path": "docs/reference/discovery-foundations.json",
+      "source_path": null,
+      "sha256": "8ed0c38a275f348f9a7a8cb07642f724f8d36504e512afa7b171bdfaec7480c5",
+      "bytes": 4403,
+      "preserved_hash_match": null,
+      "content_authority": "EveryField-authored current derived operational/reference contract; separate from preserved original SME text",
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "path": "docs/reference/network-rubric-v1.json",
+      "source_path": null,
+      "sha256": "bd8e4197fe4372eb6b4f64aaac4a385c6175a8d988bced74630fb459f5bab588",
+      "bytes": 12242,
+      "preserved_hash_match": null,
+      "content_authority": "EveryField-authored current derived operational/reference contract; separate from preserved original SME text",
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "path": "docs/reference/network-rubric-v1.md",
+      "source_path": null,
+      "sha256": "21cfd9ddba1a763669e0ba0e354349fb73c31a5f54abc57c0c79ef96dc505e75",
+      "bytes": 11463,
+      "preserved_hash_match": null,
+      "content_authority": "EveryField-authored current derived operational/reference contract; separate from preserved original SME text",
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "path": "docs/reference/network-examples.json",
+      "source_path": null,
+      "sha256": "db80c23f8f63f8b35a81cd5b539cd67c9b22c7e5faa483a1f01dde90b918de9a",
+      "bytes": 74221,
+      "preserved_hash_match": null,
+      "content_authority": "EveryField-authored current derived operational/reference contract; separate from preserved original SME text",
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "path": "docs/reference/plant-operational-adapter-v1.json",
+      "source_path": null,
+      "sha256": "a9949292b28323093226dd025d5e4a7fa34c752bef1a686b2f444750d95916d8",
+      "bytes": 8495,
+      "preserved_hash_match": null,
+      "content_authority": "EveryField-authored current derived operational/reference contract; separate from preserved original SME text",
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "path": "docs/reference/launch-template-inventory.json",
+      "source_path": null,
+      "content_authority": "Verified structural inventory of the unchanged canonical launch source; every title/key retained.",
+      "sha256": "d37ede0ef1b76bd1072ec76166d8981fd575c04e7bcecb5036d1dd323cdc0154",
+      "bytes": 3200
+    }
+  ],
+  "authority": {
+    "plant_rubric": "rubric-v1.md with final accepted C12 disposition in bryan-comments-review.md; historical v0 is independently resolvable",
+    "compiled_prompt": "plant-rubric-executable.ts is preserved executable evidence, not authority to overturn final SME dispositions",
+    "network_rubric": "network-rubric-v1.json and .md are separately EveryField-authored target reference, never a plant rubric replacement",
+    "bootstrap": "96 articles/21 sections/7 templates copied unchanged; starter inventory accepted; no blanket new methodological endorsement",
+    "current_plant_prompt": "Whole exact reviewed rubric-v1 plus plant-operational-adapter-v1.json. Historical executable prompt remains unchanged for original-version provenance, never competing current instruction. Exact assembled hash pinned at release/run."
+  },
+  "bootstrap_counts": {
+    "articles": 96,
+    "sections": 21,
+    "templates": 7
+  },
+  "derived_copy_drift": [
+    {
+      "id": "REF-DRIFT-C12",
+      "source": "plant-rubric-executable.ts and early rubric-v1 change-log/early review paragraphs",
+      "current_rule": "at least biweekly (14-day) cadence target; watch21/direct28; weekly rhythm legitimate",
+      "disposition": "preserve originals; derived target prompt explicitly applies final C12 disposition rather than repeating open-parameter wording"
+    },
+    {
+      "id": "REF-DRIFT-PRAYER",
+      "source": "rubric-v1.md Lens5/Lens7 and executable/criterion copy",
+      "current_rule": "Prayer rhythms feed Lens5; Prayer Leader is separate coverage responsibility, not ninth all-eight criterion or proof of prayer",
+      "disposition": "preserve originals and correct only separately versioned derived operational copy"
+    },
+    {
+      "id": "REF-DRIFT-EVIDENCE",
+      "source": "phase-exit-criteria.ts/plant-rubric-executable.ts historical proxies",
+      "current_rule": "saved explicit training assignments, native values docs, dated real relationship/worship/area/promotional evidence, formal debrief and guest cue; exact current contract in product spec",
+      "disposition": "new operationalization version, not rewrite of source thresholds or prior assessments"
+    }
+  ],
+  "known_source_limits": [
+    "Original external SME Google Doc not newly fetched; repository review disposition and exact hashed source artifacts are available.",
+    "Pinned alpha object/worktree and original Guide note remain unavailable; no new claims about their bytes.",
+    "Official geography full dataset is not in starter payload; checksum/candidate-import proof remains a future reference gate.",
+    "Bootstrap MDX prior syntax verification is preserved evidence, not a new semantic or execution test.",
+    "Old stored embeddings have absent model provenance and mismatched/obsolete chunks; never bootstrap them.",
+    "The 26 synthetic reference arithmetic/group/projection checks passed locally; no model semantic, DB race, provider, driver or runtime acceptance test was run."
+  ],
+  "catalog_inventory": {
+    "launch_milestones": 9,
+    "launch_tasks": 23,
+    "launch_task_counts_by_milestone": [
+      3,
+      3,
+      2,
+      2,
+      3,
+      3,
+      2,
+      3,
+      2
+    ],
+    "inventory_path": "docs/reference/launch-template-inventory.json",
+    "source_sha256": "81935ef968ba4864bafb38ee1326b615f21e3cedd6b4a4fd1c7e47389da05485",
+    "historical_count_disposition": "22 is a stale prose count; preserve all 23 source task identities.",
+    "phase_checklist_template_keys": 20,
+    "document_templates": 11,
+    "ministry_team_templates": 10,
+    "system_communication_templates": 7
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "authority": "Current shared architecture/subject contracts; no unresolved historical aliases.",
+  "contracts": {
+    "C0-DOMAIN-TRANSACTION": {
+      "path": "docs/architecture/core.md",
+      "section": "One short transaction protocol"
+    },
+    "C0-TIME": {
+      "path": "docs/product/tasks.md",
+      "section": "REQ-TSK-018 \u2014 Time types and deterministic DST resolution",
+      "also_read": [
+        "docs/architecture/core.md",
+        "docs/product/meetings-follow-up.md"
+      ]
+    },
+    "SEC-CURRENT-AUTH": {
+      "path": "docs/architecture/security.md",
+      "section": "Data isolation and projections"
+    },
+    "SEC-PRIVATE-ORIGINAL-AUTHOR": {
+      "path": "docs/product/identity-access.md",
+      "section": "REQ-IDN-031 \u2014 Private care is author-native only",
+      "also_read": [
+        "docs/architecture/audit.md"
+      ]
+    }
+  }
+}

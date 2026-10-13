@@ -1,0 +1,2246 @@
+{
+  "scope": "schema",
+  "status": "future-not-run",
+  "cases": [
+    {
+      "id": "AI44-001",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Privacy policy rendered against redacted verified actual sharing/training/abuse-retention/provider-state settings and ordinary product screens.",
+      "expected": "Privacy policy describes actual verified program-sharing/training use separately from abuse retention and disabled optional Responses state; no repeated notice in each app workflow.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-010",
+        "WP-081"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-002",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Claimed enrollment/credits with no verified operator evidence, then redacted actual org/project agreement/settings evidence in isolated setup.",
+      "expected": "Enrollment/complimentary credits are user-stated only until authorized operator records redacted actual organization/project settings and applicable contract; no invented verification.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-050",
+        "WP-081"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-003",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Synthetic and confirmed permitted non-sensitive development inputs versus confidential/real pilot data at every model/tool/trace path.",
+      "expected": "Development shared-program traffic uses synthetic or otherwise confirmed permitted non-sensitive/non-confidential/non-proprietary input/output; real free pilot data has the same provider constraints.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-050",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-004",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Paid-customer transition with sharing enabled or ZDR/model/region/endpoint/cache/SDK path unverified; separately configured valid control.",
+      "expected": "Before paid-customer AI data processing, operator disables optional program sharing and verifies approved actual organization/project ZDR, endpoint/model/region/cache and SDK path. No unverified automatic transition or release claim.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-042",
+        "WP-043",
+        "WP-050",
+        "WP-081"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-005",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Unavailable or unverified actual ZDR during paid-data inference request, with synthetic eval valid control.",
+      "expected": "If ZDR is unavailable/unverified at paid-customer transition, the affected customer-data inference path remains blocked; synthetic design/evaluation can continue. Nothing auto-bypasses controls.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-043",
+        "WP-050",
+        "WP-081"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-006",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "Privatecare/contact/modeltrace canaries and revokedsource across every destination; optional Responses state disabled; claimedstore:false only.",
+      "expected": "Every model destination, tool and trace path preserves minimum necessary currently authorized input, exact read grants, private check-in exclusion and application-owned history. store:false alone is not ZDR.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-042",
+        "WP-043",
+        "WP-050",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AI44-007",
+      "requirement": "AI development and production privacy boundary",
+      "fixture": "CurrentEvry launcher/context/review contract and configured numericbudget/reviewexpiry; attempted unsupported30day telemetryretention claim.",
+      "expected": "Use the current contextual Evry UI and exact review protocol. Numeric execution/model/review budgets are explicit engineering contracts; no invented user-approved30day telemetry/audit retention. Actual provider privacy and lifecycle controls remain verified gates.",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-004",
+        "EVR-008",
+        "EVR-009",
+        "EVR-019",
+        "EVR-021",
+        "EVR-025",
+        "EVR-029",
+        "EVR-030",
+        "EVR-032",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-021",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-031",
+        "PI-032",
+        "PI-035",
+        "PI-036",
+        "PI-037",
+        "PI-042",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-037--PI-037",
+        "AC-PI-042--PI-042",
+        "AC-EVR-001--EVR-001",
+        "AC-EVR-002--EVR-002",
+        "AC-EVR-003--EVR-003",
+        "AC-EVR-004--EVR-004",
+        "AC-EVR-008--EVR-008",
+        "AC-EVR-009--EVR-009",
+        "AC-EVR-019--EVR-019",
+        "AC-EVR-021--EVR-021",
+        "AC-EVR-025--EVR-025",
+        "AC-EVR-029--EVR-029",
+        "AC-EVR-030--EVR-030",
+        "AC-EVR-032--EVR-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-050",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "configuration",
+        "request",
+        "output-inspection",
+        "operator-evidence"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-001",
+      "requirement": "Atomic attributable mutation",
+      "fixture": "Fault current change/history/receipt/audit/required effect insertion separately then valid/replayed/no-op control.",
+      "expected": "Any required insert failure rolls meaningful mutation back; success rows correlate exactly; replay/no-op returns original IDs with no duplicate successful event.",
+      "feature_ids": [
+        "EVR-100",
+        "MTG-012",
+        "OPS-005"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-012--MTG-012",
+        "AC-OPS-005--OPS-005",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-053"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-002",
+      "requirement": "Typed audit subject/actor/scope",
+      "fixture": "Forge scope/subject/actor/origin/approval/execution, wrong organization kind, double owner and model supplied actor; validhuman/service controls.",
+      "expected": "Typed append constructs actor/scope from trusted context and validates lineage; spoofed/foreign values reject. Service has no invented human; exact human reviewer and digest retained.",
+      "feature_ids": [
+        "EVR-100",
+        "EVR-101",
+        "IDN-005"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100",
+        "AC-EVR-101--EVR-101",
+        "AC-EVR-EFFECT--EVR-101"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-053"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-003",
+      "requirement": "Redaction and bounded event",
+      "fixture": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signedURL canaries and metadata2048/2049UTF8bytes.",
+      "expected": "Action allowlist drops/refuses forbidden metadata, <=2048accepted correct shape, >2048rejects and rolls mutation back. No default rows/diff dump.",
+      "feature_ids": [
+        "EVR-100",
+        "OPS-003",
+        "PI-035"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-003--OPS-003",
+        "AC-PI-035--PI-035",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-004",
+      "requirement": "Private-care no central existence",
+      "fixture": "Create/read/correct native check-in and nudge; inspect audit/log/trace/export/model/context/RSC denied paths and account purge receipt.",
+      "expected": "Only original-author native history holds subjects/periods; no broad body/existence/ID/time/count/calendar/nudge metadata or PI revision. Purge receipt contains no private-care counts.",
+      "feature_ids": [
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-039",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-005",
+      "requirement": "Scoped internal audit access",
+      "fixture": "TenantAdmin, orgAdmin affiliatedON, genericplatformadmin and scopedinvestigator; cursor search/export and wrong resource context.",
+      "expected": "Only explicitly scoped purpose/grant investigator sees approved bounded projection and its access is audited. No broad user auditbrowser or orgplant audit grant.",
+      "feature_ids": [
+        "IDN-005",
+        "OPS-011"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-OPS-011--OPS-011"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-006",
+      "requirement": "Minimal attribution and ownership cleanup",
+      "fixture": "Delete account that authored plant document/human evidence/Launch/audit; private account audit; delete plant with independent orgending receipt.",
+      "expected": "Live actor links cleared and scope-local opaque tombstone only; no crossscope map/name/email. Shared owned evidence survives personal deletion, own/private audit purges. Plant purges owned details, counterpart retains minimum legit history only.",
+      "feature_ids": [
+        "IDN-026",
+        "LCH-007",
+        "PPL-015"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026",
+        "AC-PPL-015--PPL-015",
+        "AC-LCH-007--LCH-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-007",
+      "requirement": "Append permissions and truthful failures",
+      "fixture": "Ordinary runtime role attempts auditUPDATE/DELETE/direct invalidappend; rollback command then safe denial append; provider accepted vs delivered/out-of-order failure.",
+      "expected": "Ordinary writer cannot update/delete/bypass typed append validation; policy cleanup distinct role. No successful event for rollback; separate failure truthfully recorded. Accepted never delivered without evidence; duplicate callbacks no new business event.",
+      "feature_ids": [
+        "COM-005",
+        "NTF-010",
+        "OPS-005"
+      ],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005",
+        "AC-NTF-010--NTF-010",
+        "AC-OPS-005--OPS-005"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-028",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUDIT-008",
+      "requirement": "Restore cannot revive purged audit or subjects",
+      "fixture": "Restore beforeaccount/plantpurge snapshot with old actorlinks, schedules and objects; apply current witness and original copy expiry.",
+      "expected": "Before any access restored dataset scrubs/purges under current witnesses, blocks old intents and preserves minimal legitimate attribution only; no universal auditretention exception or reset expiry.",
+      "feature_ids": [
+        "IDN-026",
+        "OPS-005"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-005--OPS-005"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-050",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-001",
+      "requirement": "Credential success never implies domain grant",
+      "fixture": "Fault after auth credential commit and after each account/token/seat/Person/audit/intent boundary.",
+      "expected": "Pending authenticated identity has only self/resume/cancel authority; complete domain UoW either all token+grant+Person+receipt+audit+mail intent commits or none.",
+      "feature_ids": [
+        "IDN-002",
+        "IDN-013"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-013--IDN-013"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-005",
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-002",
+      "requirement": "Accept/revoke/expiry race",
+      "fixture": "Separate connections accept same invitation twice, revoke concurrently and run exact expiry-boundary attempt.",
+      "expected": "One legal atomic winner or safe refusal; token never grants after revoke/expiry, no duplicate seat/link/provisioning.",
+      "feature_ids": [
+        "IDN-017",
+        "IDN-019"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-006",
+        "WP-008"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-003",
+      "requirement": "Resume requires actual identity proof",
+      "fixture": "Existing and unknown emails, stolen invitation preview, account-exists credential failure, changed normalized registration intent.",
+      "expected": "Non-enumerating responses; resume only actual authentication/mailbox proof and intended account, mismatched recipient/digest refused without new grant.",
+      "feature_ids": [
+        "IDN-002",
+        "IDN-009",
+        "IDN-017"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-009--IDN-009",
+        "AC-IDN-017--IDN-017"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-004",
+      "requirement": "Domain idempotency and lost response",
+      "fixture": "Commit then lose response/session refresh; replay same key/digest and replay changed role/recipient payload; fault audit insert.",
+      "expected": "Same saved receipt and one effect on replay; changed digest conflict. Audit failure rolls domain acceptance back while credentials remain resumable.",
+      "feature_ids": [
+        "EVR-100",
+        "IDN-002",
+        "IDN-013"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-013--IDN-013",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-005",
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-005",
+      "requirement": "Credential/session/proof concurrency",
+      "fixture": "Password change/reset/email-change race with real pinned adapter; own current session and other sessions; trusted-IP limiter bursts, successful own-key cleanup.",
+      "expected": "Exact intended session preservation/revocation and stale proof invalidation under credential revision; no session/cookie-only stale actor. Identifier/kind cleanup never clears other account/IP windows; no tokens/logged emails.",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-007",
+        "IDN-008",
+        "IDN-009"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-007--IDN-007",
+        "AC-IDN-008--IDN-008",
+        "AC-IDN-009--IDN-009"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-005",
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-006",
+      "requirement": "Narrow deletion cancellation proof",
+      "fixture": "Pending account orplant deletion, revoked ordinary session, native fresh proof at deadline-1ms/deadline/deadline+1ms and delayed purge.",
+      "expected": "Only status/cancel before deadline; all ordinary data/Evry blocked. Exact deadline denies cancel even if content still retained; stale request version cannot cancel/purge.",
+      "feature_ids": [
+        "IDN-026",
+        "IDN-028"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026",
+        "AC-IDN-028--IDN-028"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-007",
+      "requirement": "Protected Owner and no grant union",
+      "fixture": "Delete lastOwneraccount; independent platform role/leadPerson/org association; end seat then ordinary invitation.",
+      "expected": "Manual separately approved Owner resolution blocks destructive purge. No transfer/claim/title engine or authority union; new grant requires ordinary valid path.",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-019",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-006",
+        "WP-008",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "AUTH-008",
+      "requirement": "Pinned auth/driver/Next integration",
+      "fixture": "Node24+pinned BetterAuth/Next+selected PostgreSQL driver in isolated deployment; actual handler/action cookie renewal, verification storage, interactive locks, Origin and proxy behavior.",
+      "expected": "Target field mapping and staged protocol verified through real requests/DB; credentials remain only BetterAuth owner. Incompatibility blocks auth slice, repaired within selected stack; no fabricated shared UoW or second auth system.",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-028",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-028--IDN-028",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-005"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-001",
+      "requirement": "Enumerated physical target keys and ownership",
+      "fixture": "Two plants, two sending churches, one network and two accounts; attempt each compound FK with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Direct SQL owner controls cover every non-tagged child\u2192tagged parent, including exact organization run\u2192demand/job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover none/all-null; local_date/date-only; resolved_instant/date+time+instant+confirmed zone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Direct SQL profile controls use partial independently nullable plant locality/profile, name lengths 1/255/256, street500/501, locality255/256, description10000/10001 and organization phone100/101/email254/255/HTTPS URL2048/2049; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with account_id=owner_account_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task SQL controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
+      "expected": "Every enumerated valid same-owner insert/update succeeds; wrong owner/kind/null shape rejected by actual DDL/trigger. Catalog matches the current enumerated physical tables and documented fields, unique keys and immutability; no source-only coaching/background fields. Conditional serialized scope triggers and compound owner keys enforce those controls independently of runtime grants. A full one-level child Task retains its own assignee/completion history; Checklist names resolve only to the approved child-task row and history. Persisted job states and pre_launch_practice type are canonical, with display aliases explicitly mapped only. Profiles persist only closed typed columns; null clears only the selected nullable field, with no geography/timezone inference. Own-org Owner/Admin edits succeed with CAS/audit; Member/foreign/plant-role edits deny. Authenticated-self Discovery context reaches only its currently authorized own preplant docs/global Wiki/Discovery floor, zero plant/org grants or auth/secret/private-care model surfaces.",
+      "feature_ids": [
+        "EVR-001",
+        "IDN-005",
+        "IDN-011",
+        "IDN-013",
+        "IDN-016",
+        "IDN-026",
+        "OPS-005",
+        "PI-043",
+        "PI-044",
+        "PPL-017",
+        "TSK-002",
+        "TSK-005",
+        "TSK-008"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-011--IDN-011",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-016--IDN-016",
+        "AC-IDN-026--IDN-026",
+        "AC-PPL-017--PPL-017",
+        "AC-TSK-002--TSK-002",
+        "AC-TSK-005--TSK-005",
+        "AC-TSK-008--TSK-008",
+        "AC-OPS-005--OPS-005",
+        "AC-EVR-001--EVR-001",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-002",
+      "requirement": "One active seat and protected Owner",
+      "fixture": "Two concurrent accepts for same account into different tenants; attempt last-Owner demotion/removal/account purge; valid Member end and new ordinary invitation after end.",
+      "expected": "At most one active seat; one legal race winner. Last Owner change/purge safely blocks for separately approved manual resolution. Ending old seat never grants new one; ordinary invitation controls succeed.",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-017",
+        "IDN-019",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-006",
+        "WP-008"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-003",
+      "requirement": "Typed org identity and independent bridges",
+      "fixture": "A plant affiliated with sending churchesA/B and networkN; org run points to plant ID, wrong kind or parent-network-only reach; endA whileB valid.",
+      "expected": "Only exact kind+ID FKs accepted; no org result points to plant. EndA revokes A-bound content/projections, preservesB and independent direct grants; network parent yields no inferred plant grant.",
+      "feature_ids": [
+        "IDN-020",
+        "IDN-021",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-020--IDN-020",
+        "AC-IDN-021--IDN-021",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-007",
+        "WP-009",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-004",
+      "requirement": "Saved training assignment episodes",
+      "fixture": "Review bulk teams/leaders with overlap and selector revisions; save person/program episodes; mutate live membership; concurrently duplicate assign/remove/correct; completion without assignment and assignment without completion.",
+      "expected": "Saved exact deduplicated roster unchanged by live team edits; one current episode/person/program; explicit versioned change history. Completion/assignment independent; earned/revoked/corrected history retained and empty applicability Unknown.",
+      "feature_ids": [
+        "PI-008",
+        "TEAM-008",
+        "TEAM-009"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009",
+        "AC-PI-008--PI-008"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-040"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-005",
+      "requirement": "Launch one aggregate and named Person links",
+      "fixture": "Name-only guest, actual aggregate attendance larger than named count, submitted debrief then new draft, corrected submission, separately reviewed category summary, Person merge collision.",
+      "expected": "Same-plant named relation unique; count independent. New draft preserves prior submitted evidence; current aggregate and append history agree. Summary explicit category provenance; no Finish receipt/Meeting/auto-Vision follow-up.",
+      "feature_ids": [
+        "DOC-016",
+        "LCH-006",
+        "LCH-007"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-DOC-016--DOC-016"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-015",
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-006",
+      "requirement": "Actual Wiki reader/source/version and lasting credit",
+      "fixture": "Owner0/6 and eligible actual lead6/6; two readers each3/6; exactly80 versus80.01; accessible org fork of same canonical article; meaningful update then typo; end source affiliation.",
+      "expected": "One eligible actual reader complete all six; no pooling. Strict>80 succeeds; current accessible published same canonical identity counts. Actual source/revision attributed; updates retain credit and meaningful notice; departed old body inaccessible. Phase1 creation independent.",
+      "feature_ids": [
+        "IDN-013",
+        "PI-001",
+        "WIKI-004"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-013--IDN-013",
+        "AC-WIKI-004--WIKI-004",
+        "AC-PI-001--PI-001"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-034",
+        "WP-035",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-007",
+      "requirement": "Private original author and stable week",
+      "fixture": "AuthorsA/B in exactplant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
+      "expected": "Unique author+plant+ordinal; original author/start/zone immutable. No overwrite/cross-author body or existence; one serialized pending transition, no extra streak credit; missing/steady breaks run, native support question only.",
+      "feature_ids": [
+        "IDN-010",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-010--IDN-010",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-010",
+        "WP-039"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-008",
+      "requirement": "Immutable native document ownership and selected copy",
+      "fixture": "Private account document+revisions/import, reviewed selected carry-forward into newplant copy, forge current/prior revision from another doc/owner, then original account purge. Create a selected copy with current source-account read plus target-plant Owner/Admin proof; forge another private owner or stale source/plant lifecycle; try rebinding provenance or foreign owner current revision/import/object. Purge the original account and inspect every tagged private binding alongside the independent plant copy.",
+      "expected": "Same document/owner triggers reject foreign revision; copy is new plant-owned bytes with hash provenance. Original private content purged, shared plant copy survives with minimal author attribution and no permanent personal dependency. Only the provenance-only copied_from_document_id may cross account\u2192plant at fresh authorized copy. New selected revision/bytes belong to destination; current/import/object bindings remain same-owner. Original purge detaches nullable copied_from_document_id and retains source hash, never a body/read grant/dependency. Account-private bindings/body purge, shared plant content survives with minimum attribution; assistant/recipient-private variants purge by their actual private owner.",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-016",
+        "IDN-013"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-013--IDN-013",
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-016--DOC-016"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-006",
+        "WP-036",
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-009",
+      "requirement": "Every Person consumer registers",
+      "fixture": "Enumerate all 28 normalized FK and7snapshot references; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
+      "expected": "Every consumer declares collision/rewrite/inverse/retirement policy and later producer fixtures; crossplant rejects. Move manifest records exact pre/post rows; immutable snapshots/historical merge identities preserved, operational selectors hide retired person.",
+      "feature_ids": [
+        "LCH-006",
+        "MTG-010",
+        "PPL-003",
+        "PPL-017",
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-003--PPL-003",
+        "AC-PPL-017--PPL-017",
+        "AC-MTG-010--MTG-010",
+        "AC-TEAM-008--TEAM-008",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-015",
+        "WP-019",
+        "WP-022",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-010",
+      "requirement": "Retained guarded Unmerge",
+      "fixture": "Review merge and immediately inverse; change a moved row, duplicate-role/training/card/attendance collision and delivered/unknown provider effect before inverse; unauthorized/crossplant actor.",
+      "expected": "Clean recorded post-state reverses with history+receipt; changed/contradictory state refuses with actionable correction and no silent loss. Provider effects are not undone/resent; sourceUnmerge remains native capability, not replaced with operator workaround.",
+      "feature_ids": [
+        "COM-005",
+        "PPL-015",
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-015--PPL-015",
+        "AC-PPL-017--PPL-017",
+        "AC-COM-005--COM-005"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-011",
+      "requirement": "Per-reference purge and nonresetting witness",
+      "fixture": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after30day fence; purge with cyclic current pointers and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, validated findings, regional slices, named lens rows, contributor/run manifest, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy.",
+      "expected": "Normal access denied from request, cancellation-only proof; exact request revision arbitrates cancel/purge. Shared records survive personal deletion; private bytes/credentials purge. Plant purge preserves independent orgs. Current witness applied before reopening; copy expiry seven days from completed live purge never reset. No publicorgdelete. Request/revocation immediately denies affected copied NI history/current inputs and fences jobs/publication, clears affected current pointer and advances exact org revision. At plant live purge, whole affected mixed run/result and contributor/body/feedback/registered derivatives purge; surviving B/org remain and can recompute. No preserved body snapshot; separate minimum org receipt only. All source-containing recovery copies expire on A original live-purge+7-day clock, never org ownership/recopy/restore reset.",
+      "feature_ids": [
+        "DOC-016",
+        "IDN-026",
+        "OPS-005",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-005--OPS-005",
+        "AC-DOC-016--DOC-016",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-050",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-012",
+      "requirement": "Material revision and publication transaction",
+      "fixture": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation.",
+      "expected": "Every allowed material writer advances source revision atomically; time-only demand creates fresh identity/asOf. CAS source/reference/current grants+claim generation rejects stale publish; prior valid current result survives; private care never invalidates or enters inputs.",
+      "feature_ids": [
+        "PI-021",
+        "PI-022",
+        "PI-037",
+        "PI-043"
+      ],
+      "acceptance_ids": [
+        "AC-PI-021--PI-021",
+        "AC-PI-022--PI-022",
+        "AC-PI-037--PI-037",
+        "AC-PI-043--PI-043"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-038",
+        "WP-043",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-013",
+      "requirement": "Durable job/effect/intent boundaries",
+      "fixture": "Concurrent tick claims, invocation loss before/after DB commit/provider acceptance, lease reclaim, late success, duplicate/out-of-order callbacks and unknown beyond provider-key window. Replay execution presentation labels pending/completed/blocked_unknown against canonical persisted ready/succeeded/reconcile; verify full child-task completion/reopen and recurring parent successor/child-copy fault rollback. Member owns parent A while child B belongs to another account: create using inherited current parent duty, reject explicit different-account/null assignee, then attempt B tick/reopen before/after reassignment. Owner/Admin valid explicit same-plant/null assignee controls succeed, omitted inherits parent. Member owns B under another assignee parent: valid child tick/reopen but parent edit forbidden. Race parent deletion with child creation. Import inert checklist definitions and complete recurring parent with completed child rows; fault each child/history/audit/intent insertion.",
+      "expected": "One claim/effect/logical slot; stale generation cannot publish. Committed intent survives crash; unknown never blindly resends/newkeys. Signed deduped callbacks preserve truthful state; bounded retry/reconcile terminal path and fair budget. Aliases never introduce another job enum or turn unknown into success/retry. Proper child tasks have their own status/history; recurrence creates fresh child rows with cleared completion facts and no child due/recurrence/contact hooks, and any child-copy/history/intent failure rolls back the affected completion transaction. Parent is never auto-finished by child ticks; no competing live checkbox counter/state exists. Parent-duty child creation never substitutes for child-own-duty completion; current reassignment determines the legal actor. General edit/assignment/deletion remains Owner/Admin. Parent delete covers concurrent children and records their history. Imported/successor checklist entries are real fresh task rows with optional eligible assignee, no child deadlines/recurrence/contact hooks and no inherited completion facts. All source checklist aliases reach those operations; top-level reports exclude independent child credit.",
+      "feature_ids": [
+        "COM-005",
+        "EVR-183",
+        "EVR-184",
+        "NTF-002",
+        "NTF-010",
+        "OPS-001",
+        "TSK-005",
+        "TSK-007",
+        "TSK-008"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-005--TSK-005",
+        "AC-TSK-007--TSK-007",
+        "AC-TSK-008--TSK-008",
+        "AC-COM-005--COM-005",
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-010--NTF-010",
+        "AC-OPS-001--OPS-001",
+        "AC-EVR-183--EVR-183",
+        "AC-EVR-EFFECT--EVR-183",
+        "AC-EVR-184--EVR-184",
+        "AC-EVR-EFFECT--EVR-184"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-028",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-014",
+      "requirement": "Reference release and source entitlement",
+      "fixture": "Release1 active; release2 derivative fail/incomplete, then complete+validated activate; concurrent activates; rollback; foreign org-source body via history/artifact/search/file/citation.",
+      "expected": "Only complete coherent manifest activates atomically; failed build leaves prior activation. Monotonic new rollback activation records previous; immutable article/source/version identity. Every body path rechecks current source, no retained departed corpus/adoption snapshot.",
+      "feature_ids": [
+        "PI-017",
+        "WIKI-001",
+        "WIKI-003",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-003--WIKI-003",
+        "AC-WIKI-010--WIKI-010",
+        "AC-PI-017--PI-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-033",
+        "WP-034",
+        "WP-035",
+        "WP-041"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SCHEMA-015",
+      "requirement": "Safe public feedback publication",
+      "fixture": "Private feedback contains name/email/screenshots/logs and adversarial tool instructions; frozen allowlisted public DTO; actual repo issue result then response lost; original author loses seat.",
+      "expected": "Automatic safe create/triage publishes only sanitized reviewed DTO, records actual repo+issue IDs; unknown reconciled without duplicate. Raw original withheld; own-status remains original-account native-only while lifecycle permits; feedback grants no tool/implementation authority.",
+      "feature_ids": [
+        "EVR-029",
+        "OPS-009"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-009--OPS-009",
+        "AC-EVR-029--EVR-029"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-049",
+        "WP-053"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-01",
+      "requirement": "Server-only adapters",
+      "fixture": "ClientComponent imports protected database/auth/storage/mail/model adapter; inspect emitted browser/RSC bundles for secrets.",
+      "expected": "Build rejects protected import; no credential/token/privatecanary in bundles/outputs.",
+      "feature_ids": [
+        "IDN-028",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-028--IDN-028",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-003",
+        "WP-048"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-02",
+      "requirement": "Current exact authority everywhere",
+      "fixture": "ForeignIDs,seatless/Member/deferredcoach token, spoofeduser/plant, revokedgrant, staleapprovedplan, guessedobject across read and effect.",
+      "expected": "Currentserverprincipal and exactscope/purpose at DAL+insidecommit+effect; no existence leak or privatecare tool.",
+      "feature_ids": [
+        "EVR-100",
+        "IDN-005",
+        "PPL-001"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-PPL-001--PPL-001",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-008",
+        "WP-011",
+        "WP-052",
+        "WP-053"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-03",
+      "requirement": "Actual BetterAuth integration",
+      "fixture": "Real login/reset/emailchange/logout/renewal, stalecredentialrace, stagedregistration rollback and cookiehandling.",
+      "expected": "One BetterAuth credentialowner, live session verification; pending resumableidentity noauthority. No parallel Supabase/custom auth or stalecookiemetadata.",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-007",
+        "IDN-008",
+        "IDN-009"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-007--IDN-007",
+        "AC-IDN-008--IDN-008",
+        "AC-IDN-009--IDN-009"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-005",
+        "WP-008"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-04",
+      "requirement": "Named DTO and global previews",
+      "fixture": "Unauthorized account/contact/assessment canaries in HTML/RSC/JSON/errors/streams/filemetadata/counts; crawler forgedUA to org Wiki.",
+      "expected": "Projection removes forbiddenvalues/existence; publicpreview globalapprovedonly regardlessUA.",
+      "feature_ids": [
+        "PI-043",
+        "PPL-001",
+        "WIKI-011"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-001--PPL-001",
+        "AC-WIKI-011--WIKI-011",
+        "AC-PI-043--PI-043"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-034",
+        "WP-044",
+        "WP-047",
+        "WP-054"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-05",
+      "requirement": "Cache revocation",
+      "fixture": "Alternate tenants through warmnavigation/prefetch/requestmemo/privateRSC/download, revokegrant thenread; globalvsorgcorpuscache.",
+      "expected": "No sharedpersistentprivate cache initially; request memo ends withrequest, no-store personal responses; future cache cannot bypass currententitlement.",
+      "feature_ids": [
+        "DOC-003",
+        "IDN-005",
+        "WIKI-001"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-DOC-003--DOC-003",
+        "AC-WIKI-001--WIKI-001"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-034",
+        "WP-044",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-06",
+      "requirement": "Origins and independently authenticated exceptions",
+      "fixture": "ForgedHost/x-forwarded-host/clientactorheaders, foreign/missingOrigin, unsafe redirect, GETmutation, unsignedmachine/webhook, replay unsubscribe/RSVP.",
+      "expected": "Browser mutating requests obey exactorigin/trustedproxy policy; GET sideeffectfree. Exception verifies own sealed/signed auth+subject+expiry+replay; no headertrust.",
+      "feature_ids": [
+        "IDN-028",
+        "MTG-009",
+        "NTF-012"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-028--IDN-028",
+        "AC-MTG-009--MTG-009",
+        "AC-NTF-012--NTF-012"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-005",
+        "WP-028",
+        "WP-031"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-07",
+      "requirement": "Server parsing and atomic budgets",
+      "fixture": "MalformedUUID/filters/order/fields, whitespace-only names, omittedvsnull, massassignment/oversize, forgedIP, parallel limiterburst, changedidem digest. Plant/org profile patches include independent null clears, boundary lengths, unknown nested contact/profile keys, malformed email/HTTPS URL, attempted kind/ID/lifecycle/material-revision assignment, own-org Owner/Admin/Member and foreign/plant-only role controls.",
+      "expected": "Server allowlist/bounds and trustedIP checks; meaningful name-only validcontrol succeeds. Safe errors/nonenumeration; changedkey conflicts, quotas bounded underconcurrency. Closed mappings persist only the named bounded nullable columns; own-org Owner/Admin valid control commits CAS/audit, Member/foreign/plant-only edits deny. Plant country/profile may clear independently and no locality or timezone is inferred. Invalid shape/length/URL/email/immutable fields fail before effects; direct SQL column-bound checks reject overflow.",
+      "feature_ids": [
+        "COM-005",
+        "IDN-001",
+        "IDN-011",
+        "IDN-026",
+        "PPL-002"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-011--IDN-011",
+        "AC-IDN-026--IDN-026",
+        "AC-PPL-002--PPL-002",
+        "AC-COM-005--COM-005"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-005",
+        "WP-007",
+        "WP-010",
+        "WP-013",
+        "WP-028",
+        "WP-042"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-08",
+      "requirement": "Private upload/download and renderer",
+      "fixture": "SpoofedMIME/format/traversal/oversize/decompressionheavyOffice/CSVformula, crossownerintent/finalize/download, expiredhandle/deletedsubject/revokedgrant; realPDF/DOCX/XLSX bytes.",
+      "expected": "Actualvalidation/limits and sameownerfreshgrant/lifecycledeny badpaths; validformats rendercorrect actualbytes; spreadsheetformulasneutralized; signedURLexpiry limitationstruthful.",
+      "feature_ids": [
+        "DOC-002",
+        "DOC-015",
+        "PPL-018",
+        "PPL-019"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-018--PPL-018",
+        "AC-PPL-019--PPL-019",
+        "AC-DOC-002--DOC-002",
+        "AC-DOC-015--DOC-015"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-013",
+        "WP-037",
+        "WP-054"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-09",
+      "requirement": "Signed monotonic mail callbacks",
+      "fixture": "Badrawbytes/signature/timestamp, replay/outoforder/unknownproviderIDs, duplicateevents and crossscope IDinjection.",
+      "expected": "Verifyfirst; expectedIDmaps ownedintent; eventdedupe+monotonicapply atomic, no foreignreceipt/suppression mutation orresend.",
+      "feature_ids": [
+        "COM-005",
+        "NTF-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005",
+        "AC-NTF-010--NTF-010"
+      ],
+      "work_packages": [
+        "WP-028",
+        "WP-031"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-10",
+      "requirement": "Environment isolation and explicit fixtures",
+      "fixture": "Mixprodpreview DB/object/sender/callback/model/trigger config; attemptstartupwipe/customerclone/unsafe fixture reset.",
+      "expected": "Mixedconfiguration failsclosed; no prodprivatepreview or realtesteffects; explicitprotectedfixture/refbootstrap. Pins/advisories reviewed, noinstallclaimed.",
+      "feature_ids": [
+        "OPS-006",
+        "OPS-007",
+        "OPS-008"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-006--OPS-006",
+        "AC-OPS-007--OPS-007",
+        "AC-OPS-008--OPS-008"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-11",
+      "requirement": "Telemetry/HTML and operator limits",
+      "fixture": "Credential/address/private narrative/promptattachmentcanaries in errors/logs/traces/RSCactionclosures; editor/MDX/HTML scriptinjection; unscopedoperatorinspect.",
+      "expected": "Minimalcorrelation/safeerrors only; secrets/privatecaremetadataabsent. Sanitization/CSP denies executableinput, exactoperatorpurpose/grantrequired.",
+      "feature_ids": [
+        "EVR-100",
+        "OPS-003",
+        "WIKI-001"
+      ],
+      "acceptance_ids": [
+        "AC-WIKI-001--WIKI-001",
+        "AC-OPS-003--OPS-003",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-034",
+        "WP-050",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "SEC-12",
+      "requirement": "Durable effect after disconnect",
+      "fixture": "Crash/disconnect/cancel/afterfailure before/after DBcommit/provideracceptance/streamresponse; restartchangedproposal/revokedactor.",
+      "expected": "Committedintent+exactapprovaldigest survive, replay returnsreceipt; noerase/doubleeffect/expandedaudience. Freshresumedauthority, truthfulpartial/unknown; no implicitnewworker.",
+      "feature_ids": [
+        "EVR-100",
+        "EVR-101",
+        "NTF-002"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100",
+        "AC-EVR-101--EVR-101",
+        "AC-EVR-EFFECT--EVR-101"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-031",
+        "WP-043",
+        "WP-053",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "build",
+        "request",
+        "integration",
+        "output-inspection"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-001",
+      "requirement": "Direct SQL owner constraints",
+      "fixture": "All exact scope variants and each referenced table use valid control plus foreign plant/org/double owner/null shape.",
+      "expected": "Actual FK/CHECK/trigger rejects wrong ownership/kind; valid same-owner control succeeds, nullable typed-parent equality cannot skip through MATCH SIMPLE.",
+      "feature_ids": [
+        "IDN-005",
+        "OPS-005"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-OPS-005--OPS-005"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-002",
+      "requirement": "Identifier substitution across reads",
+      "fixture": "Foreign/seatless/Member/title-only actor substitutes IDs in get/list/count/search/export/history/RSC/stream/file.",
+      "expected": "All paths deny or safely omit without canary/existence leak and apply current named projection; actor cannot choose trusted scope.",
+      "feature_ids": [
+        "DOC-003",
+        "IDN-005",
+        "PPL-001",
+        "PPL-019"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-PPL-001--PPL-001",
+        "AC-PPL-019--PPL-019",
+        "AC-DOC-003--DOC-003"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-011",
+        "WP-047",
+        "WP-052"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-003",
+      "requirement": "Independent orgsharing and source access",
+      "fixture": "Plant hasA/B and parentchurch/network relations; health/category differs, endA withBdirectgrant valid; departed Wiki citations warm.",
+      "expected": "AON never suppliesBOFF; endedA revoked in every projection/body/cache;B and independentvalidgrant preserved. Parent network gives no inferred reach; history grants no body.",
+      "feature_ids": [
+        "IDN-021",
+        "IDN-022",
+        "PI-043",
+        "WIKI-001"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-022--IDN-022",
+        "AC-WIKI-001--WIKI-001",
+        "AC-PI-043--PI-043"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-009",
+        "WP-034",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-004",
+      "requirement": "Revoke across preview/claim/finalize",
+      "fixture": "Revoke role/affiliation/sharing during reviewed preview, jobclaim/publication, uploadintent/finalize/download and warmcache read.",
+      "expected": "Fresh authority/lifecycle/version recheck denies stale commit/effect/body; prior committed effect receipt remains truthful, no resurrection/retry.",
+      "feature_ids": [
+        "DOC-015",
+        "EVR-100",
+        "IDN-019",
+        "NTF-002"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-019--IDN-019",
+        "AC-NTF-002--NTF-002",
+        "AC-DOC-015--DOC-015",
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-028",
+        "WP-037",
+        "WP-050",
+        "WP-053"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-005",
+      "requirement": "Single active seat and no roleunion",
+      "fixture": "Attempt simultaneous differenttenant memberships; independentplatform+orgrelationship+leadtitle; stale session acting scope.",
+      "expected": "One active seat maintained; explicit currentscope only, no combining grants or duplicating credentials; pendingdomain cannot act.",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-019"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-019--IDN-019"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-005",
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-006",
+      "requirement": "Original-author care denial",
+      "fixture": "TwoOwner/Admin accounts inplant and outsideorg/operator/model callers inspect own/other answers/history/existence/period/nudge paths.",
+      "expected": "Originalauthor currenteligible account only native own access; no crossauthor metadata at all. Titletransfer/otherAdmin does not move private stream.",
+      "feature_ids": [
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-039",
+        "WP-050",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-007",
+      "requirement": "Deletion isolation",
+      "fixture": "Personalpurge with sharedPerson/training/meeting/Launch records and privateartifacts; exactplantpurge with otherorg/account data.",
+      "expected": "Shared church history survives personaldeletion minimalattribution; private data removed. Plant purge deletes only owned subject/bytes/intents, independentorg/account scopes remain. No new organizationdelete operation.",
+      "feature_ids": [
+        "IDN-026",
+        "LCH-006",
+        "MTG-010",
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026",
+        "AC-MTG-010--MTG-010",
+        "AC-TEAM-008--TEAM-008",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-050",
+        "WP-057"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-008",
+      "requirement": "Prompt/tool scope spoofing",
+      "fixture": "Feedback,attachment,reference/model text requests raw SQL, forgedactor/org, anotherapproval or NIrawmanifest.",
+      "expected": "Untrusted text grants no tool/SQL/approval/scope; read and effect policies deny and no private canaries enter prompts/output/traces.",
+      "feature_ids": [
+        "EVR-100",
+        "EVR-101",
+        "PI-043"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-100--EVR-100",
+        "AC-EVR-EFFECT--EVR-100",
+        "AC-EVR-101--EVR-101",
+        "AC-EVR-EFFECT--EVR-101",
+        "AC-PI-043--PI-043"
+      ],
+      "work_packages": [
+        "WP-052",
+        "WP-053",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    },
+    {
+      "id": "TEN-009",
+      "requirement": "Runtime role and defense-in-depth",
+      "fixture": "Selected non-owner runtime role, migration/backup and auditcleanup roles; pooled transaction scope reuse. If RLS later selected, missingcontext/noBYPASSRLS/ownerbypass/globalbridge controls.",
+      "expected": "Minimum grants separated; ordinary auditupdate/delete blocked; scoped DAL+constraints proven. RLS conditional proof only if adopted, no claim hosting automatically isolates tenants; pooled context never leaks.",
+      "feature_ids": [
+        "IDN-005",
+        "OPS-005"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-OPS-005--OPS-005"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "method": "Use isolated synthetic fixtures, real selected driver/runtime roles and separate connections for races; inspect saved rows and actual transport/output.",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+    }
+  ]
+}

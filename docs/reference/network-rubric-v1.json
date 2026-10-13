@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "rubric_id": "everyfield-network",
+  "version": "v1",
+  "author": "EveryField",
+  "authored_on": "2026-10-13",
+  "scope": "Operational patterns in one exact organization authorized portfolio; launch progress and coordination, not church health, pastoral/people qualification or census-wide benchmarks.",
+  "separate_from_original_sme_plant_rubric": true,
+  "weights": null,
+  "scores": null,
+  "plant_ranking": false,
+  "new_consent": false,
+  "model_evaluation_status": "future-not-run",
+  "eligibility": {
+    "subject": "Exact constrained organization ID+kind from current trusted context.",
+    "plant": "Current authorized exact-org affiliation/grant, shared_findings ON, currently released result, and every underlying category permission for the particular contribution.",
+    "missing_policy": "fail closed",
+    "pattern_minimum_distinct_relevant_contributors": 2,
+    "dedupe_key": "canonical PlantId per rule/key/group; repeated affiliations/versions/evidence do not multiply support",
+    "health_off": "Independently allowed identity/link may show Not shared; no state/reason/input/contribution/denominator credit.",
+    "missing_input": "Unknown; absent values excluded from substantive observed denominator; not negative/healthy/zero.",
+    "zero": "Real observed zero retained as an observed value but does not satisfy a positive-gap selector.",
+    "prohibited": [
+      "individual people/person IDs/names",
+      "raw plant snapshots/assessments",
+      "interviews/4Cs/candidate details",
+      "private notes",
+      "private care including existence/history/calendar/nudge metadata",
+      "street addresses/coordinates",
+      "growth-source composition",
+      "foreign organization inputs",
+      "unreleased plant results"
+    ]
+  },
+  "groups": [
+    "region",
+    "state_province",
+    "country",
+    "whole_portfolio"
+  ],
+  "grouping": {
+    "minimum_applied": "independently for every rule/key at every level",
+    "whole_portfolio": "all currently eligible plants in exact organization, including unresolved geography; independently deduplicated",
+    "region": "one actual primary US metro/micro CBSA association, pinned release/code/type; multistate region intact",
+    "state_province": "actual country-qualified state/province, independent of CBSA",
+    "country": "actual country, no guessed US default",
+    "missing_region": "eligible larger known levels/whole remain available",
+    "no_sum_of_regional_subtotals": true
+  },
+  "rules": [
+    {
+      "id": "NIR-01",
+      "name": "Recurring shared concern",
+      "input": "Released organization-facing structured PI concern with stable concern_key and lens_key; all source-category grants passed.",
+      "selector": "For a fixed concern_key, count distinct eligible plants with that actual released concern. At least two support a pattern; no diagnosis is invented from a label.",
+      "numeric_claims": [
+        "support_count",
+        "observed_lens_count",
+        "support_count / observed_lens_count when denominator > 0"
+      ],
+      "next_step": "Offer an organization support conversation about this recorded launch-progress concern; leave cause and pastoral judgment to humans.",
+      "template": "{support_count} plants share this recorded {concern_key} concern among {observed_lens_count} plants with available shared evidence for this lens."
+    },
+    {
+      "id": "NIR-02",
+      "name": "Recurring shared strength",
+      "input": "Released organization-facing structured strength with stable lens_key and strength_key; current eligible evidence.",
+      "selector": "At least two distinct eligible plants have the same actual shared strength_key. Unknown/not_shared never count as a strength.",
+      "numeric_claims": [
+        "support_count",
+        "observed_lens_count",
+        "support_count / observed_lens_count when denominator > 0"
+      ],
+      "next_step": "Offer a voluntary exchange of recorded operational practice through authorized plant links; do not infer transferability, qualifications or guaranteed outcomes.",
+      "template": "{support_count} plants have a shared {strength_key} strength in the available evidence. A conversation may help the organization learn what they found useful."
+    },
+    {
+      "id": "NIR-03",
+      "name": "Near-launch preparation support",
+      "input": "Actual uncompleted launch status/date plus deterministically unresolved assignment or required-training gap, with full underlying category provenance.",
+      "selector": "For each eligible plant, 0 <= plant-local days_to_launch <= 30 AND (known unfilled required responsibility count > 0 OR known outstanding applicable required training obligations > 0). At least two qualifying distinct plants support the pattern. Near date alone does not qualify; missing gap/date is Unknown.",
+      "numeric_claims": [
+        "support_count",
+        "observed_launch_preparation_count",
+        "support_count / observed_launch_preparation_count when denominator > 0"
+      ],
+      "next_step": "Coordinate a bounded preparation support conversation with the affected authorized plants. Do not move dates, change phase, fill roles or claim launch failure.",
+      "template": "{support_count} plants within 30 calendar days of an uncompleted launch have a recorded assignment or required-training gap."
+    },
+    {
+      "id": "NIR-04",
+      "name": "Follow-up ownership support",
+      "input": "Shared aggregates of actual live originating-meeting follow-up obligations/tasks: overdue_count and unowned_overdue_count, actual local due dates; all underlying categories allowed.",
+      "selector": "At least two eligible distinct plants have observed overdue_count > 0. A separate unowned subclaim requires at least two distinct plants with unowned_overdue_count > 0. Completion/contact/waiver are distinct.",
+      "numeric_claims": [
+        "support_count",
+        "sum_overdue_obligations",
+        "unowned_support_count only when >=2",
+        "sum_unowned_overdue_obligations only when unowned_support_count >=2"
+      ],
+      "next_step": "Offer help reviewing existing task ownership and overdue obligations; do not blame a person or claim unsuccessful contact from task status.",
+      "template": "{support_count} plants have {sum_overdue_obligations} recorded overdue follow-up obligations in the available shared evidence."
+    },
+    {
+      "id": "NIR-05",
+      "name": "Genuine-acquisition momentum support",
+      "input": "Known valid first-adult-acquisition clock from historical genuine acquisitions, independently of current headcount; uncertainty/provenance carried.",
+      "selector": "Generate stalled theme only with at least two eligible distinct plants whose confirmed clock >=28 days. Generate slowed theme only with at least two whose confirmed clock is >=21 and <28 days. Do not double count stalled plants in slowed theme. Unresolved possible newer acquisition prevents old-date negative claim.",
+      "numeric_claims": [
+        "support_count",
+        "observed_growth_clock_count",
+        "support_count / observed_growth_clock_count when denominator > 0"
+      ],
+      "next_step": "Offer an operational growth conversation using the recorded timing; do not call a church unhealthy, forecast acquisition, infer conversions or erase genuine acquisitions after withdrawal.",
+      "template": "{support_count} plants show {momentum_label} in their available first-adult-acquisition evidence as of {as_of}."
+    },
+    {
+      "id": "NIR-06",
+      "name": "Required-training coordination",
+      "input": "Saved current required person/program assignments and earned/revoked/corrected completion aggregates, required_applicability_known and nonempty obligation_count.",
+      "selector": "At least two eligible distinct plants with complete applicability evidence and outstanding_required_count > 0 support the pattern. Current roster is explicit, not recalculated from membership. Missing/empty applicability is Unknown, never 100%.",
+      "numeric_claims": [
+        "support_count",
+        "sum_outstanding_required_obligations",
+        "sum_applicable_required_obligations",
+        "sum_current_complete_required_obligations / sum_applicable_required_obligations only for identical reported observed cohort with denominator > 0"
+      ],
+      "next_step": "Offer coordination around existing assigned programs; no automatic assignment, completion, role qualification or phase effect.",
+      "template": "{support_count} plants have {sum_outstanding_required_obligations} outstanding saved required-training obligations in the available shared evidence."
+    }
+  ],
+  "evidence_contract": {
+    "aggregate_citation_fields": [
+      "organization_id",
+      "organization_kind",
+      "group_kind",
+      "group_id",
+      "run_id",
+      "aggregate_path",
+      "exact_value",
+      "numerator",
+      "denominator",
+      "formula_version",
+      "window_start",
+      "window_end",
+      "as_of",
+      "source_revision",
+      "reference_activation_number"
+    ],
+    "numeric_validation": "Each number/date/proportion is a deterministic persisted allowed aggregate fact. Counts use exact integers; displayed percentages carry actual numerator/denominator and one-decimal display rounding, never round a readiness obligation away. No unsupported rates/forecasts/caps.",
+    "model_input": "Aggregate-only facts/quality/window/rule outputs plus this whole pinned rubric; protected contributor manifest remains server-only.",
+    "named_output": "Server attaches current authorized plant name/shared lens state/short actually-shared reason/canonical link; no per-plant metric table. Already shared aggregate number inside a reason may remain; new numeric pattern claim cites organization/group aggregate.",
+    "reference_citation": "Exact passage/source/revision/hash and current body entitlement; no protected contributor/raw-assessment drill-down.",
+    "unknown_output": "Use Unknown/limited evidence, observed cohort/window and useful evidence next step. Do not diagnose unavailable data.",
+    "singleton_output": "Bounded shared lens row allowed; withhold pattern with insufficient_contributors."
+  },
+  "output_contract": {
+    "finding_fields": [
+      "finding_id",
+      "rule_id",
+      "group",
+      "theme_key",
+      "body",
+      "suggested_next_step",
+      "support_count",
+      "observed_count",
+      "evidence_quality",
+      "citations",
+      "as_of",
+      "window",
+      "rubric_version",
+      "named_lens_rows"
+    ],
+    "body_register": "Describe observed patterns and offer operational support. No causal attribution to people, health verdict, compulsory program, ranking or autonomous action.",
+    "order": "Stable rubric rule order then group identity/theme key; never rank plants.",
+    "all_matching_rules": "Retain all eligible finding records; compact UI may paginate without dropping eligibility.",
+    "empty_patterns": "If no rule has two contributors, render insufficient supported patterns/available singleton lens rows. It is not a healthy or negative portfolio verdict."
+  },
+  "activation": {
+    "candidate": "immutable authored rubric plus matching fixture/semantic review manifest",
+    "activation": "explicit validated reference-generation activation under existing reference publisher; no customer/user feedback auto-activation",
+    "failed_build": "prior active version retained; new generation disabled with reference_not_ready",
+    "rollback": "new activation record pointing to prior validated immutable bytes",
+    "feedback": "own authenticated currently authorized reader, bound to exact org/run/finding/version; product-learning signal only"
+  },
+  "cadence_execution": "Dirty/reference/time demand and bounded shared job/attempt/publication contract in docs/architecture/assessment.md; no model calls on reads.",
+  "synthetic_cases": "docs/reference/network-examples.json",
+  "future_gates": [
+    "deterministic support/denominator/citation fixtures",
+    "semantic grounded-language and prohibited-field evaluation",
+    "current exact-org grants/revocation across publication/read/history/cache/export/Evry",
+    "production scheduler/budget/provider setup proof"
+  ]
+}

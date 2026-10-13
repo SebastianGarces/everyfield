@@ -1,0 +1,2633 @@
+{
+  "schema_version": 1,
+  "rubric": "everyfield-network:v1",
+  "cases": [
+    {
+      "id": "NEX-001",
+      "title": "Two actual shared concerns",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ],
+        "sample_body": "2 plants share this recorded cadence_gap concern among 2 plants with available shared evidence for this lens."
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-002",
+      "title": "Singleton stays bounded lens",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared"
+        ],
+        "status": "insufficient_contributors"
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-003",
+      "title": "Two directory members one relevant observation",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:unknown"
+        ],
+        "status": "insufficient_contributors"
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-004",
+      "title": "Health OFF never denominator zero",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": false,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:not_shared"
+        ],
+        "hidden_values_omitted": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-005",
+      "title": "Exact-org independence",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:B",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared"
+        ],
+        "foreign_rows_omitted": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-006",
+      "title": "Mixed category restriction",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:unknown"
+        ],
+        "restricted_reason_omitted": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-007",
+      "title": "Repeated contribution is one plant",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              },
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared"
+        ],
+        "support_count": 1
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-008",
+      "title": "Recurring strength",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [
+              {
+                "key": "distributed_followup",
+                "lens": "ownership",
+                "categories": [
+                  "people",
+                  "tasks"
+                ]
+              }
+            ],
+            "observed_lenses": [
+              "ownership"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [
+              {
+                "key": "distributed_followup",
+                "lens": "ownership",
+                "categories": [
+                  "people",
+                  "tasks"
+                ]
+              }
+            ],
+            "observed_lenses": [
+              "ownership"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-02",
+            "theme_key": "distributed_followup",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-009",
+      "title": "Near date alone cannot warn",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 10,
+              "uncompleted": true,
+              "unfilled": 0,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 3,
+              "uncompleted": true,
+              "unfilled": 0,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-010",
+      "title": "Near-launch compound actual gap",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 30,
+              "uncompleted": true,
+              "unfilled": 1,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 0,
+              "uncompleted": true,
+              "unfilled": 0,
+              "training_gap": 2
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-03",
+            "theme_key": "preparation_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-011",
+      "title": "Near launch missing gap or completed/past excluded",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 10,
+              "uncompleted": true,
+              "unfilled": null,
+              "training_gap": null
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 31,
+              "uncompleted": true,
+              "unfilled": 2,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          },
+          {
+            "id": "R",
+            "name": "Fixture R",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": -1,
+              "uncompleted": true,
+              "unfilled": 2,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/R"
+          },
+          {
+            "id": "S",
+            "name": "Fixture S",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": {
+              "days": 0,
+              "uncompleted": false,
+              "unfilled": 2,
+              "training_gap": 0
+            },
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/S"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:unknown",
+          "Q:shared",
+          "R:shared",
+          "S:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-012",
+      "title": "Overdue ownership different from contact",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": {
+              "overdue": 2,
+              "unowned_overdue": 1
+            },
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": {
+              "overdue": 3,
+              "unowned_overdue": 2
+            },
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-04",
+            "theme_key": "overdue_followup",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "sum_overdue_obligations": 5,
+            "unowned_support_count": 2,
+            "sum_unowned_overdue_obligations": 3
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ],
+        "contact_success_claim_forbidden": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-013",
+      "title": "Observed zero and Unknown stay distinct",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": {
+              "overdue": 0,
+              "unowned_overdue": 0
+            },
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:unknown"
+        ],
+        "zero_is_observed": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-014",
+      "title": "Growth 20/21/27/28 boundaries",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 20,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 21,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          },
+          {
+            "id": "R",
+            "name": "Fixture R",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 27,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/R"
+          },
+          {
+            "id": "S",
+            "name": "Fixture S",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 28,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/S"
+          },
+          {
+            "id": "T",
+            "name": "Fixture T",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 35,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/T"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-05",
+            "theme_key": "slowed",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 5
+          },
+          {
+            "rule": "NIR-05",
+            "theme_key": "stalled",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 5
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared",
+          "R:shared",
+          "S:shared",
+          "T:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-015",
+      "title": "Unresolved newer growth blocks negative timing",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 40,
+              "certain": false
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 40,
+              "certain": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:unknown",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-016",
+      "title": "Withdrawal preserves genuine acquisition",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 5,
+              "certain": true,
+              "current_size": 29,
+              "real_acquisition_then_withdrawal": true
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": {
+              "days": 4,
+              "certain": true,
+              "reactivation_is_new": false
+            },
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ],
+        "genuine_dates_retained": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-017",
+      "title": "Saved required training obligations",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": {
+              "applicability_known": true,
+              "applicable": 3,
+              "complete": 1
+            },
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": {
+              "applicability_known": true,
+              "applicable": 4,
+              "complete": 2
+            },
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-06",
+            "theme_key": "required_training",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "sum_outstanding_required_obligations": 4,
+            "sum_applicable_required_obligations": 7,
+            "sum_current_complete_required_obligations": 3
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ],
+        "saved_roster_no_live_recompute": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-018",
+      "title": "Empty/missing training Unknown",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": {
+              "applicability_known": true,
+              "applicable": 0,
+              "complete": 0
+            },
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [],
+            "strengths": [],
+            "observed_lenses": [],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": {
+              "applicability_known": false,
+              "applicable": 10,
+              "complete": 10
+            },
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:unknown",
+          "Q:unknown"
+        ],
+        "no_100_percent_claim": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-019",
+      "title": "Regional singletons and whole support",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "region",
+          "state_province",
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "fixture-region-X",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "fixture-region-Y",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "state_province",
+            "group_id": "US:NY",
+            "support": 2,
+            "observed_count": 2
+          },
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-020",
+      "title": "Intact cross-state Region",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "region",
+          "state_province",
+          "country",
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NJ",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "region",
+            "group_id": "CBSA:35620:metro:2023-07",
+            "support": 2,
+            "observed_count": 2
+          },
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "country",
+            "group_id": "US",
+            "support": 2,
+            "observed_count": 2
+          },
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-021",
+      "title": "Country singletons whole international cohort",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "region",
+          "state_province",
+          "country",
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "CA",
+            "state": "CA:ON",
+            "region": null,
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-022",
+      "title": "Missing region does not exclude known country",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "region",
+          "country",
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": null,
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "country",
+            "group_id": "US",
+            "support": 2,
+            "observed_count": 2
+          },
+          {
+            "rule": "NIR-01",
+            "theme_key": "cadence_gap",
+            "group_kind": "whole_portfolio",
+            "group_id": "network:A",
+            "support": 2,
+            "observed_count": 2
+          }
+        ],
+        "named_rows": [
+          "P:shared",
+          "Q:shared"
+        ]
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-023",
+      "title": "Revocation before publish/read",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ],
+        "revoked_before_publish": [
+          "Q"
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "named_rows": [
+          "P:shared",
+          "Q:not_shared"
+        ],
+        "publication": "refused_current_grant",
+        "old_two_plant_pattern_withheld": true
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-024",
+      "title": "Invalid output rejected before publication",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ],
+        "candidate_output": {
+          "support_count": 999,
+          "forbidden_field_keys": [
+            "person_id",
+            "private_checkin",
+            "street_address"
+          ],
+          "citation": "missing-passage"
+        }
+      },
+      "expected": {
+        "publication": "rejected",
+        "violations": [
+          "unsupported_numeric_value",
+          "prohibited_fields",
+          "invalid_reference_citation"
+        ],
+        "findings": []
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-025",
+      "title": "Candidate reference cannot become fallback",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "building",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ]
+      },
+      "expected": {
+        "findings": [],
+        "status": "reference_not_ready"
+      },
+      "model_evaluation_status": "future-not-run"
+    },
+    {
+      "id": "NEX-026",
+      "title": "Stale claim fences valid result",
+      "synthetic": true,
+      "input": {
+        "organization": "network:A",
+        "as_of": "2026-10-13T12:00:00Z",
+        "reference_status": "validated",
+        "groups": [
+          "whole_portfolio"
+        ],
+        "plants": [
+          {
+            "id": "P",
+            "name": "Fixture P",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/P"
+          },
+          {
+            "id": "Q",
+            "name": "Fixture Q",
+            "org": "network:A",
+            "recognized": true,
+            "shared_findings": true,
+            "released": true,
+            "categories": [
+              "people",
+              "meetings",
+              "tasks",
+              "ministry_teams"
+            ],
+            "country": "US",
+            "state": "US:NY",
+            "region": "CBSA:35620:metro:2023-07",
+            "concerns": [
+              {
+                "key": "cadence_gap",
+                "lens": "vision_casting",
+                "categories": [
+                  "meetings"
+                ]
+              }
+            ],
+            "strengths": [],
+            "observed_lenses": [
+              "vision_casting"
+            ],
+            "launch": null,
+            "followup": null,
+            "growth": null,
+            "training": null,
+            "shared_reason": "Recorded authorized structured finding",
+            "link": "/organizations/network/A/plants/Q"
+          }
+        ],
+        "captured_claim_generation": 4,
+        "current_claim_generation": 5
+      },
+      "expected": {
+        "findings": [],
+        "publication": "refused_stale_claim",
+        "prior_result_survives": true
+      },
+      "model_evaluation_status": "future-not-run"
+    }
+  ],
+  "validation_scope": "Synthetic deterministic selector/count/group/projection/reference-fencing expectations; model semantic evaluation and production runtime remain future-not-run."
+}

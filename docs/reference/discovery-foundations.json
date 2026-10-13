@@ -1,0 +1,78 @@
+{
+  "id": "discovery-foundations-v1-2026-10-09",
+  "status": "accepted-user-product-list",
+  "accepted_ruling": "PD-033",
+  "source_message": "Sentinel_e887d6f7b8f881918422b429576dfaab",
+  "article_count": 6,
+  "articles": [
+    {
+      "id": "367a6c6b-7ec3-44e7-95fb-253097125e42",
+      "slug": "discovery/is-church-planting-your-calling",
+      "title": "Is Church Planting Your Calling?",
+      "sort_order": 1,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "e50a8c0697fc952acc34f7cfa3274b3c60578a4c5e4a2bf28db25b4dcd79b465",
+      "manifest_content_sha256": "e50a8c0697fc952acc34f7cfa3274b3c60578a4c5e4a2bf28db25b4dcd79b465",
+      "record_sha256": "902b5db5dc60ed37948721c2e15a7304b3f8b69f85343c19903561a6850de99e"
+    },
+    {
+      "id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
+      "slug": "discovery/understanding-the-4-pillars",
+      "title": "Understanding the 4 Pillars",
+      "sort_order": 2,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "ab950dd5e492a25959c232613357198148a08249b0594a2bb34b371835686263",
+      "manifest_content_sha256": "ab950dd5e492a25959c232613357198148a08249b0594a2bb34b371835686263",
+      "record_sha256": "6a10cc0b0a90bca178a2730943ed0088e197d7623677a05a3138124167a921a7"
+    },
+    {
+      "id": "2bf51c2e-1686-4c4b-b36f-fffe3286c01c",
+      "slug": "discovery/defining-your-church-values",
+      "title": "Defining Your Church Values",
+      "sort_order": 3,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "91610a5e94f6bf1ff31e4afa9a6759865891058c93bd901450c5096c3e2c8e6c",
+      "manifest_content_sha256": "91610a5e94f6bf1ff31e4afa9a6759865891058c93bd901450c5096c3e2c8e6c",
+      "record_sha256": "82581141f86e50ea7e92a18aa8bf0c6c5c02540ca2bd2acae28e3cd0f6167c83"
+    },
+    {
+      "id": "e4bb0e6f-5019-48d3-a1bd-b7365790e56d",
+      "slug": "discovery/the-worship-walk-work-witness-model",
+      "title": "The Worship/Walk/Work/Witness Model",
+      "sort_order": 4,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "ac868daf16518057c9c27eeaf4874d0103dc39832eaf6c97dc2a703eac3c7c10",
+      "manifest_content_sha256": "ac868daf16518057c9c27eeaf4874d0103dc39832eaf6c97dc2a703eac3c7c10",
+      "record_sha256": "28c3d530d7dbedd6404d7d803ce657fce54573a3dd108cc5ea431e0fff935228"
+    },
+    {
+      "id": "af3c750a-dc03-4c1d-a149-c4bfb067ead8",
+      "slug": "discovery/setting-your-initial-goals",
+      "title": "Setting Your Initial Goals",
+      "sort_order": 5,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "f16ba8385e26094b8e24401db1e19e95e300c0e3c4aab9f6e81288182193739e",
+      "manifest_content_sha256": "f16ba8385e26094b8e24401db1e19e95e300c0e3c4aab9f6e81288182193739e",
+      "record_sha256": "5d25432290ffed9d65074e89848f5b25dcd0ba13c264017fa90059e2aefc3531"
+    },
+    {
+      "id": "5e8e4b82-905a-4110-ac3a-a45cb0155365",
+      "slug": "discovery/finding-a-coach-mentor",
+      "title": "Finding a Coach/Mentor",
+      "sort_order": 6,
+      "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "status": "published",
+      "content_sha256": "586773bd4bb7ccf270894a7641cf0fb2f9c3ff37627375fb8a7e16d6a5d7769d",
+      "manifest_content_sha256": "586773bd4bb7ccf270894a7641cf0fb2f9c3ff37627375fb8a7e16d6a5d7769d",
+      "record_sha256": "677289c0be896b064772cd9b31ea1b6a4e382bf62fa7d89f1eb7ba3299f73498"
+    }
+  ],
+  "identity_basis": "Exact six canonical article IDs/slugs from the verified Discovery section. Track actual authorized edition/source version at reading; no new blanket rereading rule or private-body entitlement. Global corpus editorial/currentness remains OD-002.",
+  "completion_rule": "One actual eligible reader individually exceeds scroll_ratio 0.80 for all six exact canonical articles. Eligible means current plant Owner OR account-linked ordinary lead Person with current same-plant Admin seat. No pooling, title grant, whole-team requirement or source entitlement bypass; retain actual reader/source/published revision provenance. Actual creation enters Phase1 independently.",
+  "non_gate": "Completion is a checklist outcome; it neither creates a church nor blocks Phase 1 entry."
+}

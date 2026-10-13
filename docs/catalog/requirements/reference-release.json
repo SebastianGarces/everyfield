@@ -1,0 +1,43 @@
+{
+  "domain": "reference-release",
+  "requirements": [
+    {
+      "id": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "text": "Immutable global generation manifest pins article/source/revision/hash/topology and rubric/Playbook/template/chunker/embedding profile+complete checksum sets. Validate complete candidate and atomically CAS one activation pointer/current global map with new activation receipt; failed build keeps old active. Rollback is a new reviewed activation of validated prior generation, preserving attribution/current entitlement and excluding org adoption or departed-body access.",
+      "spec": "docs/architecture/reference-release.md#build-validation-and-promotion",
+      "operations": [
+        "reference.validateBundle",
+        "reference.installApprovedWiki",
+        "reference.rebuildEmbeddings"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "case_ids": [
+        "REFREL-001",
+        "REFREL-002",
+        "REFREL-003",
+        "REFREL-004",
+        "REFREL-005",
+        "REFREL-006",
+        "REFREL-007",
+        "REFREL-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ]
+    }
+  ]
+}

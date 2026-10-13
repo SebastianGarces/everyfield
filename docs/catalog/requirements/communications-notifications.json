@@ -1,0 +1,1294 @@
+{
+  "domain": "communications-notifications",
+  "requirements": [
+    {
+      "id": "REQ-COM-001",
+      "feature_ids": [
+        "COM-001"
+      ],
+      "text": "Hub/history filters subject and safe body substring, linked context, lifecycle and reachable email channel; bounded page/limit \u2264100 and safe fallback for invalid read filters. Available filters reflect all authorized history. Totals distinguish selected, reachable, attempted, accepted, delivered, engaged, failed and unknown; zero denominator is safe. Load failure shows unavailable.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.list",
+        "communication.historyFilters",
+        "communication.deliveryTotals",
+        "communication.resolveDisplaySubjects"
+      ],
+      "acceptance_ids": [
+        "AC-COM-001--COM-001"
+      ],
+      "case_ids": [
+        "CASE-COM-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-029"
+      ]
+    },
+    {
+      "id": "REQ-COM-002",
+      "feature_ids": [
+        "COM-002"
+      ],
+      "text": "Detail and Person/meeting histories require same-plant parent and child constraints. Show the frozen delivery-time subject/address/body facts and separately label current contact/context facts. Recipient outcomes/timestamps stay attributable. Deleted/gone parent yields not found.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.get",
+        "communication.listRecipients",
+        "communication.forPerson",
+        "communication.forMeeting",
+        "communication.meetingRecipientTracking"
+      ],
+      "acceptance_ids": [
+        "AC-COM-002--COM-002"
+      ],
+      "case_ids": [
+        "CASE-COM-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-029"
+      ]
+    },
+    {
+      "id": "REQ-COM-003",
+      "feature_ids": [
+        "COM-003"
+      ],
+      "text": "Compose/preview subject 1\u2013500 characters, nonempty safe rendered body and at least one reachable reviewed recipient for sending. Sanitize stored HTML and derive plain text from it; merge Person/plant/meeting fields using the same renderer for preview and dispatch. Reject malformed JSON and foreign template/meeting IDs before persistence. No SMS/both dispatch.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.preview",
+        "communication.resolveMergeFields",
+        "communication.sendReviewed"
+      ],
+      "acceptance_ids": [
+        "AC-COM-003--COM-003"
+      ],
+      "case_ids": [
+        "CASE-COM-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027"
+      ]
+    },
+    {
+      "id": "REQ-COM-004",
+      "feature_ids": [
+        "COM-004"
+      ],
+      "text": "Search first 20 results; closed groups core_group/launch_team/leaders/prospects/all and active/forming team IDs resolve the whole group, deduplicate Person IDs and show missing-email exclusions. Unknown selector resolves zero. Recruitment groups exclude account-seat cohort as specified by People. Re-resolve at review/handoff rather than truncate to search pagination.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.searchRecipients",
+        "communication.resolveAudience",
+        "communication.listAudienceTeams"
+      ],
+      "acceptance_ids": [
+        "AC-COM-004--COM-004"
+      ],
+      "case_ids": [
+        "CASE-COM-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027"
+      ]
+    },
+    {
+      "id": "REQ-COM-005",
+      "feature_ids": [
+        "COM-005"
+      ],
+      "text": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.dispatchAttempt",
+        "communication.reconcileProviderOutcome"
+      ],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005"
+      ],
+      "case_ids": [
+        "CASE-COM-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028"
+      ]
+    },
+    {
+      "id": "REQ-COM-006",
+      "feature_ids": [
+        "COM-006"
+      ],
+      "text": "Compose and resend return confirmed zero-provider-acceptance as failure with saved communication ID and sentAt null; partial results show exact accepted/rejected/unknown counts. An all-unknown result is uncertain rather than success, and missing provider IDs remain reconcilable.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.sendReviewed.result",
+        "communication.resendReviewed.result"
+      ],
+      "acceptance_ids": [
+        "AC-COM-006--COM-006"
+      ],
+      "case_ids": [
+        "CASE-COM-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028"
+      ]
+    },
+    {
+      "id": "REQ-COM-007",
+      "feature_ids": [
+        "COM-007"
+      ],
+      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1\u2013255, description \u22641000, subject \u2264500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.templates.list",
+        "communication.templates.get",
+        "communication.templates.create",
+        "communication.templates.fork",
+        "communication.templates.update",
+        "communication.templates.archiveOrDelete"
+      ],
+      "acceptance_ids": [
+        "AC-COM-007--COM-007"
+      ],
+      "case_ids": [
+        "CASE-COM-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027"
+      ]
+    },
+    {
+      "id": "REQ-COM-008",
+      "feature_ids": [
+        "COM-008"
+      ],
+      "text": "Seven approved system message templates have stable source/revision IDs and category/meeting-type mapping. Fork preference is by source identity. Bootstrap repeat-equal is no-op; mismatch never overwrites a plant customization. Installation uses reference release.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "reference.installMessageTemplates",
+        "communication.templates.forMeeting"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008"
+      ],
+      "case_ids": [
+        "CASE-COM-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-032",
+        "WP-027"
+      ]
+    },
+    {
+      "id": "REQ-COM-009",
+      "feature_ids": [
+        "COM-009"
+      ],
+      "text": "Resend proposal requires sent original, \u226524 elapsed hours, \u22651 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "communication.resendCandidates",
+        "communication.proposeResend",
+        "communication.executeResend"
+      ],
+      "acceptance_ids": [
+        "AC-COM-009--COM-009"
+      ],
+      "case_ids": [
+        "CASE-COM-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-029"
+      ]
+    },
+    {
+      "id": "REQ-COM-010",
+      "feature_ids": [
+        "COM-010"
+      ],
+      "text": "Random purpose-bound public RSVP token is scoped to one real same-plant Person/meeting, normally expires after seven days and has one live pending identity per pair. GET displays, explicit POST confirms/declines. Answer CAS and canonical meeting response share one transaction; scanner fetch never answers. Expired pending renewal preserves answered history. Token answer affects RSVP/engagement, never attendance/commitment/contact.",
+      "spec": "docs/product/communications-notifications.md#composition-and-history",
+      "operations": [
+        "meeting.createRsvpToken",
+        "meeting.describeRsvpToken",
+        "meeting.answerRsvpToken",
+        "meeting.rsvpStatus"
+      ],
+      "acceptance_ids": [
+        "AC-COM-010--COM-010"
+      ],
+      "case_ids": [
+        "CASE-COM-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-021",
+        "WP-028"
+      ]
+    },
+    {
+      "id": "REQ-COM-012",
+      "feature_ids": [
+        "COM-012"
+      ],
+      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within30days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [
+        "communication.saveDraft",
+        "communication.getDraft",
+        "communication.listDrafts",
+        "communication.deleteDraft",
+        "communication.scheduleReviewed",
+        "communication.rescheduleReviewed",
+        "communication.cancelScheduledReviewed",
+        "communication.replaceScheduledReviewed"
+      ],
+      "acceptance_ids": [
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "CASE-COM-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-001",
+      "feature_ids": [
+        "EVR-286",
+        "EVR-287",
+        "EVR-288",
+        "EVR-289",
+        "EVR-421",
+        "NTF-003",
+        "NTF-004"
+      ],
+      "text": "One inbox and preferences page preserve own visible feed, unread/pagination, individual/all read and category/channel choices; foreign recipients denied and read never completes work.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-286--EVR-286",
+        "AC-EVR-287--EVR-287",
+        "AC-EVR-288--EVR-288",
+        "AC-EVR-289--EVR-289",
+        "AC-EVR-289-SELECTED--EVR-289",
+        "AC-EVR-421--EVR-421",
+        "AC-EVR-EFFECT--EVR-288",
+        "AC-EVR-EFFECT--EVR-289",
+        "AC-EVR-READ--EVR-286",
+        "AC-EVR-READ--EVR-287",
+        "AC-EVR-READ--EVR-421",
+        "AC-NTF-003--NTF-003",
+        "AC-NTF-004--NTF-004"
+      ],
+      "case_ids": [
+        "NOTIFY47-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-081",
+        "WP-082"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-002",
+      "feature_ids": [
+        "NTF-001",
+        "NTF-004",
+        "NTF-012"
+      ],
+      "text": "Ordinary eligible categories resolve email+in-app ON, except planter digest defaults email ON/in-app OFF; retain that no-duplicate-summary exception until an explicit user channel choice; preserve chosen values through audience changes and never broaden recipient eligibility.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-001--NTF-001",
+        "AC-NTF-004--NTF-004",
+        "AC-NTF-012--NTF-012"
+      ],
+      "case_ids": [
+        "NOTIFY47-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-003",
+      "feature_ids": [
+        "NTF-011",
+        "NTF-013",
+        "NTF-015"
+      ],
+      "text": "Password/security/invitation purpose mail remains separate from optional category toggles; existing purpose checks, token secrecy and global address suppression still apply. Preserve Discovery receipts under their existing exact recipient/purpose/preference behavior, without a blanket mandatory relationship-mail rule.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-011--NTF-011",
+        "AC-NTF-013--NTF-013",
+        "AC-NTF-015--NTF-015"
+      ],
+      "case_ids": [
+        "NOTIFY47-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-030",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-004",
+      "feature_ids": [
+        "NTF-004",
+        "NTF-007"
+      ],
+      "text": "Planter weekly Sunday16:00 church-local email default, daily option and no duplicate inbox digest; existing date/time rules and one logical period are retained.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-004--NTF-004",
+        "AC-NTF-007--NTF-007"
+      ],
+      "case_ids": [
+        "NOTIFY47-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-005",
+      "feature_ids": [
+        "NTF-004",
+        "NTF-008",
+        "NTF-009"
+      ],
+      "text": "Organization daily oversight sends only current-authorized relevant activity; its frequency and channels are adjustable. No hidden/unshared/private-care inputs or empty activity mail.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-004--NTF-004",
+        "AC-NTF-008--NTF-008",
+        "AC-NTF-009--NTF-009"
+      ],
+      "case_ids": [
+        "NOTIFY47-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-006",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-005",
+        "NTF-006",
+        "NTF-007",
+        "NTF-008"
+      ],
+      "text": "After a multi-day outage deliver a bounded consolidated dated catch-up of still-authorized relevant activity/current open items, never individual stale-day piles or obsolete task/meeting reminders.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-005--NTF-005",
+        "AC-NTF-006--NTF-006",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008"
+      ],
+      "case_ids": [
+        "NOTIFY47-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-007",
+      "feature_ids": [
+        "NTF-001",
+        "NTF-002",
+        "NTF-005",
+        "NTF-006"
+      ],
+      "text": "Meeting/task cancellation, completion or rescheduling stops obsolete pending reminders; normal current revision/audience checks remain before external send.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-001--NTF-001",
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-005--NTF-005",
+        "AC-NTF-006--NTF-006"
+      ],
+      "case_ids": [
+        "NOTIFY47-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-024",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-008",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-010",
+        "NTF-011",
+        "NTF-013"
+      ],
+      "text": "Reuse one established mail intent/receipt, stable keys, bounded retry, truthful unknown outcomes, signed callback processing and suppression. Never blindly resend an acceptance timeout or acknowledge away an unpersisted callback.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-010--NTF-010",
+        "AC-NTF-011--NTF-011",
+        "AC-NTF-013--NTF-013"
+      ],
+      "case_ids": [
+        "NOTIFY47-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-009",
+      "feature_ids": [
+        "NTF-009",
+        "NTF-014",
+        "NTF-015"
+      ],
+      "text": "Small explicit types include actual implemented producers and already accepted notices; unused category/helpers create no new team-health/training/assessment/NeedsYou/Home/snooze alert or configurable rules engine.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-009--NTF-009",
+        "AC-NTF-014--NTF-014",
+        "AC-NTF-015--NTF-015"
+      ],
+      "case_ids": [
+        "NOTIFY47-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-010",
+      "feature_ids": [
+        "EVR-286",
+        "EVR-287",
+        "EVR-288",
+        "EVR-289",
+        "EVR-421",
+        "NTF-003",
+        "NTF-008"
+      ],
+      "text": "UI and existing Evry notification adapters share recipient-scoped operations. Own reviewed mark-read preserves read/work separation; revoked/foreign scopes denied, private care excluded and each durable Evry write exactly reviewed.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-EVR-286--EVR-286",
+        "AC-EVR-287--EVR-287",
+        "AC-EVR-288--EVR-288",
+        "AC-EVR-289--EVR-289",
+        "AC-EVR-289-SELECTED--EVR-289",
+        "AC-EVR-421--EVR-421",
+        "AC-EVR-EFFECT--EVR-288",
+        "AC-EVR-EFFECT--EVR-289",
+        "AC-EVR-READ--EVR-286",
+        "AC-EVR-READ--EVR-287",
+        "AC-EVR-READ--EVR-421",
+        "AC-NTF-003--NTF-003",
+        "AC-NTF-008--NTF-008"
+      ],
+      "case_ids": [
+        "NOTIFY47-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-052",
+        "WP-053",
+        "WP-055",
+        "WP-081",
+        "WP-082"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-019",
+      "feature_ids": [
+        "COM-001",
+        "COM-002",
+        "COM-003",
+        "COM-004",
+        "COM-012"
+      ],
+      "text": "Save/reload/update/delete incomplete same-tenant native draft with revision/history; no provider call/queued send or template overwrite.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-001--COM-001",
+        "AC-COM-002--COM-002",
+        "AC-COM-003--COM-003",
+        "AC-COM-004--COM-004",
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "MAIL51-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-029"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-020",
+      "feature_ids": [
+        "COM-003",
+        "COM-004",
+        "COM-005",
+        "COM-006",
+        "COM-012"
+      ],
+      "text": "Review exact resolved recipients/addresses/sanitized per-recipient payload and Instant before native schedule handoff; stale source/authority requires new review, schedule acceptance is not sent/delivered.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-003--COM-003",
+        "AC-COM-004--COM-004",
+        "AC-COM-005--COM-005",
+        "AC-COM-006--COM-006",
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "MAIL51-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-021",
+      "feature_ids": [
+        "COM-005",
+        "COM-012"
+      ],
+      "text": "Schedule through Resend native API within30days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005",
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "MAIL51-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-022",
+      "feature_ids": [
+        "COM-002",
+        "COM-005",
+        "COM-012"
+      ],
+      "text": "Time-only rescheduling preserves recipient/content snapshot and original send request; uses a separate reviewed operation and truthful provider confirmation/unknown outcome.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-002--COM-002",
+        "AC-COM-005--COM-005",
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "MAIL51-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-029",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-023",
+      "feature_ids": [
+        "COM-005",
+        "COM-006",
+        "COM-009",
+        "COM-012"
+      ],
+      "text": "Cancel pending native scheduled email and reconcile result. Content/audience replacement waits for confirmed old cancellation; sent/unknown/partial cancellation cannot silently create duplicates.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005",
+        "AC-COM-006--COM-006",
+        "AC-COM-009--COM-009",
+        "AC-COM-012--COM-012"
+      ],
+      "case_ids": [
+        "MAIL51-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-024",
+      "feature_ids": [
+        "COM-001",
+        "COM-002",
+        "COM-005",
+        "NTF-010"
+      ],
+      "text": "Correlate each batch recipient provider ID/outcome, preserve frozen keys/payload and distinguish scheduled/accepted/sent/delivered/rejected/unknown/canceled receipts using documented provider responses/events.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-001--COM-001",
+        "AC-COM-002--COM-002",
+        "AC-COM-005--COM-005",
+        "AC-NTF-010--NTF-010"
+      ],
+      "case_ids": [
+        "MAIL51-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-029",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-025",
+      "feature_ids": [
+        "COM-004",
+        "COM-005",
+        "COM-012",
+        "NTF-010"
+      ],
+      "text": "After provider handoff, ordinary material authority/address/suppression changes request native cancellation/reconciliation; do not claim application reauthorization at provider send time.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-004--COM-004",
+        "AC-COM-005--COM-005",
+        "AC-COM-012--COM-012",
+        "AC-NTF-010--NTF-010"
+      ],
+      "case_ids": [
+        "MAIL51-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-026",
+      "feature_ids": [
+        "COM-001",
+        "COM-002",
+        "EVR-237",
+        "EVR-238",
+        "EVR-239",
+        "EVR-240",
+        "EVR-241",
+        "EVR-413",
+        "EVR-414"
+      ],
+      "text": "Communication detail/person/meeting/history reads expose actual draft/scheduled/cancel/reschedule receipts only to current authorized readers; no unrelated private-care or token leakage.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-001--COM-001",
+        "AC-COM-002--COM-002",
+        "AC-EVR-237--EVR-237",
+        "AC-EVR-238--EVR-238",
+        "AC-EVR-239--EVR-239",
+        "AC-EVR-240--EVR-240",
+        "AC-EVR-241--EVR-241",
+        "AC-EVR-413--EVR-413",
+        "AC-EVR-414--EVR-414",
+        "AC-EVR-READ--EVR-237",
+        "AC-EVR-READ--EVR-238",
+        "AC-EVR-READ--EVR-239",
+        "AC-EVR-READ--EVR-240",
+        "AC-EVR-READ--EVR-241",
+        "AC-EVR-READ--EVR-413",
+        "AC-EVR-READ--EVR-414"
+      ],
+      "case_ids": [
+        "MAIL51-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-029",
+        "WP-071",
+        "WP-052",
+        "WP-055"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-027",
+      "feature_ids": [
+        "COM-012",
+        "EVR-015",
+        "EVR-242",
+        "EVR-247"
+      ],
+      "text": "Existing Evry composition/recipe adapters add draft save and reviewed schedule/reschedule/cancel/replacement through the same domain operations; each durable effect exactly reviewed and no autonomous send.",
+      "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-COM-012--COM-012",
+        "AC-EVR-015--EVR-015",
+        "AC-EVR-015-MEETING-INVITE--EVR-015",
+        "AC-EVR-242--EVR-242",
+        "AC-EVR-242-FAILED-RETRY--EVR-242",
+        "AC-EVR-247--EVR-247",
+        "AC-EVR-EFFECT--EVR-242",
+        "AC-EVR-EFFECT--EVR-247"
+      ],
+      "case_ids": [
+        "MAIL51-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031",
+        "WP-053",
+        "WP-055",
+        "WP-072"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-075",
+      "feature_ids": [
+        "NTF-001",
+        "NTF-003",
+        "NTF-014",
+        "WIKI-001",
+        "WIKI-004",
+        "WIKI-009"
+      ],
+      "text": "Every published global change behind customized organization content creates a safe current-editor in-app review cue, including typo-only; inherited untouched article follows current global publication. Publisher meaningful-reader flag never suppresses editor notice.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-001--NTF-001",
+        "AC-NTF-003--NTF-003",
+        "AC-NTF-014--NTF-014",
+        "AC-WIKI-001--WIKI-001",
+        "AC-WIKI-004--WIKI-004",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WIKI52-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035",
+        "WP-031",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-076",
+      "feature_ids": [
+        "NTF-001",
+        "NTF-003",
+        "NTF-004",
+        "NTF-014",
+        "WIKI-009"
+      ],
+      "text": "Named Wiki upstream-editor notice is in-app ONLY; no mail intent/provider send even with category email ON. Current exact own-org editor role/safe source access and no private care remain; no automatic adoption/read reset.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-NTF-001--NTF-001",
+        "AC-NTF-003--NTF-003",
+        "AC-NTF-004--NTF-004",
+        "AC-NTF-014--NTF-014",
+        "AC-WIKI-009--WIKI-009"
+      ],
+      "case_ids": [
+        "WIKI52-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-035",
+        "WP-031",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-KNOW-077",
+      "feature_ids": [
+        "DOC-016",
+        "WIKI-001"
+      ],
+      "text": "Use existing approved native Church Documents save/import/read/storage for plant values/guides/internal writing under current authority; preserve existing plant-local Wiki read through authorized source view, without adding a Wiki authoring or precedence grant.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [],
+      "acceptance_ids": [
+        "AC-DOC-016--DOC-016",
+        "AC-WIKI-001--WIKI-001"
+      ],
+      "case_ids": [
+        "WIKI52-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036",
+        "WP-037",
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-MAIL-001",
+      "feature_ids": [
+        "COM-005",
+        "COM-012",
+        "NTF-002",
+        "NTF-010",
+        "NTF-013"
+      ],
+      "text": "One email_intent/email_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch\u2264100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before firstdispatch+23h55m within documented24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "spec": "docs/product/communications-notifications.md#mail-contract",
+      "operations": [
+        "communication.dispatchAttempt",
+        "mail.reconcileDeliveryState"
+      ],
+      "acceptance_ids": [
+        "AC-COM-005--COM-005",
+        "AC-COM-012--COM-012",
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-010--NTF-010",
+        "AC-NTF-013--NTF-013"
+      ],
+      "case_ids": [
+        "MAIL-LEDGER-001",
+        "MAIL-KEYWINDOW-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-005",
+        "WP-008",
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-001",
+      "feature_ids": [
+        "NTF-001"
+      ],
+      "text": "Typed plant or exact organization anchor, recipient and paired entity identity; one live occurrence key, renewed occurrence after cancellation only when legitimate. Commit only currently eligible category/audience. No generic unchecked organization UUID.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.enqueue",
+        "notifications.cancelForEntity"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-001--NTF-001"
+      ],
+      "case_ids": [
+        "CASE-NTF-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-002",
+      "feature_ids": [
+        "NTF-002"
+      ],
+      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation and fairness follow execution; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.claimDue",
+        "notifications.dispatchBatch",
+        "notifications.recoverLease",
+        "notifications.reconcileUnknownOutcome"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002"
+      ],
+      "case_ids": [
+        "CASE-NTF-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-003",
+      "feature_ids": [
+        "NTF-003"
+      ],
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt,id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.feed",
+        "notifications.unreadCount",
+        "notifications.markRead",
+        "notifications.markAllVisibleRead"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-003--NTF-003"
+      ],
+      "case_ids": [
+        "CASE-NTF-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-NTF-004",
+      "feature_ids": [
+        "NTF-004"
+      ],
+      "text": "Own category/channel explicit choices, planter cadence/local schedule and organization oversight cadence use small closed inputs and expected revision. Only actual producers appear as enabled functionality. No custom rules, arbitrary schedules, snooze or alert families.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.preferences.get",
+        "notifications.preferences.set",
+        "notifications.digestCadence.set"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-004--NTF-004"
+      ],
+      "case_ids": [
+        "CASE-NTF-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-NTF-005",
+      "feature_ids": [
+        "NTF-005"
+      ],
+      "text": "Task due and one-calendar-day overdue reminder uses current assignee/due revision. Complete/delete/reassign/reschedule invalidates old occurrence and creates applicable replacement intent transactionally. Current task and recipient checked at send.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.syncTaskReminders",
+        "notifications.cancelTaskReminders"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-005--NTF-005"
+      ],
+      "case_ids": [
+        "CASE-NTF-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-024",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-006",
+      "feature_ids": [
+        "NTF-006"
+      ],
+      "text": "Scheduled meeting announcement to linked eligible core-group accounts; 7/3/1 day-offset reminders to eligible linked attendance/guest-list accounts plus creator. Edit cancels/rebuilds; canceled/completed/past meetings suppress obsolete reminders. CRM bulk guest invitations use Communication, not another address fallback.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.syncMeetingReminders",
+        "notifications.meetingAudience"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-006--NTF-006"
+      ],
+      "case_ids": [
+        "CASE-NTF-006"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-020",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-007",
+      "feature_ids": [
+        "NTF-007"
+      ],
+      "text": "Nonempty authorized planter open-items digest contains overdue/due-before-next-period tasks and upcoming meetings. Current assignee scope and church-local period determine count; one logical recipient period. Catch-up consolidates current items and real dates.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.previewPlanterDigest",
+        "notifications.generateOwedPlanterDigests",
+        "church.digestSchedule.set"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-007--NTF-007"
+      ],
+      "case_ids": [
+        "CASE-NTF-007"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-008",
+      "feature_ids": [
+        "NTF-008"
+      ],
+      "text": "Exact organization oversight digest contains permitted activity counts and dates, no names/notes/message bodies/giving. Period uses the organization's saved IANA zone, default UTC when absent, displayed in preferences. Current approved relationship plus activity sharing gates each plant contribution at compile and dispatch. Two affiliates never share permission state. Empty activity sends nothing.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.previewOversightDigest",
+        "notifications.generateOwedOversightDigests",
+        "notifications.oversightDigestCadence.set"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-008--NTF-008"
+      ],
+      "case_ids": [
+        "CASE-NTF-008"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-007",
+        "WP-031",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-NTF-009",
+      "feature_ids": [
+        "NTF-009"
+      ],
+      "text": "Existing relationship/sharing facts and actual phase advance/launch milestones fan out once per occurrence. Declaration/backward phase movement is not advance. Relationship-ending notice can state its own committed event to the affected plant without reopening departed private data. Ordinary current Owner/Admin eligible notice audiences replace title-derived authority.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.emitRelationshipMilestone",
+        "notifications.emitSharingMilestone",
+        "notifications.emitPhaseMilestone",
+        "notifications.emitLaunchMilestone"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-009--NTF-009"
+      ],
+      "case_ids": [
+        "CASE-NTF-009"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-007",
+        "WP-038",
+        "WP-045",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-010",
+      "feature_ids": [
+        "NTF-010"
+      ],
+      "text": "Verify signed raw-body provider event before lookup, persist unique event ID and processing state before2xx, retry non2xx on storage failure, and apply out-of-order facts idempotently without regression. Unknown provider IDs are durably available for reconciliation; no public tenant selector. Soft bounce differs from hard/complaint, whose address suppression remains global.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "mail.acceptWebhook",
+        "mail.processDeliveryEvent",
+        "mail.reconcileDeliveryState"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-010--NTF-010"
+      ],
+      "case_ids": [
+        "CASE-NTF-010"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028"
+      ]
+    },
+    {
+      "id": "REQ-NTF-011",
+      "feature_ids": [
+        "NTF-011"
+      ],
+      "text": "Normalize addresses and keep one active hard-bounce/complaint suppression with attributed restoration history. Fresh authenticated self-address proof plus reason and exact review can clear only the current account address. Dispatch uses suppression across all shared mail purposes; clearing cannot resurrect canceled mail or grant another address.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "mail.suppression.listForSelf",
+        "mail.suppression.recordProviderFact",
+        "mail.suppression.restoreReviewed"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-011--NTF-011"
+      ],
+      "case_ids": [
+        "CASE-NTF-011"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-028",
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-NTF-012",
+      "feature_ids": [
+        "NTF-012"
+      ],
+      "text": "Category email opt-out leaves in-app untouched. Purpose-bound authenticated-encryption token: disable 180 days, separate undo one hour. GET confirms; explicit POST changes. Wrong/expired purpose fails closed; provider one-click POST uses RFC8058. Versioned key ring retains decrypt-only old keys through valid token lifetime; dedicated production key never cron-secret fallback. Opt-out does not invent CRM marketing consent.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.describeEmailOptOut",
+        "notifications.applyEmailOptOut",
+        "notifications.undoEmailOptOut"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-012--NTF-012"
+      ],
+      "case_ids": [
+        "CASE-NTF-012"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030"
+      ]
+    },
+    {
+      "id": "REQ-NTF-013",
+      "feature_ids": [
+        "NTF-013"
+      ],
+      "text": "Protected transactional HTML/plain-text templates use one durable mail intent/attempt transport with bounded timeout/idempotency/outcome reconciliation. Domain issuer fixes purpose/address/token, not arbitrary Evry inputs. Security/invitation purposes are separate from optional preference toggles; credentials/tokens/body/address stay out of logs/context.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "mail.sendTransactional",
+        "mail.renderTransactional"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-013--NTF-013"
+      ],
+      "case_ids": [
+        "CASE-NTF-013"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-005",
+        "WP-008",
+        "WP-028",
+        "WP-031"
+      ]
+    },
+    {
+      "id": "REQ-NTF-014",
+      "feature_ids": [
+        "NTF-014"
+      ],
+      "text": "Published global change behind organization customization produces an in-app-only notice to current own-org Owner/Admin editors. Email preferences cannot enable email for this notice. Every published upstream change, including typo-only, qualifies; it never adopts/overwrites/hides/unhides or forces a deadline. Unused team welcome/health/training/communication/assessment-ready helpers remain excluded as producers.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.emitWikiUpstreamReview"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-014--NTF-014"
+      ],
+      "case_ids": [
+        "CASE-NTF-014"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-031",
+        "WP-035"
+      ]
+    },
+    {
+      "id": "REQ-NTF-015",
+      "feature_ids": [
+        "NTF-015"
+      ],
+      "text": "Winning Discovery association acceptance/decline/departure/removal occurrence creates transactional-purpose receipts to the Discovery account and valid owners of that exact organization, deduplicated by recipient. Seatless account needs no phantom plant/inbox. Admin title alone does not add a receipt recipient. Commit association/history first with required durable mail intent; rendering/refusal does not undo the association.",
+      "spec": "docs/product/communications-notifications.md#notification-product",
+      "operations": [
+        "notifications.sendDiscoveryAssociationReceipt",
+        "notifications.inspectAssociationReceipt",
+        "notifications.retryAssociationReceipt"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-015--NTF-015"
+      ],
+      "case_ids": [
+        "CASE-NTF-015"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-030",
+        "WP-031"
+      ]
+    }
+  ]
+}

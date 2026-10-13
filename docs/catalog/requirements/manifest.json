@@ -1,0 +1,213 @@
+{
+  "domain": "manifest",
+  "requirements": [
+    {
+      "id": "REQ-REF-001",
+      "feature_ids": [
+        "REF-001"
+      ],
+      "text": "Package exact canonical original Playbook bytes hash d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a; welcome article is not a substitute. No source rewrite or customer migration.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.packagePlaybook"
+      ],
+      "acceptance_ids": [
+        "AC-REF-001--REF-001"
+      ],
+      "case_ids": [
+        "REF-CASE-001"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032"
+      ]
+    },
+    {
+      "id": "REQ-REF-002",
+      "feature_ids": [
+        "REF-002"
+      ],
+      "text": "Fresh global bootstrap preserves unchanged 96 published global article / 21 sections / seven system template payload, canonical IDs/slugs/source checksums/ancestry/links. No customer/tenant/progress/feedback/private/vector import.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.installApprovedWiki"
+      ],
+      "acceptance_ids": [
+        "AC-REF-002--REF-002"
+      ],
+      "case_ids": [
+        "REF-CASE-002"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-033",
+        "WP-034"
+      ]
+    },
+    {
+      "id": "REQ-REF-003",
+      "feature_ids": [
+        "REF-003"
+      ],
+      "text": "Preserve eleven original document template catalog entries, meaningful generated document/private exact byte/history workflow; approved optional operational copying never silently overwrites tenant work.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.packageDocumentTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-003--REF-003"
+      ],
+      "case_ids": [
+        "REF-CASE-003"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-036"
+      ]
+    },
+    {
+      "id": "REQ-REF-004",
+      "feature_ids": [
+        "REF-004"
+      ],
+      "text": "Preserve twenty phase/launch checklist templates and the verified canonical launch inventory of nine milestone keys and 23 exact ordinary task identities. Explicit offers/selective import remain optional; no forced structure, automatic launch-derived task dates or resurrection of deliberately deleted work. The source inventory manifest governs the count; the historical 22 prose count is not authority to drop a task.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.packageTaskTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-004--REF-004"
+      ],
+      "case_ids": [
+        "REF-CASE-004"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032"
+      ]
+    },
+    {
+      "id": "REQ-REF-005",
+      "feature_ids": [
+        "REF-005"
+      ],
+      "text": "Preserve ten predefined team and role/responsibility template catalog bytes; actual eight methodology areas+separate Prayer responsibility map explicitly, selected imports only, no name guess/coordinator substitution.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.packageTeamTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-005--REF-005"
+      ],
+      "case_ids": [
+        "REF-CASE-005"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032"
+      ]
+    },
+    {
+      "id": "REQ-REF-006",
+      "feature_ids": [
+        "REF-006"
+      ],
+      "text": "Preserve seven original global system communication templates and hashes; use current compose/review/delivery rules, not runtime authority from reference text.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.installMessageTemplates"
+      ],
+      "acceptance_ids": [
+        "AC-REF-006--REF-006"
+      ],
+      "case_ids": [
+        "REF-CASE-006"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032"
+      ]
+    },
+    {
+      "id": "REQ-REF-007",
+      "feature_ids": [
+        "REF-007"
+      ],
+      "text": "Build complete pinned methodology corpus from exact authorized inputs with source/passage hashes, chunker, embedding model/dimensions and generation. Removed/stale trailing chunks retired; old unproven vectors not imported.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.rebuildEmbeddings"
+      ],
+      "acceptance_ids": [
+        "AC-REF-007--REF-007"
+      ],
+      "case_ids": [
+        "ASMT-011",
+        "REF-CASE-007"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-041"
+      ]
+    },
+    {
+      "id": "REQ-REF-008",
+      "feature_ids": [
+        "REF-008"
+      ],
+      "text": "Reference release validates complete hash/key/link/syntax/semantic inputs and derivatives before atomic expected-generation activation; failed build preserves active, rollback creates a new activation retaining history. Original rubric+separate NI reference currentness documented; model/runtime proof future gate.",
+      "spec": "docs/reference/manifest.json",
+      "operations": [
+        "reference.validateBundle",
+        "reference.activateGeneration",
+        "reference.rollbackActivation",
+        "reference.readRubricManifest",
+        "reference.auditLanguage"
+      ],
+      "acceptance_ids": [
+        "AC-REF-008--REF-008"
+      ],
+      "case_ids": [
+        "ASMT-011",
+        "REF-CASE-007",
+        "MW-CASE-025"
+      ],
+      "shared_contract_ids": [
+        "SEC-CURRENT-AUTH",
+        "C0-TIME",
+        "C0-DOMAIN-TRANSACTION"
+      ],
+      "work_packages": [
+        "WP-032"
+      ]
+    }
+  ]
+}
