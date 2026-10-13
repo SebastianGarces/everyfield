@@ -1,0 +1,603 @@
+{
+  "version": 2,
+  "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
+  "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
+  "shared": {
+    "brand": "EveryField",
+    "nav": [
+      {
+        "label": "Product",
+        "href": "#features"
+      },
+      {
+        "label": "For planters",
+        "href": "#planters"
+      },
+      {
+        "label": "For sending churches and networks",
+        "href": "#oversight"
+      },
+      {
+        "label": "Privacy",
+        "href": "#trust"
+      }
+    ],
+    "nav_cta": "Request early access",
+    "nav_signin": "Sign in",
+    "footer": {
+      "headline": "Church planting software, from calling to launch Sunday.",
+      "cta": "Request early access",
+      "columns": [
+        {
+          "title": "Product",
+          "links": [
+            "Overview",
+            "Plant Intelligence",
+            "Evry"
+          ]
+        },
+        {
+          "title": "Who it is for",
+          "links": [
+            "Planters",
+            "Sending churches and networks",
+            "Coaches"
+          ]
+        },
+        {
+          "title": "Company",
+          "links": [
+            "About",
+            "Privacy and trust",
+            "Contact"
+          ]
+        },
+        {
+          "title": "Legal",
+          "links": [
+            "Privacy policy",
+            "Terms"
+          ]
+        }
+      ],
+      "fineprint": "© 2026 EveryField LLC"
+    },
+    "week": {
+      "note": "Revision 4 (2026-10-08): the home week section. Each step has a solid-colour icon in its tone and an animated panel (panel). No step numbers, labels or section eyebrow.",
+      "title": "Reach, gather, follow up, commit.",
+      "steps": [
+        {
+          "panel": "people",
+          "tone": "field",
+          "icon": "users",
+          "title": "Know everyone you are reaching.",
+          "body": "Add people from a form or a spreadsheet. See where each person is, from first contact to launch team."
+        },
+        {
+          "panel": "meet",
+          "tone": "sky",
+          "icon": "calendar",
+          "title": "Run every gathering from one place.",
+          "body": "Plan vision meetings, trainings, orientations and service runs. See who came to each one."
+        },
+        {
+          "panel": "follow",
+          "tone": "dawn",
+          "icon": "task",
+          "title": "No new guest slips through.",
+          "body": "Evry creates a follow-up for each new guest, assigns it to someone on your core team and drafts what to say. You approve."
+        },
+        {
+          "panel": "teams",
+          "tone": "lilac",
+          "icon": "heart",
+          "title": "Grow your core team and your launch team.",
+          "body": "Record each commitment and watch both teams grow as you get closer to launch."
+        }
+      ]
+    },
+    "intelligence": {
+      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. The step copy is still draft in the HTML.",
+      "title": "Know your next step, and why."
+    },
+    "trust_page": {
+      "eyebrow": "Privacy and trust",
+      "headline": "Who sees what in EveryField.",
+      "subhead": "Planters own their records. Sending churches and networks see summaries, and only what each plant shares.",
+      "planter_rules": {
+        "headline": "Your records stay yours.",
+        "items": [
+          {
+            "title": "Private means private",
+            "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it."
+          },
+          {
+            "title": "You see it first",
+            "body": "Every concern in a shared summary is one you can already see in your own account."
+          }
+        ]
+      }
+    },
+    "sending": {
+      "note": "Revision 19 (2026-10-09): the home section for sending churches and networks, used by both stories. It replaces the Revision 18 audience section. An auto-advancing list like Plant Intelligence, mirrored: panel on the left, list on the right.",
+      "title": "See every plant you send.",
+      "steps": [
+        {
+          "title": "Every plant, by state or metro area.",
+          "body": "Switch between all your plants, one state or one metro area, and every number follows."
+        },
+        {
+          "title": "Your pipeline, phase by phase.",
+          "body": "See how many plants are in each phase, and how long plants usually stay there."
+        },
+        {
+          "title": "Lenses across every plant.",
+          "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
+        },
+        {
+          "title": "The pattern that matters most.",
+          "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
+        }
+      ],
+      "link": "Learn more about the oversight view"
+    },
+    "oversight_page": {
+      "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
+      "hero": {
+        "headline": "See every plant you send.",
+        "subhead": "Whether one church or a whole network sent them, see how each plant is doing and where your network needs help.",
+        "cta_primary": "Request early access",
+        "cta_secondary": "See how it works"
+      },
+      "problem": {
+        "headline": "You usually hear about a struggling plant when it is already late.",
+        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
+      },
+      "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
+      "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
+      "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
+      "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
+      "chapter": {
+        "title": "Every plant you send, in one place.",
+        "steps": [
+          {
+            "panel": "invite",
+            "title": "Invite your plants.",
+            "body": "Send an invite. The planter connects their plant in a few clicks."
+          },
+          {
+            "panel": "plants",
+            "title": "See every plant on one page.",
+            "body": "Phase, core group, launch date and findings for each plant, in launch order."
+          },
+          {
+            "panel": "senders",
+            "title": "Each sending church, side by side.",
+            "body": "A network sees how each of its sending churches and their plants are doing."
+          },
+          {
+            "panel": "help",
+            "title": "Help where it matters.",
+            "body": "See where a plant could use help, and offer it."
+          }
+        ]
+      },
+      "intelligence": {
+        "title": "Know where your network needs help.",
+        "steps": [
+          {
+            "title": "Every plant, by state or metro area.",
+            "body": "Switch between all your plants, one state or one metro area, and every number follows."
+          },
+          {
+            "title": "Your pipeline, phase by phase.",
+            "body": "See how many plants are in each phase, and how long plants usually stay there."
+          },
+          {
+            "title": "Lenses across every plant.",
+            "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
+          },
+          {
+            "title": "The pattern that matters most.",
+            "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
+          }
+        ]
+      },
+      "plants": {
+        "headline": "Each plant, up close.",
+        "items": [
+          {
+            "label": "Phase journey",
+            "title": "Where the plant is on the way to launch.",
+            "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
+          },
+          {
+            "label": "Launch Sunday",
+            "title": "The days left before launch Sunday.",
+            "short": "A countdown to the launch date, with milestones and prep tasks done."
+          },
+          {
+            "label": "By market",
+            "title": "See how plants do in every market.",
+            "short": "Compare plants by state and metro area: launch readiness, momentum and the most common gap."
+          },
+          {
+            "label": "People and meetings",
+            "title": "Committed adults and meeting rhythm.",
+            "short": "How many adults have committed, and how often the plant holds a vision meeting."
+          },
+          {
+            "label": "Ministry teams",
+            "title": "Which leader roles are filled.",
+            "short": "How many teams have a leader, and which leader roles are still open."
+          },
+          {
+            "label": "Where help could matter",
+            "title": "A clear place to help.",
+            "short": "When the facts point to a need, the plant view names it, so you can offer help."
+          }
+        ]
+      },
+      "paths": {
+        "lead": "Sent by",
+        "tail": "Seen in one place.",
+        "states": [
+          {
+            "phrase": "a church",
+            "title": "A church sees its plants.",
+            "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
+          },
+          {
+            "phrase": "a network through a church",
+            "title": "A network sees every plant, by sending church.",
+            "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+          },
+          {
+            "phrase": "a network",
+            "title": "A network can send a plant directly.",
+            "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
+          }
+        ],
+        "line": "A network also sees each of its sending churches. The tools are the same for both."
+      },
+      "faq": {
+        "headline": "Questions from sending churches and networks.",
+        "items": [
+          {
+            "id": "who",
+            "q": "Who on our side uses EveryField?",
+            "a": "Sending churches and networks use the same tools. A network also sees each of its sending churches and their plants."
+          },
+          {
+            "id": "planters",
+            "q": "Do our planters need to use EveryField?",
+            "a": "Yes. Each planter runs their plant in EveryField, and you invite them to connect their plant to your church or network."
+          },
+          {
+            "id": "see",
+            "q": "What can we see for each plant?",
+            "a": "Phase, launch date, core group size, gathering rhythm, ministry roles filled and findings, as counts and summaries the plant shares with you."
+          },
+          {
+            "id": "people",
+            "q": "Can we see the people in a plant?",
+            "a": "No. You see counts and summaries. Names and personal details stay with the plant."
+          },
+          {
+            "id": "intelligence",
+            "q": "What is Network Intelligence?",
+            "a": "It reads the findings your plants share and shows patterns across your network: lenses, the phase pipeline and the gap most plants have in common. A pattern needs at least two plants."
+          },
+          {
+            "id": "markets",
+            "q": "Can we compare plants by state or metro area?",
+            "a": "Yes. Switch between all plants, one state or one metro area, and every number follows."
+          },
+          {
+            "id": "sent-by-church",
+            "q": "Our plant was sent by a church in our network. Who sees it?",
+            "a": "Both the sending church and the network see it."
+          },
+          {
+            "id": "sent-by-network",
+            "q": "A planter came to our network directly. Can we add a sending church later?",
+            "a": "Yes. A network can send a plant on its own and assign a sending church at any time."
+          },
+          {
+            "id": "coaches",
+            "q": "Can coaches use it?",
+            "a": "Yes. Coaches the planter invites can read the plant's records and cannot change anything."
+          },
+          {
+            "id": "phase",
+            "q": "Does EveryField move a plant to the next phase or rate the planter?",
+            "a": "No. The planter sets the phase. EveryField does not change it or grade the planter."
+          },
+          {
+            "id": "start",
+            "q": "How do we get started?",
+            "a": "EveryField is in early access. Request access for your church or network, and we will be in touch.",
+            "link": "Request access"
+          }
+        ]
+      },
+      "cta": {
+        "headline": "Bring EveryField to your network.",
+        "body": "We are working with a small group of networks and sending churches during early access.",
+        "cta_primary": "Talk to us about your network",
+        "cta_secondary": "Request early access as a planter"
+      }
+    }
+  },
+  "directions": [
+    {
+      "id": "journey",
+      "name": "From calling to launch Sunday",
+      "angle": "The planter's journey through the seven church phases. The planter is the hero. Sending churches and networks appear as the people who walk beside the planter.",
+      "sections": {
+        "hero": {
+          "headline": "From calling to launch Sunday.",
+          "subhead": "Keep your people, gatherings, follow-ups and teams in one place as your core team and launch team grow toward launch Sunday.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "See how it works"
+        },
+        "problem": {
+          "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
+          "body": "Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. EveryField keeps it all in one place, so the most important work gets your time."
+        },
+        "proof": {
+          "headline": "Here is what a Monday looks like.",
+          "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
+          "callouts": [],
+          "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
+        },
+        "features": {
+          "headline": "Everything a plant needs, in the order you need it.",
+          "items": [
+            {
+              "label": "Discovery",
+              "title": "Start with clear guidance",
+              "body": "Everyfield opens the guidance for the phase you are in, so you read what matters now."
+            },
+            {
+              "label": "Core group",
+              "title": "Grow a committed core group",
+              "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks.",
+              "short": "Track each person from first visit to signed commitment."
+            },
+            {
+              "label": "Launch team",
+              "title": "Set the date and fill the roles",
+              "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it.",
+              "short": "See which of the eight ministry areas still has no leader."
+            },
+            {
+              "label": "Training",
+              "title": "Train every team",
+              "body": "Plan training meetings for each ministry team and see who has finished."
+            },
+            {
+              "label": "Pre-launch",
+              "title": "Finish the launch list",
+              "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details.",
+              "short": "Work through launch milestones and their tasks."
+            },
+            {
+              "label": "Launch and after",
+              "title": "Launch, then keep going",
+              "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm.",
+              "short": "Record Launch Sunday and its outcome."
+            }
+          ]
+        },
+        "audiences": {
+          "headline": "One plant. Three groups of people who care about it.",
+          "items": [
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Know what needs you this week.",
+              "body": "You do the work. Everyfield keeps the record and points at the next step.",
+              "points": [
+                "People, vision meetings, follow-ups, teams and launch tasks in one place",
+                "One focus each week from Plant Intelligence, with the facts behind it",
+                "A private weekly check-in that only you can see"
+              ],
+              "cta": "See the planter's week"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Stay close to the plant you sent.",
+              "body": "See how your plant is doing without asking the planter for another report.",
+              "points": [
+                "Phase, health and launch readiness for the plant, when the planter shares them",
+                "Coaches the planter invites can read that plant and change nothing",
+                "No access to the planter's people or private notes"
+              ],
+              "cta": "See what sending churches and networks see"
+            },
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Every plant in your network on one page.",
+              "body": "Find the plants that need your attention this month.",
+              "points": [
+                "Each plant shows as on track, watch, launch readiness or limited visibility",
+                "Summaries only, and only what each plant chooses to share",
+                "The same rubric across every plant"
+              ],
+              "cta": "See what sending churches and networks see"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
+          "headline": "Evry prepares the work. You approve it.",
+          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to follow up, and it creates a task for each guest, assigns it to someone on your core team and drafts what to say. Nothing is saved until you approve the exact change on screen.",
+          "example": {
+            "ask": "Who from Thursday's vision meeting has no follow-up owner?",
+            "answer": "Three first-time guests have no follow-up owner yet.",
+            "review": "Review 3 changes · Assign follow-up tasks · Approve or Edit"
+          },
+          "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
+        },
+        "cta": {
+          "headline": "Start with the week in front of you.",
+          "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
+          "cta_primary": "Request early access",
+          "cta_secondary": "Talk to us about your network"
+        },
+        "footer": {
+          "tagline": "Church planting software, from calling to launch Sunday."
+        }
+      }
+    },
+    {
+      "id": "oversight",
+      "name": "See every plant you send",
+      "angle": "The sending church or network that needs honest visibility into many plants. The buyer is the hero. The planter's daily tool is the reason the data is real, and consent is the reason planters accept it.",
+      "sections": {
+        "hero": {
+          "headline": "See how every plant you send is doing.",
+          "subhead": "See the phase, health and launch readiness of each plant that shares with you. Never their people.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "I am a planter"
+        },
+        "problem": {
+          "headline": "You usually hear about a struggling plant when it is already late.",
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices."
+        },
+        "proof": {
+          "headline": "One row for each plant. One status you can act on.",
+          "body": "Each plant shows its phase, its launch date and a status: on track, watch, launch readiness or limited visibility.",
+          "callouts": [
+            "On track",
+            "Watch",
+            "Launch readiness",
+            "Limited visibility"
+          ],
+          "visual": "Oversight table: plant name, phase track, launch date, status badge. Use the mockup's StatusBadge and PhaseTrack components."
+        },
+        "features": {
+          "headline": "The planter's daily work is what makes your view accurate.",
+          "items": [
+            {
+              "label": "Network",
+              "title": "Plant directory",
+              "body": "Every plant that shares with you, with its phase, city and launch date."
+            },
+            {
+              "label": "Network",
+              "title": "Health summary",
+              "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first."
+            },
+            {
+              "label": "Network",
+              "title": "Launch readiness",
+              "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training."
+            },
+            {
+              "label": "Coaching",
+              "title": "Coach access",
+              "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything."
+            },
+            {
+              "label": "Planter",
+              "title": "The planter's tools",
+              "body": "People, vision meetings, follow-up tasks, ministry teams, launch milestones, documents and email. All of it in one place for the plant."
+            },
+            {
+              "label": "Planter",
+              "title": "Consent the planter controls",
+              "body": "Each plant chooses what to share with you and can change that choice. Everyfield checks it on every read."
+            }
+          ]
+        },
+        "audiences": {
+          "headline": "Built for the network, the sending church and the planter.",
+          "items": [
+            {
+              "id": "networks",
+              "label": "For networks",
+              "headline": "Know where your coaching time matters most.",
+              "body": "See every plant on one page and start each week with the ones that need you most.",
+              "points": [
+                "Health status for each plant, from one shared rubric",
+                "Filter by phase, launch date or status",
+                "Sending churches in your network and their plants in one view"
+              ],
+              "cta": "See what sending churches and networks see"
+            },
+            {
+              "id": "sending-churches",
+              "label": "For sending churches",
+              "headline": "Send a planter and stay close.",
+              "body": "Your elders can see how the plant is doing without a monthly report.",
+              "points": [
+                "Phase, launch date and health for the plants you send",
+                "Invite a coach or step back, as the plant needs",
+                "Summaries only. The planter's people stay with the planter."
+              ],
+              "cta": "See what sending churches and networks see"
+            },
+            {
+              "id": "planters",
+              "label": "For planters",
+              "headline": "Share progress without writing a report.",
+              "body": "Do your work in Everyfield. Your sending church sees what you choose to share, and nothing more.",
+              "points": [
+                "Your people, meetings and tasks are never shown to oversight",
+                "You see every concern before your sending church does",
+                "Your weekly check-in is for you only"
+              ],
+              "cta": "See the planter's week"
+            }
+          ]
+        },
+        "evry": {
+          "eyebrow": "Evry, for the plant team",
+          "headline": "Planters get an assistant that does the busywork.",
+          "body": "Evry works inside the plant's account. It finds records, drafts follow-up tasks and emails, and explains a Plant Intelligence result against the rubric. Every change waits for the planter's approval, so the records your summary comes from stay the planter's own work.",
+          "example": {
+            "ask": "Why does Plant Intelligence say my follow-up is slipping?",
+            "answer": "Twelve people have a follow-up task that is past its due date. Here they are, with the date each one was last contacted.",
+            "review": "Review 12 changes · Assign follow-up tasks · Approve or Edit"
+          },
+          "limits": "Evry is for the plant team. It does not give sending churches or networks extra access, and it never reads a planter's private check-in."
+        },
+        "trust": {
+          "headline": "Planters trust the system, so you get true numbers.",
+          "items": [
+            {
+              "title": "Summaries, not records",
+              "body": "Oversight never sees a person's name, contact details or notes. It sees counts and statuses."
+            },
+            {
+              "title": "Consent on every read",
+              "body": "If a plant stops sharing, your view changes at once."
+            },
+            {
+              "title": "The planter sees it first",
+              "body": "Every concern in your summary is one the planter can already see in their own account."
+            },
+            {
+              "title": "One rubric for every plant",
+              "body": "Every plant is read against the same versioned rubric."
+            }
+          ]
+        },
+        "cta": {
+          "headline": "Bring Everyfield to your plants.",
+          "body": "We are working with a small group of networks and sending churches during early access.",
+          "cta_primary": "Talk to us about your network",
+          "cta_secondary": "Request early access as a planter"
+        },
+        "footer": {
+          "tagline": "Church planting software for planters and the churches that send them."
+        }
+      }
+    }
+  ]
+}

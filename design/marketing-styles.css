@@ -1,0 +1,327 @@
+/*
+ * Everyfield marketing site: style direction tokens.
+ *
+ * Put one class on <html> or <body> to switch the whole page:
+ *   .mk-fieldnotes   A. Field Notes   (warm paper, editorial, map line work)
+ *   .mk-signal       B. Signal        (the dashboard's own look, product-first)
+ *   .mk-nightfield   C. Night Field   (dark, product UI on near-black, green signal)
+ *   .mk-neighborhood D. Neighborhood  (documentary photography, deep green and cream)
+ *
+ * Every class sets the same variable names, so components only read --mk-*.
+ * Colours come from the --ef-* ramps in design/everyfield-ui.html.
+ * Contrast (WCAG 2.x) for each text pair is noted next to it.
+ * Rule for all directions: never set #1CE362 (green-500) as text on a light
+ * background. Use it as a fill with ink text, or as text on dark only.
+ */
+
+:root {
+  --mk-font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Shared spacing scale (4px base, same as --ef-space-*) */
+  --mk-space-1: 4px;
+  --mk-space-2: 8px;
+  --mk-space-3: 12px;
+  --mk-space-4: 16px;
+  --mk-space-6: 24px;
+  --mk-space-8: 32px;
+  --mk-space-12: 48px;
+  --mk-space-16: 64px;
+  --mk-space-24: 96px;
+  --mk-space-32: 128px;
+
+  --mk-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* ------------------------------------------------------------------ */
+/* A. Field Notes                                                       */
+/* Warm paper, ink type, map line work. Calm and literate.              */
+/* ------------------------------------------------------------------ */
+.mk-fieldnotes {
+  color-scheme: light;
+
+  --mk-canvas: #F6F0E9;          /* --ef-cream */
+  --mk-surface: #FFFDF9;
+  --mk-surface-2: #EFE6DA;
+  --mk-surface-inverse: #181D19; /* --ef-ink */
+  --mk-ink: #181D19;             /* 15.1:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.8:1 on canvas, 6.2:1 on surface-2 */
+  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
+  --mk-text-inverse: #F6F0E9;    /* 15.1:1 on surface-inverse */
+  --mk-line: rgba(24, 29, 25, .12);
+  --mk-line-strong: rgba(24, 29, 25, .24);
+
+  --mk-accent: #0F7E3C;          /* --ef-green-600, 4.6:1 on canvas */
+  --mk-accent-text: #FFFFFF;     /* 5.2:1 on accent */
+  --mk-link: #0F7E3C;
+  --mk-highlight: #1CE362;       /* marker fill behind ink text, 9.9:1 */
+  --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
+  --mk-chart-1: #0F7E3C;
+  --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
+  --mk-chart-3: #1C5BB5;         /* --ef-blue-600 */
+
+  --mk-cta-bg: #181D19;
+  --mk-cta-text: #F6F0E9;        /* 15.1:1 */
+  --mk-cta-bg-hover: #0F7E3C;
+  --mk-cta2-bg: transparent;
+  --mk-cta2-text: #181D19;
+  --mk-cta2-border: rgba(24, 29, 25, .35);
+
+  /* Type: large, tight display; generous body */
+  --mk-fs-hero: clamp(48px, 7vw, 104px);
+  --mk-fs-h1: clamp(40px, 5vw, 72px);
+  --mk-fs-h2: clamp(32px, 3.6vw, 52px);
+  --mk-fs-h3: clamp(22px, 2vw, 28px);
+  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
+  --mk-fs-body: 17px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.0;
+  --mk-lh-body: 1.6;
+  --mk-tracking-display: -0.035em;
+  --mk-tracking-eyebrow: 0.08em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 100%;    /* Bricolage wdth axis */
+
+  /* Layout: 12 col, wide margins, asymmetric 5/7 heroes */
+  --mk-max-width: 1280px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 24px;
+  --mk-page-pad: clamp(20px, 5vw, 64px);
+  --mk-section-space: clamp(80px, 10vw, 144px);
+  --mk-measure: 62ch;
+
+  /* Shape */
+  --mk-radius-card: 6px;
+  --mk-radius-button: 999px;
+  --mk-radius-media: 4px;
+  --mk-border-card: 1px solid rgba(24, 29, 25, .12);
+  --mk-shadow-card: none;
+  --mk-shadow-media: 0 1px 2px rgba(24, 29, 25, .06), 0 18px 40px -24px rgba(24, 29, 25, .35);
+  --mk-nav-bg: rgba(246, 240, 233, .88);
+  --mk-nav-blur: 10px;
+  --mk-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cpath d='M0 120c40-30 80-30 120 0s80 30 120 0M0 160c40-30 80-30 120 0s80 30 120 0M0 80c40-30 80-30 120 0s80 30 120 0' fill='none' stroke='%23181D19' stroke-opacity='.06'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------ */
+/* B. Signal                                                            */
+/* The dashboard's own look: grey canvas, white cards, green momentum.  */
+/* ------------------------------------------------------------------ */
+.mk-signal {
+  color-scheme: light;
+
+  --mk-canvas: #E9ECF0;          /* --ef-canvas (light) */
+  --mk-surface: #FFFFFF;         /* --ef-surface-raised */
+  --mk-surface-2: #F2F4F7;       /* --ef-frame */
+  --mk-surface-inverse: #181D19;
+  --mk-ink: #181D19;             /* 14.4:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.5:1 on canvas, 7.7:1 on white */
+  --mk-text-3: #666C78;          /* 5.3:1 on white */
+  --mk-text-inverse: #FFFFFF;    /* 17.1:1 on surface-inverse */
+  --mk-line: rgba(22, 30, 46, .075);
+  --mk-line-strong: rgba(22, 30, 46, .13);
+
+  --mk-accent: #1CE362;          /* --ef-green-500, fill only */
+  --mk-accent-text: #111318;     /* 10.8:1 on accent */
+  --mk-link: #0F7E3C;            /* 5.2:1 on white */
+  --mk-highlight: #DCFAE7;       /* --ef-green-100 chip, text #0D6B35 at 6.0:1 */
+  --mk-eyebrow: #4D5361;
+  --mk-chart-1: #1CE362;
+  --mk-chart-2: #6AAEFF;         /* --ef-blue-500 */
+  --mk-chart-3: #A48CF5;         /* --ef-violet-500 */
+
+  --mk-cta-bg: #181D19;
+  --mk-cta-text: #FFFFFF;        /* 17.1:1 */
+  --mk-cta-bg-hover: #343843;
+  --mk-cta2-bg: #FFFFFF;
+  --mk-cta2-text: #181D19;
+  --mk-cta2-border: rgba(22, 30, 46, .13);
+
+  /* Type: same scale family as --ef-display-* */
+  --mk-fs-hero: clamp(44px, 6vw, 88px);
+  --mk-fs-h1: clamp(40px, 4.6vw, 76px);  /* --ef-display-lg */
+  --mk-fs-h2: clamp(30px, 3.4vw, 56px);  /* --ef-display-md */
+  --mk-fs-h3: clamp(22px, 1.8vw, 28px);  /* --ef-title-lg */
+  --mk-fs-lead: clamp(18px, 1.4vw, 21px);
+  --mk-fs-body: 16px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.04;
+  --mk-lh-body: 1.55;
+  --mk-tracking-display: -0.035em;
+  --mk-tracking-eyebrow: 0;
+  --mk-eyebrow-transform: none;
+  --mk-display-stretch: 100%;
+
+  /* Layout: bento grid of cards, centred hero, product frame below */
+  --mk-max-width: 1440px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 16px;
+  --mk-page-pad: clamp(16px, 3vw, 40px);
+  --mk-section-space: clamp(72px, 8vw, 120px);
+  --mk-measure: 58ch;
+
+  /* Shape: the dashboard's soft cards and pills */
+  --mk-radius-card: 26px;        /* --ef-radius-card */
+  --mk-radius-button: 999px;
+  --mk-radius-media: 34px;       /* --ef-radius-frame */
+  --mk-border-card: 0;
+  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
+  --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28);
+  --mk-nav-bg: rgba(255, 255, 255, .9);
+  --mk-nav-blur: 12px;
+  --mk-texture: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* C. Night Field                                                       */
+/* Near-black canvas, product UI as hero, green as the only signal.     */
+/* ------------------------------------------------------------------ */
+.mk-nightfield {
+  color-scheme: dark;
+
+  --mk-canvas: #0B0D10;          /* --ef-canvas (dark) */
+  --mk-surface: #161A1F;         /* --ef-surface (dark) */
+  --mk-surface-2: #1C2026;       /* --ef-surface-raised (dark) */
+  --mk-surface-inverse: #EEF0F4;
+  --mk-ink: #EEF0F4;             /* 17.1:1 on canvas */
+  --mk-text: #ECEEF2;
+  --mk-text-2: #B1B7C2;          /* 9.7:1 on canvas, 8.1:1 on surface-2 */
+  --mk-text-3: #8A919E;          /* 6.1:1 on canvas, 5.5:1 on surface */
+  --mk-text-inverse: #111318;
+  --mk-line: rgba(255, 255, 255, .07);
+  --mk-line-strong: rgba(255, 255, 255, .13);
+
+  --mk-accent: #1CE362;          /* 11.3:1 as text on canvas */
+  --mk-accent-text: #111318;     /* 10.8:1 on accent */
+  --mk-link: #62E897;            /* 12.5:1 on canvas */
+  --mk-highlight: rgba(28, 227, 98, .14);
+  --mk-eyebrow: #8A919E;
+  --mk-chart-1: #1CE362;
+  --mk-chart-2: #6AAEFF;
+  --mk-chart-3: #F2728A;         /* --ef-magenta-500 */
+
+  --mk-cta-bg: #1CE362;
+  --mk-cta-text: #111318;        /* 10.8:1 */
+  --mk-cta-bg-hover: #62E897;
+  --mk-cta2-bg: rgba(255, 255, 255, .06);
+  --mk-cta2-text: #EEF0F4;
+  --mk-cta2-border: rgba(255, 255, 255, .13);
+
+  /* Type: smaller, tighter, quieter headings; the product does the talking */
+  --mk-fs-hero: clamp(42px, 5.4vw, 80px);
+  --mk-fs-h1: clamp(36px, 4vw, 60px);
+  --mk-fs-h2: clamp(28px, 3vw, 44px);
+  --mk-fs-h3: clamp(20px, 1.6vw, 24px);
+  --mk-fs-lead: clamp(17px, 1.3vw, 20px);
+  --mk-fs-body: 16px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 12px;
+  --mk-weight-display: 500;
+  --mk-weight-body: 400;
+  --mk-lh-display: 1.05;
+  --mk-lh-body: 1.55;
+  --mk-tracking-display: -0.03em;
+  --mk-tracking-eyebrow: 0.06em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 92%;
+
+  /* Layout: left-aligned hero, full-width product frame, ruled feature lists */
+  --mk-max-width: 1280px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 24px;
+  --mk-page-pad: clamp(20px, 5vw, 80px);
+  --mk-section-space: clamp(96px, 12vw, 176px);
+  --mk-measure: 56ch;
+
+  /* Shape */
+  --mk-radius-card: 14px;        /* --ef-radius-md */
+  --mk-radius-button: 10px;      /* --ef-radius-sm */
+  --mk-radius-media: 20px;       /* --ef-radius-lg */
+  --mk-border-card: 1px solid rgba(255, 255, 255, .07);
+  --mk-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
+  --mk-shadow-media: 0 0 0 1px rgba(255,255,255,.06), 0 40px 120px -40px rgba(28,227,98,.25);
+  --mk-nav-bg: rgba(11, 13, 16, .8);
+  --mk-nav-blur: 14px;
+  --mk-texture: radial-gradient(60% 50% at 50% 0%, rgba(28, 227, 98, .10), transparent 70%);
+}
+
+/* ------------------------------------------------------------------ */
+/* D. Neighborhood                                                      */
+/* Documentary photography of real places; deep green and cream bands.  */
+/* ------------------------------------------------------------------ */
+.mk-neighborhood {
+  color-scheme: light;
+
+  --mk-canvas: #F6F0E9;          /* --ef-cream for body sections */
+  --mk-surface: #FFFDF9;
+  --mk-surface-2: #EDE3D5;
+  --mk-surface-inverse: #0F2418; /* --ef-green-50 (dark ramp) for hero and bands */
+  --mk-ink: #181D19;             /* 15.1:1 on canvas */
+  --mk-text: #181D19;
+  --mk-text-2: #4D5361;          /* 6.8:1 on canvas */
+  --mk-text-3: #666C78;          /* 4.7:1 on canvas */
+  --mk-text-inverse: #F6F0E9;    /* 14.4:1 on surface-inverse */
+  --mk-text-inverse-2: #CDD2DA;  /* 10.8:1 on surface-inverse */
+  --mk-line: rgba(24, 29, 25, .12);
+  --mk-line-strong: rgba(24, 29, 25, .24);
+
+  --mk-accent: #FFA552;          /* --ef-amber-500, 8.4:1 as text on green band */
+  --mk-accent-text: #181D19;     /* 8.8:1 on accent */
+  --mk-link: #0D6B35;            /* --ef-green-700, 5.9:1 on canvas */
+  --mk-highlight: #FFEBD6;       /* --ef-amber-100 */
+  --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
+  --mk-chart-1: #0D6B35;
+  --mk-chart-2: #D9780F;
+  --mk-chart-3: #11736A;         /* --ef-teal-600 */
+
+  --mk-cta-bg: #FFA552;
+  --mk-cta-text: #181D19;        /* 8.8:1 */
+  --mk-cta-bg-hover: #FFC68F;
+  --mk-cta2-bg: transparent;
+  --mk-cta2-text: inherit;
+  --mk-cta2-border: currentColor;
+
+  /* Type: big and warm; condensed-ish display for captions over photos */
+  --mk-fs-hero: clamp(48px, 7.5vw, 112px);
+  --mk-fs-h1: clamp(40px, 5vw, 72px);
+  --mk-fs-h2: clamp(30px, 3.4vw, 48px);
+  --mk-fs-h3: clamp(21px, 1.8vw, 26px);
+  --mk-fs-lead: clamp(19px, 1.5vw, 22px);
+  --mk-fs-body: 17px;
+  --mk-fs-small: 14px;
+  --mk-fs-eyebrow: 13px;
+  --mk-weight-display: 600;
+  --mk-weight-body: 400;
+  --mk-lh-display: 0.98;
+  --mk-lh-body: 1.6;
+  --mk-tracking-display: -0.03em;
+  --mk-tracking-eyebrow: 0.1em;
+  --mk-eyebrow-transform: uppercase;
+  --mk-display-stretch: 85%;
+
+  /* Layout: full-bleed photo heroes, photo mosaics, text in narrow columns */
+  --mk-max-width: 1360px;
+  --mk-grid-cols: 12;
+  --mk-gutter: 12px;
+  --mk-page-pad: clamp(16px, 4vw, 56px);
+  --mk-section-space: clamp(80px, 10vw, 140px);
+  --mk-measure: 60ch;
+
+  /* Shape */
+  --mk-radius-card: 20px;
+  --mk-radius-button: 999px;
+  --mk-radius-media: 20px;
+  --mk-border-card: 0;
+  --mk-shadow-card: 0 1px 2px rgba(15, 36, 24, .06), 0 12px 32px -18px rgba(15, 36, 24, .35);
+  --mk-shadow-media: none;
+  --mk-nav-bg: rgba(15, 36, 24, .72);
+  --mk-nav-blur: 12px;
+  --mk-texture: none;
+}
