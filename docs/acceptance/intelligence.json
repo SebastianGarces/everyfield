@@ -1195,8 +1195,7 @@
       },
       "expected": "Unknown/false/aged human evidence remain distinct; correction lineage/sourcequestion survive and no model/privatecare generates testimony.",
       "feature_ids": [
-        "EVR-265",
-        "EVR-266",
+        "EVR-020",
         "PI-014",
         "PI-015"
       ],
@@ -1427,9 +1426,7 @@
       },
       "expected": "Native and Evry selected imports share one command and receipt; a model cannot create testimony, promote accounts or approve its own durable effect.",
       "feature_ids": [
-        "EVR-206",
-        "EVR-207",
-        "EVR-228",
+        "EVR-020",
         "TEAM-003"
       ],
       "acceptance_ids": [

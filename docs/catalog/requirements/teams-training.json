@@ -37,13 +37,14 @@
         },
         {
           "operation": "teams.get",
-          "rule": "Supported sections values: profile, roles, roster, responsibilities, training[]."
+          "rule": "Supported sections values: profile, roles, roster, responsibilities, training."
         },
         {
           "operation": "teams.get",
           "rule": "Single current TeamDetails or unavailable; no page/scalar substitution"
         }
-      ]
+      ],
+      "title": "Ministry teams and staffing"
     },
     {
       "id": "REQ-TEAM-002",
@@ -75,7 +76,8 @@
           "operation": "teams.correct",
           "rule": "Supported state values: forming, active, paused?."
         }
-      ]
+      ],
+      "title": "Archive, restore and correct teams"
     },
     {
       "id": "REQ-TEAM-003",
@@ -117,7 +119,8 @@
           "operation": "teams.previewTemplateImport",
           "rule": "Visible information for plant_admin: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved."
         }
-      ]
+      ],
+      "title": "Initialize predefined teams and roles"
     },
     {
       "id": "REQ-TEAM-004",
@@ -151,7 +154,8 @@
           "operation": "teams.appointLeader",
           "rule": "appointment removal/history without seat or earned-training loss"
         }
-      ]
+      ],
+      "title": "Appoint and synchronize team leaders"
     },
     {
       "id": "REQ-TEAM-005",
@@ -178,7 +182,8 @@
       ],
       "work_packages": [
         "WP-017"
-      ]
+      ],
+      "title": "Team roles and template import"
     },
     {
       "id": "REQ-TEAM-006",
@@ -205,7 +210,8 @@
       ],
       "work_packages": [
         "WP-017"
-      ]
+      ],
+      "title": "Membership, role occupancy and tenure history"
     },
     {
       "id": "REQ-TEAM-007",
@@ -233,7 +239,8 @@
       ],
       "work_packages": [
         "WP-018"
-      ]
+      ],
+      "title": "Team responsibilities"
     },
     {
       "id": "REQ-TEAM-008",
@@ -264,7 +271,8 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "title": "Training programs, assignments and completion"
     },
     {
       "id": "REQ-TEAM-009",
@@ -291,7 +299,8 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "title": "Correct, revoke and redo training"
     },
     {
       "id": "REQ-TEAM-010",
@@ -323,7 +332,8 @@
           "operation": "teams.personTeamCounts",
           "rule": "Visible information for plant_member: items, sourceRevision."
         }
-      ]
+      ],
+      "title": "Person team assignments and training"
     },
     {
       "id": "REQ-TEAM-011",
@@ -349,7 +359,8 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "title": "Team and aggregate staffing health"
     },
     {
       "id": "REQ-TEAM-012",
@@ -403,7 +414,8 @@
           "operation": "teams.orgChart",
           "rule": "fixed Leadership-root organization view, no reporting editor"
         }
-      ]
+      ],
+      "title": "Organization chart from team hierarchy"
     },
     {
       "id": "REQ-TEAM-013",
@@ -434,7 +446,8 @@
           "operation": "teams.scheduleMeeting",
           "rule": "Supported subtype values: regular, training, planning, special, rehearsal."
         }
-      ]
+      ],
+      "title": "Team meetings and training sessions"
     },
     {
       "id": "REQ-TEAM-014",
@@ -480,7 +493,8 @@
           "operation": "teams.assignmentEffects",
           "rule": "InternalProtocolResult/material source revision in producer transaction"
         }
-      ]
+      ],
+      "title": "Team assignment consequences"
     },
     {
       "id": "REQ-TEAM-016",

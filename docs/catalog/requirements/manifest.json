@@ -24,7 +24,8 @@
       ],
       "work_packages": [
         "WP-032"
-      ]
+      ],
+      "title": "Canonical SME Launch Playbook source"
     },
     {
       "id": "REQ-REF-002",
@@ -50,7 +51,8 @@
       "work_packages": [
         "WP-033",
         "WP-034"
-      ]
+      ],
+      "title": "Approved global Wiki article/section bootstrap"
     },
     {
       "id": "REQ-REF-003",
@@ -81,7 +83,8 @@
           "operation": "reference.packageDocumentTemplates",
           "rule": "Pure extraction/validation of registered immutable global source component, no seed, active pointer, tenant copy or model call."
         }
-      ]
+      ],
+      "title": "Eleven generated document template catalog"
     },
     {
       "id": "REQ-REF-004",
@@ -106,7 +109,8 @@
       ],
       "work_packages": [
         "WP-032"
-      ]
+      ],
+      "title": "Twenty phase/launch checklist templates"
     },
     {
       "id": "REQ-REF-005",
@@ -131,7 +135,8 @@
       ],
       "work_packages": [
         "WP-032"
-      ]
+      ],
+      "title": "Ten predefined ministry teams and role/responsibility catalog"
     },
     {
       "id": "REQ-REF-006",
@@ -156,7 +161,8 @@
       ],
       "work_packages": [
         "WP-032"
-      ]
+      ],
+      "title": "Seven system communication templates"
     },
     {
       "id": "REQ-REF-007",
@@ -182,7 +188,8 @@
       ],
       "work_packages": [
         "WP-041"
-      ]
+      ],
+      "title": "Global methodology embeddings bootstrap"
     },
     {
       "id": "REQ-REF-008",
@@ -227,7 +234,8 @@
           "operation": "reference.readRubricManifest",
           "rule": "Return the active plant rubric manifest and original/adapter hashes; does not mutate or substitute the NI rubric."
         }
-      ]
+      ],
+      "title": "Reference package verification and editorial approval gate"
     }
   ]
 }

@@ -3384,7 +3384,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_ids": [
+          "GAP-EVR-400",
+          "GAP-EVR-429"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -3601,7 +3605,10 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_ids": [
+          "GAP-EVR-429"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -3686,9 +3693,9 @@
       "goal": "Evry autonomy policy/evals/human ownership. Prove only the owned producer or adapter portion; later integration closes the whole target.",
       "context_scope": {
         "features": "explicit",
-        "requirements": "features",
-        "cases": "features",
-        "operations": "features",
+        "requirements": "explicit",
+        "cases": "explicit",
+        "operations": "explicit",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_ids": [
@@ -3701,6 +3708,81 @@
           "EVR-028",
           "EVR-030",
           "EVR-032"
+        ],
+        "operation_ids": [
+          "access.checkOperation",
+          "evry.classifyRequest",
+          "evry.projectError",
+          "evry.readCatalog",
+          "evry.readUsage",
+          "evry.readWorkflowHint",
+          "evry.runEvaluation",
+          "evry.selectQualifiedModel",
+          "ops.traceModelAttempt"
+        ],
+        "requirement_ids": [
+          "REQ-EVR-001",
+          "REQ-EVR-002",
+          "REQ-EVR-004",
+          "REQ-EVR-019",
+          "REQ-EVR-020",
+          "REQ-EVR-027",
+          "REQ-EVR-028",
+          "REQ-EVR-030",
+          "REQ-EVR-032"
+        ],
+        "case_ids": [
+          "AI44-001",
+          "AI44-002",
+          "AI44-003",
+          "AI44-004",
+          "AI44-005",
+          "AI44-006",
+          "AI44-007",
+          "CASE-OPS-003",
+          "DEL58-001",
+          "DEL58-002",
+          "DEL58-003",
+          "DEL58-005",
+          "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
+          "EVRY-EVALUATION-RELEASE",
+          "EVRY-FAMILY-IDENTITY-PLATFORM",
+          "EVRY-FAMILY-RUNTIME-CATALOG",
+          "EVRY-FAMILY-RUNTIME-CONVERSATION",
+          "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
+          "EVRY-ORG-CONTEXT",
+          "INH-EDGES-01",
+          "INH-EDGES-03",
+          "INH-EDGES-04",
+          "INH-EDGES-05",
+          "INH-EDGES-06",
+          "INH-EDGES-07",
+          "INH-EDGES-08",
+          "INH-EDGES-09",
+          "INH-EDGES-10",
+          "INH-EDGES-11",
+          "INH-EDGES-12",
+          "INH-EDGES-14",
+          "INH-REGRESSION-CODE-WRITE",
+          "INH-REGRESSION-FOREIGN-SESSION",
+          "INH-REGRESSION-REVOKED-SEAT",
+          "INH-REGRESSION-SANDBOX-ESCAPE",
+          "LAUNCH46-020",
+          "NI-010",
+          "ORG55-001",
+          "PI-CASE-026",
+          "ROLE43-001",
+          "ROLE43-002",
+          "ROLE43-006",
+          "ROLE43-009",
+          "SCHEMA-001",
+          "TARGET-IDN-005",
+          "TARGET-IDN-029",
+          "TARGET-IDN-031",
+          "TARGET-IDN-032",
+          "TARGET-MTG-021",
+          "TARGET-MTG-022",
+          "TARGET-TSK-003"
         ]
       },
       "estimate_factors": {
@@ -3731,7 +3813,7 @@
         "WP-050",
         "WP-055"
       ],
-      "estimate_engineer_days": 14.5,
+      "estimate_engineer_days": 14.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-056; linked details on demand.",
         "WP-015 reviewed producer/interface milestone",
@@ -3804,7 +3886,7 @@
         "WP-048",
         "WP-056"
       ],
-      "estimate_engineer_days": 14.5,
+      "estimate_engineer_days": 14.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-057; linked details on demand.",
         "WP-048 reviewed producer/interface milestone",
@@ -3929,7 +4011,7 @@
         "WP-013",
         "WP-023"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-059; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -3972,7 +4054,39 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
+          "INH-EDGES-06"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-108--EVR-108",
+          "AC-EVR-109--EVR-109",
+          "AC-EVR-119--EVR-119",
+          "AC-EVR-121--EVR-121",
+          "AC-EVR-125--EVR-125",
+          "AC-EVR-126--EVR-126",
+          "AC-EVR-131--EVR-131",
+          "AC-EVR-132--EVR-132",
+          "AC-EVR-133--EVR-133",
+          "AC-EVR-134--EVR-134",
+          "AC-EVR-401--EVR-401",
+          "AC-EVR-402--EVR-402",
+          "AC-EVR-403--EVR-403",
+          "AC-EVR-READ--EVR-108",
+          "AC-EVR-READ--EVR-109",
+          "AC-EVR-READ--EVR-119",
+          "AC-EVR-READ--EVR-121",
+          "AC-EVR-READ--EVR-125",
+          "AC-EVR-READ--EVR-126",
+          "AC-EVR-READ--EVR-131",
+          "AC-EVR-READ--EVR-132",
+          "AC-EVR-READ--EVR-133",
+          "AC-EVR-READ--EVR-134",
+          "AC-EVR-READ--EVR-401",
+          "AC-EVR-READ--EVR-402",
+          "AC-EVR-READ--EVR-403"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -3997,7 +4111,7 @@
         "WP-013",
         "WP-023"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-060; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4041,7 +4155,36 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-120--EVR-120",
+          "AC-EVR-122--EVR-122",
+          "AC-EVR-123--EVR-123",
+          "AC-EVR-124--EVR-124",
+          "AC-EVR-127--EVR-127",
+          "AC-EVR-128--EVR-128",
+          "AC-EVR-129--EVR-129",
+          "AC-EVR-130--EVR-130",
+          "AC-EVR-135--EVR-135",
+          "AC-EVR-136--EVR-136",
+          "AC-EVR-137--EVR-137",
+          "AC-EVR-138--EVR-138",
+          "AC-EVR-EFFECT--EVR-120",
+          "AC-EVR-EFFECT--EVR-122",
+          "AC-EVR-EFFECT--EVR-123",
+          "AC-EVR-EFFECT--EVR-124",
+          "AC-EVR-EFFECT--EVR-127",
+          "AC-EVR-EFFECT--EVR-128",
+          "AC-EVR-EFFECT--EVR-129",
+          "AC-EVR-EFFECT--EVR-130",
+          "AC-EVR-EFFECT--EVR-135",
+          "AC-EVR-EFFECT--EVR-136",
+          "AC-EVR-EFFECT--EVR-137",
+          "AC-EVR-EFFECT--EVR-138"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4102,7 +4245,21 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-103--EVR-103",
+          "AC-EVR-104--EVR-104",
+          "AC-EVR-105--EVR-105",
+          "AC-EVR-106--EVR-106",
+          "AC-EVR-107--EVR-107",
+          "AC-EVR-423--EVR-423",
+          "AC-EVR-READ--EVR-103",
+          "AC-EVR-READ--EVR-104",
+          "AC-EVR-READ--EVR-105",
+          "AC-EVR-READ--EVR-106",
+          "AC-EVR-READ--EVR-107",
+          "AC-EVR-READ--EVR-423"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4165,7 +4322,26 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "AUDIT-001",
+          "AUDIT-002",
+          "AUDIT-003",
+          "AUTH-004",
+          "SEC-02",
+          "SEC-11",
+          "SEC-12",
+          "TEN-004",
+          "TEN-008"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-100--EVR-100",
+          "AC-EVR-101--EVR-101",
+          "AC-EVR-102--EVR-102",
+          "AC-EVR-EFFECT--EVR-100",
+          "AC-EVR-EFFECT--EVR-101",
+          "AC-EVR-EFFECT--EVR-102"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4230,7 +4406,26 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-FAMILY-PEOPLE-CORE"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-113--EVR-113",
+          "AC-EVR-114--EVR-114",
+          "AC-EVR-115--EVR-115",
+          "AC-EVR-140--EVR-140",
+          "AC-EVR-143--EVR-143",
+          "AC-EVR-148--EVR-148",
+          "AC-EVR-149--EVR-149",
+          "AC-EVR-READ--EVR-113",
+          "AC-EVR-READ--EVR-114",
+          "AC-EVR-READ--EVR-115",
+          "AC-EVR-READ--EVR-140",
+          "AC-EVR-READ--EVR-143",
+          "AC-EVR-READ--EVR-148",
+          "AC-EVR-READ--EVR-149"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4252,7 +4447,7 @@
         "WP-012",
         "WP-013"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-064; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4293,7 +4488,42 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-FAMILY-PEOPLE-CORE"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-110--EVR-110",
+          "AC-EVR-111--EVR-111",
+          "AC-EVR-112--EVR-112",
+          "AC-EVR-116--EVR-116",
+          "AC-EVR-117--EVR-117",
+          "AC-EVR-118--EVR-118",
+          "AC-EVR-139--EVR-139",
+          "AC-EVR-141--EVR-141",
+          "AC-EVR-142--EVR-142",
+          "AC-EVR-144--EVR-144",
+          "AC-EVR-145--EVR-145",
+          "AC-EVR-146--EVR-146",
+          "AC-EVR-147--EVR-147",
+          "AC-EVR-150--EVR-150",
+          "AC-EVR-151--EVR-151",
+          "AC-EVR-EFFECT--EVR-110",
+          "AC-EVR-EFFECT--EVR-111",
+          "AC-EVR-EFFECT--EVR-112",
+          "AC-EVR-EFFECT--EVR-116",
+          "AC-EVR-EFFECT--EVR-117",
+          "AC-EVR-EFFECT--EVR-118",
+          "AC-EVR-EFFECT--EVR-139",
+          "AC-EVR-EFFECT--EVR-141",
+          "AC-EVR-EFFECT--EVR-142",
+          "AC-EVR-EFFECT--EVR-144",
+          "AC-EVR-EFFECT--EVR-145",
+          "AC-EVR-EFFECT--EVR-146",
+          "AC-EVR-EFFECT--EVR-147",
+          "AC-EVR-EFFECT--EVR-150",
+          "AC-EVR-EFFECT--EVR-151"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4316,7 +4546,7 @@
         "WP-022",
         "WP-023"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-065; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4358,7 +4588,27 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-175--EVR-175",
+          "AC-EVR-176--EVR-176",
+          "AC-EVR-177--EVR-177",
+          "AC-EVR-178--EVR-178",
+          "AC-EVR-404--EVR-404",
+          "AC-EVR-408--EVR-408",
+          "AC-EVR-409--EVR-409",
+          "AC-EVR-426--EVR-426",
+          "AC-EVR-427--EVR-427",
+          "AC-EVR-READ--EVR-175",
+          "AC-EVR-READ--EVR-176",
+          "AC-EVR-READ--EVR-177",
+          "AC-EVR-READ--EVR-178",
+          "AC-EVR-READ--EVR-404",
+          "AC-EVR-READ--EVR-408",
+          "AC-EVR-READ--EVR-409",
+          "AC-EVR-READ--EVR-426",
+          "AC-EVR-READ--EVR-427"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4382,7 +4632,7 @@
         "WP-022",
         "WP-023"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-066; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4425,7 +4675,59 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-152--EVR-152",
+          "AC-EVR-153--EVR-153",
+          "AC-EVR-154--EVR-154",
+          "AC-EVR-155--EVR-155",
+          "AC-EVR-156--EVR-156",
+          "AC-EVR-157--EVR-157",
+          "AC-EVR-158--EVR-158",
+          "AC-EVR-159--EVR-159",
+          "AC-EVR-160--EVR-160",
+          "AC-EVR-161--EVR-161",
+          "AC-EVR-162--EVR-162",
+          "AC-EVR-163--EVR-163",
+          "AC-EVR-164--EVR-164",
+          "AC-EVR-165--EVR-165",
+          "AC-EVR-166--EVR-166",
+          "AC-EVR-167--EVR-167",
+          "AC-EVR-168--EVR-168",
+          "AC-EVR-169--EVR-169",
+          "AC-EVR-170--EVR-170",
+          "AC-EVR-171--EVR-171",
+          "AC-EVR-172--EVR-172",
+          "AC-EVR-173--EVR-173",
+          "AC-EVR-174--EVR-174",
+          "AC-EVR-179--EVR-179",
+          "AC-EVR-180--EVR-180",
+          "AC-EVR-EFFECT--EVR-152",
+          "AC-EVR-EFFECT--EVR-153",
+          "AC-EVR-EFFECT--EVR-154",
+          "AC-EVR-EFFECT--EVR-155",
+          "AC-EVR-EFFECT--EVR-156",
+          "AC-EVR-EFFECT--EVR-157",
+          "AC-EVR-EFFECT--EVR-158",
+          "AC-EVR-EFFECT--EVR-159",
+          "AC-EVR-EFFECT--EVR-160",
+          "AC-EVR-EFFECT--EVR-161",
+          "AC-EVR-EFFECT--EVR-162",
+          "AC-EVR-EFFECT--EVR-163",
+          "AC-EVR-EFFECT--EVR-164",
+          "AC-EVR-EFFECT--EVR-165",
+          "AC-EVR-EFFECT--EVR-166",
+          "AC-EVR-EFFECT--EVR-167",
+          "AC-EVR-EFFECT--EVR-168",
+          "AC-EVR-EFFECT--EVR-169",
+          "AC-EVR-EFFECT--EVR-170",
+          "AC-EVR-EFFECT--EVR-171",
+          "AC-EVR-EFFECT--EVR-172",
+          "AC-EVR-EFFECT--EVR-173",
+          "AC-EVR-EFFECT--EVR-174",
+          "AC-EVR-EFFECT--EVR-179",
+          "AC-EVR-EFFECT--EVR-180"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4490,7 +4792,29 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-197--EVR-197",
+          "AC-EVR-198--EVR-198",
+          "AC-EVR-199--EVR-199",
+          "AC-EVR-200--EVR-200",
+          "AC-EVR-201--EVR-201",
+          "AC-EVR-202--EVR-202",
+          "AC-EVR-203--EVR-203",
+          "AC-EVR-405--EVR-405",
+          "AC-EVR-406--EVR-406",
+          "AC-EVR-407--EVR-407",
+          "AC-EVR-READ--EVR-197",
+          "AC-EVR-READ--EVR-198",
+          "AC-EVR-READ--EVR-199",
+          "AC-EVR-READ--EVR-200",
+          "AC-EVR-READ--EVR-201",
+          "AC-EVR-READ--EVR-202",
+          "AC-EVR-READ--EVR-203",
+          "AC-EVR-READ--EVR-405",
+          "AC-EVR-READ--EVR-406",
+          "AC-EVR-READ--EVR-407"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4557,7 +4881,46 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "SCHEMA-013"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-181--EVR-181",
+          "AC-EVR-182--EVR-182",
+          "AC-EVR-183--EVR-183",
+          "AC-EVR-184--EVR-184",
+          "AC-EVR-185--EVR-185",
+          "AC-EVR-186--EVR-186",
+          "AC-EVR-187--EVR-187",
+          "AC-EVR-188--EVR-188",
+          "AC-EVR-189--EVR-189",
+          "AC-EVR-190--EVR-190",
+          "AC-EVR-191--EVR-191",
+          "AC-EVR-192--EVR-192",
+          "AC-EVR-193--EVR-193",
+          "AC-EVR-194--EVR-194",
+          "AC-EVR-195--EVR-195",
+          "AC-EVR-196--EVR-196",
+          "AC-EVR-204--EVR-204",
+          "AC-EVR-EFFECT--EVR-181",
+          "AC-EVR-EFFECT--EVR-182",
+          "AC-EVR-EFFECT--EVR-183",
+          "AC-EVR-EFFECT--EVR-184",
+          "AC-EVR-EFFECT--EVR-185",
+          "AC-EVR-EFFECT--EVR-186",
+          "AC-EVR-EFFECT--EVR-187",
+          "AC-EVR-EFFECT--EVR-188",
+          "AC-EVR-EFFECT--EVR-189",
+          "AC-EVR-EFFECT--EVR-190",
+          "AC-EVR-EFFECT--EVR-191",
+          "AC-EVR-EFFECT--EVR-192",
+          "AC-EVR-EFFECT--EVR-193",
+          "AC-EVR-EFFECT--EVR-194",
+          "AC-EVR-EFFECT--EVR-195",
+          "AC-EVR-EFFECT--EVR-196",
+          "AC-EVR-EFFECT--EVR-204"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4579,7 +4942,7 @@
         "WP-018",
         "WP-019"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-069; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4620,7 +4983,33 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-212--EVR-212",
+          "AC-EVR-213--EVR-213",
+          "AC-EVR-214--EVR-214",
+          "AC-EVR-215--EVR-215",
+          "AC-EVR-216--EVR-216",
+          "AC-EVR-217--EVR-217",
+          "AC-EVR-218--EVR-218",
+          "AC-EVR-219--EVR-219",
+          "AC-EVR-220--EVR-220",
+          "AC-EVR-410--EVR-410",
+          "AC-EVR-411--EVR-411",
+          "AC-EVR-412--EVR-412",
+          "AC-EVR-READ--EVR-212",
+          "AC-EVR-READ--EVR-213",
+          "AC-EVR-READ--EVR-214",
+          "AC-EVR-READ--EVR-215",
+          "AC-EVR-READ--EVR-216",
+          "AC-EVR-READ--EVR-217",
+          "AC-EVR-READ--EVR-218",
+          "AC-EVR-READ--EVR-219",
+          "AC-EVR-READ--EVR-220",
+          "AC-EVR-READ--EVR-410",
+          "AC-EVR-READ--EVR-411",
+          "AC-EVR-READ--EVR-412"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4643,7 +5032,7 @@
         "WP-018",
         "WP-019"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-070; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4685,7 +5074,47 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-205--EVR-205",
+          "AC-EVR-206--EVR-206",
+          "AC-EVR-207--EVR-207",
+          "AC-EVR-208--EVR-208",
+          "AC-EVR-209--EVR-209",
+          "AC-EVR-210--EVR-210",
+          "AC-EVR-211--EVR-211",
+          "AC-EVR-221--EVR-221",
+          "AC-EVR-222--EVR-222",
+          "AC-EVR-223--EVR-223",
+          "AC-EVR-224--EVR-224",
+          "AC-EVR-225--EVR-225",
+          "AC-EVR-226--EVR-226",
+          "AC-EVR-227--EVR-227",
+          "AC-EVR-228--EVR-228",
+          "AC-EVR-229--EVR-229",
+          "AC-EVR-230--EVR-230",
+          "AC-EVR-231--EVR-231",
+          "AC-EVR-232--EVR-232",
+          "AC-EVR-EFFECT--EVR-205",
+          "AC-EVR-EFFECT--EVR-206",
+          "AC-EVR-EFFECT--EVR-207",
+          "AC-EVR-EFFECT--EVR-208",
+          "AC-EVR-EFFECT--EVR-209",
+          "AC-EVR-EFFECT--EVR-210",
+          "AC-EVR-EFFECT--EVR-211",
+          "AC-EVR-EFFECT--EVR-221",
+          "AC-EVR-EFFECT--EVR-222",
+          "AC-EVR-EFFECT--EVR-223",
+          "AC-EVR-EFFECT--EVR-224",
+          "AC-EVR-EFFECT--EVR-225",
+          "AC-EVR-EFFECT--EVR-226",
+          "AC-EVR-EFFECT--EVR-227",
+          "AC-EVR-EFFECT--EVR-228",
+          "AC-EVR-EFFECT--EVR-229",
+          "AC-EVR-EFFECT--EVR-230",
+          "AC-EVR-EFFECT--EVR-231",
+          "AC-EVR-EFFECT--EVR-232"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4707,7 +5136,7 @@
         "WP-028",
         "WP-029"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-071; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4748,7 +5177,43 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-233--EVR-233",
+          "AC-EVR-234--EVR-234",
+          "AC-EVR-235--EVR-235",
+          "AC-EVR-236--EVR-236",
+          "AC-EVR-237--EVR-237",
+          "AC-EVR-238--EVR-238",
+          "AC-EVR-239--EVR-239",
+          "AC-EVR-240--EVR-240",
+          "AC-EVR-241--EVR-241",
+          "AC-EVR-243--EVR-243",
+          "AC-EVR-244--EVR-244",
+          "AC-EVR-245--EVR-245",
+          "AC-EVR-246--EVR-246",
+          "AC-EVR-251--EVR-251",
+          "AC-EVR-252--EVR-252",
+          "AC-EVR-413--EVR-413",
+          "AC-EVR-414--EVR-414",
+          "AC-EVR-READ--EVR-233",
+          "AC-EVR-READ--EVR-234",
+          "AC-EVR-READ--EVR-235",
+          "AC-EVR-READ--EVR-236",
+          "AC-EVR-READ--EVR-237",
+          "AC-EVR-READ--EVR-238",
+          "AC-EVR-READ--EVR-239",
+          "AC-EVR-READ--EVR-240",
+          "AC-EVR-READ--EVR-241",
+          "AC-EVR-READ--EVR-243",
+          "AC-EVR-READ--EVR-244",
+          "AC-EVR-READ--EVR-245",
+          "AC-EVR-READ--EVR-246",
+          "AC-EVR-READ--EVR-251",
+          "AC-EVR-READ--EVR-252",
+          "AC-EVR-READ--EVR-413",
+          "AC-EVR-READ--EVR-414"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4813,7 +5278,22 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-242--EVR-242",
+          "AC-EVR-242-FAILED-RETRY--EVR-242",
+          "AC-EVR-247--EVR-247",
+          "AC-EVR-248--EVR-248",
+          "AC-EVR-249--EVR-249",
+          "AC-EVR-250--EVR-250",
+          "AC-EVR-253--EVR-253",
+          "AC-EVR-EFFECT--EVR-242",
+          "AC-EVR-EFFECT--EVR-247",
+          "AC-EVR-EFFECT--EVR-248",
+          "AC-EVR-EFFECT--EVR-249",
+          "AC-EVR-EFFECT--EVR-250",
+          "AC-EVR-EFFECT--EVR-253"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4884,7 +5364,24 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "INH-INTELLIGENCE-06"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-264--EVR-264",
+          "AC-EVR-265--EVR-265",
+          "AC-EVR-269--EVR-269",
+          "AC-EVR-271--EVR-271",
+          "AC-EVR-273--EVR-273",
+          "AC-EVR-420--EVR-420",
+          "AC-EVR-READ--EVR-264",
+          "AC-EVR-READ--EVR-265",
+          "AC-EVR-READ--EVR-269",
+          "AC-EVR-READ--EVR-271",
+          "AC-EVR-READ--EVR-273",
+          "AC-EVR-READ--EVR-420"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -4959,7 +5456,17 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-263--EVR-263",
+          "AC-EVR-266--EVR-266",
+          "AC-EVR-270--EVR-270",
+          "AC-EVR-272--EVR-272",
+          "AC-EVR-EFFECT--EVR-263",
+          "AC-EVR-EFFECT--EVR-266",
+          "AC-EVR-EFFECT--EVR-270",
+          "AC-EVR-EFFECT--EVR-272"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5020,7 +5527,17 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-258--EVR-258",
+          "AC-EVR-259--EVR-259",
+          "AC-EVR-260--EVR-260",
+          "AC-EVR-419--EVR-419",
+          "AC-EVR-READ--EVR-258",
+          "AC-EVR-READ--EVR-259",
+          "AC-EVR-READ--EVR-260",
+          "AC-EVR-READ--EVR-419"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5083,7 +5600,24 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-FAMILY-TASKS"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-254--EVR-254",
+          "AC-EVR-255--EVR-255",
+          "AC-EVR-256--EVR-256",
+          "AC-EVR-257--EVR-257",
+          "AC-EVR-261--EVR-261",
+          "AC-EVR-262--EVR-262",
+          "AC-EVR-EFFECT--EVR-254",
+          "AC-EVR-EFFECT--EVR-255",
+          "AC-EVR-EFFECT--EVR-256",
+          "AC-EVR-EFFECT--EVR-257",
+          "AC-EVR-EFFECT--EVR-261",
+          "AC-EVR-EFFECT--EVR-262"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5104,7 +5638,7 @@
         "WP-034",
         "WP-035"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-077; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5144,7 +5678,21 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-278--EVR-278",
+          "AC-EVR-281--EVR-281",
+          "AC-EVR-282--EVR-282",
+          "AC-EVR-284--EVR-284",
+          "AC-EVR-417--EVR-417",
+          "AC-EVR-418--EVR-418",
+          "AC-EVR-READ--EVR-278",
+          "AC-EVR-READ--EVR-281",
+          "AC-EVR-READ--EVR-282",
+          "AC-EVR-READ--EVR-284",
+          "AC-EVR-READ--EVR-417",
+          "AC-EVR-READ--EVR-418"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5209,7 +5757,15 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-279--EVR-279",
+          "AC-EVR-280--EVR-280",
+          "AC-EVR-283--EVR-283",
+          "AC-EVR-EFFECT--EVR-279",
+          "AC-EVR-EFFECT--EVR-280",
+          "AC-EVR-EFFECT--EVR-283"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5271,7 +5827,19 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-275--EVR-275",
+          "AC-EVR-276--EVR-276",
+          "AC-EVR-277--EVR-277",
+          "AC-EVR-415--EVR-415",
+          "AC-EVR-416--EVR-416",
+          "AC-EVR-READ--EVR-275",
+          "AC-EVR-READ--EVR-276",
+          "AC-EVR-READ--EVR-277",
+          "AC-EVR-READ--EVR-415",
+          "AC-EVR-READ--EVR-416"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5335,7 +5903,11 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-274--EVR-274",
+          "AC-EVR-EFFECT--EVR-274"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5356,7 +5928,7 @@
         "WP-030",
         "WP-031"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-081; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5396,7 +5968,15 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-286--EVR-286",
+          "AC-EVR-287--EVR-287",
+          "AC-EVR-421--EVR-421",
+          "AC-EVR-READ--EVR-286",
+          "AC-EVR-READ--EVR-287",
+          "AC-EVR-READ--EVR-421"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5418,7 +5998,7 @@
         "WP-030",
         "WP-031"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-082; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5459,7 +6039,14 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-288--EVR-288",
+          "AC-EVR-289--EVR-289",
+          "AC-EVR-289-SELECTED--EVR-289",
+          "AC-EVR-EFFECT--EVR-288",
+          "AC-EVR-EFFECT--EVR-289"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5528,7 +6115,11 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-285--EVR-285",
+          "AC-EVR-READ--EVR-285"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5599,7 +6190,11 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "acceptance_ids": [
+          "AC-EVR-290--EVR-290",
+          "AC-EVR-EFFECT--EVR-290"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5675,7 +6270,32 @@
         "operations": "evry_owned",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features"
+        "acceptance": "features",
+        "case_ids": [
+          "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
+          "EVRY-FAMILY-COMMUNICATION",
+          "EVRY-FAMILY-PEOPLE-CORE",
+          "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
+          "GAP-EVR-400",
+          "GAP-EVR-422",
+          "GAP-EVR-428",
+          "GAP-EVR-429",
+          "INH-EDGES-14"
+        ],
+        "acceptance_ids": [
+          "AC-EVR-400--EVR-400",
+          "AC-EVR-422--EVR-422",
+          "AC-EVR-424--EVR-424",
+          "AC-EVR-425--EVR-425",
+          "AC-EVR-428--EVR-428",
+          "AC-EVR-429--EVR-429",
+          "AC-EVR-READ--EVR-400",
+          "AC-EVR-READ--EVR-422",
+          "AC-EVR-READ--EVR-424",
+          "AC-EVR-READ--EVR-425",
+          "AC-EVR-READ--EVR-428",
+          "AC-EVR-READ--EVR-429"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -5943,8 +6563,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 109.0,
-  "total_engineer_days": 295.0,
+  "critical_path_unconstrained_days": 108.0,
+  "total_engineer_days": 288.0,
   "contract_milestones": {
     "C0": [
       "WP-002"

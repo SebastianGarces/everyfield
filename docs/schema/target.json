@@ -4320,19 +4320,19 @@
           "name": "name",
           "type": "text",
           "nullable": false,
-          "note": ""
+          "note": "Trim leading/trailing spaces; 1\u2013100 characters. Internal spaces remain significant."
         },
         {
           "name": "normalized_name",
           "type": "text",
           "nullable": false,
-          "note": ""
+          "note": "lower(btrim(name)); unique within plant_id. Case and surrounding spaces do not distinguish tags."
         },
         {
           "name": "color",
           "type": "text",
           "nullable": true,
-          "note": ""
+          "note": "Nullable supported named/hex color. Omitted update preserves it; null clears it."
         },
         {
           "name": "revision",
@@ -16578,7 +16578,7 @@
         "DOC-015",
         "DOC-016",
         "EVR-025",
-        "EVR-422",
+        "EVR-020",
         "IDN-006",
         "PPL-005"
       ],
@@ -24051,8 +24051,7 @@
         "EVR-024",
         "EVR-025",
         "EVR-031",
-        "EVR-400",
-        "EVR-422"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-EVR-005--EVR-005",
@@ -24745,7 +24744,7 @@
         "EVR-029",
         "EVR-030",
         "EVR-033",
-        "EVR-429",
+        "EVR-020",
         "IDN-002",
         "IDN-003",
         "IDN-013",
@@ -25363,7 +25362,7 @@
         "EVR-018",
         "EVR-033",
         "EVR-034",
-        "EVR-429",
+        "EVR-020",
         "OPS-001",
         "OPS-004",
         "OPS-005",
@@ -25717,7 +25716,7 @@
         "EVR-018",
         "EVR-033",
         "EVR-034",
-        "EVR-429"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-EVR-011--EVR-011",
@@ -26236,7 +26235,7 @@
         "EVR-030",
         "EVR-033",
         "EVR-034",
-        "EVR-429",
+        "EVR-020",
         "IDN-005",
         "IDN-010",
         "IDN-011",
@@ -27931,13 +27930,13 @@
           "name": "route_label",
           "type": "text",
           "nullable": true,
-          "note": ""
+          "note": "Approved canonical route/product-area label for safe summary selection, distinct from private page label/address."
         },
         {
           "name": "submitted_at",
           "type": "timestamptz",
           "nullable": false,
-          "note": ""
+          "note": "Trusted server submission instant shown as the dialog time; client cannot supply occurrence authority."
         },
         {
           "name": "request_key",
@@ -27956,6 +27955,60 @@
           "type": "bigint",
           "nullable": false,
           "note": ""
+        },
+        {
+          "name": "page_label",
+          "type": "text",
+          "nullable": true,
+          "note": "Displayed page label, at most 500 characters. Private original only; never public issue data."
+        },
+        {
+          "name": "page_address",
+          "type": "text",
+          "nullable": true,
+          "note": "Internal path only, at most 500 characters; no query, fragment, tokens or external URL. Private original only; never public issue data."
+        },
+        {
+          "name": "church_label",
+          "type": "text",
+          "nullable": true,
+          "note": "Trusted current church context label, at most 200 characters; null when absent. Private original only; never public issue data."
+        },
+        {
+          "name": "role_label",
+          "type": "text",
+          "nullable": true,
+          "note": "Trusted current account role label, at most 200 characters; conveys no new access. Private original only; never public issue data."
+        },
+        {
+          "name": "browser",
+          "type": "text",
+          "nullable": true,
+          "note": "Bounded browser/version and operating-system description, at most 500 characters; no full fingerprint. Private original only; never public issue data."
+        },
+        {
+          "name": "screen_width",
+          "type": "integer",
+          "nullable": true,
+          "note": "Viewport width in CSS pixels; null when unavailable. Private original only; never public issue data."
+        },
+        {
+          "name": "screen_height",
+          "type": "integer",
+          "nullable": true,
+          "note": "Viewport height in CSS pixels; null when unavailable. Private original only; never public issue data."
+        },
+        {
+          "name": "theme",
+          "type": "text",
+          "nullable": true,
+          "note": "Displayed light or dark theme; null when unavailable. Private original only; never public issue data."
+        },
+        {
+          "name": "app_version",
+          "type": "text",
+          "nullable": true,
+          "note": "Displayed app build/version, at most 100 characters. Private original only; never public issue data."
         }
       ],
       "primary_key": [
@@ -28031,7 +28084,17 @@
         "category in ('bug', 'suggestion', 'question', 'other')",
         "triage_state in ('new', 'reviewed', 'resolved', 'dismissed')",
         "length(btrim(description)) between 1 and 5000",
-        "route_label is null or length(route_label) <= 500"
+        "route_label is null or length(route_label) <= 500",
+        "page_label is null or length(page_label) <= 500",
+        "page_address is null or length(page_address) <= 500",
+        "church_label is null or length(church_label) <= 200",
+        "role_label is null or length(role_label) <= 200",
+        "browser is null or length(browser) <= 500",
+        "app_version is null or length(app_version) <= 100",
+        "page_address is null or (page_address like '/%' and position('?' in page_address) = 0 and position('#' in page_address) = 0)",
+        "theme is null or theme in ('light', 'dark')",
+        "screen_width is null or screen_width between 1 and 100000",
+        "screen_height is null or screen_height between 1 and 100000"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -28095,9 +28158,10 @@
         "Public payload excludes raw description/URL/internal IDs/names/contact/log/private-care data; uncertain serialization has no raw fallback.",
         "Frozen destination/payload cannot be rewritten by later global configuration or repository rename.",
         "Unknown response after ten-second timeout cannot blindly issue another create; only authoritative absence permits bounded retry.",
-        "Issue creation/triage/closure cannot claim code implementation or merge."
+        "Issue creation/triage/closure cannot claim code implementation or merge.",
+        "Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text."
       ],
-      "revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
+      "revision": "Expected revision_number fences mutable triage updates; meaningful changes advance it atomically.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
       "deletion": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution. Private intake and associated private triage body follow original-account deletion. Minimal independently legitimate operational receipts may remain without private original, account contacts or narrative; no broad permanent audit exemption is specified. Private intake and private publisher payload/linkage follow original-account deletion; keep only legitimate body-free external effect locator/outcome needed to prevent replay. Existing public issues cannot be recalled or promised erased through account purge.",
       "physical_verified": false
@@ -29298,8 +29362,7 @@
         "EVR-031",
         "EVR-033",
         "EVR-034",
-        "EVR-400",
-        "EVR-429",
+        "EVR-020",
         "LCH-006",
         "LCH-007",
         "LCH-008",
@@ -30411,8 +30474,7 @@
         "EVR-031",
         "EVR-033",
         "EVR-034",
-        "EVR-400",
-        "EVR-429",
+        "EVR-020",
         "LCH-006",
         "LCH-007",
         "LCH-008",
@@ -30985,7 +31047,7 @@
   "as_of": "2026-10-14",
   "implementation_authorized": false,
   "table_count": 100,
-  "column_count": 1237,
+  "column_count": 1246,
   "foreign_key_count": 408,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -33664,6 +33726,10 @@
       "security.audit_inspected",
       "security.audit_exported",
       "security.operator_accessed"
+    ],
+    "feedback.theme": [
+      "light",
+      "dark"
     ]
   },
   "auth_adapter_configuration": {

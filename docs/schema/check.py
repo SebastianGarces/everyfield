@@ -216,13 +216,13 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
 
 
 def validate_catalog_sets(schema, operations):
-    """INV-schema-catalog: literal operation/projection sets must match their authority."""
+    """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
         ('operation', 'name'): {o['id'] for o in operations},
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
         ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
-        ('evidence_link', 'projection'): {a['result_projection'] for o in operations if o['kind'] == 'query' for a in o['authority']},
+        ('evidence_link', 'projection'): set(schema['type_contracts']['evidence_link.projection']),
     }
     tables = {t['name']: t for t in schema['tables']}
     errors = []

@@ -98,6 +98,7 @@ def compile_manifest(root):
         acs = set(scope['acceptance_ids']) if ac_mode == 'explicit' else {
             a['id'] for a in acceptance if a['feature_id'] in fs or
             (ac_mode == 'owned_and_features' and pid in a['work_packages'])}
+        acs |= set(scope.get('acceptance_ids', []))
         if not acs <= {a['id'] for a in acceptance}:
             raise ValueError('Unknown acceptance selector for ' + pid)
         consumed_ac_rs = {rid for a in acceptance if a['id'] in acs for rid in a['requirement_ids']} - own_rs
@@ -135,6 +136,7 @@ def compile_manifest(root):
                 own_cs |= {cid for rid in own_rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
         else:
             raise ValueError('Unknown case selection ' + case_mode)
+        own_cs |= set(scope.get('case_ids', []))
         if not own_cs <= cases.keys():
             raise ValueError('Unknown case selector for ' + pid)
         cs = own_cs | {cid for a in acceptance if a['id'] in acs for cid in a['case_ids']}

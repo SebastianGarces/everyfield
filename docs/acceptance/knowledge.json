@@ -112,9 +112,7 @@
       "fixture": "Current valid milestone re-confirmation with liveguard and staleEvryreview.",
       "expected": "Current valid re-confirmation uses existing live-task authority; old completion history is not erased/relabelled.",
       "feature_ids": [
-        "EVR-254",
-        "EVR-255",
-        "EVR-262",
+        "EVR-020",
         "LCH-004"
       ],
       "acceptance_ids": [
@@ -140,7 +138,7 @@
       "fixture": "Create/filter/detail prelaunch_practice versus teamrehearsal/Vision.",
       "expected": "Dedicated practice discriminant appears in create/list/filter/detail without silently recategorizing team rehearsal or Vision.",
       "feature_ids": [
-        "EVR-165",
+        "EVR-020",
         "MTG-001",
         "MTG-002"
       ],
@@ -165,7 +163,7 @@
       "fixture": "Three distinct completedactualpractice IDs,fourth and duplicate receipt.",
       "expected": "Three distinct actually held completed practice IDs count once; four remain satisfied and replay never adds events.",
       "feature_ids": [
-        "EVR-171",
+        "EVR-020",
         "LCH-003",
         "MTG-002",
         "PI-028"
@@ -236,8 +234,7 @@
       "fixture": "Practice date/type corrected,voidduplicate,reopen and prior PI snapshot.",
       "expected": "Corrected occurrence/date/type and reopened/void duplicate change current count while preserving history and previous PI snapshot.",
       "feature_ids": [
-        "EVR-170",
-        "EVR-172",
+        "EVR-020",
         "LCH-004",
         "MTG-002",
         "PI-028"
@@ -325,8 +322,7 @@
       "fixture": "Current Owner/Admin and foreign/member/teamleader practicewrite.",
       "expected": "Current meeting/launch operations preserve scoped shared administration; no team-leader exception expansion or foreign event write.",
       "feature_ids": [
-        "EVR-165",
-        "EVR-171",
+        "EVR-020",
         "MTG-002"
       ],
       "acceptance_ids": [
@@ -350,9 +346,7 @@
       "fixture": "Reviewed Evry practice create/complete/correct then stale/replay execution.",
       "expected": "Exact-reviewed Evry practice create/complete/correct uses shared domain operations with stale/duplicate receipts and current authority.",
       "feature_ids": [
-        "EVR-165",
-        "EVR-171",
-        "EVR-172"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-EVR-165--EVR-165",
@@ -375,7 +369,7 @@
       "fixture": "Chosen promotion plan actualexecution attestation with optional references.",
       "expected": "Promotion attestation states the chosen plan was actually executed; optional references, not mandatory every illustrative medium.",
       "feature_ids": [
-        "EVR-266",
+        "EVR-020",
         "PI-015",
         "PI-028"
       ],
@@ -483,9 +477,7 @@
       "fixture": "Evry debrief/outcome/guest read and reviewedwrite with stale target.",
       "expected": "Native/Evry Launch read/correct/guest/debrief/summary adapters use the same current authority/revision/history; every durable effect exact reviewed, no raw reflection/private-care model input or hidden task/send/phase effect.",
       "feature_ids": [
-        "EVR-256",
-        "EVR-257",
-        "EVR-419"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-EVR-256--EVR-256",
@@ -510,9 +502,7 @@
       "fixture": "Single suppliedname guest with no phone/email/age/account.",
       "expected": "Guest minimum name with optional phone/email creates real People without fabricated surname, age/account/membership inference.",
       "feature_ids": [
-        "EVR-158",
-        "EVR-159",
-        "EVR-167",
+        "EVR-020",
         "MTG-011",
         "PPL-002"
       ],
@@ -542,7 +532,7 @@
       "fixture": "Same-name duplicate candidate selected existingID and replay namedcreate.",
       "expected": "Choosing an existing person links its explicit ID; same name never automatically merges and repeated create request is receipt-safe.",
       "feature_ids": [
-        "EVR-167",
+        "EVR-020",
         "MTG-011",
         "PPL-002"
       ],
@@ -588,7 +578,7 @@
       "fixture": "Owner/Admin opens availablemodelresult versus72elapsedhours with no open.",
       "expected": "Owner/Admin opens the durable assessment OR72elapsed hours after availability releases it, whichever first.",
       "feature_ids": [
-        "EVR-263",
+        "EVR-020",
         "PI-024",
         "PI-032"
       ],
@@ -612,7 +602,7 @@
       "fixture": "Email/model/otherMember reads result before eligiblehuman opportunity.",
       "expected": "Delivery/email open/model read/other-member read alone never marks eligible planter opportunity;72h starts at durable availability not queued draft.",
       "feature_ids": [
-        "EVR-264",
+        "EVR-020",
         "PI-024",
         "PI-032"
       ],
@@ -849,8 +839,8 @@
     {
       "id": "CASE-ADM-001",
       "requirement": "REQ-ADM-001",
-      "fixture": "Repeat feedback submission idempotency, another user guesses own-status ID, suspended author and missing issue receipt.",
-      "expected": "One stored private original, original-author bounded own DTO only; stored distinct from publication/implementation and suspension denies.",
+      "fixture": "Active account acct-feedback-1 is Owner in Harvest Point. Submit twice with request key fb-1, category bug, description \"Save button stops\", page \"Documents\", address /documents?token=secret#draft, church Harvest Point, role Owner, browser Chrome 130 on macOS, screen 1440 x 900, theme dark, app version v3.0 and server time 2026-10-14T07:00:00Z. Try a screenshot field, another author's status ID and a suspended author.",
+      "expected": "One private original contains category bug, description \"Save button stops\", page Documents, sanitized address /documents, trusted church Harvest Point and role Owner, browser Chrome 130 on macOS, screen 1440 x 900, dark theme, v3.0 and trusted submission time. The repeated key returns the original result; a screenshot/attachment field is refused without storing it. Public output contains only the approved category/product-area/fixed-text/random-marker summary, with no church, role or device details. Own status is bounded and excludes private details; foreign and suspended authors are denied. Stored is distinct from published or implemented.",
       "feature_ids": [
         "ADM-001"
       ],
@@ -3426,8 +3416,7 @@
       "fixture": "Questionnairesubmission and summarypublish with optional nextsteptask proposed separately.",
       "expected": "Next-step task creation is a separate previewed/reviewed ordinary Tasks command; questionnaire/summary submission alone creates/completes no task, contact, email, support dispatch or phase.",
       "feature_ids": [
-        "EVR-185",
-        "EVR-257",
+        "EVR-020",
         "LCH-006",
         "TSK-002"
       ],
@@ -3454,9 +3443,7 @@
       "fixture": "Current plantOwner/Admin,Member,foreignactor,expiredreview and revokedgrant write guest/debrief.",
       "expected": "Native Owner/Admin current plant permissions and exact reviewed Evry writes share operations; Member/foreign/expired/stale operations cannot write guests/debrief/published summary.",
       "feature_ids": [
-        "EVR-256",
-        "EVR-257",
-        "EVR-419",
+        "EVR-020",
         "IDN-005",
         "LCH-006"
       ],
@@ -3786,13 +3773,7 @@
       "feature_ids": [
         "COM-001",
         "COM-002",
-        "EVR-237",
-        "EVR-238",
-        "EVR-239",
-        "EVR-240",
-        "EVR-241",
-        "EVR-413",
-        "EVR-414"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-COM-001--COM-001",
@@ -3828,8 +3809,7 @@
       "feature_ids": [
         "COM-012",
         "EVR-015",
-        "EVR-242",
-        "EVR-247"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-COM-012--COM-012",
@@ -3858,11 +3838,7 @@
       "fixture": "Self/foreign recipient inbox with future/cancelled entries, unread pagination and mark-all-visible.",
       "expected": "One inbox and preferences page preserve own visible feed, unread/pagination, individual/all read and category/channel choices; foreign recipients denied and read never completes work.",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-004"
       ],
@@ -4070,11 +4046,7 @@
       "fixture": "Native and reviewed Evry own markread; foreign recipient and revoked oversight grant.",
       "expected": "UI and existing Evry notification adapters share recipient-scoped operations. Own reviewed mark-read preserves read/work separation; revoked/foreign scopes denied, private care excluded and each durable Evry write exactly reviewed.",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-008"
       ],
@@ -4191,12 +4163,7 @@
         "DOC-015",
         "DOC-016",
         "EVR-025",
-        "EVR-104",
-        "EVR-132",
-        "EVR-136",
-        "EVR-138",
-        "EVR-275",
-        "EVR-423",
+        "EVR-020",
         "IDN-006",
         "PPL-005",
         "PPL-014"
@@ -4249,10 +4216,7 @@
       "feature_ids": [
         "DOC-003",
         "DOC-015",
-        "EVR-104",
-        "EVR-132",
-        "EVR-275",
-        "EVR-423",
+        "EVR-020",
         "IDN-006",
         "PPL-005",
         "PPL-014"
@@ -4355,8 +4319,8 @@
     {
       "id": "PUB57-003",
       "requirement": "REQ-KNOW-030",
-      "fixture": "Original contains name/contact/church IDs/querytoken/logs and optional reviewed richerpayload.",
-      "expected": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature.",
+      "fixture": "Private original has church Harvest Point, role Owner, browser Chrome 130 on macOS, screen 1440 x 900, theme dark, app version v3.0, name/email and token URL. Automatic publication and separately reviewed richer text are attempted.",
+      "expected": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature. Church, role, browser, screen size, theme and app version never enter either public issue payload; they stay only in the private original.",
       "feature_ids": [
         "ADM-001",
         "ADM-003",
@@ -4429,7 +4393,7 @@
       "feature_ids": [
         "ADM-001",
         "ADM-003",
-        "EVR-290"
+        "EVR-020"
       ],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
@@ -4448,8 +4412,8 @@
     {
       "id": "PUBLIC-SERIALIZER-001",
       "requirement": "REQ-ADM-008",
-      "fixture": "Description contains full names/token/logs/private church data and tool instructions; public area is allowlisted Documents versus forged path.",
-      "expected": "Safe fixed Documents issue only/opaque marker, original private; unknown area held no raw fallback; no text-derived agent authority.",
+      "fixture": "Description has names, tokens, logs and tool instructions; private dialog details are church Harvest Point, role Owner, browser Chrome 130, screen 1440 x 900, theme dark and app version v3.0. Approved public area is Documents; a second submission has a forged path.",
+      "expected": "Safe fixed Documents issue only/opaque marker, original private; unknown area held no raw fallback; no text-derived agent authority. All church, role and device details stay private and are absent from public title/body.",
       "feature_ids": [
         "ADM-001",
         "ADM-003"
@@ -4941,7 +4905,7 @@
       "id": "WIKI49-002",
       "requirement": "REQ-KNOW-016",
       "fixture": "Typo-only edit and meaningful edit followed interveningtypo; publisher flag absent.",
-      "expected": "Typo-only publication does not create an update notice or reset credit. Meaningfulness is an explicit publisher flag in existing article/revision metadata, never an automatic semantic classifier.",
+      "expected": "Typo-only publication does not create a reader Updated label or reset credit. Meaningfulness is an explicit publisher flag in existing article/revision metadata, never an automatic semantic classifier.",
       "feature_ids": [
         "WIKI-004",
         "WIKI-009"

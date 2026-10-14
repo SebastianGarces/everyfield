@@ -33,7 +33,8 @@
           "operation": "phases.declare",
           "rule": "One existing-journey declaration under locked plant/unique slot. Caller cannot choose church_creation kind. Unsure/discerning/skip is no declaration; initial declaration emits no reached-new-phase consequence."
         }
-      ]
+      ],
+      "title": "One-time midjourney initial phase declaration"
     },
     {
       "id": "REQ-PHASE-002",
@@ -69,7 +70,8 @@
           "operation": "phases.transition",
           "rule": "Derive fromPhase from locked current state, never caller-authoritative fromPhase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
         }
-      ]
+      ],
+      "title": "Reasoned forward/backward/skipping/correcting phase transition"
     },
     {
       "id": "REQ-PHASE-003",
@@ -106,7 +108,8 @@
           "operation": "phases.classifyChange",
           "rule": "Stored typed kind is authoritative; reason sentence is display copy and reserved, never a substituted kind test."
         }
-      ]
+      ],
+      "title": "Direction classification and same-phase behavior"
     },
     {
       "id": "REQ-PHASE-004",
@@ -131,7 +134,8 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "title": "Advisory ready/approaching/not_ready/unknown phase control"
     },
     {
       "id": "REQ-PHASE-005",
@@ -172,7 +176,8 @@
           "operation": "phases.appendConsequences",
           "rule": "Local phase offer coordination and required bounded notice intents share mutation transaction. Initial declaration/creation does not fake advancement. No model/client invocation or after-commit integrity dependency."
         }
-      ]
+      ],
+      "title": "Typed phase.changed and assessment.created events"
     },
     {
       "id": "REQ-PHASE-006",
@@ -209,7 +214,8 @@
           "operation": "wiki.recommendForPhase",
           "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phaseId, authorizedRecommendations, sourceReferences."
         }
-      ]
+      ],
+      "title": "Phase-driven task-template prompt and Wiki recommendations"
     },
     {
       "id": "REQ-PHASE-007",
@@ -236,7 +242,8 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "title": "Phase transition audit and journey chronology"
     },
     {
       "id": "REQ-PHASE-008",
@@ -265,7 +272,8 @@
       "work_packages": [
         "WP-032",
         "WP-038"
-      ]
+      ],
+      "title": "Seven church-planting phases and Playbook criteria catalog"
     },
     {
       "id": "REQ-PI-001",
@@ -291,7 +299,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Deterministic fact-snapshot assembly"
     },
     {
       "id": "REQ-PI-002",
@@ -321,7 +330,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Committed adult growth, first commitments and flat streak"
     },
     {
       "id": "REQ-PI-003",
@@ -347,7 +357,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Growth source composition and unknown source counts"
     },
     {
       "id": "REQ-PI-004",
@@ -373,7 +384,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Vision meeting cadence, completed attendance and trend"
     },
     {
       "id": "REQ-PI-005",
@@ -398,7 +410,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Core group cohesion and leader disengagement pattern"
     },
     {
       "id": "REQ-PI-006",
@@ -431,7 +444,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Eight ministry coverage readings"
     },
     {
       "id": "REQ-PI-007",
@@ -458,7 +472,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Leadership candidate signals and human interview/4Cs references"
     },
     {
       "id": "REQ-PI-008",
@@ -488,7 +503,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Training program/member completion readings"
     },
     {
       "id": "REQ-PI-009",
@@ -516,7 +532,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Launch countdown, status, milestones and outcome facts"
     },
     {
       "id": "REQ-PI-010",
@@ -541,7 +558,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Legacy person-record follow-up staleness facts"
     },
     {
       "id": "REQ-PI-011",
@@ -569,7 +587,8 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "Measured task follow-up ownership"
     },
     {
       "id": "REQ-PI-012",
@@ -598,7 +617,8 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "48-hour originating-meeting follow-up task metric"
     },
     {
       "id": "REQ-PI-013",
@@ -628,7 +648,8 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "Actual contact freshness independent of task completion"
     },
     {
       "id": "REQ-PI-014",
@@ -660,7 +681,8 @@
       "work_packages": [
         "WP-039",
         "WP-040"
-      ]
+      ],
+      "title": "Eight-lens measured/attested/unknown evidence profile"
     },
     {
       "id": "REQ-PI-015",
@@ -695,7 +717,8 @@
       "work_packages": [
         "WP-039",
         "WP-040"
-      ]
+      ],
+      "title": "Seven manual attestation toggles and reaffirmation"
     },
     {
       "id": "REQ-PI-016",
@@ -728,7 +751,8 @@
           "operation": "intelligence.readRubric",
           "rule": "v0|v1|null; null=active pinned plant version"
         }
-      ]
+      ],
+      "title": "Active and historical rubric version registry"
     },
     {
       "id": "REQ-PI-017",
@@ -766,7 +790,8 @@
           "operation": "reference.embedQuery",
           "rule": "Bounded worker provider read derived from allowed operational reference query only; no Person/private-care/raw payload; exact activated embedding model/dimensions."
         }
-      ]
+      ],
+      "title": "Phase-filtered dense/sparse methodology retrieval"
     },
     {
       "id": "REQ-PI-018",
@@ -799,7 +824,8 @@
           "operation": "intelligence.validateDraft",
           "rule": "Pure validation; no provider call, publish, raw body trace or durable write."
         }
-      ]
+      ],
+      "title": "Typed dual-audience judge and product-rule validation"
     },
     {
       "id": "REQ-PI-019",
@@ -832,7 +858,8 @@
           "operation": "intelligence.evaluateAssessment",
           "rule": "Provider work outside DB locks; at most3output drafts/4provider attempts per draft under one deadline/token reservation. Run/attempt metadata checkpointed by current claim; no publish from evaluation alone."
         }
-      ]
+      ],
+      "title": "Bounded corrective draft retries"
     },
     {
       "id": "REQ-PI-020",
@@ -869,7 +896,8 @@
           "operation": "intelligence.callProvider",
           "rule": "Single cumulative reservation and invocation deadline; charge/reconcile every actual dispatch including429/5xx; no hidden SDK ladder"
         }
-      ]
+      ],
+      "title": "Provider throttling, backoff and learned token pacing"
     },
     {
       "id": "REQ-PI-021",
@@ -919,14 +947,15 @@
           "operation": "intelligence.selectAssessmentCandidates",
           "rule": "SQL latest-complete-per-subject selection; no domain mutation, all inactive/deletion roots excluded. Never-assessed active newly created plant has no reading/readiness gate."
         }
-      ]
+      ],
+      "title": "Dirty-or-seven-day-stale assessment scheduling"
     },
     {
       "id": "REQ-PI-022",
       "feature_ids": [
         "PI-022"
       ],
-      "text": "Separate demand, job lease generation, immutable run and publication pointer. Capture fixed snapshot before model work; pending/deferred/failed/superseded/complete recovery preserves prior valid complete results. Claim expiry/reclaim does not grant stale publication.",
+      "text": "The assessment row carries demand identity, captured snapshot, attempt state and publication availability; job owns lease generation. Capture fixed facts before model work. Pending, deferred, failed or superseded attempts preserve prior valid complete results. Current reads derive the latest authorized complete assessment ordered by available_at and ID, without a separately mutable publication pointer. Claim expiry or reclaim never grants stale publication.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.executeDemand",
@@ -955,14 +984,15 @@
       ],
       "work_packages": [
         "WP-043"
-      ]
+      ],
+      "title": "Pending/complete/failed/deferred snapshots and recovery"
     },
     {
       "id": "REQ-PI-023",
       "feature_ids": [
         "PI-023"
       ],
-      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and current pointer atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
+      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.publishAssessment",
@@ -1000,11 +1030,11 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "One CAS transaction persists supported insights/overall summary/completion/current pointer/required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision."
+          "rule": "One CAS transaction persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision."
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "Plant: publish complete paired assessment and plant pointer/projection; increment only affected organization material inputs. Organization: publish aggregate-safe finding/slices and exact-org pointer; do not recursively invalidate own material source."
+          "rule": "Plant publication completes the paired assessment and its availability; increment only affected organization material inputs. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
         },
         {
           "operation": "intelligence.publishAssessment",
@@ -1018,7 +1048,8 @@
           "operation": "intelligence.publishAssessment",
           "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/currentclaim/currentgrant CAS and pointer publication are indivisible; never a raw insight insert."
         }
-      ]
+      ],
+      "title": "Insight persistence, severity/rank and snapshot deltas"
     },
     {
       "id": "REQ-PI-024",
@@ -1047,7 +1078,8 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "title": "Cached assessment reads, as-of and seen marker"
     },
     {
       "id": "REQ-PI-025",
@@ -1072,7 +1104,8 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "title": "Primary focus, two supplements, separate positive surface"
     },
     {
       "id": "REQ-PI-026",
@@ -1109,7 +1142,8 @@
           "operation": "intelligence.formatCitedFact",
           "rule": "Pure deterministic validation/formatting of trusted bound inputs; no storage, provider call or extra authorization."
         }
-      ]
+      ],
+      "title": "Human-readable citations and exact snapshot drill-down"
     },
     {
       "id": "REQ-PI-027",
@@ -1136,7 +1170,8 @@
       "work_packages": [
         "WP-040",
         "WP-044"
-      ]
+      ],
+      "title": "CSF scorecard eight evidence-aware lens standings"
     },
     {
       "id": "REQ-PI-028",
@@ -1216,7 +1251,8 @@
       "work_packages": [
         "WP-038",
         "WP-044"
-      ]
+      ],
+      "title": "Phase exit criteria cluster, measured progress and evidence"
     },
     {
       "id": "REQ-PI-029",
@@ -1242,7 +1278,8 @@
       "work_packages": [
         "WP-040",
         "WP-044"
-      ]
+      ],
+      "title": "Persisted historical trends with engine-derived alerts"
     },
     {
       "id": "REQ-PI-030",
@@ -1269,7 +1306,8 @@
         "WP-038",
         "WP-046",
         "WP-044"
-      ]
+      ],
+      "title": "Milestone timeline of declared/moved phases and launch"
     },
     {
       "id": "REQ-PI-031",
@@ -1296,7 +1334,8 @@
       "work_packages": [
         "WP-047",
         "WP-044"
-      ]
+      ],
+      "title": "Oversight privacy-safe four-valued health rollup"
     },
     {
       "id": "REQ-PI-032",
@@ -1329,7 +1368,8 @@
           "operation": "intelligence.validateConcernPairing",
           "rule": "Verify matching concern identity and evidence across planter and oversight versions"
         }
-      ]
+      ],
+      "title": "Planter-paired concerns and seen-or-72-hour release"
     },
     {
       "id": "REQ-PI-033",
@@ -1361,7 +1401,8 @@
           "operation": "intelligence.submitFeedback",
           "rule": "Supported rating values: useful, not_useful."
         }
-      ]
+      ],
+      "title": "Per-insight feedback rating and optional comment"
     },
     {
       "id": "REQ-PI-034",
@@ -1387,7 +1428,8 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "title": "Cold-start queued/quiet guidance"
     },
     {
       "id": "REQ-PI-035",
@@ -1420,7 +1462,8 @@
           "operation": "intelligence.recordAttemptTelemetry",
           "rule": "Optional metadata/usage sink only; no raw prompt/output/private care/protected manifest. Sink failure cannot fail or demote the assessment."
         }
-      ]
+      ],
+      "title": "Judge observability and graceful optional tracing"
     },
     {
       "id": "REQ-PI-036",
@@ -1458,14 +1501,15 @@
           "operation": "intelligence.runEvaluation",
           "rule": "Explicit scoped operator evaluation only in isolated synthetic environment and bounded reserved model budget; no customer/private care input or shared-source destructive seed. Actual results, never file-presence pass."
         }
-      ]
+      ],
+      "title": "Offline fleet eval, assessment trigger and language audit tooling"
     },
     {
       "id": "REQ-PI-037",
       "feature_ids": [
         "PI-037"
       ],
-      "text": "Every registered material producer commits domain mutation/history/audit/required intents/receipt and synchronous source revision in one DomainTransaction. Correction/merge/attendance/contact/role/training/phase/date/geography/reference/sharing are covered; after-commit wake-up only, private care excluded.",
+      "text": "Database triggers on every assessment input table advance the affected plant or organization material revision in the same transaction as the fact mutation, history, audit, required intents and receipt. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Correction, merge, attendance, contact, role, training, phase, date, geography, reference and sharing changes follow this contract. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry is required.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.markMaterialRevision",
@@ -1528,7 +1572,8 @@
           "operation": "intelligence.markMaterialRevision",
           "rule": "Required mutation consequence inside caller transaction; no separate endpoint/post-commit repair. Once per affected root per command; preview/noop/exact replay/private care excluded."
         }
-      ]
+      ],
+      "title": "Assessment input triggers and revision freshness"
     },
     {
       "id": "REQ-PI-038",
@@ -1555,7 +1600,8 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "title": "Private weekly four-dimension planter check-in"
     },
     {
       "id": "REQ-PI-039",
@@ -1580,7 +1626,8 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "title": "Private 12-week strip and three-consecutive-struggling nudge"
     },
     {
       "id": "REQ-PI-040",
@@ -1604,7 +1651,8 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "title": "Full private check-in history with preserved revisions"
     },
     {
       "id": "REQ-PI-041",
@@ -1637,7 +1685,8 @@
           "operation": "privateCare.correct",
           "rule": "Native author save/correction; no Evry proposal"
         }
-      ]
+      ],
+      "title": "Correct existing check-in without deleting history"
     },
     {
       "id": "REQ-PI-042",
@@ -1671,13 +1720,14 @@
         },
         {
           "operation": "intelligence.settleRun",
-          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior current pointer is unchanged. No hidden generic retry/publication grant."
+          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
         },
         {
           "operation": "intelligence.settleRun",
           "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. Only safe deferred/failed/superseded attempt status; a complete prior assessment is never demoted or replaced."
         }
-      ]
+      ],
+      "title": "Accurate final-draft assessment failure diagnostics"
     },
     {
       "id": "REQ-PI-043",
@@ -1790,7 +1840,8 @@
         "WP-056",
         "WP-057",
         "WP-058"
-      ]
+      ],
+      "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence"
     },
     {
       "id": "REQ-PI-044",
@@ -1868,7 +1919,8 @@
         "WP-056",
         "WP-057",
         "WP-058"
-      ]
+      ],
+      "title": "Location Insights: Regions, state/province, Country and Whole portfolio"
     },
     {
       "id": "REQ-PI-045",
@@ -1943,7 +1995,7 @@
         },
         {
           "operation": "teams.editRole",
-          "rule": "Unique(worship|childrens|assimilation|small_groups|admin_finance|facilities|promotion|technology)[] (explicit saved custom responsibility mapping; [] clears; never guessed from name; Prayer remains separate and is not ninth area)?"
+          "rule": "A role may have an explicit saved set of distinct ministry areas: worship, childrens, assimilation, small_groups, admin_finance, facilities, promotion and technology. An empty set clears the mapping. Never infer it from the role name; Prayer remains separate and is not a ninth area."
         },
         {
           "operation": "teams.editRole",

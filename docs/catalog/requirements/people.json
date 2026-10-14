@@ -43,7 +43,8 @@
           "operation": "people.getPerson",
           "rule": "single current Person DTO or unavailable; no raw account/storage keys"
         }
-      ]
+      ],
+      "title": "People directory, search, filters, cursor pagination and views"
     },
     {
       "id": "REQ-PPL-002",
@@ -69,7 +70,8 @@
       "work_packages": [
         "WP-011",
         "WP-012"
-      ]
+      ],
+      "title": "Create, quick-add and edit person profiles"
     },
     {
       "id": "REQ-PPL-003",
@@ -95,7 +97,8 @@
       ],
       "work_packages": [
         "WP-011"
-      ]
+      ],
+      "title": "Person retirement and service-only restore"
     },
     {
       "id": "REQ-PPL-004",
@@ -128,7 +131,8 @@
           "operation": "people.ensureAccountPerson",
           "rule": "Already disclosed and selected owning native invitation/seat consequence; not separate model command"
         }
-      ]
+      ],
+      "title": "Account-linked contacts and recruited-contact identity"
     },
     {
       "id": "REQ-PPL-005",
@@ -155,7 +159,8 @@
       ],
       "work_packages": [
         "WP-012"
-      ]
+      ],
+      "title": "Private person photo lifecycle"
     },
     {
       "id": "REQ-PPL-006",
@@ -188,7 +193,8 @@
           "operation": "people.getStatusWarnings",
           "rule": "Visible information for plant_member: warnings, recordedEvidence, allowedStages, hardGate."
         }
-      ]
+      ],
+      "title": "Manual recruitment-stage movement, warnings, reasons and handoff"
     },
     {
       "id": "REQ-PPL-007",
@@ -221,7 +227,8 @@
           "operation": "people.getPipelineData",
           "rule": "Visible information for plant_member: groups, personIds, ordinaryProfileFields, counts, inactivityWarnings, completeness."
         }
-      ]
+      ],
+      "title": "Recruitment pipeline grouping, ordering, inactivity and follow-up warnings"
     },
     {
       "id": "REQ-PPL-008",
@@ -256,7 +263,7 @@
         },
         {
           "operation": "people.getActivities",
-          "rule": "Supported recordTypes values: note, activity, interview, assessment, commitment, follow_up[]."
+          "rule": "Supported recordTypes values: note, activity, interview, assessment, commitment, follow_up."
         },
         {
           "operation": "people.getActivities",
@@ -274,7 +281,8 @@
           "operation": "people.getActivities",
           "rule": "Current same-plant Member read projection; reject requested qualification/private-document body kinds; no underlying private existence/body leakage from filters."
         }
-      ]
+      ],
+      "title": "Activity timeline and authored-note create/edit/delete"
     },
     {
       "id": "REQ-PPL-009",
@@ -342,14 +350,15 @@
           "operation": "people.removeFromHousehold",
           "rule": "Removing a person from a household ends their current membership and preserves its history."
         }
-      ]
+      ],
+      "title": "Household lifecycle, member roles and deliberate address propagation"
     },
     {
       "id": "REQ-PPL-010",
       "feature_ids": [
         "PPL-010"
       ],
-      "text": "Keep church-defined labels with trimmed name 1–100, optional supported named/hex color, explicit nullable clear and unique current tenant normalized name. Assignment validates live Person+tag same tenant and unique pair. Retry assign/remove writes one semantic activity or original no-op receipt, never fictitious tag event. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable audit without becoming global taxonomy.",
+      "text": "Keep church-defined tags with a name trimmed of leading and trailing spaces, 1–100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op receipt. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.",
       "spec": "docs/product/people.md#req-ppl-010",
       "operations": [
         "people.listTags",
@@ -371,7 +380,8 @@
       ],
       "work_packages": [
         "WP-012"
-      ]
+      ],
+      "title": "Church-defined tags and person assignment"
     },
     {
       "id": "REQ-PPL-011",
@@ -412,7 +422,8 @@
           "operation": "people.getPersonSkills",
           "rule": "actual skills/category/proficiency/null notes, not role suitability"
         }
-      ]
+      ],
+      "title": "Skills, gifts, proficiency and category grouping"
     },
     {
       "id": "REQ-PPL-012",
@@ -455,7 +466,8 @@
           "operation": "people.createAssessment",
           "rule": "Assessment ID/computed total/revision inside CommandReceipt; stage unchanged"
         }
-      ]
+      ],
+      "title": "SME 4 C’s assessment recording, latest result and history"
     },
     {
       "id": "REQ-PPL-013",
@@ -502,7 +514,8 @@
           "operation": "people.createInterview",
           "rule": "Interview ID/revision and actual conditional earlier-stage progression receipt; no automatic task"
         }
-      ]
+      ],
+      "title": "SME five-criterion interview, result, next steps and progression"
     },
     {
       "id": "REQ-PPL-014",
@@ -531,7 +544,8 @@
       ],
       "work_packages": [
         "WP-014"
-      ]
+      ],
+      "title": "Commitment recording, private document and Core Group entry"
     },
     {
       "id": "REQ-PPL-015",
@@ -560,7 +574,8 @@
       ],
       "work_packages": [
         "WP-015"
-      ]
+      ],
+      "title": "Correct assessment, interview and commitment records"
     },
     {
       "id": "REQ-PPL-016",
@@ -585,7 +600,8 @@
       ],
       "work_packages": [
         "WP-015"
-      ]
+      ],
+      "title": "Duplicate hints and duplicate-pair review directory"
     },
     {
       "id": "REQ-PPL-017",
@@ -614,7 +630,8 @@
       ],
       "work_packages": [
         "WP-015"
-      ]
+      ],
+      "title": "Duplicate merge, reference transfer, receipt and survivor navigation"
     },
     {
       "id": "REQ-PPL-018",
@@ -647,7 +664,8 @@
           "operation": "people.generateCsvTemplate",
           "rule": "Visible information for plant_member: approvedColumnNames, utf8CsvBytes, mimeType, safeFilename."
         }
-      ]
+      ],
+      "title": "CSV template, preview, row validation, duplicate resolutions and partial import"
     },
     {
       "id": "REQ-PPL-019",
@@ -677,7 +695,8 @@
           "operation": "people.exportPeople",
           "rule": "Visible information for plant_member: utf8CsvBytes, safeFilename, mimeType, matched, returned, completeness."
         }
-      ]
+      ],
+      "title": "Filtered CSV export and file serialization"
     },
     {
       "id": "REQ-PPL-020",
@@ -704,7 +723,8 @@
         "WP-014",
         "WP-022",
         "WP-023"
-      ]
+      ],
+      "title": "Recorded events and cross-domain recruitment auto-advancement"
     },
     {
       "id": "REQ-PPL-021",
@@ -733,7 +753,8 @@
       "work_packages": [
         "WP-019",
         "WP-029"
-      ]
+      ],
+      "title": "Person teams, training and communication tabs"
     },
     {
       "id": "REQ-PPL-022",
@@ -758,7 +779,8 @@
       ],
       "work_packages": [
         "WP-023"
-      ]
+      ],
+      "title": "Explicit follow-up creation and task suggestions"
     },
     {
       "id": "REQ-PPL-023",
@@ -793,7 +815,8 @@
           "operation": "people.readPipelineMetrics",
           "rule": "fresh exact plant seat + named operational read capability; no org/model raw-person grant"
         }
-      ]
+      ],
+      "title": "Internal pipeline transition metrics with known cohorts"
     },
     {
       "id": "REQ-PPL-024",

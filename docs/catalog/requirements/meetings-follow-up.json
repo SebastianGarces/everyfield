@@ -53,7 +53,8 @@
           "operation": "communication.recordContactFromTask",
           "rule": "Same typed human-contact transaction; derive occurredAt from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer."
         }
-      ]
+      ],
+      "title": "Person contact log derived from completed person-linked task"
     },
     {
       "id": "REQ-MTG-001",
@@ -79,7 +80,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Meeting list, detail and history"
     },
     {
       "id": "REQ-MTG-002",
@@ -108,7 +110,8 @@
       ],
       "work_packages": [
         "WP-020"
-      ]
+      ],
+      "title": "Create, edit, delete and change meeting status"
     },
     {
       "id": "REQ-MTG-003",
@@ -146,7 +149,8 @@
           "operation": "venues.list",
           "rule": "Visible information for plant_member: items, matched, returned, completeness, nextCursor."
         }
-      ]
+      ],
+      "title": "Meeting venues and copied location details"
     },
     {
       "id": "REQ-MTG-004",
@@ -172,7 +176,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Archive, restore and correct venues"
     },
     {
       "id": "REQ-MTG-005",
@@ -197,7 +202,8 @@
       ],
       "work_packages": [
         "WP-020"
-      ]
+      ],
+      "title": "Structured meeting agenda and Vision defaults"
     },
     {
       "id": "REQ-MTG-006",
@@ -237,7 +243,8 @@
           "operation": "meetings.updateKitItem",
           "rule": "Non-Vision denied; preserve canonical text/version unless explicit supported custom-item edit."
         }
-      ]
+      ],
+      "title": "Vision kit checklist"
     },
     {
       "id": "REQ-MTG-007",
@@ -265,7 +272,8 @@
       ],
       "work_packages": [
         "WP-021"
-      ]
+      ],
+      "title": "Guests, inviters and team roster snapshot"
     },
     {
       "id": "REQ-MTG-008",
@@ -299,7 +307,8 @@
           "operation": "meetings.correctRsvp",
           "rule": "Administrative RSVP correction returns the canonical correction receipt."
         }
-      ]
+      ],
+      "title": "Administrative RSVP correction"
     },
     {
       "id": "REQ-MTG-009",
@@ -367,7 +376,8 @@
           "operation": "meetings.resolveTokenRsvp",
           "rule": "Native explicitly submitted narrow bearer response; never an assistant mutation"
         }
-      ]
+      ],
+      "title": "Own RSVP and public token response"
     },
     {
       "id": "REQ-MTG-010",
@@ -395,7 +405,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Attendance, check-in and walk-ins"
     },
     {
       "id": "REQ-MTG-011",
@@ -420,7 +431,8 @@
       ],
       "work_packages": [
         "WP-020"
-      ]
+      ],
+      "title": "Quick-add meeting guests and attendees"
     },
     {
       "id": "REQ-MTG-012",
@@ -449,7 +461,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Finalize and reconcile attendance"
     },
     {
       "id": "REQ-MTG-013",
@@ -476,7 +489,8 @@
       ],
       "work_packages": [
         "WP-021"
-      ]
+      ],
+      "title": "Response cards and recorded outcomes"
     },
     {
       "id": "REQ-MTG-014",
@@ -504,7 +518,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Vision evaluation and trends"
     },
     {
       "id": "REQ-MTG-015",
@@ -529,7 +544,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Correct a Vision evaluation"
     },
     {
       "id": "REQ-MTG-016",
@@ -554,7 +570,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Meeting analytics and evaluation comparison"
     },
     {
       "id": "REQ-MTG-017",
@@ -578,7 +595,8 @@
       ],
       "work_packages": [
         "WP-022"
-      ]
+      ],
+      "title": "Attendee notes in person history"
     },
     {
       "id": "REQ-MTG-018",
@@ -603,7 +621,8 @@
       ],
       "work_packages": [
         "WP-021"
-      ]
+      ],
+      "title": "Meeting notifications and invitation communication"
     },
     {
       "id": "REQ-MTG-019",
@@ -642,7 +661,8 @@
           "operation": "meetings.setInviter",
           "rule": "Preserve inviter Person provenance, no self/referral cycle/account-as-witness inference; no invitation-tree subsystem."
         }
-      ]
+      ],
+      "title": "Invitation attribution"
     },
     {
       "id": "REQ-MTG-020",

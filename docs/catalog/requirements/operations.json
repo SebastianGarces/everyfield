@@ -6,7 +6,7 @@
       "feature_ids": [
         "ADM-001"
       ],
-      "text": "Authenticated feedback stores original-author/private original, closed category, trimmed nonempty description≤5000 and bounded canonical page label with occurrence/idempotency key before outward work. Original-author native listOwn/getOwnStatus uses dedicated25row-cursor DTO and current active account, never admin joins or another author. Stored success is distinct from publication/triage/implementation; suspended/deleted author denied.",
+      "text": "The authenticated feedback dialog collects category, description, page, address, church, role, browser, screen size, theme, app version and time, with no screenshot or attachment. Category is bug, suggestion, question or other; trim description to 1–5,000 characters. Page is the displayed page label; address is its internal path with query, fragment and tokens removed, not a postal address or arbitrary external URL. Bind church and role to trusted current account context; keep unavailable details null rather than inventing values. Store the private original, immutable original author, trusted submission time and occurrence/idempotency key before outward work. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text. Native own list/status uses the original authenticated active account and a bounded 25-row cursor projection, without private originals, admin joins or another author. Stored success is distinct from publication, triage or implementation; suspended/deleted authors are denied.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.submit",
@@ -22,7 +22,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
-      ]
+      ],
+      "title": "Feedback dialog with private page and device details"
     },
     {
       "id": "REQ-ADM-002",
@@ -45,7 +46,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
-      ]
+      ],
+      "title": "Platform-wide feedback triage and status transitions"
     },
     {
       "id": "REQ-ADM-003",
@@ -69,7 +71,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
-      ]
+      ],
+      "title": "Automatic safe public feedback issues and private operator mail"
     },
     {
       "id": "REQ-ADM-004",
@@ -91,7 +94,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-048"
-      ]
+      ],
+      "title": "Dashboard routing by identity and onboarding/plant state"
     },
     {
       "id": "REQ-ADM-005",
@@ -125,7 +129,8 @@
           "operation": "dashboard.availableActions",
           "rule": "Visible information for plant_member: accountKind, exactContext, safeDestination, setupGaps, currentlyAllowedActions."
         }
-      ]
+      ],
+      "title": "Plant metrics, activity feed, quick actions and operational prompts"
     },
     {
       "id": "REQ-ADM-006",
@@ -153,7 +158,8 @@
           "operation": "marketing.requestInvitation",
           "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address24h dedup/5day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
         }
-      ]
+      ],
+      "title": "Public product landing, interactive examples and invite-request form"
     },
     {
       "id": "REQ-ADM-007",
@@ -176,7 +182,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
-      ]
+      ],
+      "title": "Public privacy/terms, static sitemap and robots"
     },
     {
       "id": "REQ-ADM-008",
@@ -184,7 +191,7 @@
         "ADM-001",
         "ADM-003"
       ],
-      "text": "Automatic public feedback serializer outputs only closed category/allowlisted public area/fixed product-summary wording/opaque random occurrence marker. Private original and actual immutable repo+issue locator are separate. Unknown unsafe fields hold; no raw original/title/URL/IDs/names/logs/attachments fallback. Richer exact payload requires authorized publication review; merged workflow handoff governs private triage/routing without granting coding authority.",
+      "text": "Automatic public feedback serializer outputs only closed category/allowlisted public area/fixed product-summary wording/opaque random occurrence marker. Private original and actual immutable repo+issue locator are separate. Unknown unsafe fields hold; no raw original/title/URL/IDs/names/logs/attachments fallback. Richer exact payload requires authorized publication review; merged workflow handoff governs private triage/routing without granting coding authority. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.createConfiguredIssue",
@@ -284,7 +291,7 @@
         },
         {
           "operation": "feedback.submit",
-          "rule": "Closed authenticated intake stores private original and trusted author; subject optional, page canonicalized to approved internal route stripping query/fragment. Stored success distinct from public publication/implementation."
+          "rule": "The dialog stores category, description and private page/address/church/role/browser/screen/theme/version/time details with a trusted author. Canonicalize the internal address by stripping query, fragment and tokens. No screenshot or attachment is accepted. Stored success is distinct from public publication or implementation; diagnostics never enter the public issue."
         },
         {
           "operation": "feedback.submit",
@@ -337,7 +344,7 @@
         "ADM-003",
         "ADM-007"
       ],
-      "text": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature.",
+      "text": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -413,7 +420,7 @@
       "feature_ids": [
         "ADM-001",
         "ADM-003",
-        "EVR-290"
+        "EVR-020"
       ],
       "text": "Reviewed Evry feedback submission shares native domain intake and original-author scope. Named automatic intake/triage does not grant general conversational durable-write autonomy or coding authority. Await owner merged workflow; no competing rubric, repo creation or required public roadmap.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
@@ -559,7 +566,8 @@
       "work_packages": [
         "WP-031",
         "WP-050"
-      ]
+      ],
+      "title": "External schedules and bounded HTTP job ticks"
     },
     {
       "id": "REQ-OPS-002",
@@ -596,7 +604,8 @@
           "operation": "ops.readiness",
           "rule": "Privileged content-free readiness distinguishes actual unavailable dependency/backlog/reference/backup proof; checks read only actual current configuration, never fake empty readiness or claim unconfigured host selected."
         }
-      ]
+      ],
+      "title": "Basic health and runtime errors versus dependency readiness"
     },
     {
       "id": "REQ-OPS-003",
@@ -630,7 +639,8 @@
           "operation": "ops.flushTelemetry",
           "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business CommandReceipt/history requirement."
         }
-      ]
+      ],
+      "title": "Production Sentry errors and isolated optional Langfuse tracing"
     },
     {
       "id": "REQ-OPS-004",
@@ -659,7 +669,8 @@
           "operation": "domain.executeAtomicConsequences",
           "rule": "Registered owning domain/consumer only; actual transaction UnitOfWork/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC."
         }
-      ]
+      ],
+      "title": "Atomic domain consequences and durable advisory intents"
     },
     {
       "id": "REQ-OPS-005",
@@ -682,7 +693,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Migration generation, journal provenance and safe operator diagnostics"
     },
     {
       "id": "REQ-OPS-006",
@@ -705,7 +717,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Development seeds, protected database guard and preserved reference content"
     },
     {
       "id": "REQ-OPS-007",
@@ -729,7 +742,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Isolated live database tests and hermetic build/CI checks"
     },
     {
       "id": "REQ-OPS-008",
@@ -752,7 +766,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Managed local previews, disposable mail and worktree environment"
     },
     {
       "id": "REQ-OPS-009",
@@ -774,7 +789,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Issue board synchronization and agent workflow tooling"
     },
     {
       "id": "REQ-OPS-010",
@@ -797,7 +813,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Agent setup/hooks, script inventory and native proof tooling"
     },
     {
       "id": "REQ-OPS-011",
@@ -824,7 +841,8 @@
           "operation": "ops.inspectLegacyEvidence",
           "rule": "Read-only positively identified source/retired runtime diagnostic; no legacy DB mutation/restoration, credential extraction or runtime proof claim."
         }
-      ]
+      ],
+      "title": "Read-only retired Evry/database boundary diagnostics"
     }
   ]
 }

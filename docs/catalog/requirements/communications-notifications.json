@@ -22,7 +22,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
-      ]
+      ],
+      "title": "Communication hub, filtered history and delivery overview"
     },
     {
       "id": "REQ-COM-002",
@@ -47,7 +48,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
-      ]
+      ],
+      "title": "Message detail, recipient and person/meeting communication histories"
     },
     {
       "id": "REQ-COM-003",
@@ -70,7 +72,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027"
-      ]
+      ],
+      "title": "Compose and preview sanitized rich-text email with merge fields"
     },
     {
       "id": "REQ-COM-004",
@@ -93,7 +96,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027"
-      ]
+      ],
+      "title": "Recipient search and closed quick-select groups"
     },
     {
       "id": "REQ-COM-005",
@@ -115,7 +119,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
-      ]
+      ],
+      "title": "Bulk provider dispatch and per-recipient outcome correlation"
     },
     {
       "id": "REQ-COM-006",
@@ -136,7 +141,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
-      ]
+      ],
+      "title": "Truthful provider rejection in the composer"
     },
     {
       "id": "REQ-COM-007",
@@ -176,7 +182,8 @@
           "operation": "communication.templates.create",
           "rule": "Own-plant bounded email template create/edit/global-source fork, immutable global source and one preference by source identity; expected revision for edit, no caller-minted new ID."
         }
-      ]
+      ],
+      "title": "System and church message-template CRUD and copy-on-write forks"
     },
     {
       "id": "REQ-COM-008",
@@ -209,7 +216,8 @@
           "operation": "communication.templates.forMeeting",
           "rule": "Stable global source identity and current own-plant fork preference; exact template or meeting/type selector, no all-null ambiguity/global source mutation."
         }
-      ]
+      ],
+      "title": "Canonical message-template bootstrap and meeting invitation selection"
     },
     {
       "id": "REQ-COM-009",
@@ -231,7 +239,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
-      ]
+      ],
+      "title": "Reviewed resend to delivered non-openers"
     },
     {
       "id": "REQ-COM-010",
@@ -262,7 +271,8 @@
           "operation": "meeting.createRsvpToken",
           "rule": "Already included in exact reviewed invitation/send action"
         }
-      ]
+      ],
+      "title": "Public token RSVP and email engagement linkage"
     },
     {
       "id": "REQ-COM-012",
@@ -293,16 +303,13 @@
         "WP-028",
         "WP-029",
         "WP-031"
-      ]
+      ],
+      "title": "Native drafts and reviewed scheduled email"
     },
     {
       "id": "REQ-KNOW-001",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-004"
       ],
@@ -352,7 +359,7 @@
         },
         {
           "operation": "notifications.feed",
-          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review[]."
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
         },
         {
           "operation": "notifications.markAllVisibleRead",
@@ -436,11 +443,11 @@
         },
         {
           "operation": "shared",
-          "rule": "Supported stages values: prospect, attendee, following_up, interviewed, core_group, launch_team, leader[]."
+          "rule": "Supported stages values: prospect, attendee, following_up, interviewed, core_group, launch_team, leader."
         },
         {
           "operation": "shared",
-          "rule": "Supported adultClassification values: adult, child, unknown[]."
+          "rule": "Supported adultClassification values: adult, child, unknown."
         },
         {
           "operation": "shared",
@@ -476,7 +483,7 @@
         },
         {
           "operation": "shared",
-          "rule": "Supported category values: vision_meeting, follow_up, training, facilities, promotion, administrative, ministry_team, launch_prep, recurring, general[]."
+          "rule": "Supported category values: vision_meeting, follow_up, training, facilities, promotion, administrative, ministry_team, launch_prep, recurring, general."
         },
         {
           "operation": "shared",
@@ -484,11 +491,11 @@
         },
         {
           "operation": "shared",
-          "rule": "Supported types values: vision_meeting, orientation, team_meeting, pre_launch_practice[]."
+          "rule": "Supported types values: vision_meeting, orientation, team_meeting, pre_launch_practice."
         },
         {
           "operation": "shared",
-          "rule": "Supported statuses values: planning, ready, in_progress, completed, cancelled[]."
+          "rule": "Supported statuses values: planning, ready, in_progress, completed, cancelled."
         },
         {
           "operation": "shared",
@@ -496,11 +503,11 @@
         },
         {
           "operation": "shared",
-          "rule": "Supported statuses values: draft, scheduled, accepted, failed, unknown, cancelled, sent[]."
+          "rule": "Supported statuses values: draft, scheduled, accepted, failed, unknown, cancelled, sent."
         },
         {
           "operation": "shared",
-          "rule": "Supported providerOutcomes values: accepted, delivered, rejected, bounced, suppressed, unknown[]."
+          "rule": "Supported providerOutcomes values: accepted, delivered, rejected, bounced, suppressed, unknown."
         },
         {
           "operation": "shared",
@@ -831,11 +838,7 @@
     {
       "id": "REQ-KNOW-010",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-008"
       ],
@@ -936,11 +939,11 @@
         },
         {
           "operation": "communication.list",
-          "rule": "Supported states values: draft, scheduled, sending, sent, logged, cancelled, failed, unknown[]."
+          "rule": "Supported states values: draft, scheduled, sending, sent, logged, cancelled, failed, unknown."
         },
         {
           "operation": "communication.list",
-          "rule": "Supported providerOutcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown[]."
+          "rule": "Supported providerOutcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown."
         },
         {
           "operation": "communication.listAudienceTeams",
@@ -1211,13 +1214,7 @@
       "feature_ids": [
         "COM-001",
         "COM-002",
-        "EVR-237",
-        "EVR-238",
-        "EVR-239",
-        "EVR-240",
-        "EVR-241",
-        "EVR-413",
-        "EVR-414"
+        "EVR-020"
       ],
       "text": "Communication detail/person/meeting/history reads expose actual draft/scheduled/cancel/reschedule receipts only to current authorized readers; no unrelated private-care or token leakage.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
@@ -1256,8 +1253,7 @@
       "feature_ids": [
         "COM-012",
         "EVR-015",
-        "EVR-242",
-        "EVR-247"
+        "EVR-020"
       ],
       "text": "Existing Evry composition/recipe adapters add draft save and reviewed schedule/reschedule/cancel/replacement through the same domain operations; each durable effect exactly reviewed and no autonomous send.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
@@ -1425,7 +1421,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
-      ]
+      ],
+      "title": "Tenant/organization anchored enqueue and deduplicated delivery intent"
     },
     {
       "id": "REQ-NTF-002",
@@ -1449,7 +1446,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
-      ]
+      ],
+      "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation"
     },
     {
       "id": "REQ-NTF-003",
@@ -1473,7 +1471,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
-      ]
+      ],
+      "title": "In-app notification feed, unread filters, pagination and bell"
     },
     {
       "id": "REQ-NTF-004",
@@ -1496,7 +1495,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
-      ]
+      ],
+      "title": "User category/channel preferences with explicit-choice intent"
     },
     {
       "id": "REQ-NTF-005",
@@ -1519,7 +1519,8 @@
       "work_packages": [
         "WP-024",
         "WP-031"
-      ]
+      ],
+      "title": "Task due/overdue reminders and reminder cancellation/resync"
     },
     {
       "id": "REQ-NTF-006",
@@ -1542,7 +1543,8 @@
       "work_packages": [
         "WP-020",
         "WP-031"
-      ]
+      ],
+      "title": "Meeting scheduled and day-offset reminders"
     },
     {
       "id": "REQ-NTF-007",
@@ -1565,7 +1567,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
-      ]
+      ],
+      "title": "Planter open-items daily/weekly digest and church local send schedule"
     },
     {
       "id": "REQ-NTF-008",
@@ -1590,7 +1593,8 @@
         "WP-007",
         "WP-031",
         "WP-030"
-      ]
+      ],
+      "title": "Oversight privacy-preserving daily activity digest"
     },
     {
       "id": "REQ-NTF-009",
@@ -1617,7 +1621,8 @@
         "WP-038",
         "WP-045",
         "WP-031"
-      ]
+      ],
+      "title": "Relationship, sharing, phase and launch milestone fanout"
     },
     {
       "id": "REQ-NTF-010",
@@ -1640,7 +1645,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
-      ]
+      ],
+      "title": "Signed delivery webhooks for notifications and bulk communication"
     },
     {
       "id": "REQ-NTF-011",
@@ -1664,7 +1670,8 @@
       "work_packages": [
         "WP-028",
         "WP-030"
-      ]
+      ],
+      "title": "Global address suppression and self-service restoration history"
     },
     {
       "id": "REQ-NTF-012",
@@ -1687,7 +1694,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
-      ]
+      ],
+      "title": "Category email unsubscribe, one-click opt-out and bounded undo"
     },
     {
       "id": "REQ-NTF-013",
@@ -1712,7 +1720,8 @@
         "WP-008",
         "WP-028",
         "WP-031"
-      ]
+      ],
+      "title": "Shared transactional email transport and protected email templates"
     },
     {
       "id": "REQ-NTF-014",
@@ -1735,7 +1744,8 @@
         "WP-030",
         "WP-031",
         "WP-035"
-      ]
+      ],
+      "title": "Declared notification producers and unused email helpers"
     },
     {
       "id": "REQ-NTF-015",
@@ -1759,7 +1769,8 @@
       "work_packages": [
         "WP-030",
         "WP-031"
-      ]
+      ],
+      "title": "Discovery association postcommit transactional receipts"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 [target.json](target.json) is the only schema authority. Sebastian adopted this reviewed starting design on 2026-10-14. Builders may change it later through a reviewed migration. Application implementation is not authorized by this documentation change.
 
-The schema has 100 tables, 1237 columns, 408 declared FKs and 11 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 100 tables, 1246 columns, 408 declared FKs and 11 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -183,7 +183,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 
 ## Coverage
 
-Capability inventories cover 494 feature IDs and 119 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
+Capability inventories cover 275 feature IDs and 119 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
 
 ## Design rules used
 1. Each table names the capabilities that require it. There is no table for a behavior-only helper or derived dashboard.

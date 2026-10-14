@@ -579,7 +579,7 @@
       "fixture": "Fault current change/history/receipt/audit/required effect insertion separately then valid/replayed/no-op control.",
       "expected": "Any required insert failure rolls meaningful mutation back; success rows correlate exactly; replay/no-op returns original IDs with no duplicate successful event.",
       "feature_ids": [
-        "EVR-100",
+        "EVR-020",
         "MTG-012",
         "OPS-005"
       ],
@@ -610,8 +610,7 @@
       "fixture": "Forge scope/subject/actor/origin/approval/execution, wrong organization kind, double owner and model supplied actor; validhuman/service controls.",
       "expected": "Typed append constructs actor/scope from trusted context and validates lineage; spoofed/foreign values reject. Service has no invented human; exact human reviewer and digest retained.",
       "feature_ids": [
-        "EVR-100",
-        "EVR-101",
+        "EVR-020",
         "IDN-005"
       ],
       "acceptance_ids": [
@@ -642,7 +641,7 @@
       "fixture": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signedURL canaries and event.diff at 2048/2049 UTF-8 bytes for a closed event.action.",
       "expected": "Action allowlist drops/refuses forbidden audit fields, <=2048accepted correct shape, >2048rejects and rolls mutation back. Domain-only history cannot leak through the platform projection; no default whole-row dump.",
       "feature_ids": [
-        "EVR-100",
+        "EVR-020",
         "OPS-003",
         "PI-035"
       ],
@@ -906,7 +905,7 @@
       "fixture": "Commit then lose response/session refresh; replay same key/digest and replay changed role/recipient payload; fault audit insert.",
       "expected": "Same saved receipt and one effect on replay; changed digest conflict. Audit failure rolls domain acceptance back while credentials remain resumable.",
       "feature_ids": [
-        "EVR-100",
+        "EVR-020",
         "IDN-002",
         "IDN-013"
       ],
@@ -1534,8 +1533,7 @@
       "expected": "One claim/effect/logical slot; stale generation cannot publish. Committed intent survives crash; unknown never blindly resends/newkeys. Signed deduped callbacks preserve truthful state; bounded retry/reconcile terminal path and bounded execution budget; fairness, reserved slots and per-kind alert tuning are deferred to measured-load proof. Aliases never introduce another job enum or turn unknown into success/retry. Proper child tasks have their own status/history; recurrence creates fresh child rows with cleared completion facts and no child due/recurrence/contact hooks, and any child-copy/history/intent failure rolls back the affected completion transaction. Parent is never auto-finished by child ticks; no competing live checkbox counter/state exists. Parent-duty child creation never substitutes for child-own-duty completion; current reassignment determines the legal actor. General edit/assignment/deletion remains Owner/Admin. Parent delete covers concurrent children and records their history. Imported/successor checklist entries are real fresh task rows with optional eligible assignee, no child deadlines/recurrence/contact hooks and no inherited completion facts. All source checklist aliases reach those operations; top-level reports exclude independent child credit.",
       "feature_ids": [
         "COM-005",
-        "EVR-183",
-        "EVR-184",
+        "EVR-020",
         "NTF-002",
         "NTF-010",
         "OPS-001",
@@ -1690,7 +1688,7 @@
       "fixture": "ForeignIDs,seatless/Member/deferredcoach token, spoofeduser/plant, revokedgrant, staleapprovedplan, guessedobject across read and effect.",
       "expected": "Currentserverprincipal and exactscope/purpose at DAL+insidecommit+effect; no existence leak or privatecare tool.",
       "feature_ids": [
-        "EVR-100",
+        "EVR-020",
         "IDN-005",
         "PPL-001"
       ],
@@ -1989,7 +1987,7 @@
       "fixture": "Credential/address/private narrative/promptattachmentcanaries in errors/logs/traces/RSCactionclosures; editor/MDX/HTML scriptinjection; unscopedoperatorinspect.",
       "expected": "Minimalcorrelation/safeerrors only; secrets/privatecaremetadataabsent. Sanitization/CSP denies executableinput, exactoperatorpurpose/grantrequired.",
       "feature_ids": [
-        "EVR-100",
+        "EVR-020",
         "OPS-003",
         "WIKI-001"
       ],
@@ -2022,8 +2020,7 @@
       "fixture": "Crash/disconnect/cancel/afterfailure before/after DBcommit/provideracceptance/streamresponse; restartchangedproposal/revokedactor.",
       "expected": "Committedintent+exactapprovaldigest survive, replay returnsreceipt; noerase/doubleeffect/expandedaudience. Freshresumedauthority, truthfulpartial/unknown; no implicitnewworker.",
       "feature_ids": [
-        "EVR-100",
-        "EVR-101",
+        "EVR-020",
         "NTF-002"
       ],
       "acceptance_ids": [
@@ -2150,7 +2147,7 @@
       "expected": "Fresh authority/lifecycle/version recheck denies stale commit/effect/body; prior committed effect receipt remains truthful, no resurrection/retry.",
       "feature_ids": [
         "DOC-015",
-        "EVR-100",
+        "EVR-020",
         "IDN-019",
         "NTF-002"
       ],
@@ -2277,8 +2274,7 @@
       "fixture": "Feedback,attachment,reference/model text requests raw SQL, forgedactor/org, anotherapproval or NIrawmanifest.",
       "expected": "Untrusted text grants no tool/SQL/approval/scope; read and effect policies deny and no private canaries enter prompts/output/traces.",
       "feature_ids": [
-        "EVR-100",
-        "EVR-101",
+        "EVR-020",
         "PI-043"
       ],
       "acceptance_ids": [

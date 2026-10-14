@@ -276,6 +276,24 @@ def strings(value):
             yield from strings(child)
 
 
+FIX6_RULE_REWRITES = {
+  "Closed authenticated intake stores private original and trusted author; subject optional, page canonicalized to approved internal route stripping query/fragment. Stored success distinct from public publication/implementation.": "The dialog stores category, description and private page/address/church/role/browser/screen/theme/version/time details with a trusted author. Canonicalize the internal address by stripping query, fragment and tokens. No screenshot or attachment is accepted. Stored success is distinct from public publication or implementation; diagnostics never enter the public issue.",
+  "One CAS transaction persists supported insights/overall summary/completion/current pointer/required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision.": "One CAS transaction persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision.",
+  "Current claim/status CAS; complete result cannot be demoted, and prior current pointer is unchanged. No hidden generic retry/publication grant.": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant.",
+  "Commit against current live linked ordinary Tasks and source evidence; race/reopen correction preserves history and Needs-review truth, no new Task status engine.": "Commit against the current linked-task digest and source evidence. Open linked tasks are allowed; a changed digest refuses a stale reviewed view. Reopening or correction preserves history and Needs-review evidence without creating a second Task status engine.",
+  "Unique(worship|childrens|assimilation|small_groups|admin_finance|facilities|promotion|technology)[] (explicit saved custom responsibility mapping; [] clears; never guessed from name; Prayer remains separate and is not ninth area)?": "A role may have an explicit saved set of distinct ministry areas: worship, childrens, assimilation, small_groups, admin_finance, facilities, promotion and technology. An empty set clears the mapping. Never infer it from the role name; Prayer remains separate and is not a ninth area.",
+  "Plant: publish complete paired assessment and plant pointer/projection; increment only affected organization material inputs. Organization: publish aggregate-safe finding/slices and exact-org pointer; do not recursively invalidate own material source.": "Plant publication completes the paired assessment and its availability; increment only affected organization material inputs. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
+}
+
+
+def current_rule(rule):
+    """Apply the reviewed Fix 6 prose corrections to historical rule evidence."""
+    rule = FIX6_RULE_REWRITES.get(rule, RULE_REWRITES.get(rule, rule))
+    if rule.startswith('Supported ') and rule.endswith('[].'):
+        return rule[:-3] + '.'
+    return rule
+
+
 def audit(base, report):
     before = load_base('docs/catalog/operations.json', base)
     aliases = load_base('docs/catalog/current-operation-aliases.json', base)
@@ -299,7 +317,7 @@ def audit(base, report):
     for op, field, value, rules, choice in removed_fields(before, aliases):
         locations = []
         for rule in rules:
-            rule = RULE_REWRITES.get(rule, rule)
+            rule = current_rule(rule)
             targets = [p for p, text in texts.items() if rule in text]
             if not targets:
                 missing.append((op['id'] if op else 'catalog', field, rule))
@@ -331,7 +349,12 @@ def audit(base, report):
     replace, _ = canonicalizer(aliases, before)
     for op in inventory:
         original = by_id[op['id']]
-        for key in ['feature_ids', 'case_ids', 'kind']:
+        # Fix 6 consolidated per-operation Evry rows into the shared exposure rule.
+        expected_features = list(dict.fromkeys(
+            'EVR-020' if fid.startswith('EVR-') and int(fid[4:]) >= 100 else fid
+            for fid in original['feature_ids']))
+        assert op['feature_ids'] == expected_features, 'Changed feature mapping for ' + op['id']
+        for key in ['case_ids', 'kind']:
             assert op[key] == original[key], 'Changed ' + key + ' for ' + op['id']
         assert op['owning_package'] == original['ownership']['producer_work_package'], 'Changed producer'
         assert op['evry_packages'] == original['ownership']['evry_work_packages'], 'Changed adapter scope'

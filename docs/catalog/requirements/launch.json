@@ -138,7 +138,7 @@
       "behavior_rules": [
         {
           "operation": "launch.completeMilestone",
-          "rule": "Commit against current live linked ordinary Tasks and source evidence; race/reopen correction preserves history and Needs-review truth, no new Task status engine."
+          "rule": "Commit against the current linked-task digest and source evidence. Open linked tasks are allowed; a changed digest refuses a stale reviewed view. Reopening or correction preserves history and Needs-review evidence without creating a second Task status engine."
         },
         {
           "operation": "launch.ensureReadiness",
@@ -179,12 +179,10 @@
     {
       "id": "REQ-KNOW-039",
       "feature_ids": [
-        "EVR-254",
-        "EVR-255",
-        "EVR-262",
+        "EVR-020",
         "LCH-004"
       ],
-      "text": "Current valid re-confirmation uses existing live-task authority; old completion history is not erased/relabelled.",
+      "text": "Current valid re-confirmation uses current subject authority, expected revision and a fresh linked-task digest. Open linked tasks do not block completion. Old completion history is not erased or relabelled.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -210,7 +208,7 @@
     {
       "id": "REQ-KNOW-040",
       "feature_ids": [
-        "EVR-165",
+        "EVR-020",
         "MTG-001",
         "MTG-002"
       ],
@@ -269,7 +267,7 @@
         },
         {
           "operation": "meetings.get",
-          "rule": "Supported sections values: profile, agenda, kit, evaluation, guests, attendance, cards[]."
+          "rule": "Supported sections values: profile, agenda, kit, evaluation, guests, attendance, cards."
         },
         {
           "operation": "meetings.hasHistory",
@@ -304,7 +302,7 @@
     {
       "id": "REQ-KNOW-041",
       "feature_ids": [
-        "EVR-171",
+        "EVR-020",
         "LCH-003",
         "MTG-002",
         "PI-028"
@@ -414,8 +412,7 @@
     {
       "id": "REQ-KNOW-044",
       "feature_ids": [
-        "EVR-170",
-        "EVR-172",
+        "EVR-020",
         "LCH-004",
         "MTG-002",
         "PI-028"
@@ -529,8 +526,7 @@
     {
       "id": "REQ-KNOW-048",
       "feature_ids": [
-        "EVR-165",
-        "EVR-171",
+        "EVR-020",
         "MTG-002"
       ],
       "text": "Current meeting/launch operations preserve scoped shared administration; no team-leader exception expansion or foreign event write.",
@@ -557,9 +553,7 @@
     {
       "id": "REQ-KNOW-049",
       "feature_ids": [
-        "EVR-165",
-        "EVR-171",
-        "EVR-172"
+        "EVR-020"
       ],
       "text": "Exact-reviewed Evry practice create/complete/correct uses shared domain operations with stale/duplicate receipts and current authority.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
@@ -585,7 +579,7 @@
     {
       "id": "REQ-KNOW-050",
       "feature_ids": [
-        "EVR-266",
+        "EVR-020",
         "PI-015",
         "PI-028"
       ],
@@ -804,9 +798,7 @@
     {
       "id": "REQ-KNOW-055",
       "feature_ids": [
-        "EVR-256",
-        "EVR-257",
-        "EVR-419"
+        "EVR-020"
       ],
       "text": "Native/Evry Launch read/correct/guest/debrief/summary adapters use the same current authority/revision/history; every durable effect exact reviewed, no raw reflection/private-care model input or hidden task/send/phase effect.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
@@ -834,9 +826,7 @@
     {
       "id": "REQ-KNOW-056",
       "feature_ids": [
-        "EVR-158",
-        "EVR-159",
-        "EVR-167",
+        "EVR-020",
         "MTG-011",
         "PPL-002"
       ],
@@ -903,7 +893,7 @@
     {
       "id": "REQ-KNOW-057",
       "feature_ids": [
-        "EVR-167",
+        "EVR-020",
         "MTG-011",
         "PPL-002"
       ],
@@ -955,7 +945,7 @@
     {
       "id": "REQ-KNOW-059",
       "feature_ids": [
-        "EVR-263",
+        "EVR-020",
         "PI-024",
         "PI-032"
       ],
@@ -988,7 +978,7 @@
     {
       "id": "REQ-KNOW-060",
       "feature_ids": [
-        "EVR-264",
+        "EVR-020",
         "PI-024",
         "PI-032"
       ],
@@ -1785,8 +1775,7 @@
     {
       "id": "REQ-KNOW-115",
       "feature_ids": [
-        "EVR-185",
-        "EVR-257",
+        "EVR-020",
         "LCH-006",
         "TSK-002"
       ],
@@ -1830,9 +1819,7 @@
     {
       "id": "REQ-KNOW-116",
       "feature_ids": [
-        "EVR-256",
-        "EVR-257",
-        "EVR-419",
+        "EVR-020",
         "IDN-005",
         "LCH-006"
       ],
@@ -1967,7 +1954,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-045"
-      ]
+      ],
+      "title": "Set, move, postpone and recommit canonical launch date"
     },
     {
       "id": "REQ-LCH-002",
@@ -1988,7 +1976,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-046"
-      ]
+      ],
+      "title": "Launch date/status journal and actor names"
     },
     {
       "id": "REQ-LCH-003",
@@ -2011,14 +2000,15 @@
       "work_packages": [
         "WP-045",
         "WP-046"
-      ]
+      ],
+      "title": "Nine Playbook milestones and 23 linked preparation tasks"
     },
     {
       "id": "REQ-LCH-004",
       "feature_ids": [
         "LCH-004"
       ],
-      "text": "Complete/reopen readiness milestone under current subject authority, expected revision and live associated-task guard in the same history/audit/receipt transaction. Required task reopening/correction makes current evidence Needs review while prior human completion history stays. Guest/debrief evidence is derived, not overridable by a manual checkbox.",
+      "text": "Complete or reopen a readiness milestone under current subject authority and expected revision in the same history/audit/receipt transaction. Completion is allowed with open linked tasks. The linked-task digest compares the reviewed view with current linked tasks and refuses only a stale view; it does not require tasks to be complete. Reopening or correcting linked work makes current evidence Needs review while preserving prior human completion history. Guest/debrief evidence is derived and cannot be overridden by a manual checkbox.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.completeMilestone",
@@ -2034,7 +2024,8 @@
       "work_packages": [
         "WP-045",
         "WP-046"
-      ]
+      ],
+      "title": "Complete and reopen milestones with a fresh linked-task view"
     },
     {
       "id": "REQ-LCH-005",
@@ -2056,7 +2047,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-045"
-      ]
+      ],
+      "title": "Complete/reopen linked launch task using ordinary task rules"
     },
     {
       "id": "REQ-LCH-006",
@@ -2086,7 +2078,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-046"
-      ]
+      ],
+      "title": "Record Launch Sunday outcome once date arrives"
     },
     {
       "id": "REQ-LCH-007",
@@ -2116,7 +2109,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-046"
-      ]
+      ],
+      "title": "Correct recorded outcome with journal/no-op semantics"
     },
     {
       "id": "REQ-LCH-008",
@@ -2148,7 +2142,8 @@
       "work_packages": [
         "WP-045",
         "WP-046"
-      ]
+      ],
+      "title": "Launch workspace, dashboard countdown and outcome forms"
     },
     {
       "id": "REQ-LCH-009",
@@ -2169,14 +2164,15 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-045"
-      ]
+      ],
+      "title": "Converge missing readiness after seed failure"
     },
     {
       "id": "REQ-LCH-010",
       "feature_ids": [
         "LCH-010"
       ],
-      "text": "Read milestone completion/reopen/correction history with actual named actor or minimal scrubbed deleted attribution and original event times. Reconfirm after live-task guard keeps prior completion history without relabeling it as a new past fact.",
+      "text": "Read milestone completion, reopening and correction history with the actual named actor or minimal scrubbed deleted attribution and original event times. Reconfirmation uses the current linked-task digest and allows open tasks. Keep prior completion history without relabelling it as a new past fact.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.readMilestoneHistory"
@@ -2190,7 +2186,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-046"
-      ]
+      ],
+      "title": "Milestone completion history and named actor"
     },
     {
       "id": "REQ-LCH-011",
@@ -2209,7 +2206,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-046"
-      ]
+      ],
+      "title": "Recurring services and worship/volunteer scheduling boundary"
     }
   ]
 }

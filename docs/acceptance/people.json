@@ -1106,8 +1106,7 @@
       "fixture": "Enter 2026-03-08T02:30  America/Chicago through native and reviewed Evry meeting/task forms.",
       "expected": "A nonexistent user-entered local time returns explicit valid-time choices; no silent normalization or saved appointment.",
       "feature_ids": [
-        "EVR-165",
-        "EVR-185",
+        "EVR-020",
         "MTG-002",
         "TSK-002"
       ],
@@ -1138,8 +1137,7 @@
       "fixture": "Enter 2026-11-01T01:30  Chicago, choose each displayed offset separately and round-trip saved Instant.",
       "expected": "A repeated user-entered local time exposes both offset occurrences and requires selection; stored resolved instant round-trips the selected occurrence.",
       "feature_ids": [
-        "EVR-172",
-        "EVR-193",
+        "EVR-020",
         "MTG-002",
         "TSK-002"
       ],
@@ -1317,7 +1315,7 @@
       "fixture": "Future one-time meeting 2026-10-20T15:00Z ; change church zone, then separate appointment edit.",
       "expected": "One-time future appointment Instant stays identical across zone edit; changing its appointment requires a separate reviewed operation.",
       "feature_ids": [
-        "EVR-172",
+        "EVR-020",
         "IDN-011",
         "MTG-002"
       ],
@@ -1770,10 +1768,7 @@
       "fixture": "Same native/Evry authorized appointment/task DST payload and stale durable review; private operation request.",
       "expected": "Native and permitted operational Evry appointment/task DTOs share date/DST rules; durable writes still need exact human review; private Evry operations remain empty.",
       "feature_ids": [
-        "EVR-165",
-        "EVR-182",
-        "EVR-185",
-        "EVR-193",
+        "EVR-020",
         "PI-038",
         "PI-040"
       ],
@@ -2393,10 +2388,7 @@
       "fixture": "Synthetic plant P at 2026-10-13 asOf, canonical Persons/commitment event history: Shared count/certainty with existing privacy. Use the exact numeric/date/unknown conditions in the expectation and inspect current size, acquisition lineage and unchanged old snapshot.",
       "expected": "Native and Evry reads use same eligible cohort/asOf/revision/certainty; permitted oversight projection enforces existing exact-org consent and field limits. Existing grants unchanged; durable Evry writes use exact human review/shared operations. No private check-in/model exposure.",
       "feature_ids": [
-        "EVR-101",
-        "EVR-105",
-        "EVR-107",
-        "EVR-264",
+        "EVR-020",
         "PI-002",
         "PI-028"
       ],
@@ -3196,7 +3188,7 @@
       "fixture": "P in 2 roles/two selectedteams, Q member, R leader; preview program T saved exact P/Q/R roster, then membership changes.",
       "expected": "Persist an explicit required participant roster for each required program. Preview exact bulk-expanded team/leader People; deduplicate repeated teams/roles and require current tenant/person/program authority. No automatic all-committed/adult roster or silent roster change after team/lead changes.",
       "feature_ids": [
-        "EVR-231",
+        "EVR-020",
         "TEAM-008"
       ],
       "acceptance_ids": [
@@ -3279,9 +3271,7 @@
       "fixture": "Compare same asOf/revision Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
       "expected": "People training tabs, team matrices/health, plant training lens and phase guidance use the same current assignment/evidence projection. Retain former-earned completions with labels; assignment removal does not erase completion history. Keep accepted 40/35/25 weights and thresholds.",
       "feature_ids": [
-        "EVR-218",
-        "EVR-220",
-        "EVR-412",
+        "EVR-020",
         "PI-008",
         "PI-027",
         "PI-028",
@@ -3326,8 +3316,7 @@
       "fixture": "Person P dated human attestation covers 60 days of both attendance and volunteering with exact question/source/actor.",
       "expected": "A typed person-scoped dated planter attestation may supply the unobserved 60-day attendance-and-volunteering evidence. Capture actual person, exact question/reference version, both behaviors, sustained start/end or as-of dates, actor and correction lineage. Label attested evidence; do not add a hidden eighth legacy manual key or private check-in field.",
       "feature_ids": [
-        "EVR-265",
-        "EVR-266",
+        "EVR-020",
         "PI-007",
         "PI-014"
       ],
@@ -3361,7 +3350,7 @@
       "fixture": "P has 90 day tenure/lifetime attendance/active role only; Q has dated observations plus unobserved attestation and corrected contradiction.",
       "expected": "Native dated occurrence evidence may support the same sustained period where available. CRM-createdAt tenure, lifetime attendance count and active membership alone cannot satisfy it. Absence of complete records does not disprove a dated planter attestation; conflicting/corrected evidence is visible rather than silently resolved by a model.",
       "feature_ids": [
-        "EVR-273",
+        "EVR-020",
         "PI-007",
         "PI-014"
       ],
@@ -3419,7 +3408,7 @@
       "fixture": "Established 60 day participation with missing interview/4 Cs; ask for promotion/readiness/phase update.",
       "expected": "A valid candidate pattern is described only as worth a leadership conversation. Interview/4 Cs conclusions remain dated human judgments, missing records are next steps rather than adverse judgments, and no automatic readiness/promotion/role/phase effect occurs.",
       "feature_ids": [
-        "EVR-273",
+        "EVR-020",
         "PI-007",
         "PI-027",
         "PI-028"
@@ -3451,10 +3440,7 @@
       "fixture": "Native and exact-reviewed Evry roster/attestation commands, stale authority/version, model-generated testimony and org/care access.",
       "expected": "Native and Evry program/assignment/attestation mutations use shared domain operations with current authority, exact reviewed payload and revision/history. Evry cannot attest unobserved facts itself. Candidate identity evidence remains planter-audience only; organizations receive only their authorized aggregate/shared projection, and private check-ins never enter any evidence/model/tool/context/log/evaluation path.",
       "feature_ids": [
-        "EVR-231",
-        "EVR-265",
-        "EVR-266",
-        "EVR-273",
+        "EVR-020",
         "PI-007",
         "PI-014",
         "TEAM-008"

@@ -27,7 +27,8 @@
       ],
       "work_packages": [
         "WP-005"
-      ]
+      ],
+      "title": "Sign-in, session lifecycle, logout and safe return navigation"
     },
     {
       "id": "REQ-IDN-002",
@@ -54,7 +55,8 @@
       "work_packages": [
         "WP-005",
         "WP-008"
-      ]
+      ],
+      "title": "Registration and account-entity provisioning"
     },
     {
       "id": "REQ-IDN-003",
@@ -80,7 +82,8 @@
       "work_packages": [
         "WP-008",
         "WP-009"
-      ]
+      ],
+      "title": "Beta gate and meaningful invitation-origin registration"
     },
     {
       "id": "REQ-IDN-004",
@@ -109,7 +112,8 @@
           "operation": "dev.switchFixtureIdentity",
           "rule": "Same operative behavior, authority, review/effects; adaptation does not widen scope or synthesize facts."
         }
-      ]
+      ],
+      "title": "Development and managed-preview account switching"
     },
     {
       "id": "REQ-IDN-005",
@@ -140,7 +144,8 @@
       ],
       "work_packages": [
         "WP-006"
-      ]
+      ],
+      "title": "Current tenancy, capability and own-duty guards"
     },
     {
       "id": "REQ-IDN-006",
@@ -168,14 +173,15 @@
       "work_packages": [
         "WP-004",
         "WP-010"
-      ]
+      ],
+      "title": "Account avatar upload, replacement, removal and authenticated delivery"
     },
     {
       "id": "REQ-IDN-007",
       "feature_ids": [
         "IDN-007"
       ],
-      "text": "Native self requests normalized valid different email with current-password proof. Keep one live hashed purpose-bound request expiring after 24 elapsed hours; new request supersedes prior. Confirmation requires the authenticated request owner, live token, current email/credential revision and unique target address. Under one account lock, claim token, swap login email, invalidate outstanding reset/email requests, append audit and old-address security-mail intent exactly once. Preserve account/Person identity. Login-email change does not silently rewrite independently edit able CRM contact email. Throttle outstanding/failed requests by current own login identifier 3/hour and trusted IP 10/hour, so target-address changes cannot evade budget. Delivery failure reports send state while preserving truthful request state.",
+      "text": "Native self requests a normalized valid different email with fresh supported identity/mailbox proof. Better Auth owns verification, proof expiry/supersession, unique login identity and the supported session policy; use a 24-hour email-change proof lifetime. Confirmation requires the authenticated request owner and live proof. Preserve account/Person identity; login-email change does not rewrite independently editable CRM email. After the supported auth call succeeds, append the truthful app security event and required old-address security-mail intent. App recording failure cannot undo a committed credential change, and uncertain calls are not recorded as success or retried with saved secrets. No custom credential-generation fence or credential-plus-app-event atomicity is promised. Throttle requests/failures by own login identifier 3/hour and trusted IP 10/hour so changing the target address cannot evade the budget; delivery failure preserves truthful request state.",
       "spec": "docs/product/identity-access.md#req-idn-007",
       "operations": [
         "account.requestEmailChange",
@@ -194,14 +200,15 @@
       "work_packages": [
         "WP-005",
         "WP-010"
-      ]
+      ],
+      "title": "Email change request, proof, confirmation and security notice"
     },
     {
       "id": "REQ-IDN-008",
       "feature_ids": [
         "IDN-008"
       ],
-      "text": "Require native current-secret proof for authenticated self, new 8–1024 character secret different from current, and immutable actor/current-session IDs from server. Lock account and compare credential/email revision; write new credentials, invalidate pending reset/email tokens, revoke all other sessions and append audit/security-mail intent atomically. Preserve only actual current session if still valid, report the other-session count. Independent password-change failure budget 5/own identifier and 20/trusted IP per 15 minutes; short/unchanged malformed requests validate without probing the new secret against the old before current-secret proof.",
+      "text": "Require native current-secret proof for authenticated self and a different new secret of 8–1,024 characters, with immutable actor/current-session identity derived by the server. Better Auth owns the password change and built-in revocation; enable revokeOtherSessions and preserve only the eligible initiating session. Append the app security event and required security-mail intent after the supported call succeeds. A refused or unknown call has no success event; app recording failure cannot undo credentials or restore revoked sessions. Never put passwords or proof tokens in asynchronous jobs, and never use a custom credential-generation fence or promise credential-plus-app-event atomicity. Enforce a separate failure budget of 5/own normalized identifier and 20/trusted IP per 15 minutes. Validate malformed requests without probing the new secret against the old before current-secret proof.",
       "spec": "docs/product/identity-access.md#req-idn-008",
       "operations": [
         "account.changePassword"
@@ -229,14 +236,15 @@
           "operation": "account.changePassword",
           "rule": "exact own account/current permitted context"
         }
-      ]
+      ],
+      "title": "Authenticated password change and other-session revocation"
     },
     {
       "id": "REQ-IDN-009",
       "feature_ids": [
         "IDN-009"
       ],
-      "text": "Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Each consumes the request budget 3/normalized email and 10/trusted IP per hour before lookup. One live hashed purpose-bound token/account expires after 1 elapsed hour; request rotates prior. Redemption binds account from token, checks live/unconsumed token and captured email/credential revision, validates confirmed 8–1024 character new secret, and atomically replaces credentials, consumes all reset/email requests and revokes every session. Do not auto-sign-in. Success remains success if security-notice dispatch later fails; provider/database request failures are bounded and observable internally without enumeration.",
+      "text": "Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Consume the separate budget of 3/normalized identifier and 10/trusted IP per hour before lookup. Better Auth owns live purpose-bound reset proofs, with a one-hour lifetime, single valid redemption and supported invalidation. Bind redemption to the addressed account, validate a confirmed different new secret of 8–1,024 characters and enable revokeSessionsOnPasswordReset so all prior sessions are revoked. Do not auto-sign-in. Append the truthful app security event and required mail intent after the supported reset succeeds; reporting or notice failure cannot undo the reset or restore sessions. No custom credential-generation fence, credential-plus-app-event atomicity or asynchronous password replay is allowed. Provider/database request failures remain internally observable without account enumeration.",
       "spec": "docs/product/identity-access.md#req-idn-009",
       "operations": [
         "auth.requestPasswordRecovery",
@@ -267,14 +275,15 @@
           "operation": "auth.recoverPassword",
           "rule": "no automatic sign-in; all sessions revoked"
         }
-      ]
+      ],
+      "title": "Mailbox password recovery"
     },
     {
       "id": "REQ-IDN-010",
       "feature_ids": [
         "IDN-010"
       ],
-      "text": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTO s. Preserve direct section URL s/hash compatibility, back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
+      "text": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTO s. Use the v3 settings section links from design/handoff/screens.md with no v2 redirects. Preserve back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
       "spec": "docs/product/identity-access.md#req-idn-010",
       "operations": [
         "settings.getSection",
@@ -297,7 +306,8 @@
       "work_packages": [
         "WP-010",
         "WP-039"
-      ]
+      ],
+      "title": "Settings dialog, deep links and draft protection"
     },
     {
       "id": "REQ-IDN-011",
@@ -324,7 +334,8 @@
       "work_packages": [
         "WP-007",
         "WP-010"
-      ]
+      ],
+      "title": "Church profile, locality, timezone, inactivity and digest schedule"
     },
     {
       "id": "REQ-IDN-012",
@@ -356,7 +367,8 @@
           "operation": "emailSuppression.requestRestore",
           "rule": "Fresh native self-address identity proof is trusted context and exact reviewed reason; cannot grant foreign address/resurrect canceled sends."
         }
-      ]
+      ],
+      "title": "Per-account notification preferences, cadence and self suppression recovery"
     },
     {
       "id": "REQ-IDN-013",
@@ -394,7 +406,8 @@
           "operation": "identity.ensureOwnerPerson",
           "rule": "Already disclosed and selected owning native registration/provisioning consequence; not separate model command"
         }
-      ]
+      ],
+      "title": "Church creation, onboarding basics and account-person bootstrap"
     },
     {
       "id": "REQ-IDN-014",
@@ -443,7 +456,8 @@
           "operation": "teams.assignRole",
           "rule": "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
         }
-      ]
+      ],
+      "title": "Leadership attestation and onboarding prompts"
     },
     {
       "id": "REQ-IDN-015",
@@ -476,7 +490,8 @@
           "operation": "onboarding.declareJourney",
           "rule": "Own current created-plant Owner; once-only explicit journey attestation separate from creation Phase1; unsure/skip does not map0, launch+phase reviewed resumable intent never clears existing schedule."
         }
-      ]
+      ],
+      "title": "Journey declaration, launch-date setup, completion and resume"
     },
     {
       "id": "REQ-IDN-016",
@@ -517,7 +532,8 @@
           "operation": "discovery.getProfile",
           "rule": "Explicit current own Discovery profile, no account seat inferred from absence; foreign profile unavailable."
         }
-      ]
+      ],
+      "title": "Discovery identity, associations and conversion to plant"
     },
     {
       "id": "REQ-IDN-017",
@@ -548,7 +564,8 @@
       ],
       "work_packages": [
         "WP-008"
-      ]
+      ],
+      "title": "Seat invitation create, pending list, resend, revoke, expire and first-seat acceptance"
     },
     {
       "id": "REQ-IDN-018",
@@ -631,7 +648,8 @@
           "operation": "seats.changeOrdinaryRole",
           "rule": "Exact own current tenant Owner/Admin; protect actual Owner, no Member self-promotion or generic Owner removal; duplicate expected-role no-op, active grant/session/duty consequences reviewed."
         }
-      ]
+      ],
+      "title": "Seat roster, Admin appointment/demotion and authority removal"
     },
     {
       "id": "REQ-IDN-020",
@@ -713,7 +731,8 @@
           "operation": "associations.respondInvitation",
           "rule": "Validate exact initiator/receiving-org or explicit Discovery subject owner; independent typed link and consent, no parent grant/delegation/all-affiliate vote; authenticated original addressed decision."
         }
-      ]
+      ],
+      "title": "Organization relationship invitations across five subject types"
     },
     {
       "id": "REQ-IDN-021",
@@ -767,7 +786,8 @@
       ],
       "work_packages": [
         "WP-007"
-      ]
+      ],
+      "title": "Relationship leaving, organization severing and association history"
     },
     {
       "id": "REQ-IDN-022",
@@ -807,7 +827,8 @@
       "work_packages": [
         "WP-007",
         "WP-030"
-      ]
+      ],
+      "title": "Privacy pull sharing, push consent and first-invitation defaults"
     },
     {
       "id": "REQ-IDN-023",
@@ -849,7 +870,8 @@
       ],
       "work_packages": [
         "WP-047"
-      ]
+      ],
+      "title": "Oversight dashboard, plant directory, consent-gated aggregates and health entry"
     },
     {
       "id": "REQ-IDN-024",
@@ -879,7 +901,8 @@
           "operation": "oversight.getSendingChurch",
           "rule": "Visible information for organization_member: organizationDisplayName, directRelationshipState, approvedOrganizationMetadata, nextCursor."
         }
-      ]
+      ],
+      "title": "Network sending-church roster and member detail"
     },
     {
       "id": "REQ-IDN-025",
@@ -931,7 +954,8 @@
       "work_packages": [
         "WP-010",
         "WP-007"
-      ]
+      ],
+      "title": "Organization profile and account/workspace deletion boundaries"
     },
     {
       "id": "REQ-IDN-027",
@@ -956,7 +980,8 @@
       ],
       "work_packages": [
         "WP-007"
-      ]
+      ],
+      "title": "Relationship removal through authorized domain operations"
     },
     {
       "id": "REQ-IDN-028",
@@ -996,7 +1021,8 @@
           "operation": "security.checkRequestOrigin",
           "rule": "named operation scope only; no interactive/model executor grant"
         }
-      ]
+      ],
+      "title": "Request boundary, CSRF exceptions, trusted routing and expired-session recovery"
     },
     {
       "id": "REQ-IDN-029",
@@ -1082,7 +1108,7 @@
         "IDN-017",
         "IDN-020"
       ],
-      "text": "Use one explicit staged protocol. Better Auth credential creation may succeed independently. The associated `app_account.registration_state=pending_domain` has no workspace or relationship authority; any session can only prove self identity, read bounded registration status, resume or cancel. After authenticated proof for that credential identity, one short domain transaction locks account and invitation/subject, validates current expiry/address/revision, claims the token, provisions the exact seat or relationship, creates/links the Person where required, records the domain receipt and audit, and enqueues required security/notification mail intent. It changes registration_state to active only after those domain effects succeed together. A failed domain transaction keeps the unprivileged resumable identity and consumes no grant/token. Retrying the same intent resumes and returns the original complete receipt; a different existing account must authenticate instead of receiving a new grant from email equality. Existing-address resume UI asks the person to sign in or use native mailbox recovery without telling an inviter whether the account exists. Revoke/accept/expiry races have one serialized winner. Canceling incomplete registration invalidates its sessions and incomplete credential identity through the same tracked lifecycle; no grant can survive. Security-mail dispatch occurs after commit and its failure never rolls back an already valid account or misreports it as uncreated.",
+      "text": "Use one explicit staged protocol. Better Auth credential creation may succeed independently. The associated `account.registration_state=pending_domain` has no workspace or relationship authority; any session can only prove self identity, read bounded registration status, resume or cancel. After authenticated proof for that credential identity, one short domain transaction locks account and invitation/subject, validates current expiry/address/revision, claims the token, provisions the exact seat or relationship, creates/links the Person where required, records the domain receipt and audit, and enqueues required security/notification mail intent. It changes registration_state to active only after those domain effects succeed together. A failed domain transaction keeps the unprivileged resumable identity and consumes no grant/token. Retrying the same intent resumes and returns the original complete receipt; a different existing account must authenticate instead of receiving a new grant from email equality. Existing-address resume UI asks the person to sign in or use native mailbox recovery without telling an inviter whether the account exists. Revoke/accept/expiry races have one serialized winner. Canceling incomplete registration invalidates its sessions and incomplete credential identity through the same tracked lifecycle; no grant can survive. Security-mail dispatch occurs after commit and its failure never rolls back an already valid account or misreports it as uncreated.",
       "spec": "docs/product/identity-access.md#req-idn-030",
       "operations": [],
       "acceptance_ids": [
@@ -1296,7 +1322,7 @@
         "IDN-013",
         "IDN-026"
       ],
-      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requestedAt and cancelUntil = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancelUntil using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.",
+      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requested_at and cancel_until = requested_at +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancel_until using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set live_purged_at only after coherent completion, then copy_expires_at = live_purged_at +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised. Cancellation records cancelled_at strictly before cancel_until; completed purge records live_purged_at and copy_expires_at. Witness states preserve pending, cancelled and purged outcomes with the current request revision.",
       "spec": "docs/product/identity-access.md#req-idn-032",
       "operations": [
         "account.requestDeletion",

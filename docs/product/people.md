@@ -191,7 +191,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-010 — Tenant tags and assignment
 
-**REQ-PPL-010.** Keep church-defined labels with trimmed name 1–100, optional supported named/hex color, explicit nullable clear and unique current tenant normalized name. Assignment validates live Person+tag same tenant and unique pair. Retry assign/remove writes one semantic activity or original no-op receipt, never fictitious tag event. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable audit without becoming global taxonomy.
+**REQ-PPL-010.** Keep church-defined tags with a name trimmed of leading and trailing spaces, 1–100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op receipt. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.
 
 **Target operations:** `people.listTags`, `people.createTag`, `people.updateTag`, `people.deleteTag`, `people.assignTag`, `people.removeTag`.
 

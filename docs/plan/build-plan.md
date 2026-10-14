@@ -4,7 +4,7 @@ The approved target has 87 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 295 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 109 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 288 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 108 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -85,40 +85,40 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-048 | Dashboard/navigation/settings integration | 3 | 7 | 7 | 2 | 2 |
 | WP-049 | Feedback admin public waitlist/legal/marketing | 20 | 15 | 22 | 4 | 2.5 |
 | WP-050 | Environment bootstrap/ops/observability | 46 | 44 | 148 | 9 | 4.5 |
-| WP-051 | Evry conversation/run framework spike | 34 | 19 | 71 | 4 | 3 |
+| WP-051 | Evry conversation/run framework spike | 32 | 19 | 71 | 4 | 3 |
 | WP-052 | Evry per-feature read/tool coverage | 6 | 7 | 17 | 0 | 2 |
 | WP-053 | Evry proposal approval execution C3b | 9 | 13 | 38 | 8 | 2.5 |
-| WP-054 | Evry private uploads/artifacts/recovery | 35 | 6 | 74 | 3 | 3 |
-| WP-059 | Evry people-core reads/helper adapters | 31 | 21 | 60 | 0 | 3 |
-| WP-060 | Evry people-core draft/propose/execute adapters | 27 | 16 | 48 | 0 | 3 |
-| WP-061 | Evry people-assessments reads/helper adapters | 13 | 5 | 27 | 0 | 2 |
-| WP-062 | Evry people-assessments draft/propose/execute adapters | 8 | 7 | 35 | 0 | 2 |
-| WP-063 | Evry people-organization reads/helper adapters | 13 | 7 | 12 | 0 | 2 |
-| WP-064 | Evry people-organization draft/propose/execute adapters | 22 | 18 | 12 | 0 | 2.5 |
-| WP-065 | Evry meetings reads/helper adapters | 22 | 29 | 46 | 0 | 3 |
-| WP-066 | Evry meetings draft/propose/execute adapters | 52 | 40 | 55 | 0 | 4 |
-| WP-067 | Evry tasks reads/helper adapters | 24 | 20 | 43 | 0 | 2.5 |
-| WP-068 | Evry tasks draft/propose/execute adapters | 37 | 30 | 49 | 0 | 3 |
-| WP-069 | Evry teams reads/helper adapters | 26 | 26 | 55 | 0 | 3 |
-| WP-070 | Evry teams draft/propose/execute adapters | 33 | 30 | 52 | 0 | 3 |
-| WP-071 | Evry communication reads/helper adapters | 31 | 21 | 45 | 0 | 3 |
-| WP-072 | Evry communication draft/propose/execute adapters | 17 | 24 | 35 | 0 | 2.5 |
-| WP-073 | Evry intelligence reads/helper adapters | 55 | 45 | 347 | 0 | 5.5 |
-| WP-074 | Evry intelligence draft/propose/execute adapters | 31 | 27 | 202 | 0 | 4 |
-| WP-075 | Evry launch reads/helper adapters | 11 | 5 | 39 | 0 | 2 |
-| WP-076 | Evry launch draft/propose/execute adapters | 17 | 16 | 47 | 0 | 2.5 |
-| WP-077 | Evry wiki reads/helper adapters | 18 | 19 | 91 | 0 | 3 |
-| WP-078 | Evry wiki draft/propose/execute adapters | 10 | 9 | 96 | 0 | 2.5 |
-| WP-079 | Evry documents reads/helper adapters | 30 | 14 | 89 | 0 | 3 |
-| WP-080 | Evry documents draft/propose/execute adapters | 12 | 10 | 80 | 0 | 2.5 |
-| WP-081 | Evry notifications reads/helper adapters | 13 | 8 | 40 | 0 | 2.5 |
-| WP-082 | Evry notifications draft/propose/execute adapters | 19 | 28 | 60 | 0 | 3 |
-| WP-083 | Evry platform reads/helper adapters | 25 | 38 | 148 | 0 | 3.5 |
-| WP-084 | Evry platform draft/propose/execute adapters | 28 | 53 | 136 | 0 | 4 |
-| WP-085 | Evry named helpers and candidate preparation | 7 | 2 | 15 | 0 | 2 |
+| WP-054 | Evry private uploads/artifacts/recovery | 33 | 6 | 74 | 3 | 3 |
+| WP-059 | Evry people-core reads/helper adapters | 14 | 21 | 60 | 0 | 2.5 |
+| WP-060 | Evry people-core draft/propose/execute adapters | 13 | 16 | 48 | 0 | 2.5 |
+| WP-061 | Evry people-assessments reads/helper adapters | 5 | 5 | 27 | 0 | 2 |
+| WP-062 | Evry people-assessments draft/propose/execute adapters | 5 | 7 | 35 | 0 | 2 |
+| WP-063 | Evry people-organization reads/helper adapters | 3 | 7 | 12 | 0 | 2 |
+| WP-064 | Evry people-organization draft/propose/execute adapters | 4 | 18 | 12 | 0 | 2 |
+| WP-065 | Evry meetings reads/helper adapters | 13 | 29 | 46 | 0 | 2.5 |
+| WP-066 | Evry meetings draft/propose/execute adapters | 20 | 40 | 55 | 0 | 3 |
+| WP-067 | Evry tasks reads/helper adapters | 14 | 20 | 43 | 0 | 2.5 |
+| WP-068 | Evry tasks draft/propose/execute adapters | 18 | 30 | 49 | 0 | 3 |
+| WP-069 | Evry teams reads/helper adapters | 14 | 26 | 55 | 0 | 2.5 |
+| WP-070 | Evry teams draft/propose/execute adapters | 14 | 30 | 52 | 0 | 2.5 |
+| WP-071 | Evry communication reads/helper adapters | 12 | 21 | 45 | 0 | 2.5 |
+| WP-072 | Evry communication draft/propose/execute adapters | 10 | 24 | 35 | 0 | 2.5 |
+| WP-073 | Evry intelligence reads/helper adapters | 48 | 45 | 347 | 0 | 5.5 |
+| WP-074 | Evry intelligence draft/propose/execute adapters | 25 | 27 | 202 | 0 | 4 |
+| WP-075 | Evry launch reads/helper adapters | 5 | 5 | 39 | 0 | 2 |
+| WP-076 | Evry launch draft/propose/execute adapters | 7 | 16 | 47 | 0 | 2.5 |
+| WP-077 | Evry wiki reads/helper adapters | 12 | 19 | 91 | 0 | 2.5 |
+| WP-078 | Evry wiki draft/propose/execute adapters | 7 | 9 | 96 | 0 | 2.5 |
+| WP-079 | Evry documents reads/helper adapters | 24 | 14 | 89 | 0 | 3 |
+| WP-080 | Evry documents draft/propose/execute adapters | 11 | 10 | 80 | 0 | 2.5 |
+| WP-081 | Evry notifications reads/helper adapters | 8 | 8 | 40 | 0 | 2 |
+| WP-082 | Evry notifications draft/propose/execute adapters | 15 | 28 | 60 | 0 | 2.5 |
+| WP-083 | Evry platform reads/helper adapters | 24 | 38 | 148 | 0 | 3.5 |
+| WP-084 | Evry platform draft/propose/execute adapters | 26 | 53 | 136 | 0 | 4 |
+| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 15 | 0 | 2 |
 | WP-055 | Evry autonomy policy/evals/human ownership | 9 | 9 | 51 | 0 | 2 |
-| WP-056 | Cross-module race/privacy/correction integration | 715 | 662 | 1086 | 0 | 14.5 |
-| WP-057 | Full target browser/file/capability parity gate | 715 | 662 | 1086 | 5 | 14.5 |
+| WP-056 | Cross-module race/privacy/correction integration | 496 | 662 | 1086 | 0 | 14 |
+| WP-057 | Full target browser/file/capability parity gate | 496 | 662 | 1086 | 5 | 14 |
 | WP-058 | Fresh bootstrap and release rehearsal | 16 | 9 | 139 | 0 | 3 |
 
 ## Critical prerequisite chain

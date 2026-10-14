@@ -7961,9 +7961,9 @@
   {
     "id": "AC-EVR-100--EVR-100",
     "shared_gate_id": "AC-EVR-100",
-    "feature_id": "EVR-100",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-100"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "AUDIT-001",
@@ -7989,9 +7989,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-100",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-100",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-100"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "AUDIT-001",
@@ -8017,9 +8017,9 @@
   {
     "id": "AC-EVR-101--EVR-101",
     "shared_gate_id": "AC-EVR-101",
-    "feature_id": "EVR-101",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-101"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "AUDIT-002",
@@ -8040,9 +8040,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-101",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-101",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-101"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "AUDIT-002",
@@ -8063,9 +8063,9 @@
   {
     "id": "AC-EVR-102--EVR-102",
     "shared_gate_id": "AC-EVR-102",
-    "feature_id": "EVR-102",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-102"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8082,9 +8082,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-102",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-102",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-102"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8101,9 +8101,9 @@
   {
     "id": "AC-EVR-103--EVR-103",
     "shared_gate_id": "AC-EVR-103",
-    "feature_id": "EVR-103",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-103"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8120,9 +8120,9 @@
   {
     "id": "AC-EVR-READ--EVR-103",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-103",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-103"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8139,9 +8139,9 @@
   {
     "id": "AC-EVR-104--EVR-104",
     "shared_gate_id": "AC-EVR-104",
-    "feature_id": "EVR-104",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-104",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -8162,9 +8162,9 @@
   {
     "id": "AC-EVR-READ--EVR-104",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-104",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-104",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -8185,9 +8185,9 @@
   {
     "id": "AC-EVR-105--EVR-105",
     "shared_gate_id": "AC-EVR-105",
-    "feature_id": "EVR-105",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-105"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "CA024",
@@ -8205,9 +8205,9 @@
   {
     "id": "AC-EVR-READ--EVR-105",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-105",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-105"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "CA024",
@@ -8225,9 +8225,9 @@
   {
     "id": "AC-EVR-106--EVR-106",
     "shared_gate_id": "AC-EVR-106",
-    "feature_id": "EVR-106",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-106"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8244,9 +8244,9 @@
   {
     "id": "AC-EVR-READ--EVR-106",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-106",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-106"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-RECORDS"
@@ -8263,9 +8263,9 @@
   {
     "id": "AC-EVR-107--EVR-107",
     "shared_gate_id": "AC-EVR-107",
-    "feature_id": "EVR-107",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-107"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "CA024",
@@ -8283,9 +8283,9 @@
   {
     "id": "AC-EVR-READ--EVR-107",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-107",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-107"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "CA024",
@@ -8303,9 +8303,9 @@
   {
     "id": "AC-EVR-108--EVR-108",
     "shared_gate_id": "AC-EVR-108",
-    "feature_id": "EVR-108",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-108"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8322,9 +8322,9 @@
   {
     "id": "AC-EVR-READ--EVR-108",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-108",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-108"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8341,9 +8341,9 @@
   {
     "id": "AC-EVR-109--EVR-109",
     "shared_gate_id": "AC-EVR-109",
-    "feature_id": "EVR-109",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-109"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8360,9 +8360,9 @@
   {
     "id": "AC-EVR-READ--EVR-109",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-109",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-109"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8379,9 +8379,9 @@
   {
     "id": "AC-EVR-110--EVR-110",
     "shared_gate_id": "AC-EVR-110",
-    "feature_id": "EVR-110",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-110"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8398,9 +8398,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-110",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-110",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-110"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8417,9 +8417,9 @@
   {
     "id": "AC-EVR-111--EVR-111",
     "shared_gate_id": "AC-EVR-111",
-    "feature_id": "EVR-111",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-111"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8436,9 +8436,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-111",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-111",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-111"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8455,9 +8455,9 @@
   {
     "id": "AC-EVR-112--EVR-112",
     "shared_gate_id": "AC-EVR-112",
-    "feature_id": "EVR-112",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-112"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8474,9 +8474,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-112",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-112",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-112"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8493,9 +8493,9 @@
   {
     "id": "AC-EVR-113--EVR-113",
     "shared_gate_id": "AC-EVR-113",
-    "feature_id": "EVR-113",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-113"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8512,9 +8512,9 @@
   {
     "id": "AC-EVR-READ--EVR-113",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-113",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-113"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8531,9 +8531,9 @@
   {
     "id": "AC-EVR-114--EVR-114",
     "shared_gate_id": "AC-EVR-114",
-    "feature_id": "EVR-114",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-114"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8550,9 +8550,9 @@
   {
     "id": "AC-EVR-READ--EVR-114",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-114",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-114"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8569,9 +8569,9 @@
   {
     "id": "AC-EVR-115--EVR-115",
     "shared_gate_id": "AC-EVR-115",
-    "feature_id": "EVR-115",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-115"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8588,9 +8588,9 @@
   {
     "id": "AC-EVR-READ--EVR-115",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-115",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-115"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8607,9 +8607,9 @@
   {
     "id": "AC-EVR-116--EVR-116",
     "shared_gate_id": "AC-EVR-116",
-    "feature_id": "EVR-116",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-116"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8626,9 +8626,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-116",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-116",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-116"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8645,9 +8645,9 @@
   {
     "id": "AC-EVR-117--EVR-117",
     "shared_gate_id": "AC-EVR-117",
-    "feature_id": "EVR-117",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-117"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8664,9 +8664,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-117",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-117",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-117"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8683,9 +8683,9 @@
   {
     "id": "AC-EVR-118--EVR-118",
     "shared_gate_id": "AC-EVR-118",
-    "feature_id": "EVR-118",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-118"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8702,9 +8702,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-118",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-118",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-118"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8721,9 +8721,9 @@
   {
     "id": "AC-EVR-119--EVR-119",
     "shared_gate_id": "AC-EVR-119",
-    "feature_id": "EVR-119",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-119"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8740,9 +8740,9 @@
   {
     "id": "AC-EVR-READ--EVR-119",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-119",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-119"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8759,9 +8759,9 @@
   {
     "id": "AC-EVR-120--EVR-120",
     "shared_gate_id": "AC-EVR-120",
-    "feature_id": "EVR-120",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-120"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8778,9 +8778,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-120",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-120",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-120"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -8797,9 +8797,9 @@
   {
     "id": "AC-EVR-121--EVR-121",
     "shared_gate_id": "AC-EVR-121",
-    "feature_id": "EVR-121",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-121"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -8817,9 +8817,9 @@
   {
     "id": "AC-EVR-READ--EVR-121",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-121",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-121"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -8837,9 +8837,9 @@
   {
     "id": "AC-EVR-122--EVR-122",
     "shared_gate_id": "AC-EVR-122",
-    "feature_id": "EVR-122",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-122"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8856,9 +8856,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-122",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-122",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-122"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8875,9 +8875,9 @@
   {
     "id": "AC-EVR-123--EVR-123",
     "shared_gate_id": "AC-EVR-123",
-    "feature_id": "EVR-123",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-123"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8894,9 +8894,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-123",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-123",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-123"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8913,9 +8913,9 @@
   {
     "id": "AC-EVR-124--EVR-124",
     "shared_gate_id": "AC-EVR-124",
-    "feature_id": "EVR-124",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-124"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8932,9 +8932,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-124",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-124",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-124"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -8951,9 +8951,9 @@
   {
     "id": "AC-EVR-125--EVR-125",
     "shared_gate_id": "AC-EVR-125",
-    "feature_id": "EVR-125",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-125"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -8972,9 +8972,9 @@
   {
     "id": "AC-EVR-READ--EVR-125",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-125",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-125"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -8993,9 +8993,9 @@
   {
     "id": "AC-EVR-126--EVR-126",
     "shared_gate_id": "AC-EVR-126",
-    "feature_id": "EVR-126",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-126"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -9014,9 +9014,9 @@
   {
     "id": "AC-EVR-READ--EVR-126",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-126",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-126"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -9035,9 +9035,9 @@
   {
     "id": "AC-EVR-127--EVR-127",
     "shared_gate_id": "AC-EVR-127",
-    "feature_id": "EVR-127",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-127"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9054,9 +9054,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-127",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-127",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-127"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9073,9 +9073,9 @@
   {
     "id": "AC-EVR-128--EVR-128",
     "shared_gate_id": "AC-EVR-128",
-    "feature_id": "EVR-128",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-128"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9092,9 +9092,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-128",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-128",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-128"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9111,9 +9111,9 @@
   {
     "id": "AC-EVR-129--EVR-129",
     "shared_gate_id": "AC-EVR-129",
-    "feature_id": "EVR-129",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-129"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9130,9 +9130,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-129",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-129",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-129"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9149,9 +9149,9 @@
   {
     "id": "AC-EVR-130--EVR-130",
     "shared_gate_id": "AC-EVR-130",
-    "feature_id": "EVR-130",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-130"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9168,9 +9168,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-130",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-130",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-130"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9187,9 +9187,9 @@
   {
     "id": "AC-EVR-131--EVR-131",
     "shared_gate_id": "AC-EVR-131",
-    "feature_id": "EVR-131",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-131"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9207,9 +9207,9 @@
   {
     "id": "AC-EVR-READ--EVR-131",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-131",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-131"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9227,9 +9227,9 @@
   {
     "id": "AC-EVR-132--EVR-132",
     "shared_gate_id": "AC-EVR-132",
-    "feature_id": "EVR-132",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-132",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -9250,9 +9250,9 @@
   {
     "id": "AC-EVR-READ--EVR-132",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-132",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-132",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -9273,9 +9273,9 @@
   {
     "id": "AC-EVR-133--EVR-133",
     "shared_gate_id": "AC-EVR-133",
-    "feature_id": "EVR-133",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-133"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9301,9 +9301,9 @@
   {
     "id": "AC-EVR-READ--EVR-133",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-133",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-133"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9329,9 +9329,9 @@
   {
     "id": "AC-EVR-134--EVR-134",
     "shared_gate_id": "AC-EVR-134",
-    "feature_id": "EVR-134",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-134"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9357,9 +9357,9 @@
   {
     "id": "AC-EVR-READ--EVR-134",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-134",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-134"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -9385,9 +9385,9 @@
   {
     "id": "AC-EVR-135--EVR-135",
     "shared_gate_id": "AC-EVR-135",
-    "feature_id": "EVR-135",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-135"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9404,9 +9404,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-135",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-135",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-135"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9423,9 +9423,9 @@
   {
     "id": "AC-EVR-136--EVR-136",
     "shared_gate_id": "AC-EVR-136",
-    "feature_id": "EVR-136",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-136",
+      "REQ-EVR-020",
       "REQ-KNOW-079"
     ],
     "case_ids": [
@@ -9444,9 +9444,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-136",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-136",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-136",
+      "REQ-EVR-020",
       "REQ-KNOW-079"
     ],
     "case_ids": [
@@ -9465,9 +9465,9 @@
   {
     "id": "AC-EVR-137--EVR-137",
     "shared_gate_id": "AC-EVR-137",
-    "feature_id": "EVR-137",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-137"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9484,9 +9484,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-137",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-137",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-137"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9503,9 +9503,9 @@
   {
     "id": "AC-EVR-138--EVR-138",
     "shared_gate_id": "AC-EVR-138",
-    "feature_id": "EVR-138",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-138",
+      "REQ-EVR-020",
       "REQ-KNOW-079"
     ],
     "case_ids": [
@@ -9524,9 +9524,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-138",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-138",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-138",
+      "REQ-EVR-020",
       "REQ-KNOW-079"
     ],
     "case_ids": [
@@ -9545,9 +9545,9 @@
   {
     "id": "AC-EVR-139--EVR-139",
     "shared_gate_id": "AC-EVR-139",
-    "feature_id": "EVR-139",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-139"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9564,9 +9564,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-139",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-139",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-139"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9583,9 +9583,9 @@
   {
     "id": "AC-EVR-140--EVR-140",
     "shared_gate_id": "AC-EVR-140",
-    "feature_id": "EVR-140",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-140"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9602,9 +9602,9 @@
   {
     "id": "AC-EVR-READ--EVR-140",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-140",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-140"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9621,9 +9621,9 @@
   {
     "id": "AC-EVR-141--EVR-141",
     "shared_gate_id": "AC-EVR-141",
-    "feature_id": "EVR-141",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-141"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9640,9 +9640,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-141",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-141",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-141"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9659,9 +9659,9 @@
   {
     "id": "AC-EVR-142--EVR-142",
     "shared_gate_id": "AC-EVR-142",
-    "feature_id": "EVR-142",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-142"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9678,9 +9678,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-142",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-142",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-142"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9697,9 +9697,9 @@
   {
     "id": "AC-EVR-143--EVR-143",
     "shared_gate_id": "AC-EVR-143",
-    "feature_id": "EVR-143",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-143"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9716,9 +9716,9 @@
   {
     "id": "AC-EVR-READ--EVR-143",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-143",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-143"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9735,9 +9735,9 @@
   {
     "id": "AC-EVR-144--EVR-144",
     "shared_gate_id": "AC-EVR-144",
-    "feature_id": "EVR-144",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-144"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9754,9 +9754,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-144",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-144",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-144"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE"
@@ -9773,9 +9773,9 @@
   {
     "id": "AC-EVR-145--EVR-145",
     "shared_gate_id": "AC-EVR-145",
-    "feature_id": "EVR-145",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-145"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9792,9 +9792,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-145",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-145",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-145"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9811,9 +9811,9 @@
   {
     "id": "AC-EVR-146--EVR-146",
     "shared_gate_id": "AC-EVR-146",
-    "feature_id": "EVR-146",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-146"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9830,9 +9830,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-146",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-146",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-146"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9849,9 +9849,9 @@
   {
     "id": "AC-EVR-147--EVR-147",
     "shared_gate_id": "AC-EVR-147",
-    "feature_id": "EVR-147",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-147"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9868,9 +9868,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-147",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-147",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-147"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9887,9 +9887,9 @@
   {
     "id": "AC-EVR-148--EVR-148",
     "shared_gate_id": "AC-EVR-148",
-    "feature_id": "EVR-148",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-148"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9906,9 +9906,9 @@
   {
     "id": "AC-EVR-READ--EVR-148",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-148",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-148"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9925,9 +9925,9 @@
   {
     "id": "AC-EVR-149--EVR-149",
     "shared_gate_id": "AC-EVR-149",
-    "feature_id": "EVR-149",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-149"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9944,9 +9944,9 @@
   {
     "id": "AC-EVR-READ--EVR-149",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-149",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-149"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9963,9 +9963,9 @@
   {
     "id": "AC-EVR-150--EVR-150",
     "shared_gate_id": "AC-EVR-150",
-    "feature_id": "EVR-150",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-150"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -9982,9 +9982,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-150",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-150",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-150"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -10001,9 +10001,9 @@
   {
     "id": "AC-EVR-151--EVR-151",
     "shared_gate_id": "AC-EVR-151",
-    "feature_id": "EVR-151",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-151"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -10020,9 +10020,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-151",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-151",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-151"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
@@ -10039,9 +10039,9 @@
   {
     "id": "AC-EVR-152--EVR-152",
     "shared_gate_id": "AC-EVR-152",
-    "feature_id": "EVR-152",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-152"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10058,9 +10058,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-152",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-152",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-152"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10077,9 +10077,9 @@
   {
     "id": "AC-EVR-153--EVR-153",
     "shared_gate_id": "AC-EVR-153",
-    "feature_id": "EVR-153",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-153"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10096,9 +10096,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-153",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-153",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-153"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10115,9 +10115,9 @@
   {
     "id": "AC-EVR-154--EVR-154",
     "shared_gate_id": "AC-EVR-154",
-    "feature_id": "EVR-154",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-154"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10134,9 +10134,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-154",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-154",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-154"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10153,9 +10153,9 @@
   {
     "id": "AC-EVR-155--EVR-155",
     "shared_gate_id": "AC-EVR-155",
-    "feature_id": "EVR-155",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-155"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10172,9 +10172,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-155",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-155",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-155"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10191,9 +10191,9 @@
   {
     "id": "AC-EVR-156--EVR-156",
     "shared_gate_id": "AC-EVR-156",
-    "feature_id": "EVR-156",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-156"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10210,9 +10210,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-156",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-156",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-156"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10229,9 +10229,9 @@
   {
     "id": "AC-EVR-157--EVR-157",
     "shared_gate_id": "AC-EVR-157",
-    "feature_id": "EVR-157",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-157"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10248,9 +10248,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-157",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-157",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-157"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10267,9 +10267,9 @@
   {
     "id": "AC-EVR-158--EVR-158",
     "shared_gate_id": "AC-EVR-158",
-    "feature_id": "EVR-158",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-158",
+      "REQ-EVR-020",
       "REQ-KNOW-056"
     ],
     "case_ids": [
@@ -10288,9 +10288,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-158",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-158",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-158",
+      "REQ-EVR-020",
       "REQ-KNOW-056"
     ],
     "case_ids": [
@@ -10309,9 +10309,9 @@
   {
     "id": "AC-EVR-159--EVR-159",
     "shared_gate_id": "AC-EVR-159",
-    "feature_id": "EVR-159",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-159",
+      "REQ-EVR-020",
       "REQ-KNOW-056"
     ],
     "case_ids": [
@@ -10330,9 +10330,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-159",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-159",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-159",
+      "REQ-EVR-020",
       "REQ-KNOW-056"
     ],
     "case_ids": [
@@ -10351,9 +10351,9 @@
   {
     "id": "AC-EVR-160--EVR-160",
     "shared_gate_id": "AC-EVR-160",
-    "feature_id": "EVR-160",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-160"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10370,9 +10370,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-160",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-160",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-160"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10389,9 +10389,9 @@
   {
     "id": "AC-EVR-161--EVR-161",
     "shared_gate_id": "AC-EVR-161",
-    "feature_id": "EVR-161",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-161"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10408,9 +10408,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-161",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-161",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-161"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10427,9 +10427,9 @@
   {
     "id": "AC-EVR-162--EVR-162",
     "shared_gate_id": "AC-EVR-162",
-    "feature_id": "EVR-162",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-162"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10446,9 +10446,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-162",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-162",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-162"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10465,9 +10465,9 @@
   {
     "id": "AC-EVR-163--EVR-163",
     "shared_gate_id": "AC-EVR-163",
-    "feature_id": "EVR-163",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-163"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10484,9 +10484,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-163",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-163",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-163"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10503,9 +10503,9 @@
   {
     "id": "AC-EVR-164--EVR-164",
     "shared_gate_id": "AC-EVR-164",
-    "feature_id": "EVR-164",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-164"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10522,9 +10522,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-164",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-164",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-164"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10541,9 +10541,9 @@
   {
     "id": "AC-EVR-165--EVR-165",
     "shared_gate_id": "AC-EVR-165",
-    "feature_id": "EVR-165",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-165",
+      "REQ-EVR-020",
       "REQ-KNOW-040",
       "REQ-KNOW-048",
       "REQ-KNOW-049"
@@ -10568,9 +10568,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-165",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-165",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-165",
+      "REQ-EVR-020",
       "REQ-KNOW-040",
       "REQ-KNOW-048",
       "REQ-KNOW-049"
@@ -10595,9 +10595,9 @@
   {
     "id": "AC-EVR-166--EVR-166",
     "shared_gate_id": "AC-EVR-166",
-    "feature_id": "EVR-166",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-166"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10614,9 +10614,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-166",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-166",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-166"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10633,9 +10633,9 @@
   {
     "id": "AC-EVR-167--EVR-167",
     "shared_gate_id": "AC-EVR-167",
-    "feature_id": "EVR-167",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-167",
+      "REQ-EVR-020",
       "REQ-KNOW-056",
       "REQ-KNOW-057"
     ],
@@ -10656,9 +10656,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-167",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-167",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-167",
+      "REQ-EVR-020",
       "REQ-KNOW-056",
       "REQ-KNOW-057"
     ],
@@ -10679,9 +10679,9 @@
   {
     "id": "AC-EVR-168--EVR-168",
     "shared_gate_id": "AC-EVR-168",
-    "feature_id": "EVR-168",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-168"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10698,9 +10698,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-168",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-168",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-168"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10717,9 +10717,9 @@
   {
     "id": "AC-EVR-169--EVR-169",
     "shared_gate_id": "AC-EVR-169",
-    "feature_id": "EVR-169",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-169"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10736,9 +10736,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-169",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-169",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-169"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10755,9 +10755,9 @@
   {
     "id": "AC-EVR-170--EVR-170",
     "shared_gate_id": "AC-EVR-170",
-    "feature_id": "EVR-170",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-170",
+      "REQ-EVR-020",
       "REQ-KNOW-044"
     ],
     "case_ids": [
@@ -10776,9 +10776,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-170",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-170",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-170",
+      "REQ-EVR-020",
       "REQ-KNOW-044"
     ],
     "case_ids": [
@@ -10797,9 +10797,9 @@
   {
     "id": "AC-EVR-171--EVR-171",
     "shared_gate_id": "AC-EVR-171",
-    "feature_id": "EVR-171",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-171",
+      "REQ-EVR-020",
       "REQ-KNOW-041",
       "REQ-KNOW-048",
       "REQ-KNOW-049"
@@ -10822,9 +10822,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-171",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-171",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-171",
+      "REQ-EVR-020",
       "REQ-KNOW-041",
       "REQ-KNOW-048",
       "REQ-KNOW-049"
@@ -10847,9 +10847,9 @@
   {
     "id": "AC-EVR-172--EVR-172",
     "shared_gate_id": "AC-EVR-172",
-    "feature_id": "EVR-172",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-172",
+      "REQ-EVR-020",
       "REQ-KNOW-044",
       "REQ-KNOW-049"
     ],
@@ -10872,9 +10872,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-172",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-172",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-172",
+      "REQ-EVR-020",
       "REQ-KNOW-044",
       "REQ-KNOW-049"
     ],
@@ -10897,9 +10897,9 @@
   {
     "id": "AC-EVR-173--EVR-173",
     "shared_gate_id": "AC-EVR-173",
-    "feature_id": "EVR-173",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-173"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10916,9 +10916,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-173",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-173",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-173"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10935,9 +10935,9 @@
   {
     "id": "AC-EVR-174--EVR-174",
     "shared_gate_id": "AC-EVR-174",
-    "feature_id": "EVR-174",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-174"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10954,9 +10954,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-174",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-174",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-174"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10973,9 +10973,9 @@
   {
     "id": "AC-EVR-175--EVR-175",
     "shared_gate_id": "AC-EVR-175",
-    "feature_id": "EVR-175",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-175"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -10992,9 +10992,9 @@
   {
     "id": "AC-EVR-READ--EVR-175",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-175",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-175"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11011,9 +11011,9 @@
   {
     "id": "AC-EVR-176--EVR-176",
     "shared_gate_id": "AC-EVR-176",
-    "feature_id": "EVR-176",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-176"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11030,9 +11030,9 @@
   {
     "id": "AC-EVR-READ--EVR-176",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-176",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-176"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11049,9 +11049,9 @@
   {
     "id": "AC-EVR-177--EVR-177",
     "shared_gate_id": "AC-EVR-177",
-    "feature_id": "EVR-177",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-177"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -11069,9 +11069,9 @@
   {
     "id": "AC-EVR-READ--EVR-177",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-177",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-177"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -11089,9 +11089,9 @@
   {
     "id": "AC-EVR-178--EVR-178",
     "shared_gate_id": "AC-EVR-178",
-    "feature_id": "EVR-178",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-178"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -11109,9 +11109,9 @@
   {
     "id": "AC-EVR-READ--EVR-178",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-178",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-178"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -11129,9 +11129,9 @@
   {
     "id": "AC-EVR-179--EVR-179",
     "shared_gate_id": "AC-EVR-179",
-    "feature_id": "EVR-179",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-179"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11148,9 +11148,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-179",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-179",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-179"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11167,9 +11167,9 @@
   {
     "id": "AC-EVR-180--EVR-180",
     "shared_gate_id": "AC-EVR-180",
-    "feature_id": "EVR-180",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-180"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11186,9 +11186,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-180",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-180",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-180"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS"
@@ -11205,9 +11205,9 @@
   {
     "id": "AC-EVR-181--EVR-181",
     "shared_gate_id": "AC-EVR-181",
-    "feature_id": "EVR-181",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-181"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11224,9 +11224,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-181",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-181",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-181"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11243,9 +11243,9 @@
   {
     "id": "AC-EVR-182--EVR-182",
     "shared_gate_id": "AC-EVR-182",
-    "feature_id": "EVR-182",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-182"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B03-036",
@@ -11263,9 +11263,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-182",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-182",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-182"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B03-036",
@@ -11283,9 +11283,9 @@
   {
     "id": "AC-EVR-183--EVR-183",
     "shared_gate_id": "AC-EVR-183",
-    "feature_id": "EVR-183",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-183"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11304,9 +11304,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-183",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-183",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-183"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11325,9 +11325,9 @@
   {
     "id": "AC-EVR-184--EVR-184",
     "shared_gate_id": "AC-EVR-184",
-    "feature_id": "EVR-184",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-184"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11346,9 +11346,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-184",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-184",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-184"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11367,9 +11367,9 @@
   {
     "id": "AC-EVR-185--EVR-185",
     "shared_gate_id": "AC-EVR-185",
-    "feature_id": "EVR-185",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-185",
+      "REQ-EVR-020",
       "REQ-KNOW-115"
     ],
     "case_ids": [
@@ -11390,9 +11390,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-185",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-185",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-185",
+      "REQ-EVR-020",
       "REQ-KNOW-115"
     ],
     "case_ids": [
@@ -11413,9 +11413,9 @@
   {
     "id": "AC-EVR-186--EVR-186",
     "shared_gate_id": "AC-EVR-186",
-    "feature_id": "EVR-186",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-186"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11432,9 +11432,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-186",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-186",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-186"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11451,9 +11451,9 @@
   {
     "id": "AC-EVR-187--EVR-187",
     "shared_gate_id": "AC-EVR-187",
-    "feature_id": "EVR-187",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-187"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11470,9 +11470,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-187",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-187",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-187"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11489,9 +11489,9 @@
   {
     "id": "AC-EVR-188--EVR-188",
     "shared_gate_id": "AC-EVR-188",
-    "feature_id": "EVR-188",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-188"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11508,9 +11508,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-188",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-188",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-188"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11527,9 +11527,9 @@
   {
     "id": "AC-EVR-189--EVR-189",
     "shared_gate_id": "AC-EVR-189",
-    "feature_id": "EVR-189",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-189"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11546,9 +11546,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-189",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-189",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-189"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11565,9 +11565,9 @@
   {
     "id": "AC-EVR-190--EVR-190",
     "shared_gate_id": "AC-EVR-190",
-    "feature_id": "EVR-190",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-190"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11584,9 +11584,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-190",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-190",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-190"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11603,9 +11603,9 @@
   {
     "id": "AC-EVR-191--EVR-191",
     "shared_gate_id": "AC-EVR-191",
-    "feature_id": "EVR-191",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-191"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11622,9 +11622,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-191",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-191",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-191"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11641,9 +11641,9 @@
   {
     "id": "AC-EVR-192--EVR-192",
     "shared_gate_id": "AC-EVR-192",
-    "feature_id": "EVR-192",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-192"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11660,9 +11660,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-192",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-192",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-192"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11679,9 +11679,9 @@
   {
     "id": "AC-EVR-193--EVR-193",
     "shared_gate_id": "AC-EVR-193",
-    "feature_id": "EVR-193",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-193"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B03-009",
@@ -11700,9 +11700,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-193",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-193",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-193"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B03-009",
@@ -11721,9 +11721,9 @@
   {
     "id": "AC-EVR-194--EVR-194",
     "shared_gate_id": "AC-EVR-194",
-    "feature_id": "EVR-194",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-194"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11740,9 +11740,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-194",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-194",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-194"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11759,9 +11759,9 @@
   {
     "id": "AC-EVR-195--EVR-195",
     "shared_gate_id": "AC-EVR-195",
-    "feature_id": "EVR-195",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-195"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11778,9 +11778,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-195",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-195",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-195"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11797,9 +11797,9 @@
   {
     "id": "AC-EVR-196--EVR-196",
     "shared_gate_id": "AC-EVR-196",
-    "feature_id": "EVR-196",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-196"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11816,9 +11816,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-196",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-196",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-196"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11835,9 +11835,9 @@
   {
     "id": "AC-EVR-197--EVR-197",
     "shared_gate_id": "AC-EVR-197",
-    "feature_id": "EVR-197",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-197"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11854,9 +11854,9 @@
   {
     "id": "AC-EVR-READ--EVR-197",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-197",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-197"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11873,9 +11873,9 @@
   {
     "id": "AC-EVR-198--EVR-198",
     "shared_gate_id": "AC-EVR-198",
-    "feature_id": "EVR-198",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-198"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11893,9 +11893,9 @@
   {
     "id": "AC-EVR-READ--EVR-198",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-198",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-198"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11913,9 +11913,9 @@
   {
     "id": "AC-EVR-199--EVR-199",
     "shared_gate_id": "AC-EVR-199",
-    "feature_id": "EVR-199",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-199"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11932,9 +11932,9 @@
   {
     "id": "AC-EVR-READ--EVR-199",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-199",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-199"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -11951,9 +11951,9 @@
   {
     "id": "AC-EVR-200--EVR-200",
     "shared_gate_id": "AC-EVR-200",
-    "feature_id": "EVR-200",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-200"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -11976,9 +11976,9 @@
   {
     "id": "AC-EVR-READ--EVR-200",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-200",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-200"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -12001,9 +12001,9 @@
   {
     "id": "AC-EVR-201--EVR-201",
     "shared_gate_id": "AC-EVR-201",
-    "feature_id": "EVR-201",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-201"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12020,9 +12020,9 @@
   {
     "id": "AC-EVR-READ--EVR-201",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-201",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-201"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12039,9 +12039,9 @@
   {
     "id": "AC-EVR-202--EVR-202",
     "shared_gate_id": "AC-EVR-202",
-    "feature_id": "EVR-202",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-202"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12058,9 +12058,9 @@
   {
     "id": "AC-EVR-READ--EVR-202",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-202",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-202"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12077,9 +12077,9 @@
   {
     "id": "AC-EVR-203--EVR-203",
     "shared_gate_id": "AC-EVR-203",
-    "feature_id": "EVR-203",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-203"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12096,9 +12096,9 @@
   {
     "id": "AC-EVR-READ--EVR-203",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-203",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-203"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12115,9 +12115,9 @@
   {
     "id": "AC-EVR-204--EVR-204",
     "shared_gate_id": "AC-EVR-204",
-    "feature_id": "EVR-204",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-204"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12134,9 +12134,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-204",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-204",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-204"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS"
@@ -12153,9 +12153,9 @@
   {
     "id": "AC-EVR-205--EVR-205",
     "shared_gate_id": "AC-EVR-205",
-    "feature_id": "EVR-205",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-205"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12172,9 +12172,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-205",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-205",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-205"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12191,9 +12191,9 @@
   {
     "id": "AC-EVR-206--EVR-206",
     "shared_gate_id": "AC-EVR-206",
-    "feature_id": "EVR-206",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-206"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -12211,9 +12211,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-206",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-206",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-206"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -12231,9 +12231,9 @@
   {
     "id": "AC-EVR-207--EVR-207",
     "shared_gate_id": "AC-EVR-207",
-    "feature_id": "EVR-207",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-207"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -12251,9 +12251,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-207",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-207",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-207"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -12271,9 +12271,9 @@
   {
     "id": "AC-EVR-208--EVR-208",
     "shared_gate_id": "AC-EVR-208",
-    "feature_id": "EVR-208",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-208"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12290,9 +12290,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-208",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-208",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-208"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12309,9 +12309,9 @@
   {
     "id": "AC-EVR-209--EVR-209",
     "shared_gate_id": "AC-EVR-209",
-    "feature_id": "EVR-209",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-209"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12328,9 +12328,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-209",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-209",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-209"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12347,9 +12347,9 @@
   {
     "id": "AC-EVR-210--EVR-210",
     "shared_gate_id": "AC-EVR-210",
-    "feature_id": "EVR-210",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-210"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12366,9 +12366,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-210",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-210",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-210"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12385,9 +12385,9 @@
   {
     "id": "AC-EVR-211--EVR-211",
     "shared_gate_id": "AC-EVR-211",
-    "feature_id": "EVR-211",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-211"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12404,9 +12404,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-211",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-211",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-211"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12423,9 +12423,9 @@
   {
     "id": "AC-EVR-212--EVR-212",
     "shared_gate_id": "AC-EVR-212",
-    "feature_id": "EVR-212",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-212"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12442,9 +12442,9 @@
   {
     "id": "AC-EVR-READ--EVR-212",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-212",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-212"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12461,9 +12461,9 @@
   {
     "id": "AC-EVR-213--EVR-213",
     "shared_gate_id": "AC-EVR-213",
-    "feature_id": "EVR-213",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-213"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12480,9 +12480,9 @@
   {
     "id": "AC-EVR-READ--EVR-213",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-213",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-213"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12499,9 +12499,9 @@
   {
     "id": "AC-EVR-214--EVR-214",
     "shared_gate_id": "AC-EVR-214",
-    "feature_id": "EVR-214",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-214"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12518,9 +12518,9 @@
   {
     "id": "AC-EVR-READ--EVR-214",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-214",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-214"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12537,9 +12537,9 @@
   {
     "id": "AC-EVR-215--EVR-215",
     "shared_gate_id": "AC-EVR-215",
-    "feature_id": "EVR-215",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-215"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12559,9 +12559,9 @@
   {
     "id": "AC-EVR-READ--EVR-215",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-215",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-215"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12581,9 +12581,9 @@
   {
     "id": "AC-EVR-216--EVR-216",
     "shared_gate_id": "AC-EVR-216",
-    "feature_id": "EVR-216",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-216"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12600,9 +12600,9 @@
   {
     "id": "AC-EVR-READ--EVR-216",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-216",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-216"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12619,9 +12619,9 @@
   {
     "id": "AC-EVR-217--EVR-217",
     "shared_gate_id": "AC-EVR-217",
-    "feature_id": "EVR-217",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-217"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12638,9 +12638,9 @@
   {
     "id": "AC-EVR-READ--EVR-217",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-217",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-217"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12657,9 +12657,9 @@
   {
     "id": "AC-EVR-218--EVR-218",
     "shared_gate_id": "AC-EVR-218",
-    "feature_id": "EVR-218",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-218"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12677,9 +12677,9 @@
   {
     "id": "AC-EVR-READ--EVR-218",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-218",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-218"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12697,9 +12697,9 @@
   {
     "id": "AC-EVR-219--EVR-219",
     "shared_gate_id": "AC-EVR-219",
-    "feature_id": "EVR-219",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-219"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12716,9 +12716,9 @@
   {
     "id": "AC-EVR-READ--EVR-219",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-219",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-219"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12735,9 +12735,9 @@
   {
     "id": "AC-EVR-220--EVR-220",
     "shared_gate_id": "AC-EVR-220",
-    "feature_id": "EVR-220",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-220"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12755,9 +12755,9 @@
   {
     "id": "AC-EVR-READ--EVR-220",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-220",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-220"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -12775,9 +12775,9 @@
   {
     "id": "AC-EVR-221--EVR-221",
     "shared_gate_id": "AC-EVR-221",
-    "feature_id": "EVR-221",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-221"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12794,9 +12794,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-221",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-221",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-221"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12813,9 +12813,9 @@
   {
     "id": "AC-EVR-222--EVR-222",
     "shared_gate_id": "AC-EVR-222",
-    "feature_id": "EVR-222",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-222"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12832,9 +12832,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-222",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-222",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-222"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12851,9 +12851,9 @@
   {
     "id": "AC-EVR-223--EVR-223",
     "shared_gate_id": "AC-EVR-223",
-    "feature_id": "EVR-223",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-223"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12870,9 +12870,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-223",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-223",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-223"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12889,9 +12889,9 @@
   {
     "id": "AC-EVR-224--EVR-224",
     "shared_gate_id": "AC-EVR-224",
-    "feature_id": "EVR-224",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-224"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12908,9 +12908,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-224",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-224",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-224"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12927,9 +12927,9 @@
   {
     "id": "AC-EVR-225--EVR-225",
     "shared_gate_id": "AC-EVR-225",
-    "feature_id": "EVR-225",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-225"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12946,9 +12946,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-225",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-225",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-225"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12965,9 +12965,9 @@
   {
     "id": "AC-EVR-226--EVR-226",
     "shared_gate_id": "AC-EVR-226",
-    "feature_id": "EVR-226",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-226"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -12984,9 +12984,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-226",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-226",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-226"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13003,9 +13003,9 @@
   {
     "id": "AC-EVR-227--EVR-227",
     "shared_gate_id": "AC-EVR-227",
-    "feature_id": "EVR-227",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-227"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13022,9 +13022,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-227",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-227",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-227"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13041,9 +13041,9 @@
   {
     "id": "AC-EVR-228--EVR-228",
     "shared_gate_id": "AC-EVR-228",
-    "feature_id": "EVR-228",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-228"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -13061,9 +13061,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-228",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-228",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-228"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-035",
@@ -13081,9 +13081,9 @@
   {
     "id": "AC-EVR-229--EVR-229",
     "shared_gate_id": "AC-EVR-229",
-    "feature_id": "EVR-229",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-229"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13100,9 +13100,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-229",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-229",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-229"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13119,9 +13119,9 @@
   {
     "id": "AC-EVR-230--EVR-230",
     "shared_gate_id": "AC-EVR-230",
-    "feature_id": "EVR-230",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-230"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13138,9 +13138,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-230",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-230",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-230"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13157,9 +13157,9 @@
   {
     "id": "AC-EVR-231--EVR-231",
     "shared_gate_id": "AC-EVR-231",
-    "feature_id": "EVR-231",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-231"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -13179,9 +13179,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-231",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-231",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-231"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -13201,9 +13201,9 @@
   {
     "id": "AC-EVR-232--EVR-232",
     "shared_gate_id": "AC-EVR-232",
-    "feature_id": "EVR-232",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-232"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13220,9 +13220,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-232",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-232",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-232"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS"
@@ -13239,9 +13239,9 @@
   {
     "id": "AC-EVR-233--EVR-233",
     "shared_gate_id": "AC-EVR-233",
-    "feature_id": "EVR-233",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-233"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13258,9 +13258,9 @@
   {
     "id": "AC-EVR-READ--EVR-233",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-233",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-233"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13277,9 +13277,9 @@
   {
     "id": "AC-EVR-234--EVR-234",
     "shared_gate_id": "AC-EVR-234",
-    "feature_id": "EVR-234",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-234"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13296,9 +13296,9 @@
   {
     "id": "AC-EVR-READ--EVR-234",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-234",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-234"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13315,9 +13315,9 @@
   {
     "id": "AC-EVR-235--EVR-235",
     "shared_gate_id": "AC-EVR-235",
-    "feature_id": "EVR-235",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-235"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13334,9 +13334,9 @@
   {
     "id": "AC-EVR-READ--EVR-235",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-235",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-235"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13353,9 +13353,9 @@
   {
     "id": "AC-EVR-236--EVR-236",
     "shared_gate_id": "AC-EVR-236",
-    "feature_id": "EVR-236",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-236"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13372,9 +13372,9 @@
   {
     "id": "AC-EVR-READ--EVR-236",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-236",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-236"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13391,9 +13391,9 @@
   {
     "id": "AC-EVR-237--EVR-237",
     "shared_gate_id": "AC-EVR-237",
-    "feature_id": "EVR-237",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-237",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13414,9 +13414,9 @@
   {
     "id": "AC-EVR-READ--EVR-237",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-237",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-237",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13437,9 +13437,9 @@
   {
     "id": "AC-EVR-238--EVR-238",
     "shared_gate_id": "AC-EVR-238",
-    "feature_id": "EVR-238",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-238",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13458,9 +13458,9 @@
   {
     "id": "AC-EVR-READ--EVR-238",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-238",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-238",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13479,9 +13479,9 @@
   {
     "id": "AC-EVR-239--EVR-239",
     "shared_gate_id": "AC-EVR-239",
-    "feature_id": "EVR-239",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-239",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13500,9 +13500,9 @@
   {
     "id": "AC-EVR-READ--EVR-239",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-239",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-239",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13521,9 +13521,9 @@
   {
     "id": "AC-EVR-240--EVR-240",
     "shared_gate_id": "AC-EVR-240",
-    "feature_id": "EVR-240",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-240",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13542,9 +13542,9 @@
   {
     "id": "AC-EVR-READ--EVR-240",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-240",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-240",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13563,9 +13563,9 @@
   {
     "id": "AC-EVR-241--EVR-241",
     "shared_gate_id": "AC-EVR-241",
-    "feature_id": "EVR-241",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-241",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13585,9 +13585,9 @@
   {
     "id": "AC-EVR-READ--EVR-241",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-241",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-241",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -13607,9 +13607,9 @@
   {
     "id": "AC-EVR-242--EVR-242",
     "shared_gate_id": "AC-EVR-242",
-    "feature_id": "EVR-242",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-242",
+      "REQ-EVR-020",
       "REQ-KNOW-027"
     ],
     "case_ids": [
@@ -13634,9 +13634,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-242",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-242",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-242",
+      "REQ-EVR-020",
       "REQ-KNOW-027"
     ],
     "case_ids": [
@@ -13661,9 +13661,9 @@
   {
     "id": "AC-EVR-242-FAILED-RETRY--EVR-242",
     "shared_gate_id": "AC-EVR-242-FAILED-RETRY",
-    "feature_id": "EVR-242",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-242",
+      "REQ-EVR-020",
       "REQ-KNOW-027"
     ],
     "case_ids": [
@@ -13688,9 +13688,9 @@
   {
     "id": "AC-EVR-243--EVR-243",
     "shared_gate_id": "AC-EVR-243",
-    "feature_id": "EVR-243",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-243"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13707,9 +13707,9 @@
   {
     "id": "AC-EVR-READ--EVR-243",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-243",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-243"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13726,9 +13726,9 @@
   {
     "id": "AC-EVR-244--EVR-244",
     "shared_gate_id": "AC-EVR-244",
-    "feature_id": "EVR-244",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-244"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13745,9 +13745,9 @@
   {
     "id": "AC-EVR-READ--EVR-244",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-244",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-244"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13764,9 +13764,9 @@
   {
     "id": "AC-EVR-245--EVR-245",
     "shared_gate_id": "AC-EVR-245",
-    "feature_id": "EVR-245",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-245"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13783,9 +13783,9 @@
   {
     "id": "AC-EVR-READ--EVR-245",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-245",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-245"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13802,9 +13802,9 @@
   {
     "id": "AC-EVR-246--EVR-246",
     "shared_gate_id": "AC-EVR-246",
-    "feature_id": "EVR-246",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-246"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13821,9 +13821,9 @@
   {
     "id": "AC-EVR-READ--EVR-246",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-246",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-246"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13840,9 +13840,9 @@
   {
     "id": "AC-EVR-247--EVR-247",
     "shared_gate_id": "AC-EVR-247",
-    "feature_id": "EVR-247",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-247",
+      "REQ-EVR-020",
       "REQ-KNOW-027"
     ],
     "case_ids": [
@@ -13861,9 +13861,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-247",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-247",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-247",
+      "REQ-EVR-020",
       "REQ-KNOW-027"
     ],
     "case_ids": [
@@ -13882,9 +13882,9 @@
   {
     "id": "AC-EVR-248--EVR-248",
     "shared_gate_id": "AC-EVR-248",
-    "feature_id": "EVR-248",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-248"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13901,9 +13901,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-248",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-248",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-248"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13920,9 +13920,9 @@
   {
     "id": "AC-EVR-249--EVR-249",
     "shared_gate_id": "AC-EVR-249",
-    "feature_id": "EVR-249",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-249"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13939,9 +13939,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-249",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-249",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-249"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13958,9 +13958,9 @@
   {
     "id": "AC-EVR-250--EVR-250",
     "shared_gate_id": "AC-EVR-250",
-    "feature_id": "EVR-250",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-250"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13977,9 +13977,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-250",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-250",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-250"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -13996,9 +13996,9 @@
   {
     "id": "AC-EVR-251--EVR-251",
     "shared_gate_id": "AC-EVR-251",
-    "feature_id": "EVR-251",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-251"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14015,9 +14015,9 @@
   {
     "id": "AC-EVR-READ--EVR-251",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-251",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-251"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14034,9 +14034,9 @@
   {
     "id": "AC-EVR-252--EVR-252",
     "shared_gate_id": "AC-EVR-252",
-    "feature_id": "EVR-252",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-252"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14053,9 +14053,9 @@
   {
     "id": "AC-EVR-READ--EVR-252",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-252",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-252"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14072,9 +14072,9 @@
   {
     "id": "AC-EVR-253--EVR-253",
     "shared_gate_id": "AC-EVR-253",
-    "feature_id": "EVR-253",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-253"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14091,9 +14091,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-253",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-253",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-253"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION"
@@ -14110,9 +14110,9 @@
   {
     "id": "AC-EVR-254--EVR-254",
     "shared_gate_id": "AC-EVR-254",
-    "feature_id": "EVR-254",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-254",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14131,9 +14131,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-254",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-254",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-254",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14152,9 +14152,9 @@
   {
     "id": "AC-EVR-255--EVR-255",
     "shared_gate_id": "AC-EVR-255",
-    "feature_id": "EVR-255",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-255",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14173,9 +14173,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-255",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-255",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-255",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14194,9 +14194,9 @@
   {
     "id": "AC-EVR-256--EVR-256",
     "shared_gate_id": "AC-EVR-256",
-    "feature_id": "EVR-256",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-256",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-116"
     ],
@@ -14217,9 +14217,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-256",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-256",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-256",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-116"
     ],
@@ -14240,9 +14240,9 @@
   {
     "id": "AC-EVR-257--EVR-257",
     "shared_gate_id": "AC-EVR-257",
-    "feature_id": "EVR-257",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-257",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-115",
       "REQ-KNOW-116"
@@ -14268,9 +14268,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-257",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-257",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-257",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-115",
       "REQ-KNOW-116"
@@ -14296,9 +14296,9 @@
   {
     "id": "AC-EVR-258--EVR-258",
     "shared_gate_id": "AC-EVR-258",
-    "feature_id": "EVR-258",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-258"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH"
@@ -14315,9 +14315,9 @@
   {
     "id": "AC-EVR-READ--EVR-258",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-258",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-258"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH"
@@ -14334,9 +14334,9 @@
   {
     "id": "AC-EVR-259--EVR-259",
     "shared_gate_id": "AC-EVR-259",
-    "feature_id": "EVR-259",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-259"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH",
@@ -14357,9 +14357,9 @@
   {
     "id": "AC-EVR-READ--EVR-259",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-259",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-259"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH",
@@ -14380,9 +14380,9 @@
   {
     "id": "AC-EVR-260--EVR-260",
     "shared_gate_id": "AC-EVR-260",
-    "feature_id": "EVR-260",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-260"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH",
@@ -14403,9 +14403,9 @@
   {
     "id": "AC-EVR-READ--EVR-260",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-260",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-260"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH",
@@ -14426,9 +14426,9 @@
   {
     "id": "AC-EVR-261--EVR-261",
     "shared_gate_id": "AC-EVR-261",
-    "feature_id": "EVR-261",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-261"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH"
@@ -14445,9 +14445,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-261",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-261",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-261"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-LAUNCH"
@@ -14464,9 +14464,9 @@
   {
     "id": "AC-EVR-262--EVR-262",
     "shared_gate_id": "AC-EVR-262",
-    "feature_id": "EVR-262",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-262",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14485,9 +14485,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-262",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-262",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-262",
+      "REQ-EVR-020",
       "REQ-KNOW-039"
     ],
     "case_ids": [
@@ -14506,9 +14506,9 @@
   {
     "id": "AC-EVR-263--EVR-263",
     "shared_gate_id": "AC-EVR-263",
-    "feature_id": "EVR-263",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-263",
+      "REQ-EVR-020",
       "REQ-KNOW-059"
     ],
     "case_ids": [
@@ -14525,9 +14525,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-263",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-263",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-263",
+      "REQ-EVR-020",
       "REQ-KNOW-059"
     ],
     "case_ids": [
@@ -14544,9 +14544,9 @@
   {
     "id": "AC-EVR-264--EVR-264",
     "shared_gate_id": "AC-EVR-264",
-    "feature_id": "EVR-264",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-264",
+      "REQ-EVR-020",
       "REQ-KNOW-060"
     ],
     "case_ids": [
@@ -14565,9 +14565,9 @@
   {
     "id": "AC-EVR-READ--EVR-264",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-264",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-264",
+      "REQ-EVR-020",
       "REQ-KNOW-060"
     ],
     "case_ids": [
@@ -14586,9 +14586,9 @@
   {
     "id": "AC-EVR-265--EVR-265",
     "shared_gate_id": "AC-EVR-265",
-    "feature_id": "EVR-265",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-265"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-027",
@@ -14606,9 +14606,9 @@
   {
     "id": "AC-EVR-READ--EVR-265",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-265",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-265"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "B01-027",
@@ -14626,9 +14626,9 @@
   {
     "id": "AC-EVR-266--EVR-266",
     "shared_gate_id": "AC-EVR-266",
-    "feature_id": "EVR-266",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-266",
+      "REQ-EVR-020",
       "REQ-KNOW-050"
     ],
     "case_ids": [
@@ -14648,9 +14648,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-266",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-266",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-266",
+      "REQ-EVR-020",
       "REQ-KNOW-050"
     ],
     "case_ids": [
@@ -14852,9 +14852,9 @@
   {
     "id": "AC-EVR-269--EVR-269",
     "shared_gate_id": "AC-EVR-269",
-    "feature_id": "EVR-269",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-269"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14869,9 +14869,9 @@
   {
     "id": "AC-EVR-READ--EVR-269",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-269",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-269"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14886,9 +14886,9 @@
   {
     "id": "AC-EVR-270--EVR-270",
     "shared_gate_id": "AC-EVR-270",
-    "feature_id": "EVR-270",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-270"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14903,9 +14903,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-270",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-270",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-270"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14920,9 +14920,9 @@
   {
     "id": "AC-EVR-271--EVR-271",
     "shared_gate_id": "AC-EVR-271",
-    "feature_id": "EVR-271",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-271"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14937,9 +14937,9 @@
   {
     "id": "AC-EVR-READ--EVR-271",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-271",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-271"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14954,9 +14954,9 @@
   {
     "id": "AC-EVR-272--EVR-272",
     "shared_gate_id": "AC-EVR-272",
-    "feature_id": "EVR-272",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-272"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14971,9 +14971,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-272",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-272",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-272"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE"
@@ -14988,9 +14988,9 @@
   {
     "id": "AC-EVR-273--EVR-273",
     "shared_gate_id": "AC-EVR-273",
-    "feature_id": "EVR-273",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-273"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE",
@@ -15008,9 +15008,9 @@
   {
     "id": "AC-EVR-READ--EVR-273",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-273",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-273"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE",
@@ -15028,9 +15028,9 @@
   {
     "id": "AC-EVR-274--EVR-274",
     "shared_gate_id": "AC-EVR-274",
-    "feature_id": "EVR-274",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-274"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15048,9 +15048,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-274",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-274",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-274"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15068,9 +15068,9 @@
   {
     "id": "AC-EVR-275--EVR-275",
     "shared_gate_id": "AC-EVR-275",
-    "feature_id": "EVR-275",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-275",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -15092,9 +15092,9 @@
   {
     "id": "AC-EVR-READ--EVR-275",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-275",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-275",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -15116,9 +15116,9 @@
   {
     "id": "AC-EVR-276--EVR-276",
     "shared_gate_id": "AC-EVR-276",
-    "feature_id": "EVR-276",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-276"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15136,9 +15136,9 @@
   {
     "id": "AC-EVR-READ--EVR-276",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-276",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-276"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15156,9 +15156,9 @@
   {
     "id": "AC-EVR-277--EVR-277",
     "shared_gate_id": "AC-EVR-277",
-    "feature_id": "EVR-277",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-277"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15176,9 +15176,9 @@
   {
     "id": "AC-EVR-READ--EVR-277",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-277",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-277"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15196,9 +15196,9 @@
   {
     "id": "AC-EVR-278--EVR-278",
     "shared_gate_id": "AC-EVR-278",
-    "feature_id": "EVR-278",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-278"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15217,9 +15217,9 @@
   {
     "id": "AC-EVR-READ--EVR-278",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-278",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-278"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15238,9 +15238,9 @@
   {
     "id": "AC-EVR-279--EVR-279",
     "shared_gate_id": "AC-EVR-279",
-    "feature_id": "EVR-279",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-279"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15258,9 +15258,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-279",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-279",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-279"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15278,9 +15278,9 @@
   {
     "id": "AC-EVR-280--EVR-280",
     "shared_gate_id": "AC-EVR-280",
-    "feature_id": "EVR-280",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-280"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15298,9 +15298,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-280",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-280",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-280"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15318,9 +15318,9 @@
   {
     "id": "AC-EVR-281--EVR-281",
     "shared_gate_id": "AC-EVR-281",
-    "feature_id": "EVR-281",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-281"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15338,9 +15338,9 @@
   {
     "id": "AC-EVR-READ--EVR-281",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-281",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-281"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15358,9 +15358,9 @@
   {
     "id": "AC-EVR-282--EVR-282",
     "shared_gate_id": "AC-EVR-282",
-    "feature_id": "EVR-282",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-282"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15378,9 +15378,9 @@
   {
     "id": "AC-EVR-READ--EVR-282",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-282",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-282"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15398,9 +15398,9 @@
   {
     "id": "AC-EVR-283--EVR-283",
     "shared_gate_id": "AC-EVR-283",
-    "feature_id": "EVR-283",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-283"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15419,9 +15419,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-283",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-283",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-283"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15440,9 +15440,9 @@
   {
     "id": "AC-EVR-284--EVR-284",
     "shared_gate_id": "AC-EVR-284",
-    "feature_id": "EVR-284",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-284"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15460,9 +15460,9 @@
   {
     "id": "AC-EVR-READ--EVR-284",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-284",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-284"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15480,9 +15480,9 @@
   {
     "id": "AC-EVR-285--EVR-285",
     "shared_gate_id": "AC-EVR-285",
-    "feature_id": "EVR-285",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-285"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-IDENTITY-PLATFORM"
@@ -15499,9 +15499,9 @@
   {
     "id": "AC-EVR-READ--EVR-285",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-285",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-285"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-IDENTITY-PLATFORM"
@@ -15518,9 +15518,9 @@
   {
     "id": "AC-EVR-286--EVR-286",
     "shared_gate_id": "AC-EVR-286",
-    "feature_id": "EVR-286",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-286",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15541,9 +15541,9 @@
   {
     "id": "AC-EVR-READ--EVR-286",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-286",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-286",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15564,9 +15564,9 @@
   {
     "id": "AC-EVR-287--EVR-287",
     "shared_gate_id": "AC-EVR-287",
-    "feature_id": "EVR-287",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-287",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15588,9 +15588,9 @@
   {
     "id": "AC-EVR-READ--EVR-287",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-287",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-287",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15612,9 +15612,9 @@
   {
     "id": "AC-EVR-288--EVR-288",
     "shared_gate_id": "AC-EVR-288",
-    "feature_id": "EVR-288",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-288",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15635,9 +15635,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-288",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-288",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-288",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15658,9 +15658,9 @@
   {
     "id": "AC-EVR-289--EVR-289",
     "shared_gate_id": "AC-EVR-289",
-    "feature_id": "EVR-289",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-289",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15682,9 +15682,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-289",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-289",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-289",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15706,9 +15706,9 @@
   {
     "id": "AC-EVR-289-SELECTED--EVR-289",
     "shared_gate_id": "AC-EVR-289-SELECTED",
-    "feature_id": "EVR-289",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-289",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -15730,9 +15730,9 @@
   {
     "id": "AC-EVR-290--EVR-290",
     "shared_gate_id": "AC-EVR-290",
-    "feature_id": "EVR-290",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-290",
+      "REQ-EVR-020",
       "REQ-KNOW-033"
     ],
     "case_ids": [
@@ -15751,9 +15751,9 @@
   {
     "id": "AC-EVR-EFFECT--EVR-290",
     "shared_gate_id": "AC-EVR-EFFECT",
-    "feature_id": "EVR-290",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-290",
+      "REQ-EVR-020",
       "REQ-KNOW-033"
     ],
     "case_ids": [
@@ -15772,9 +15772,9 @@
   {
     "id": "AC-EVR-400--EVR-400",
     "shared_gate_id": "AC-EVR-400",
-    "feature_id": "EVR-400",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-400"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15793,9 +15793,9 @@
   {
     "id": "AC-EVR-READ--EVR-400",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-400",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-400"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -15814,9 +15814,9 @@
   {
     "id": "AC-EVR-401--EVR-401",
     "shared_gate_id": "AC-EVR-401",
-    "feature_id": "EVR-401",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-401"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -15842,9 +15842,9 @@
   {
     "id": "AC-EVR-READ--EVR-401",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-401",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-401"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -15870,9 +15870,9 @@
   {
     "id": "AC-EVR-402--EVR-402",
     "shared_gate_id": "AC-EVR-402",
-    "feature_id": "EVR-402",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-402"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -15890,9 +15890,9 @@
   {
     "id": "AC-EVR-READ--EVR-402",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-402",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-402"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -15910,9 +15910,9 @@
   {
     "id": "AC-EVR-403--EVR-403",
     "shared_gate_id": "AC-EVR-403",
-    "feature_id": "EVR-403",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-403"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -15931,9 +15931,9 @@
   {
     "id": "AC-EVR-READ--EVR-403",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-403",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-403"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
@@ -15952,9 +15952,9 @@
   {
     "id": "AC-EVR-404--EVR-404",
     "shared_gate_id": "AC-EVR-404",
-    "feature_id": "EVR-404",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-404"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -15972,9 +15972,9 @@
   {
     "id": "AC-EVR-READ--EVR-404",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-404",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-404"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -15992,9 +15992,9 @@
   {
     "id": "AC-EVR-405--EVR-405",
     "shared_gate_id": "AC-EVR-405",
-    "feature_id": "EVR-405",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-405"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16018,9 +16018,9 @@
   {
     "id": "AC-EVR-READ--EVR-405",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-405",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-405"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16044,9 +16044,9 @@
   {
     "id": "AC-EVR-406--EVR-406",
     "shared_gate_id": "AC-EVR-406",
-    "feature_id": "EVR-406",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-406"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16064,9 +16064,9 @@
   {
     "id": "AC-EVR-READ--EVR-406",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-406",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-406"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16084,9 +16084,9 @@
   {
     "id": "AC-EVR-407--EVR-407",
     "shared_gate_id": "AC-EVR-407",
-    "feature_id": "EVR-407",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-407"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16105,9 +16105,9 @@
   {
     "id": "AC-EVR-READ--EVR-407",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-407",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-407"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TASKS",
@@ -16126,9 +16126,9 @@
   {
     "id": "AC-EVR-408--EVR-408",
     "shared_gate_id": "AC-EVR-408",
-    "feature_id": "EVR-408",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-408"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16147,9 +16147,9 @@
   {
     "id": "AC-EVR-READ--EVR-408",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-408",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-408"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16168,9 +16168,9 @@
   {
     "id": "AC-EVR-409--EVR-409",
     "shared_gate_id": "AC-EVR-409",
-    "feature_id": "EVR-409",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-409"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16188,9 +16188,9 @@
   {
     "id": "AC-EVR-READ--EVR-409",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-409",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-409"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16208,9 +16208,9 @@
   {
     "id": "AC-EVR-410--EVR-410",
     "shared_gate_id": "AC-EVR-410",
-    "feature_id": "EVR-410",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-410"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16231,9 +16231,9 @@
   {
     "id": "AC-EVR-READ--EVR-410",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-410",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-410"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16254,9 +16254,9 @@
   {
     "id": "AC-EVR-411--EVR-411",
     "shared_gate_id": "AC-EVR-411",
-    "feature_id": "EVR-411",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-411"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16274,9 +16274,9 @@
   {
     "id": "AC-EVR-READ--EVR-411",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-411",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-411"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16294,9 +16294,9 @@
   {
     "id": "AC-EVR-412--EVR-412",
     "shared_gate_id": "AC-EVR-412",
-    "feature_id": "EVR-412",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-412"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16316,9 +16316,9 @@
   {
     "id": "AC-EVR-READ--EVR-412",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-412",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-412"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-TEAMS",
@@ -16338,9 +16338,9 @@
   {
     "id": "AC-EVR-413--EVR-413",
     "shared_gate_id": "AC-EVR-413",
-    "feature_id": "EVR-413",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-413",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -16360,9 +16360,9 @@
   {
     "id": "AC-EVR-READ--EVR-413",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-413",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-413",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -16382,9 +16382,9 @@
   {
     "id": "AC-EVR-414--EVR-414",
     "shared_gate_id": "AC-EVR-414",
-    "feature_id": "EVR-414",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-414",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -16405,9 +16405,9 @@
   {
     "id": "AC-EVR-READ--EVR-414",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-414",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-414",
+      "REQ-EVR-020",
       "REQ-KNOW-026"
     ],
     "case_ids": [
@@ -16428,9 +16428,9 @@
   {
     "id": "AC-EVR-415--EVR-415",
     "shared_gate_id": "AC-EVR-415",
-    "feature_id": "EVR-415",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-415"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16448,9 +16448,9 @@
   {
     "id": "AC-EVR-READ--EVR-415",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-415",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-415"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16468,9 +16468,9 @@
   {
     "id": "AC-EVR-416--EVR-416",
     "shared_gate_id": "AC-EVR-416",
-    "feature_id": "EVR-416",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-416"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16489,9 +16489,9 @@
   {
     "id": "AC-EVR-READ--EVR-416",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-416",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-416"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16510,9 +16510,9 @@
   {
     "id": "AC-EVR-417--EVR-417",
     "shared_gate_id": "AC-EVR-417",
-    "feature_id": "EVR-417",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-417"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16531,9 +16531,9 @@
   {
     "id": "AC-EVR-READ--EVR-417",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-417",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-417"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16552,9 +16552,9 @@
   {
     "id": "AC-EVR-418--EVR-418",
     "shared_gate_id": "AC-EVR-418",
-    "feature_id": "EVR-418",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-418"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16574,9 +16574,9 @@
   {
     "id": "AC-EVR-READ--EVR-418",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-418",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-418"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -16596,9 +16596,9 @@
   {
     "id": "AC-EVR-419--EVR-419",
     "shared_gate_id": "AC-EVR-419",
-    "feature_id": "EVR-419",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-419",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-116"
     ],
@@ -16624,9 +16624,9 @@
   {
     "id": "AC-EVR-READ--EVR-419",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-419",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-419",
+      "REQ-EVR-020",
       "REQ-KNOW-055",
       "REQ-KNOW-116"
     ],
@@ -16652,9 +16652,9 @@
   {
     "id": "AC-EVR-420--EVR-420",
     "shared_gate_id": "AC-EVR-420",
-    "feature_id": "EVR-420",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-420"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE",
@@ -16670,9 +16670,9 @@
   {
     "id": "AC-EVR-READ--EVR-420",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-420",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-420"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-INTELLIGENCE-PHASE",
@@ -16688,9 +16688,9 @@
   {
     "id": "AC-EVR-421--EVR-421",
     "shared_gate_id": "AC-EVR-421",
-    "feature_id": "EVR-421",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-421",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -16713,9 +16713,9 @@
   {
     "id": "AC-EVR-READ--EVR-421",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-421",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-421",
+      "REQ-EVR-020",
       "REQ-KNOW-001",
       "REQ-KNOW-010"
     ],
@@ -16738,9 +16738,9 @@
   {
     "id": "AC-EVR-422--EVR-422",
     "shared_gate_id": "AC-EVR-422",
-    "feature_id": "EVR-422",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-422"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -16759,9 +16759,9 @@
   {
     "id": "AC-EVR-READ--EVR-422",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-422",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-422"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-PEOPLE-CORE",
@@ -16780,9 +16780,9 @@
   {
     "id": "AC-EVR-423--EVR-423",
     "shared_gate_id": "AC-EVR-423",
-    "feature_id": "EVR-423",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-423",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -16804,9 +16804,9 @@
   {
     "id": "AC-EVR-READ--EVR-423",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-423",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-423",
+      "REQ-EVR-020",
       "REQ-KNOW-079",
       "REQ-KNOW-080"
     ],
@@ -16828,9 +16828,9 @@
   {
     "id": "AC-EVR-424--EVR-424",
     "shared_gate_id": "AC-EVR-424",
-    "feature_id": "EVR-424",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-424"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-RUNTIME-CONVERSATION",
@@ -16848,9 +16848,9 @@
   {
     "id": "AC-EVR-READ--EVR-424",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-424",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-424"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-RUNTIME-CONVERSATION",
@@ -16868,9 +16868,9 @@
   {
     "id": "AC-EVR-425--EVR-425",
     "shared_gate_id": "AC-EVR-425",
-    "feature_id": "EVR-425",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-425"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-RUNTIME-CONVERSATION",
@@ -16888,9 +16888,9 @@
   {
     "id": "AC-EVR-READ--EVR-425",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-425",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-425"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-RUNTIME-CONVERSATION",
@@ -16908,9 +16908,9 @@
   {
     "id": "AC-EVR-426--EVR-426",
     "shared_gate_id": "AC-EVR-426",
-    "feature_id": "EVR-426",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-426"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16928,9 +16928,9 @@
   {
     "id": "AC-EVR-READ--EVR-426",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-426",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-426"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16948,9 +16948,9 @@
   {
     "id": "AC-EVR-427--EVR-427",
     "shared_gate_id": "AC-EVR-427",
-    "feature_id": "EVR-427",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-427"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16968,9 +16968,9 @@
   {
     "id": "AC-EVR-READ--EVR-427",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-427",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-427"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-MEETINGS",
@@ -16988,9 +16988,9 @@
   {
     "id": "AC-EVR-428--EVR-428",
     "shared_gate_id": "AC-EVR-428",
-    "feature_id": "EVR-428",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-428"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION",
@@ -17008,9 +17008,9 @@
   {
     "id": "AC-EVR-READ--EVR-428",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-428",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-428"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-FAMILY-COMMUNICATION",
@@ -17028,9 +17028,9 @@
   {
     "id": "AC-EVR-429--EVR-429",
     "shared_gate_id": "AC-EVR-429",
-    "feature_id": "EVR-429",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-429"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
@@ -17049,9 +17049,9 @@
   {
     "id": "AC-EVR-READ--EVR-429",
     "shared_gate_id": "AC-EVR-READ",
-    "feature_id": "EVR-429",
+    "feature_id": "EVR-020",
     "requirement_ids": [
-      "REQ-EVR-429"
+      "REQ-EVR-020"
     ],
     "case_ids": [
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY",

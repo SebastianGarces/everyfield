@@ -28,7 +28,8 @@
           "operation": "documents.templates.contextual",
           "rule": "Pure contextual/catalog lookup, no preview generation/persistence/review; explicit account profile may browse without phantom plant. Actual generation requires approved real-plant context."
         }
-      ]
+      ],
+      "title": "Document template library, filtering and contextual entry points"
     },
     {
       "id": "REQ-DOC-002",
@@ -52,7 +53,8 @@
       "work_packages": [
         "WP-036",
         "WP-037"
-      ]
+      ],
+      "title": "Merge-value generation and exact-byte PDF/DOCX/XLSX previews"
     },
     {
       "id": "REQ-DOC-003",
@@ -77,7 +79,8 @@
       "work_packages": [
         "WP-036",
         "WP-037"
-      ]
+      ],
+      "title": "Saved generated-document history and fresh signed re-download"
     },
     {
       "id": "REQ-DOC-004",
@@ -98,7 +101,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Core Group Commitment Card"
     },
     {
       "id": "REQ-DOC-005",
@@ -119,7 +123,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Response Card"
     },
     {
       "id": "REQ-DOC-006",
@@ -140,7 +145,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Guest Sign-in Sheet"
     },
     {
       "id": "REQ-DOC-007",
@@ -161,7 +167,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Vision Meeting Agenda"
     },
     {
       "id": "REQ-DOC-008",
@@ -182,7 +189,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Expectations of a Core Group Member"
     },
     {
       "id": "REQ-DOC-009",
@@ -203,7 +211,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Launch Team Commitment"
     },
     {
       "id": "REQ-DOC-010",
@@ -224,7 +233,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Vision Meeting Follow-up Letter"
     },
     {
       "id": "REQ-DOC-011",
@@ -245,7 +255,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Board / Elder Meeting Agenda"
     },
     {
       "id": "REQ-DOC-012",
@@ -266,7 +277,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "First-Year Budget"
     },
     {
       "id": "REQ-DOC-013",
@@ -287,7 +299,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Budget Worksheet"
     },
     {
       "id": "REQ-DOC-014",
@@ -308,7 +321,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
-      ]
+      ],
+      "title": "Launch Sunday Checklists"
     },
     {
       "id": "REQ-DOC-015",
@@ -333,7 +347,8 @@
       "work_packages": [
         "WP-004",
         "WP-037"
-      ]
+      ],
+      "title": "Private storage service and uploaded commitment attachments"
     },
     {
       "id": "REQ-DOC-016",
@@ -361,7 +376,8 @@
       "work_packages": [
         "WP-036",
         "WP-037"
-      ]
+      ],
+      "title": "Account/plant-owned native documents, parsed text/Word imports and core-values evidence"
     },
     {
       "id": "REQ-KNOW-015",
@@ -439,7 +455,7 @@
         "WIKI-004",
         "WIKI-009"
       ],
-      "text": "Typo-only publication does not create an update notice or reset credit. Meaningfulness is an explicit publisher flag in existing article/revision metadata, never an automatic semantic classifier.",
+      "text": "Typo-only publication does not create a reader Updated label or reset credit. Meaningfulness is an explicit publisher flag in existing article/revision metadata, never an automatic semantic classifier.",
       "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
       "operations": [],
       "acceptance_ids": [
@@ -647,12 +663,7 @@
         "DOC-015",
         "DOC-016",
         "EVR-025",
-        "EVR-104",
-        "EVR-132",
-        "EVR-136",
-        "EVR-138",
-        "EVR-275",
-        "EVR-423",
+        "EVR-020",
         "IDN-006",
         "PPL-005",
         "PPL-014"
@@ -770,10 +781,7 @@
       "feature_ids": [
         "DOC-003",
         "DOC-015",
-        "EVR-104",
-        "EVR-132",
-        "EVR-275",
-        "EVR-423",
+        "EVR-020",
         "IDN-006",
         "PPL-005",
         "PPL-014"
@@ -2553,7 +2561,8 @@
       "work_packages": [
         "WP-034",
         "WP-035"
-      ]
+      ],
+      "title": "Published Wiki corpus visibility, church overrides and MDX rendering"
     },
     {
       "id": "REQ-WIKI-002",
@@ -2594,7 +2603,8 @@
           "operation": "wiki.tableOfContents",
           "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, headings."
         }
-      ]
+      ],
+      "title": "Phase/sidebar navigation, breadcrumbs, sibling and related articles"
     },
     {
       "id": "REQ-WIKI-003",
@@ -2615,7 +2625,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
-      ]
+      ],
+      "title": "Server full-text search and search dialog/page failure semantics"
     },
     {
       "id": "REQ-WIKI-004",
@@ -2641,7 +2652,8 @@
       "work_packages": [
         "WP-034",
         "WP-035"
-      ]
+      ],
+      "title": "Per-user reading progress, resume and recent articles"
     },
     {
       "id": "REQ-WIKI-005",
@@ -2673,7 +2685,8 @@
           "operation": "wiki.bookmarks.set",
           "rule": "Set only own bookmark after current canonical identity/entitlement validation; never other account state."
         }
-      ]
+      ],
+      "title": "Per-user bookmarks with concurrency-safe add and visible-corpus reads"
     },
     {
       "id": "REQ-WIKI-006",
@@ -2709,7 +2722,8 @@
           "operation": "wiki.feedback.setMine",
           "rule": "Supported rating values: helpful, unhelpful."
         }
-      ]
+      ],
+      "title": "Helpful/unhelpful article rating with current church/user identity"
     },
     {
       "id": "REQ-WIKI-007",
@@ -2731,7 +2745,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
-      ]
+      ],
+      "title": "Article print/download PDF export from rendered content"
     },
     {
       "id": "REQ-WIKI-008",
@@ -2753,7 +2768,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
-      ]
+      ],
+      "title": "Contextual WikiGuide operational reference panel"
     },
     {
       "id": "REQ-WIKI-009",
@@ -2778,7 +2794,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-035"
-      ]
+      ],
+      "title": "Secret-gated content-cache refresh and retired admin mutations"
     },
     {
       "id": "REQ-WIKI-010",
@@ -2803,7 +2820,8 @@
       "work_packages": [
         "WP-033",
         "WP-034"
-      ]
+      ],
+      "title": "Available checksummed global reference snapshot and reproducible bootstrap contract"
     },
     {
       "id": "REQ-WIKI-011",
@@ -2832,7 +2850,8 @@
           "operation": "wiki.publicPreviewMetadata",
           "rule": "Anonymous exact public global Wiki preview is distinct from private/org reader; metadata has no private body and crawler route has no private shell."
         }
-      ]
+      ],
+      "title": "Sessionless global Wiki crawler previews and authentication boundary"
     },
     {
       "id": "REQ-WIKI-012",
