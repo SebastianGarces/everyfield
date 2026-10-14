@@ -5,7 +5,7 @@ import { baseRef, contractFingerprint, evidenceDir, evfDataDir, fail, fill, find
 import { stackEnv, stackInfo } from './task.ts';
 import { cachedTriage } from './feedback.ts';
 import { proofPlan, requiredPortions, requiredGatePortions, type ProofPlan, type Portion } from './proof-plan.ts';
-import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from './policy.ts';
+import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope, requireReviewedContract } from './policy.ts';
 import { caseCoverage, caseGrep } from './coverage.ts';
 
 export type Role='author'|'verifier';
@@ -24,8 +24,9 @@ export function validAttestation(p:Proof,publicKey:string|undefined):boolean {
  try{return verifySignature(null,Buffer.from(JSON.stringify(a)),publicKey,Buffer.from(p.attestation.signature,'base64'));}catch{return false;}
 }
 export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
- const wt=requireWorktree(root,loadConfig(root),task),cfg=loadConfig(wt);
- if(contractFingerprint(root)!==contractFingerprint(wt))fail('Verification contract/policy must match the reviewed root before any check or runner executes; worktree flags cannot downgrade application/risk gates.');
+ const wt=requireWorktree(root,loadConfig(root),task);
+ requireReviewedContract(root,wt,task);
+ const reviewedFingerprint=contractFingerprint(root),cfg=loadConfig(task.kind==='ops'?root:wt);
  const configured=(cfg as typeof cfg & {verification?:Verification}).verification;
  const settings=configured && (task.kind==='ops'?{...configured,kind:'tooling' as const}:configured);
  if(!settings) fail('Configure an explicit tooling/application proof kind. Scaffold checks cannot qualify application acceptance.');
@@ -36,7 +37,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  const context=task.kind==='ops'?{acceptance_ids:[],case_ids:[]}:packageContext(wt,wp!);
  if(task.kind==='ops')requireTaskScope(root,task);
  if(settings.kind==='application'){requireImplementation(root,wp!);requireTaskRisk(root,task);if(typeof settings.usesPaidProviders!=='boolean')fail('Declare actual provider usage before application proof.');if(settings.usesPaidProviders)requireSpend(root);}
- const plan=settings.kind==='application'||task.kind==='ops'?proofPlan(wt,task,wp??'',context.case_ids):null;
+ const plan=settings.kind==='application'||task.kind==='ops'?proofPlan(task.kind==='ops'?root:wt,task,wp??'',context.case_ids):null;
  const expectedGates=task.kind==='ops'?[]:(findPackage(loadDag(wt),wp!)).acceptance_gates;
  const included=gitOk(wt,'merge-base','--is-ancestor',baseSha,'HEAD');
  const dir=evidenceDir(root,task,sha,`${role}-${mode}`);mkdirSync(dir,{recursive:true});
@@ -68,7 +69,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
   if(r.code===0){try{attestation=JSON.parse(r.stdout);}catch{fail('Malformed independent runner attestation.');}}
  }
  // Checks or runner may mutate files, HEAD or main. The recorded precheck state must never survive that mutation.
- const unchanged=git(wt,'rev-parse','HEAD')===sha&&isClean(wt)&&contractFingerprint(wt)===fingerprint&&git(root,'rev-parse',ref)===baseSha;
+ const unchanged=contractFingerprint(root)===reviewedFingerprint&&git(wt,'rev-parse','HEAD')===sha&&isClean(wt)&&contractFingerprint(wt)===fingerprint&&git(root,'rev-parse',ref)===baseSha;
  const proof:Proof={schema:2,task:task.id,role,mode,kind:settings.kind,sha,clean,unchanged,fingerprint,base:{ref,sha:baseSha,included},acceptance,expectedCases,expectedGates,plan,checks,passed:clean&&unchanged&&included&&checks.length>0&&checks.every(c=>c.passed),qualified:false,attestation,startedAt,finishedAt:new Date().toISOString(),evidenceDir:dir};
  proof.qualified=(settings.kind==='application'&&settings.applicationQualified||task.kind==='ops')&&(!plan!.requiresStack||!!cfg.stack?.up&&!!cfg.stack?.status)&&validAttestation(proof,settings.publicKey);
  if((settings.kind==='application'||task.kind==='ops')&&!proof.qualified)proof.passed=false;
@@ -85,7 +86,8 @@ export function shippable(p:Proof):boolean {return p.schema===2&&(p.kind==='appl
 /** Exact final head/current main/full proof and independently attested identity, never historical full + current quick. */
 export function currentProof(root:string,task:TaskRef,role:Role):Proof {
  const cfg=loadConfig(root),wt=requireWorktree(root,cfg,task),sha=git(wt,'rev-parse','HEAD'),baseSha=git(root,'rev-parse',baseRef(root,cfg)),fingerprint=contractFingerprint(wt);
- if(!isClean(wt)||contractFingerprint(root)!==fingerprint)fail('Proof contract/policy must match reviewed root and clean task checkout.');
+ if(!isClean(wt))fail('Proof requires a clean task checkout.');
+ requireReviewedContract(root,wt,task);
  const key=(cfg as typeof cfg & {verification:Verification}).verification.publicKey;
  const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;if(!wp&&task.kind!=='ops')fail('Missing task package scope.');
  const context=task.kind==='ops'?{case_ids:[],acceptance_ids:[]}:packageContext(root,wp!),plan=proofPlan(root,task,wp??'',context.case_ids);

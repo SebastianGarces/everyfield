@@ -1,10 +1,36 @@
-import { createHash } from "node:crypto";
+import { createHash, createPublicKey } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
-import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, run } from "./lib.ts";
+import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, parseTask, readJson, run } from "./lib.ts";
+import { proofPlan } from "./proof-plan.ts";
+import { packageContext } from "./lib.ts";
+import { producerReady } from "./progress.ts";
 import { principlesStatus } from "./principles.ts";
 
 type Level = "PASS" | "WARN" | "FAIL";
+
+/** Read-only setup inventory. Missing owner setup warns; repository defects still fail doctor. */
+export function bootstrapReadiness(root:string):Array<[boolean,string]> {
+ const cfg=loadConfig(root) as ReturnType<typeof loadConfig>&{verification?:{kind?:string;applicationQualified?:boolean;attest?:string[];publicKey?:string}};
+ const gates=readJson<{gates:Array<{id:string;status:string}>}>(join(root,'docs/plan/release-gates.json')).gates;
+ const v=cfg.verification;
+ let key=false;try{key=!!v?.publicKey&&createPublicKey(v.publicKey).asymmetricKeyType==='ed25519';}catch{}
+ const planReady=(id:string)=>{try{const task=parseTask(id);proofPlan(root,task,task.wp,task.kind==='ops'?[]:packageContext(root,task.wp).case_ids);return true;}catch{return false;}};
+ const wiring=Object.entries(cfg.maintenanceTasks??{}).some(([id,t])=>t.owningPaths.includes('evf.config.json')&&(['stack','checks'] as const).every(k=>t.configChanges?.includes(k))&&t.checks.length>0&&planReady(id));
+ return [
+  [gates.some(g=>g.id==='G-AUTH'&&g.status==='authorized'),'owner kickoff approval in G-AUTH'],
+  [gates.some(g=>g.id==='G-WORKFLOW'&&g.status==='reconciled-independent-review'),'owner workflow approval in G-WORKFLOW'],
+  [hasRemote(root,cfg),`repository remote ${cfg.remote}`],
+  [!!v?.attest?.length&&v.attest.some(a=>a.includes('{request}')),'trusted signed runner command with {request}; owner reviews its identity and review adapter'],
+  [key,'reviewed Ed25519 public key; private key stays outside agent worktrees'],
+  [planReady('WP-087'),'reviewed WP-087 producer proof plan'],
+  [planReady('WP-001'),'reviewed WP-001 proof plan'],
+  [wiring,'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring'],
+  [producerReady(root,'WP-087'),'acknowledged WP-087 stack and test scripts milestone'],
+  [!!cfg.stack?.up&&!!cfg.stack?.status,'stack up/status commands wired after WP-087'],
+  [v?.kind==='application'&&v.applicationQualified===true,'owner-reviewed bootstrap application qualification and assertion/report driver'],
+ ];
+}
 
 export function doctor(root: string): number {
   const results: Array<[Level, string]> = [];
@@ -88,6 +114,9 @@ export function doctor(root: string): number {
   const open = existsSync(wtRoot) ? readdirSync(wtRoot) : [];
   results.push(["PASS", `${open.length} task worktree(s) open${open.length ? `: ${open.join(", ")}` : ""}`]);
   results.push(["PASS", `evf data: ${evfDataDir(root)} (git ${git(root, "rev-parse", "--short", "HEAD")})`]);
+
+  console.log("Bootstrap readiness checklist (configuration presence is not runner acceptance):");
+  for(const [ready,item] of bootstrapReadiness(root))console.log(`${ready?"PASS":"WARN"}  ${ready?"ready":"missing"}: ${item}`);
 
   for (const [lvl, msg] of results) console.log(`${lvl.padEnd(4)}  ${msg}`);
   return results.some(([l]) => l === "FAIL") ? 1 : 0;

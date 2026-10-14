@@ -211,7 +211,7 @@ test('INV-workflow-routing: Next server paths stay with implementor and presenta
  assert.equal(draftProofPlan(source,parseTask('WP-088')).requiresStack,true);
 });
 
-import { ship, listShipped } from '../ship.ts';
+import { ship, listShipped, prOpen } from '../ship.ts';
 import { requireImplementation, requireSpend } from '../policy.ts';
 test('INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated',()=>{
  const f=fixture();try{
@@ -314,7 +314,7 @@ import { draftProofPlan } from '../proof-plan.ts';
 import { caseCoverage, caseGrep } from '../coverage.ts';
 import { producerReady, recordProgress } from '../progress.ts';
 import { contractFingerprint } from '../lib.ts';
-import { renderBrief } from '../brief.ts';
+import { renderAc, renderBrief } from '../brief.ts';
 
 test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
  const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
@@ -377,6 +377,8 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
   assert.equal(producerReady(f.root,f.wp),false);
   const fingerprint=contractFingerprint(f.root);listShipped(f.root,[task.id]);const acknowledged=readFileSync(progressPath,'utf8');
   assert.equal(contractFingerprint(f.root),fingerprint);assert.equal(producerReady(f.root,f.wp),true);requireImplementation(f.root,'WP-032');
+  writeFileSync(progressPath,JSON.stringify(shipped));assert.equal(producerReady(f.root,f.wp),true);requireImplementation(f.root,'WP-032');
+  writeFileSync(progressPath,acknowledged);
   assert.equal(loadProgress(f.root)[f.wp].status,'in_progress');listShipped(f.root,[task.id]);assert.equal(readFileSync(progressPath,'utf8'),acknowledged);
   const retained=JSON.parse(readFileSync(recordPath,'utf8'));assert.equal(retained.proof.sha,verifier.sha);assert.equal(retained.author_proof.sha,author.sha);
   assert.throws(()=>recordProgress(f.root,{...record,proof:{...record.proof,task:'WP-002'}},true),/independently reviewed/);
@@ -399,16 +401,28 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
 
 test('INV-maintenance: OPS uses tooling-only proof without global app gates or stack, and retains signed cross-model review',()=>{
  const f=qualifiedFixture();try{
-  const task=parseTask('OPS-1');f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/'],checks:[{name:'tooling-upkeep',run:[process.execPath,'-e','process.stdout.write("tooling checked")']}]}};
+  const task=parseTask('OPS-1');f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/','evf.config.json'],configChanges:['stack','checks'],checks:[{name:'tooling-upkeep',run:[process.execPath,'-e',`require('node:assert/strict').equal(require('node:fs').readFileSync('tools/evf/upkeep.txt','utf8'),'Reviewed tooling change')`]}]}};
   f.cfg.verification.proofPlans[task.id]=draftProofPlan(f.root,task);
-  f.cfg.maintenanceTasks[task.id].owningPaths=['packages/domain/'];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  f.cfg.maintenanceTasks[task.id].owningPaths=['packages/domain/','evf.config.json'];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
   assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/OPS cannot authorize application code/);assert.equal(f.git('branch','--list',task.branch),'');
-  f.cfg.maintenanceTasks[task.id].owningPaths=['tools/evf/'];
+  f.cfg.maintenanceTasks[task.id].owningPaths=['tools/evf/','evf.config.json'];
   const gatePath=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(gatePath,'utf8'));gates.gates.find((g:any)=>g.id==='G-AUTH').status='not-authorized';writeFileSync(gatePath,JSON.stringify(gates));
   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
   taskStart(f.root,task,{allowUnready:false,noStack:false});
+  const wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/unreviewed-check');
+  mkdirSync(join(wt,'tools/evf'),{recursive:true});writeFileSync(join(wt,'tools/evf/upkeep.txt'),'Reviewed tooling change');
+  const candidate=structuredClone(f.cfg);
+  candidate.stack={usesPaidProviders:false,up:['scripts/stack','up'],status:['scripts/stack','status']};
+  candidate.checks=[{name:'future-check',run:[process.execPath,'-e',`require('node:fs').writeFileSync(${JSON.stringify(marker)},'ran')`]}];
+  writeFileSync(join(wt,'evf.config.json'),JSON.stringify(candidate));importGit(wt,'add','tools/evf/upkeep.txt','evf.config.json');importGit(wt,'commit','-qm','Wire candidate stack and checks with tooling change');
+  for(const field of ['publicKey','attest','proofPlans']){
+   const changed=structuredClone(candidate);changed.verification[field]=null;writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
+   assert.throws(()=>verify(f.root,task,'author','full'),/cannot change runner, keys/);
+  }
+  writeFileSync(join(wt,'evf.config.json'),JSON.stringify(candidate));
+  const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
   const a=verify(f.root,task,'author','full'),v=verify(f.root,task,'verifier','full');assert.equal(a.kind,'tooling');assert.equal(v.passed,true);assert.deepEqual(v.checks.map(c=>c.name),['tooling-upkeep']);assert.deepEqual(v.expectedCases,[]);assert.deepEqual(v.expectedGates,[]);
-  assert.equal(currentProof(f.root,task,'verifier').sha,v.sha);assert.throws(()=>stack(f.root,task,'up'),/no application stack/);
+  assert.equal(currentProof(f.root,task,'verifier').sha,v.sha);assert.equal(prOpen(f.root,task),0);assert.equal(existsSync(marker),false);assert.throws(()=>stack(f.root,task,'up'),/no application stack/);
   process.env.EVF_FIXTURE_FAMILY='Sol';verify(f.root,task,'verifier','full');assert.throws(()=>currentProof(f.root,task,'verifier'),/distinct trusted/);
  }finally{delete process.env.EVF_FIXTURE_FAMILY;f.close();}
 });
@@ -422,5 +436,32 @@ test('INV-execution-policy: worktree tooling/risk edits cannot run checks or sta
   assert.throws(()=>verify(f.root,task,'verifier','full'),/match the reviewed root before any check/);
   assert.throws(()=>stack(f.root,task,'up'),/match the reviewed root before runtime/);
   assert.equal(existsSync(marker),false);
+ }finally{f.close();}
+});
+
+import { bootstrapReadiness } from '../doctor.ts';
+test('BUG-bootstrap-reader: case and full brief preserve structured fixtures, actors, clock, actions, expected and groups',()=>{
+ const c=renderAc(source,'REF-CASE-001');
+ assert.match(c,/"timezone": "America\/Chicago"/);assert.match(c,/"accepted_original_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"/);
+ for(const field of ['given','actor','clock','action','expected'])assert.ok(c.includes(field+':\n```json\n'));
+ assert.doesNotMatch(c,/undefined|\[object Object\]/);
+ assert.match(renderAc(source,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
+ const subcases=renderAc(source,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
+ const full=renderBrief(source,parseTask('WP-001'),{full:true});
+ assert.ok(full.includes(c));assert.doesNotMatch(full,/fixture undefined|\[object Object\]/);
+ const catalog=loadRegistry(source);assert.ok(renderAc(source,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+});
+test('INV-bootstrap-readiness: missing owner setup lists each prerequisite without starting a runner',()=>{
+ const f=fixture();try{
+  const missing=bootstrapReadiness(f.root).filter(([ready])=>!ready).map(([,item])=>item);
+  assert.deepEqual(missing,[
+   'owner kickoff approval in G-AUTH','owner workflow approval in G-WORKFLOW','repository remote origin',
+   'trusted signed runner command with {request}; owner reviews its identity and review adapter',
+   'reviewed Ed25519 public key; private key stays outside agent worktrees',
+   'reviewed WP-087 producer proof plan','reviewed WP-001 proof plan',
+   'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring',
+   'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087',
+   'owner-reviewed bootstrap application qualification and assertion/report driver']);
+  f.authorize();assert.equal(bootstrapReadiness(f.root)[0][0],true);assert.equal(bootstrapReadiness(f.root)[1][0],true);
  }finally{f.close();}
 });

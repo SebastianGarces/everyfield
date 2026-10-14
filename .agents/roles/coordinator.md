@@ -3,6 +3,29 @@
 Intent's coordinator behavior applies: plan in the spec note, one agent per task, batch delegation,
 wait for results. These are the EveryField additions.
 
+## Bootstrap before the first build tasks
+
+1. Sebastian reviews one bootstrap commit installing the trusted signed runner command, its public
+   key reference and identity/review adapter, and reviewed proof plans for WP-087, WP-001 and the
+   OPS wiring task. Install the reviewed bootstrap check/report driver and enable
+   `verification.kind: "application"` and `applicationQualified: true` for WP-087 producer proof
+   without a stack. Its report covers the selected cases, including an empty test list when no
+   cases are selected; real producer gates still need checks and signed review. Keep the private
+   key outside agent worktrees. This owner-reviewed commit installs the initial trust boundary;
+   it does not earn a self-attested OPS proof. Close kickoff gates only after
+   their owner review, configure the remote separately, then read `bin/evf doctor` readiness.
+2. Start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
+   proves its reviewed producer gates with the bootstrap runner, and leaves `evf.config.json`
+   to maintenance. Review and acknowledge its shipped record.
+3. Run the reviewed OPS wiring task. Its root `maintenanceTasks` entry owns `evf.config.json`,
+   permits `configChanges: ["stack", "checks"]`, and supplies tooling checks that exercise the new
+   scripts. The OPS task installs stack/check commands, including real assertion/report checks
+   for WP-001. The bootstrap application qualification remains fixed; any runner/key/proof-plan
+   authority change needs a separate owner-reviewed root installation. Re-prove active S0 tasks
+   after changes to reviewed configuration merge.
+4. Check readiness again, then start WP-001 with the delivered stack and real assertion/report
+   checks. Open gates, missing runner/key or an unreviewed proof plan still prevent execution.
+
 ## Each planning round
 
 1. Bring the workspace root to `main`: `git pull --ff-only origin main` (agents read `AGENTS.md`
@@ -10,13 +33,15 @@ wait for results. These are the EveryField additions.
    Doctor checks pstack for principle updates once a week. If it warns that principles are behind,
    plan one small task that runs `bin/evf principles --apply`, updates the `AGENTS.md` list and role
    files, and ships as a PR.
-2. Review `bin/evf shipped`, then acknowledge the shipped milestone with
-   `bin/evf shipped --clear <task>`. evf writes canonical progress automatically; commit its generated
-   change through a reviewed `OPS-n` maintenance task owning only `docs/build-progress.json`.
-   Transfer the exact evf-generated change into that task worktree, restore the root to the committed
-   progress, and use the normal tooling proof/review loop. Do this before the next planning round
-   or handoff so the root never retains an uncommitted progress change.
-   Producer/interface milestones unlock dependents. Full closure remains an integration decision.
+2. Review `bin/evf shipped`, then acknowledge each reviewed milestone with
+   `bin/evf shipped --clear <task>`. The retained acknowledged signed record unlocks dependents
+   immediately, even before canonical progress is committed. evf also writes the progress projection.
+   Batch all evf-generated progress changes into one reviewed `OPS-n` commit per coordinator round,
+   owning only `docs/build-progress.json`. Transfer the exact generated change into that task worktree
+   and restore the root progress file to its committed bytes before delegating dependents. Retain
+   the shipped records under the git common directory. Do not wait for the progress OPS commit to
+   unlock tasks or create a separate progress commit after every acknowledgement. Finish the round's
+   batch before handoff. Full package closure remains an integration decision.
 3. Plan: `bin/evf plan <slice or WP IDs>` prints `@@@task` blocks with `dependsOn`,
    `conflictsWith` and effort. Paste them into the spec note. Do not hand-write task context.
 4. For each UI task, set the tier in its task note and run `bin/evf task brief <task> --ui-tier <tier>`.

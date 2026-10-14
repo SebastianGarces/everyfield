@@ -46,7 +46,7 @@ The hook considers intake, eligible pending work and unresolved reservations. Mo
 4. Start work for P0 and P1 now, then small features, within the limit. Put
    `bin/evf task brief FB-<n>` in each task note and delegate:
    - Bug: `implementor` (Sol). A bug only in UI code: `ui-designer` (Opus, tier UI-1 or UI-2).
-     The independent verifier checks full current-stage proof; a configured human must approve the final head before merge.
+     The independent verifier checks full current-stage proof. Follow `.agents/skills/ship/SKILL.md` for merge authority.
    - `feature-small`: `ui-designer` (Opus, tier UI-2 or UI-3) for the prototype. The PR is a draft
      that waits for Sebastian. Full scoped proof remains required; owner product review controls promotion/merge.
    - A P0 over the limit: start it with `--over-limit` and say so in the digest.

@@ -20,6 +20,29 @@ Planning precomputes all selected package endpoints before wiring dependencies, 
 
 Implementation kickoff and workflow approval are current action gates, rechecked before start, stack-up, application proof, publication and merge. Read-only briefs and separately authorized local tooling work do not open them. Runtime/recovery evidence gates close after their producers run; they do not prevent those producers starting. Explicit paid-provider declarations trigger the concrete spending approval before usage; purely local/synthetic work does not imply spending. `--allow-unready` grants no bypass.
 
+## Bootstrap before the first build tasks
+
+1. Sebastian reviews one bootstrap commit installing the trusted signed runner command, its public
+   key reference and identity/review adapter, and reviewed proof plans for WP-087, WP-001 and the
+   OPS wiring task. Install the reviewed bootstrap check/report driver and enable
+   `verification.kind: "application"` and `applicationQualified: true` for WP-087 producer proof
+   without a stack. Its report covers the selected cases, including an empty test list when no
+   cases are selected; real producer gates still need checks and signed review. Keep the private
+   key outside agent worktrees. This owner-reviewed commit installs the initial trust boundary;
+   it does not earn a self-attested OPS proof. Close kickoff gates only after
+   their owner review, configure the remote separately, then read `bin/evf doctor` readiness.
+2. Start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
+   proves its reviewed producer gates with the bootstrap runner, and leaves `evf.config.json`
+   to maintenance. Review and acknowledge its shipped record.
+3. Run the reviewed OPS wiring task. Its root `maintenanceTasks` entry owns `evf.config.json`,
+   permits `configChanges: ["stack", "checks"]`, and supplies tooling checks that exercise the new
+   scripts. The OPS task installs stack/check commands, including real assertion/report checks
+   for WP-001. The bootstrap application qualification remains fixed; any runner/key/proof-plan
+   authority change needs a separate owner-reviewed root installation. Re-prove active S0 tasks
+   after changes to reviewed configuration merge.
+4. Check readiness again, then start WP-001 with the delivered stack and real assertion/report
+   checks. Open gates, missing runner/key or an unreviewed proof plan still prevent execution.
+
 ## Proof and staged acceptance
 
 The reviewed root config installs a sparse `verification.proofPlans` entry for each active task before task creation/rebase. It has:
@@ -38,7 +61,7 @@ A separately trusted runner reproduces the applicable real checks and signs an E
 
 This is an operator trust boundary: cryptography binds a claim to the configured runner, while the runner is responsible for reproducing evidence and authenticating actual provider/session identity. Root configuration and keys must be independently reviewed; agents cannot self-authorize their own proof-plan/key changes. Context/policy changes merge separately before consumer verification.
 
-Before any verification check/runner or stack-up command, worktree control/context bytes must match the reviewed root. Relabeling a worktree proof as tooling cannot bypass application or risk gates. Checks and runner return before final HEAD/clean/base/fingerprint checks. Consumption revalidates task, selected context, staged plan, gate names, exact log hashes, signature and current full head/base. Quick proof cannot borrow a historical full pass. External PR/ship paths fetch current main before consumption. A changed branch stops for fresh proof and the review requirements in `ship`.
+Before WP/feedback verification checks, runner execution or stack-up, worktree control/context bytes must match the reviewed root. OPS uses the reviewed maintenance rule below to permit changes to its own tooling subjects. Relabeling a worktree proof as tooling cannot bypass application or risk gates. Checks and runner return before final HEAD/clean/base/fingerprint checks. Consumption revalidates task, selected context, staged plan, gate names, exact log hashes, signature and current full head/base. Quick proof cannot borrow a historical full pass. External PR/ship paths fetch current main before consumption. A changed branch stops for fresh proof and the review requirements in `ship`.
 
 ## Feedback and human ownership
 
@@ -64,7 +87,7 @@ writes; concrete protection configuration remains a separate owner action.
 Only evf writes `docs/build-progress.json`, on ship and coordinator acknowledgement. Shipped records
 retain author/verifier proofs, proven/deferred case/gate portions and merge commits. A coordinator
 reviews `evf shipped`, then acknowledges with `evf shipped --clear <task>`; exact replays are
-idempotent. Commit the evf-generated change through reviewed `OPS-n` maintenance as described in
+idempotent. Batch the evf-generated changes into one reviewed `OPS-n` maintenance commit per coordinator round as described in
 [the coordinator role](../../.agents/roles/coordinator.md). No package patch or offline explorer
 closure checklist is required.
 
@@ -74,7 +97,7 @@ evidence and refuses unknown package IDs. Generate a read-only explorer outside 
 with `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
 
 Reviewed producer/interface milestones unlock dependents while full closure stays at integration.
-A contract milestone unlocks consumers; without a contract split the API/producer milestone does.
+An acknowledged retained signed shipped record unlocks consumers without waiting for the progress commit. Restore the root progress projection to committed bytes after transferring its generated changes to the round's OPS worktree. A contract milestone unlocks consumers; without a contract split the API/producer milestone does.
 Milestone readiness rechecks retained signed independent proof, main ancestry and actual merged
 owning-path bytes. Full closure still needs all parts, obligations, gates and canonically done
 prerequisites. A reviewed full-target integration plan may declare
@@ -103,6 +126,14 @@ regression tests follow `test-standard` and protect costly silent failures.
 
 `OPS-n` is tooling maintenance. The operator registers its title, owning paths and local tooling `checks` in `maintenanceTasks`,
 reviews and installs its maintenance draft, then uses the same task, verify, PR and ship commands.
+Only changes inside those reviewed owning paths may differ from the root. To wire delivered stack
+and test scripts, explicitly allow `configChanges: ["stack", "checks"]` and own `evf.config.json`.
+No other config field may change: runner/key references, risk/proof plans, maintenance scope and
+merge policy remain root authority. Checks, proof plans and runner commands always come from the
+reviewed root. The signed final-head source fingerprint binds the actual candidate tooling and
+config, and publication rechecks both the reviewed boundary and full proof. A later change to
+root policy invalidates existing proof. WP and feedback tasks have no maintenance exception.
+
 It runs no application stack and has no package cases or gates. Independent signed author/verifier
 proof and approved review still apply; OPS proof kind is always tooling. It grants no application or
 external setup authority. A runner remains necessary before remote shipping.

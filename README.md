@@ -2,7 +2,7 @@
 
 This repository specifies a fresh EveryField application. It contains documentation, approved reference content and an on-demand plan explorer. [Canonical build progress](docs/build-progress.json) records implementation milestones and completion. There are no customer imports or data migration.
 
-Start with [current orientation](docs/START-HERE.md), then generate only the assigned [package context](docs/plan/context.md). Product chapters state behavior directly; the catalogs provide stable feature, operation, requirement and acceptance identifiers. The target schema is the proposed v3 design, not the v2 source-table inventory. Builders do not need v2 or the former decision chronology.
+Start with [current orientation](docs/START-HERE.md), then generate only the assigned [package context](docs/plan/context.md). Requirement JSON in `docs/catalog/requirements/` is the behavior authority. Product chapters are readable summaries; when they differ, the requirement wins and the summary must be corrected. The catalogs provide stable feature, operation, requirement and acceptance identifiers. The target schema is the proposed v3 design, not the v2 source-table inventory. Builders do not need v2 or the former decision chronology.
 
 - [Product scope and exclusions](docs/product/scope.md)
 - [Architecture](docs/architecture/core.md), [auth](docs/architecture/auth.md), [security](docs/architecture/security.md) and [audit](docs/architecture/audit.md)

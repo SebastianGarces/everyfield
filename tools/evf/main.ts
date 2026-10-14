@@ -15,7 +15,7 @@ const HELP = `evf: EveryField v3 workflow CLI
 Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
-  evf ac <acceptance-id>                                      full obligations for one criterion
+  evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
   evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
   evf proof draft <task>                                     print a proof plan for operator review
 
@@ -121,7 +121,7 @@ function main(argv: string[]): number {
       return 0;
     }
     case "ac":
-      console.log(renderAc(root, args[0] ?? ""));
+      console.log((args.length?args:[" "]).map(id=>renderAc(root,id)).join("\n\n"));
       return 0;
     case "shipped": {
       const clear: string[] = [];

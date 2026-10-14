@@ -28,7 +28,7 @@ export type Config = {
   maxAgentsMdLines: number;
   stack: StackDef | null;
   checks: CheckDef[];
-  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[] }>;
+  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[]; configChanges?: Array<"stack" | "checks"> }>;
 };
 
 export type Package = {
@@ -62,7 +62,7 @@ export type Catalog = {
   requirement_files: string[]; case_files: string[];
 };
 export type Requirement = { id: string; text: string; spec: string };
-export type Case = { id: string; fixture: string; expected: string; work_packages: string[] };
+export type Case = { id: string; description: string; given: Record<string, unknown>; actor: Record<string, unknown>; clock: Record<string, unknown>; action: Record<string, unknown>; expected: Record<string, unknown>; group?: string; subcases?: Array<Record<string, unknown>>; work_packages: string[] };
 export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; own_requirement_ids: string[]; own_case_ids: string[]; [key: string]: unknown };
 
 export type Part = "contract" | "api" | "ui" | null;
@@ -177,10 +177,10 @@ export function packageContext(root: string, wp: string): Context {
   return context;
 }
 /** Pin every committed policy/context byte; proof artifacts remain outside the checkout. */
-export function contractFingerprint(root: string): string {
-  const files = git(root,"ls-files","-z").split("\0").filter(p => p !== 'docs/build-progress.json' && p !== 'docs/.build-progress.lock').filter(p => p === 'AGENTS.md' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
+export function contractFingerprint(root: string, omit: (path: string) => boolean = () => false, config?: Config): string {
+  const files = git(root,"ls-files","-z").split("\0").filter(p => p !== 'docs/build-progress.json' && p !== 'docs/.build-progress.lock').filter(p => p === 'AGENTS.md' || p === 'bin/evf' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
   const hash = createHash('sha256');
-  for (const path of files) hash.update(path+'\0').update(readFileSync(join(root,path))).update('\0');
+  for (const path of files.filter(p => !omit(p))) hash.update(path+'\0').update(path === 'evf.config.json' && config ? JSON.stringify(config) : readFileSync(join(root,path))).update('\0');
   return hash.digest('hex');
 }
 

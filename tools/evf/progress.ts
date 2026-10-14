@@ -37,9 +37,7 @@ export function producerReady(root:string,wp:string):boolean {
  const pkg=findPackage(loadDag(root),wp),parts=partsOf(pkg);
  const anchor=parts.includes('contract')?'contract':parts.includes('api')?'api':null;
  const task=anchor?`${wp}/${anchor}`:wp,record=retained(root,task);
- const progress=readJson<Progress>(join(root,'docs/build-progress.json'));
- const milestone=progress.packages[wp]?.milestones?.[task];
- return !!record?.acknowledged&&milestone?.acknowledged===true&&milestone.merge_commit===record.merge_commit&&reviewedMilestone(root,record);
+ return !!record?.acknowledged&&reviewedMilestone(root,record);
 }
 /** Only evf writes canonical progress. Lock and atomic rename protect concurrent ships/acks. */
 export function recordProgress(root:string,record:ShippedRecord,acknowledged:boolean):void {

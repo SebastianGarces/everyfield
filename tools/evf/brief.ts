@@ -1,4 +1,4 @@
-import { currentCatalog, fail, findPackage, loadConfig, loadDag, loadProgress, packageContext, pathsForPart, worktreePath, type TaskRef } from "./lib.ts";
+import { currentCatalog, fail, findPackage, loadConfig, loadDag, loadProgress, packageContext, pathsForPart, worktreePath, type Case, type TaskRef } from "./lib.ts";
 import { producerReady } from "./progress.ts";
 import { renderFeedbackBrief } from "./feedback.ts";
 
@@ -27,7 +27,13 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 }
 export function renderAc(root: string,id: string): string {
  const {registry,requirements,cases}=currentCatalog(root);
+ if(cases.has(id))return renderCase(cases.get(id)!);
  const entries=registry.filter(e=>e.id===id || e.shared_gate_id===id);
  if (!entries.length) fail(`Unknown current acceptance ${id}.`);
- return entries.map(e=>[`## ${e.id} (${e.feature_id})`,...e.requirement_ids.map(id=>`${id}: ${requirements.get(id)!.text} (${requirements.get(id)!.spec})`),...e.case_ids.map(id=>`${id}: fixture ${cases.get(id)!.fixture}; expected ${cases.get(id)!.expected}`),`Operations: ${e.operations.join(", ")}. Packages: ${e.work_packages.join(", ")}.`].join("\n")).join("\n\n");
+ return entries.map(e=>[`## ${e.id} (${e.feature_id})`,...e.requirement_ids.map(id=>`${id}: ${requirements.get(id)!.text} (${requirements.get(id)!.spec})`),...e.case_ids.map(id=>renderCase(cases.get(id)!)),`Operations: ${e.operations.join(", ")}. Packages: ${e.work_packages.join(", ")}.`].join("\n")).join("\n\n");
+}
+
+function renderCase(c:Case):string {
+ const fields=['given','actor','clock','action','expected','group','subcases'] as const;
+ return [`### ${c.id}: ${c.description}`,...fields.filter(key=>key in c).map(key=>`${key}:\n\`\`\`json\n${JSON.stringify(c[key],null,2)}\n\`\`\``)].join('\n\n');
 }
