@@ -116,7 +116,7 @@
     {
       "id": "Q-WIKI-EDITOR",
       "title": "Wiki editor library",
-      "slice": "S2",
+      "slice": "S0",
       "work_packages": [
         "WP-032",
         "WP-035"

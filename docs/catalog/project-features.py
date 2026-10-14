@@ -25,6 +25,8 @@ def project(root):
     if len(feature_ids) != len(features):
         raise ValueError('Duplicate feature ID')
     for feature in features:
+        if 'status' in feature:
+            raise ValueError('Feature status duplicates docs/build-progress.json: ' + feature['id'])
         rid = 'REQ-' + feature['id']
         requirement = by_id[rid]
         if feature['id'] not in requirement['feature_ids'] or rid not in feature['requirement_ids']:

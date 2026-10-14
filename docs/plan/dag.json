@@ -142,7 +142,7 @@
           "REQ-IDN-029": "Trusted actor/scope and closed role conventions; actual session and grant enforcement belongs to identity/access producers.",
           "REQ-TSK-018": "Distinct time values, injected clock and deterministic resolver conventions; task/reminder workflows belong to their producers.",
           "REQ-OPS-004": "Short transaction, durable intent and replay conventions; real domain persistence belongs to later producers.",
-          "REQ-PI-037": "Atomic revision/audit/receipt pattern and private-care exclusion; assessment input revision triggers belong to each producer.",
+          "REQ-PI-037": "Atomic revision/audit/receipt pattern and private-care exclusion; WP-040 owns assessment input revision triggers; producers call no revision helper.",
           "REQ-PPL-024": "Typed Person subjects in shared receipt/audit contracts; actual merge/reference/inverse behavior belongs to WP-015 and later consumers."
         },
         "chapter_links": [

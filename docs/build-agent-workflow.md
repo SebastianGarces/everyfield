@@ -10,8 +10,10 @@ owners submit no progress patches and never rewrite canonical JSON.
    proven case/gate portions and deferred owners.
 2. Run `bin/evf shipped --clear <task>` to acknowledge the reviewed record. evf updates canonical
    progress automatically and retains proof provenance. Exact replays do not advance revisions.
-3. Commit the generated progress change on the integration branch. No second progress task or
-   package patch is needed. Feedback and maintenance records do not change build package status.
+3. Commit the exact evf-generated change through a reviewed `OPS-n` maintenance task owning only
+   `docs/build-progress.json`. Transfer it into that task worktree, restore the root to committed
+   progress, and use the normal tooling proof/review loop before the next planning round or handoff.
+   Feedback and maintenance records do not change build package status.
 
 A reviewed producer/interface milestone unlocks dependent packages. Split packages expose their
 contract first, or API when no contract part exists. Full package closure is unnecessary for startup,
