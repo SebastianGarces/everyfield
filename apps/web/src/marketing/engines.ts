@@ -3,7 +3,7 @@
 // EvryBot life, the floating nav pill, the mobile menu and the FAQ. The markup comes from markup.ts.
 // startMotion() runs once per page load and returns a cleanup. Every engine renders a still frame under
 // prefers-reduced-motion. Comments that start with "Revision" keep the prototype's design notes.
-import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_TEAMS, HA_DRAFT, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SCENES, SD_PIPE, SD_SCOPES, isPanelKind, type PanelKind } from "./scene-data";
+import { CX_A, CX_COUNT, CX_DRAFT, CX_PEOPLE, CX_Q, CX_TEAMS, HA_DRAFT, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SCENES, SD_PIPE, SD_SCOPES, isPanelKind, type PanelKind } from "./scene-data";
 
 type Styled = HTMLElement | SVGElement;
 type El = Styled | null | undefined;
@@ -246,7 +246,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     /* Guests drop in and the attendance count ticks up */
     cxQA(I, ".cx-guests .ha-chip").forEach((c, j) => { const p = P(t, 3800 + j * 160, 420); to(c, 0, -16 * (1 - back(p)), 1, clamp(p * 2.5) * R); });
     const cnt = cxQ(I, '[data-n="att"]');
-    cxN(cnt, 12 * out(P(t, 3850, 1100)) * R);
+    cxN(cnt, CX_COUNT.att * out(P(t, 3850, 1100)) * R);
     set(cnt, "transform", "scale(" + (1 + 0.06 * bump(t, 4950, 260)).toFixed(4) + ")");
     cxPop(cxQ(I, ".cx-att .badge"), t, 4500, R);
   },
@@ -289,9 +289,9 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     });
   },
   focus(I, t) {
-    const R = cxRst(t, 6200), d = 16 * out(P(t, 300, 1200)) * R;
+    const R = cxRst(t, 6200), d = CX_COUNT.focusDays * out(P(t, 300, 1200)) * R;
     cxN(cxQ(I, '[data-n="days"]'), d);
-    set(cxQ(I, ".cx-rf"), "clip-path", "inset(0 " + ((1 - d / 16) * 100).toFixed(2) + "% 0 0 round 99px)");
+    set(cxQ(I, ".cx-rf"), "clip-path", "inset(0 " + ((1 - d / CX_COUNT.focusDays) * 100).toFixed(2) + "% 0 0 round 99px)");
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
     const s = out(P(t, 2550, 380)) * R, f = cxQ(I, ".cx-flip2")?.children;
     if (f) to(f[0] as Styled, 0, -6 * s, 1, 1 - s);
@@ -299,9 +299,9 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
   },
   facts(I, t) {
     const R = cxRst(t, 6000), p = out(P(t, 300, 1100)) * R;
-    set(cxQ(I, ".cx-ring .fg"), "stroke-dashoffset", (169.65 * (1 - 0.71 * p)).toFixed(2));
-    cxN(cxQ(I, '[data-n="pct"]'), 71 * p);
-    cxQA(I, '[data-n="kv"]').forEach((el, k) => { if (k < 3) cxN(el, [24, 17, 7][k]! * out(P(t, 300 + k * 90, 900)) * R); });
+    set(cxQ(I, ".cx-ring .fg"), "stroke-dashoffset", (169.65 * (1 - (CX_COUNT.pct / 100) * p)).toFixed(2));
+    cxN(cxQ(I, '[data-n="pct"]'), CX_COUNT.pct * p);
+    cxQA(I, '[data-n="kv"]').forEach((el, k) => { if (k < 3) cxN(el, CX_COUNT.kv[k]! * out(P(t, 300 + k * 90, 900)) * R); });
     cxHl(cxQ(I, ".cx-hl"), t, 1650, 5800, R);
     cxQA(I, ".cx-names .ha-chip").forEach((c, k) => cxPop(c, t, 2500 + k * 120, R));
   },
@@ -347,7 +347,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
       set(bars[k], "transform", "scaleX(" + ((v / 4) * p).toFixed(4) + ")");
       set(wk[k], "opacity", out(P(t, 900 + k * 120, 400)).toFixed(3));
     });
-    cxN(cxQ(I, '[data-n="sum"]'), 5 * out(P(t, 1900, 800)));
+    cxN(cxQ(I, '[data-n="sum"]'), CX_COUNT.sum * out(P(t, 1900, 800)));
     cxHl(cxQ(I, ".sd-pl .cx-hl"), t, 2450, 1e9);
   },
   lens(I, t) {
@@ -358,7 +358,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     cxQA(I, ".sd-pr").forEach((r, k) => cxRise(r, t, 2650 + k * 110, 1));
   },
   top(I, t) {
-    cxN(cxQ(I, '[data-n="top"]'), 4 * out(P(t, 300, 800)));
+    cxN(cxQ(I, '[data-n="top"]'), CX_COUNT.top * out(P(t, 300, 800)));
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
   },
   /* Revision 25 /oversight panels. Each plays once to its end and holds there. */
@@ -389,7 +389,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     cxPress(cxQ(I, ".cx-t0"), t, 2100, 0.06);
   },
   help(I, t) {
-    cxN(cxQ(I, '[data-n="days"]'), 205 * out(P(t, 300, 1100)));
+    cxN(cxQ(I, '[data-n="days"]'), CX_COUNT.helpDays * out(P(t, 300, 1100)));
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
     cxFlip(cxQ(I, ".ov-off"), out(P(t, 2550, 380)));
   },

@@ -92,3 +92,13 @@ a:focus-visible, button:focus-visible, .mk-btn:focus-visible, summary:focus-visi
 .form-actions { margin-top: auto; display: flex; flex-direction: column; gap: 16px; }
 /* The request button keeps its colours on /access, where it carries aria-current. */
 .nav-links a.mk-btn[aria-current="page"] { color: var(--mk-cta-text); }
+
+/* Animated numbers in the product panels (E8). markup.ts sets --nd to the digit count of each count's widest value.
+   Tabular figures make every digit the same width, so the box never changes size during a count: line breaks stay put
+   and nothing below moves (on phones the subtitle "Harvest Point · 190 people" wrapped and unwrapped as it counted).
+   :where keeps this below each counter's own display and alignment rules. */
+:where(.mk-signal) [data-n] { display: inline-block; min-width: calc(var(--nd, 1) * 1ch); font-variant-numeric: tabular-nums; text-align: end; }
+/* A count and its unit stay on one line ("214 people"), so a narrow card breaks before them, not inside. */
+.cx-keep { white-space: nowrap; }
+/* Inside a sentence the count starts where the text does; column numbers keep end alignment. */
+.cx-keep [data-n] { text-align: start; }
