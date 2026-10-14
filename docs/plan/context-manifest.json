@@ -15698,9 +15698,7 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "consumed_acceptance_operation_ids": [],
       "acceptance_ids": [
         "AC-PI-001--PI-001",
         "AC-PI-002--PI-002",
@@ -15951,7 +15949,6 @@
         "intelligence.buildFactSnapshot",
         "intelligence.deriveLensEvidence",
         "intelligence.formatCitedFact",
-        "intelligence.markMaterialRevision",
         "intelligence.readAssessmentHistory",
         "intelligence.readCommittedAdultCohort",
         "intelligence.readExitCriteria",
@@ -15984,7 +15981,6 @@
         "followups.listContactHistory",
         "followups.readObligations",
         "followups.recordOutcome",
-        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates",
         "onboarding.createPlant",
@@ -17194,9 +17190,7 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "consumed_acceptance_operation_ids": [],
       "acceptance_ids": [
         "AC-PI-019--PI-019",
         "AC-PI-020--PI-020",
@@ -17401,7 +17395,6 @@
         "intelligence.describeRunFailure",
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessmentDelta",
         "intelligence.readAssessmentRun",
@@ -17421,9 +17414,7 @@
         "organizationLaunchSummary.readPublished",
         "organizations.correctReportingLocation"
       ],
-      "shared_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "shared_operation_ids": [],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",
@@ -27203,9 +27194,7 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "consumed_acceptance_operation_ids": [],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
         "AC-ADM-002--ADM-002",
@@ -29206,7 +29195,6 @@
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readAssessmentDelta",
@@ -29680,9 +29668,7 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "shared_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "shared_operation_ids": [],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",
@@ -32838,9 +32824,7 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "consumed_acceptance_operation_ids": [],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
         "AC-ADM-002--ADM-002",
@@ -34841,7 +34825,6 @@
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readAssessmentDelta",
@@ -35315,9 +35298,7 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "shared_operation_ids": [
-        "intelligence.markMaterialRevision"
-      ],
+      "shared_operation_ids": [],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",

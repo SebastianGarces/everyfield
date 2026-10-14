@@ -296,6 +296,10 @@ def current_rule(rule):
                         'with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD')
     rule = rule.replace('Plant publication completes the paired assessment and its availability; increment only affected organization material inputs.',
                         'Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source revisions without advancing organization material revision for a source-only change.')
+    rule = rule.replace('Release eligibility and affected exact-org material revision commit transactionally; replay no duplicate.',
+                        'Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Only affiliation and sharing changes advance organization material revision.')
+    rule = rule.replace('Affected org material input revision bumps atomically. No plant-source self-invalidation.',
+                        'Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation.')
     if rule.startswith('Supported ') and rule.endswith('[].'):
         return rule[:-3] + '.'
     return rule

@@ -3,6 +3,8 @@
 import argparse
 import json
 import re
+import shutil
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,10 +59,39 @@ def check(root):
     return errors
 
 
+def self_test(root):
+    """BUG-fff6858: retired tables fail while domain enum values remain valid."""
+    with tempfile.TemporaryDirectory(prefix='evf-retired-tables-') as directory:
+        fixture = Path(directory)
+        for name in ['docs/schema/target.json', 'docs/acceptance/schema.json']:
+            destination = fixture / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(root / name, destination)
+        shutil.copytree(root / 'docs/architecture', fixture / 'docs/architecture')
+        requirement = fixture / 'docs/catalog/requirements/fixture.json'
+        requirement.parent.mkdir(parents=True)
+        for text, expected in [
+            ('Write email_intent after commit.', ['email_intent']),
+            ('Supported category values: ministry_team', []),
+            ('The ministry_team table stores teams.', ['ministry_team']),
+        ]:
+            requirement.write_text(json.dumps({'text': text}) + '\n')
+            actual = check(fixture)
+            wanted = [f'docs/catalog/requirements/fixture.json:1: retired table {table}'
+                      for table in expected]
+            if actual != wanted:
+                raise AssertionError(f'{text!r}: expected {wanted!r}, got {actual!r}')
+    print('PASS: retired-table self-test rejects table references and accepts ministry_team category')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
+    parser.add_argument('--self-test', action='store_true')
     args = parser.parse_args()
+    if args.self_test:
+        self_test(args.root)
+        return 0
     errors = check(args.root)
     print('\n'.join('FAIL: ' + e for e in errors) if errors else
           'PASS: architecture identifiers, audit actions, job kinds and acceptance table bindings resolve')

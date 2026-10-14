@@ -971,7 +971,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.markAssessmentSeen",
-          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility and affected exact-org material revision commit transactionally; replay no duplicate."
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Only affiliation and sharing changes advance organization material revision."
         }
       ]
     },
@@ -1103,7 +1103,7 @@
         },
         {
           "operation": "intelligence.releaseAssessmentToOversight",
-          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Affected org material input revision bumps atomically. No plant-source self-invalidation."
+          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation."
         },
         {
           "operation": "organizationIntelligence.read",

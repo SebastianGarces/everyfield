@@ -6216,9 +6216,7 @@
       "MW-CASE-026",
       "SCHEMA-012"
     ],
-    "operations": [
-      "intelligence.markMaterialRevision"
-    ],
+    "operations": [],
     "work_packages": [
       "WP-040",
       "WP-043"
