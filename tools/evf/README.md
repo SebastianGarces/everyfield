@@ -31,7 +31,7 @@ Implementation kickoff and workflow approval are current action gates, rechecked
    key outside agent worktrees. This owner-reviewed commit installs the initial trust boundary;
    it does not earn a self-attested OPS proof. Close kickoff gates only after
    their owner review, configure the remote separately, then read `bin/evf doctor` readiness.
-2. Import WP-097 completion on main through the bounded fast-track path in the ship skill, then start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
+2. Import WP-097 completion on main and merge its generated progress through the bounded handoff in the ship skill, then start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
    proves its reviewed producer gates with the bootstrap runner, and leaves `evf.config.json`
    to maintenance. Review and acknowledge its shipped record.
 3. Run the reviewed OPS wiring task. Its root `maintenanceTasks` entry owns `evf.config.json`,
