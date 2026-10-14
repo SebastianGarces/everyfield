@@ -2855,11 +2855,11 @@ var CX_DEFS = {
   /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
   /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Tones lilac, dawn, sky, field
      differ from the network list below it (sea, rose, sun, slate). */
-  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["lilac", "dawn", "sky", "field"][i], "", s.title, s.body]; }) },
+  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["lilac", "dawn", "sky", "sun"][i], "", s.title, s.body]; }) },
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) }
 };
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sun' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);

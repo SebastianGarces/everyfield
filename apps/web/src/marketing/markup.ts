@@ -376,12 +376,12 @@ function chapterDefs(): Record<string, ChapterDef> {
       { panel: "share", tone: "dawn", icon: "Sharing", title: "You see it first.", body: "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share." },
     ] },
     sending: { title: S.sending.title, auto: true, mirror: true, link: S.sending.link, steps: NETWORK_PANELS.map((k, i) => ({ panel: k, tone: NETWORK_TONES[i] as string, icon: "", title: S.sending.steps[i]!.title, body: S.sending.steps[i]!.body })) },
-    "every-plant": { title: S.oversight_page.chapter.title, auto: true, steps: S.oversight_page.chapter.steps.map((s, i) => ({ panel: panel(s.panel), tone: ["lilac", "dawn", "sky", "field"][i] as string, icon: "", title: s.title, body: s.body })) },
+    "every-plant": { title: S.oversight_page.chapter.title, auto: true, steps: S.oversight_page.chapter.steps.map((s, i) => ({ panel: panel(s.panel), tone: ["lilac", "dawn", "sky", "sun"][i] as string, icon: "", title: s.title, body: s.body })) },
     "network-intelligence": { title: S.oversight_page.intelligence.title, auto: true, mirror: true, steps: NETWORK_PANELS.map((k, i) => ({ panel: k, tone: NETWORK_TONES[i] as string, icon: "", title: S.oversight_page.intelligence.steps[i]!.title, body: S.oversight_page.intelligence.steps[i]!.body })) },
   };
 }
 function cxCard(kind: PanelKind) {
-  const cls = kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sun' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "";
+  const cls = kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "";
   return '<div class="cx-card' + cls + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>";
 }
 function chapterSection(id: string, cls: string) {
