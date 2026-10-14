@@ -10,6 +10,9 @@
     "build": "pnpm --filter @everyfield/web build",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
-    "check": "pnpm typecheck && pnpm lint && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm build",
+    "access:export": "pnpm --filter @everyfield/database export",
+    "db:migrate": "pnpm --filter @everyfield/database migrate",
+    "test:access": "pnpm --filter @everyfield/early-access test"
   }
 }
