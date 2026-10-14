@@ -8,7 +8,7 @@ Rough scope-based effort is 255 engineer-days. The weighted prerequisite lower b
 
 ## Foundation and shared UI
 
-WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.
+WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed commit on main and owner go-live approval before WP-087 starts.
 
 C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.
 
@@ -38,7 +38,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
 | WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 4 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 7 | 2 | 2 |
-| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 103 | 5 |
+| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 99 | 5 |
 | WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 20 | 8 | 2.5 |
 | WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |

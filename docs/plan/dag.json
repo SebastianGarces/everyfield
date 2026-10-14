@@ -65,9 +65,7 @@
         ],
         "schema": "produced",
         "proof_stage": "early access site only; product privacy update belongs to WP-049",
-        "case_requirements_at_start": [
-          "REQ-ADM-006"
-        ]
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2,
@@ -93,7 +91,8 @@
         "scope": "WP-097 early access site only",
         "checks": "Normal tests and cross-model review; owner approval of the preview before go-live.",
         "signed_evf_proof_required": false
-      }
+      },
+      "ui_composition_rule": "Reuse the approved E3 public pages and marketing handoff; any remaining page work goes to ui-designer on Opus 5.5. Do not wait for the later product AppShell design milestones."
     },
     {
       "id": "WP-001",
@@ -344,12 +343,13 @@
         "WP-003 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "Fresh adopted 100-table baseline from docs/schema/target.json with record subtype integrity, event history, operation receipts and same-tenant foreign keys; no customer import.",
+        "Extend the scaffold to the current target baseline from docs/schema/target.json with record subtype integrity, event history, operation receipts and same-tenant foreign keys; no customer import.",
         "document/document_revision authorization and owner integrity for private native documents, separate from generated artifacts.",
         "plant_creation_transition once-per-plant journal and phase-entry integrity under the adopted schema.",
         "assessment/run storage, reference versions and current sharing/affiliation relationships; reader_feedback stores assessment/finding feedback while feedback stores private application feedback.",
         "launch_guest same-plant Launch-to-Person relation, interview responses and published summary projections with typed event history.",
-        "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks."
+        "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks.",
+        "Preserve existing early_access_request, early_access_attempt and schema_migration tables and the already applied 0001_early_access.sql migration; do not recreate migration 0001 or its ledger."
       ],
       "owning_paths": [
         "packages/db/src/schema/",
@@ -360,7 +360,7 @@
         "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports."
       ],
       "acceptance_gates": [
-        "The adopted 100-table baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
+        "The current target baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
         "rollback and same-tenant FKs",
         "no v2 ledger/customer import",
         "notification/Wiki evidence model reviewed before first schema migration",
@@ -373,7 +373,7 @@
         "docs/product/scope.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Install the adopted 100-table PostgreSQL baseline, tenant integrity and private object namespaces. Domain producers add their reviewed behavior and later migrations.",
+      "goal": "Extend the scaffold to the current target PostgreSQL baseline, tenant integrity and private object namespaces. Domain producers add their reviewed behavior and later migrations.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
@@ -7989,7 +7989,7 @@
     }
   ],
   "build_plan_notes": {
-    "foundation": "WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.",
+    "foundation": "WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed commit on main and owner go-live approval before WP-087 starts.",
     "milestones": "C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.",
     "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
   },

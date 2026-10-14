@@ -339,9 +339,45 @@ import { existsSync } from 'node:fs';
 import { stack } from '../task.ts';
 import { draftProofPlan } from '../proof-plan.ts';
 import { caseCoverage, caseGrep } from '../coverage.ts';
-import { producerReady, recordProgress } from '../progress.ts';
+import { producerReady, recordProgress, recordFastTrack } from '../progress.ts';
 import { contractFingerprint } from '../lib.ts';
 import { renderAc, renderBrief } from '../brief.ts';
+
+test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main',()=>{
+ const f=fixture();try{
+  // Deliberately do not call authorize(): its transitive done shortcut hid this escaped bug.
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  for(const g of gates.gates)if(g.id==='G-AUTH')g.status='authorized';else if(g.id==='G-WORKFLOW')g.status='reconciled-independent-review';
+  writeFileSync(path,JSON.stringify(gates));f.commit();
+  const commit=f.git('rev-parse','main'),progressPath=join(f.root,'docs/build-progress.json');
+  const evidence={commit,checks:[{command:'normal tests',result:'passed',evidence:'/operator/tests.log'}],author:{actor:'author',model_family:'Sol'},verifier:{actor:'verifier',model_family:'Opus',verdict:'approved',commit,evidence:'intent://verifier-review'},owner_go_live:{actor:'Sebastian',commit,evidence:'intent://owner-go-live'}};
+  assert.throws(()=>requireImplementation(f.root,'WP-087'),/Prerequisites need reviewed producer\/interface milestones: WP-097/);
+  const before=readFileSync(progressPath,'utf8');
+  for(const [wp,input,reason] of [
+   ['WP-087',evidence,/limited to the declared WP-097/],
+   ['WP-097',{},/nonempty strings/],
+   ['WP-097',{...evidence,commit:'0'.repeat(40)},/already on main/],
+   ['WP-097',{...evidence,checks:[]},/passing normal test/],
+   ['WP-097',{...evidence,checks:[{...evidence.checks[0],result:'failed'}]},/Every fast-track test must pass/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,commit:'0'.repeat(40)}},/approvals must name/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,model_family:'Sol'}},/distinct author\/verifier/],
+   ['WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,actor:'author'}},/declared owner/],
+  ] as const){assert.throws(()=>recordFastTrack(f.root,wp,input),reason);assert.equal(readFileSync(progressPath,'utf8'),before);}
+  f.git('checkout','-b','unmerged');writeFileSync(join(f.root,'candidate.txt'),'unmerged');f.git('add','candidate.txt');f.git('commit','-qm','Unmerged fixture commit');
+  const unmerged=f.git('rev-parse','HEAD');
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,commit:unmerged,verifier:{...evidence.verifier,commit:unmerged},owner_go_live:{...evidence.owner_go_live,commit:unmerged}}),/already on main/);
+  assert.equal(readFileSync(progressPath,'utf8'),before);f.git('checkout','main');
+  recordFastTrack(f.root,'WP-097',evidence);
+  const after=readFileSync(progressPath,'utf8'),progress=JSON.parse(after);
+  assert.equal(progress.packages['WP-097'].status,'done');
+  assert.deepEqual(progress.packages['WP-097'].fast_track,evidence);
+  requireImplementation(f.root,'WP-087');
+  assert.throws(()=>requireImplementation(f.root,'WP-001'),/WP-087/);
+  recordFastTrack(f.root,'WP-097',evidence);assert.equal(readFileSync(progressPath,'utf8'),after);
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,evidence:'different approval'}}),/already records different evidence/);
+  assert.equal(readFileSync(progressPath,'utf8'),after);
+ }finally{f.close();}
+});
 
 test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
  const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
@@ -532,7 +568,9 @@ test('INV-bootstrap-readiness: missing owner setup lists each prerequisite witho
    'trusted signed runner command with {request}; owner reviews its identity and review adapter',
    'reviewed Ed25519 public key; private key stays outside agent worktrees',
    'owner-reviewed bootstrap application qualification and assertion/report driver',
-   'reviewed WP-087 producer proof plan','reviewed WP-001 proof plan',
+   'reviewed WP-087 producer proof plan',
+   'owner-approved WP-097 fast-track completion on main; import reviewed evidence before WP-087',
+   'reviewed WP-001 proof plan',
    'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring',
    'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087']);
   f.authorize();assert.equal(bootstrapReadiness(f.root)[0][0],true);assert.equal(bootstrapReadiness(f.root)[1][0],true);

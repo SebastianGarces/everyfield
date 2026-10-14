@@ -31151,7 +31151,7 @@
         "Provider or receipt-storage failure returns unavailable and leaves the request pending; no false success."
       ],
       "revision": "Submitted fields and original mail payload remain immutable; mail receipt recording and scheduled IP clearing update retained rows.",
-      "idempotency": "Admitted sent duplicates within 24 hours return received. Admitted pending requests less than 23 hours old retry the same row, original payload and provider key and return received only after the receipt is saved. Pending requests at least 23 hours old require operator reconciliation, even beyond the duplicate window. Rate limits apply first.",
+      "idempotency": "Admitted sent duplicates within 24 hours return received. Admitted pending requests less than 23 hours old retry the same row, original payload and provider key and return received only after the receipt is saved. Pending requests at least 23 hours old allow a new admitted request with a new key and new fields; retain the old row and permit a second owner email if its earlier delivery was unresolved. Rate limits apply first.",
       "deletion": "Delete only when strictly older than 12 calendar months; clear IP only when strictly older than 30 days. Exact cutoffs retain the request or IP. These periods cover the request store, not external mailbox retention.",
       "physical_verified": false,
       "indexes": [

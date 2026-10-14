@@ -22,6 +22,7 @@ type Block = {
   paths: string[];
   specialist: "implementor" | "ui-designer";
   model: string;
+  uiHandoff?: string;
   effortHours: number;
   dependsOn: string[];
   conflictsWith: string[];
@@ -97,6 +98,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
         paths: pathsForPart(pkg, part),
         specialist: ui ? "ui-designer" : "implementor",
         model: ui ? "Opus 5.5 (claude-code), effort from UI tier" : "Sol 6.1 (codex, gpt-6.1-sol)",
+        ...(pkg.ui_specialist && !ui ? {uiHandoff:`Reuse approved E3 pages; any remaining public page work belongs to ${pkg.ui_specialist} on ${pkg.ui_model}. The implementor owns backend and scaffold work only.`} : {}),
         effortHours: Math.max(1, Math.round(pkg.estimate_engineer_days * 8 * (part ? SHARE[part] : 1))),
         dependsOn,
         conflictsWith: [],
@@ -146,6 +148,7 @@ export function renderBlocks(blocks: Block[], external: string[], skipped: strin
     out.push(`@@@task ${attrs.join(" ")}`);
     out.push(`# ${b.title}`);
     out.push(`Specialist: \`${b.specialist}\`. Model: ${b.model}.`);
+    if(b.uiHandoff)out.push(b.uiHandoff);
     if (b.specialist === "ui-designer") out.push("UI tier: coordinator sets UI-1..UI-4 before delegation (see `.agents/roles/coordinator.md`).");
     out.push(`Owning paths: ${b.paths.map((p) => `\`${p}\``).join(", ")}.`);
     out.push(`Selected acceptance count: ${b.acceptanceCount}.`);

@@ -31,7 +31,7 @@ Implementation kickoff and workflow approval are current action gates, rechecked
    key outside agent worktrees. This owner-reviewed commit installs the initial trust boundary;
    it does not earn a self-attested OPS proof. Close kickoff gates only after
    their owner review, configure the remote separately, then read `bin/evf doctor` readiness.
-2. Start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
+2. Import WP-097 completion on main through the bounded fast-track path in the ship skill, then start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
    proves its reviewed producer gates with the bootstrap runner, and leaves `evf.config.json`
    to maintenance. Review and acknowledge its shipped record.
 3. Run the reviewed OPS wiring task. Its root `maintenanceTasks` entry owns `evf.config.json`,
@@ -54,6 +54,8 @@ The reviewed root config installs a sparse `verification.proofPlans` entry for e
 - `gates`: every DAG gate index exactly once with the same portion structure. The source fingerprint binds the gate text/order, so an index is not a mutable substitute for an obligation.
 
 Own-scope obligations cannot be omitted. Deferrals name the actual downstream case producer/adapter, or a valid sibling adapter; a contract can defer to API/UI, and an API can defer a native UI portion to its peer UI. A prerequisite sibling cannot supply a future deferral. API/UI can build from a frozen shared contract in parallel. Whole-target proof permits no deferrals. A producer or split proof establishes only its declared portion; every deferred portion remains part of package/full-target closure.
+
+Unrelated selected cases remain indexed as `context_case_ids` for reading with `evf ac`; proof plans use only `case_ids`. Before building, the coordinator routes at-start case additions/repairs through reviewed documentation maintenance, merges them and refreshes the root proof plan.
 
 The operator must review these mappings against exact clause/case expectations and actual adapter owners. This tool validates completeness, ownership and dependency direction; it cannot infer assertion coverage from a count, a portion label or a signature. Installing the real per-stage assertion/report driver is part of the remaining setup.
 

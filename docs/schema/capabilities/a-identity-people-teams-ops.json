@@ -1588,7 +1588,7 @@
         "early_access_attempt",
         "schema_migration"
       ],
-      "notes": "WP-097 follows applied migration 0001 and the approved E3 form contract. Only recorded mail receipts suppress admitted duplicates; pending retry retains the original payload/key and requires reconciliation at 23 hours."
+      "notes": "WP-097 follows applied migration 0001 and the approved E3 form contract. Only recorded mail receipts suppress admitted duplicates; pending retry retains the original payload/key below 23 hours; from 23 hours onward an admitted submission stores a new request and key, with a second owner email acceptable."
     },
     {
       "id": "CAP-A-049",
