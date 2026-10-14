@@ -245,7 +245,7 @@
       "facts": [
         "Plant name, independently nullable street/city/region/country/profile description and confirmed church IANA timezone.",
         "Plant inactivity warning and alert day thresholds; weekly digest weekday/hour, default America/Chicago and Sunday 16:00.",
-        "Organization immutable sending-church/network kind and identity, bounded name/contact email/phone/HTTPS website/description and independent locality.",
+        "Organization immutable sending-church/network kind and identity, bounded name/contact email/phone/description and independent locality.",
         "Profile revision and attributable changes; past schedule Instants and LocalDate obligations retain their original meaning."
       ],
       "history": "append-only events",

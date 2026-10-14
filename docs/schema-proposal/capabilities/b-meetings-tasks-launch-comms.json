@@ -1445,6 +1445,7 @@
       "id": "CAP-B-044",
       "name": "Digest coverage and bounded catch-up",
       "feature_ids": [
+        "NTF-002",
         "NTF-007",
         "NTF-008"
       ],
