@@ -685,7 +685,7 @@
       "behavior_rules": [
         {
           "operation": "tasks.applyManagedStatus",
-          "rule": "Evaluation task null."
+          "rule": "A managed evaluation task has no person target."
         },
         {
           "operation": "tasks.applyManagedStatus",

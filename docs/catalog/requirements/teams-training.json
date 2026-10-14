@@ -128,7 +128,6 @@
       "spec": "docs/product/teams-training.md#req-team-004",
       "operations": [
         "teams.appointLeader",
-        "teams.appointLeader",
         "teams.leaderCandidates"
       ],
       "acceptance_ids": [
@@ -361,7 +360,6 @@
       "spec": "docs/product/teams-training.md#req-team-012",
       "operations": [
         "teams.orgChart",
-        "teams.exportOrgChart",
         "teams.exportOrgChart"
       ],
       "acceptance_ids": [

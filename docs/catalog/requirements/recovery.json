@@ -354,11 +354,11 @@
         },
         {
           "operation": "privacy.getSharing",
-          "rule": "fixed exact current plant"
+          "rule": "Plant sharing requests bind the plant to the exact current authorized plant."
         },
         {
           "operation": "privacy.getSharing",
-          "rule": "fixed exact current organization"
+          "rule": "Organization sharing requests bind the organization to the exact current authorized organization."
         },
         {
           "operation": "privacy.getSharing",

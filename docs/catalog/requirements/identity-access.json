@@ -257,7 +257,7 @@
       "behavior_rules": [
         {
           "operation": "auth.requestPasswordRecovery",
-          "rule": "generic no-enumeration request outcome"
+          "rule": "Password recovery returns a generic outcome that does not reveal whether the account exists."
         },
         {
           "operation": "auth.requestPasswordRecovery",
@@ -707,7 +707,7 @@
         },
         {
           "operation": "associations.respondInvitation",
-          "rule": "one atomic relationship receipt"
+          "rule": "Responding to a relationship invitation commits the relationship decision and its receipt together."
         },
         {
           "operation": "associations.respondInvitation",
@@ -723,7 +723,6 @@
       "text": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
       "spec": "docs/product/identity-access.md#req-idn-021",
       "operations": [
-        "associations.end",
         "associations.end",
         "associations.getHistory"
       ],
@@ -942,7 +941,6 @@
       "text": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.",
       "spec": "docs/product/identity-access.md#req-idn-027",
       "operations": [
-        "associations.end",
         "associations.end"
       ],
       "acceptance_ids": [
@@ -1180,7 +1178,7 @@
       "behavior_rules": [
         {
           "operation": "account.cancelDeletion",
-          "rule": "bounded cancellation/status during30day hold"
+          "rule": "During the 30-day personal deletion hold, restricted access permits only deletion status and timely cancellation."
         },
         {
           "operation": "account.cancelDeletion",
@@ -1224,7 +1222,7 @@
         },
         {
           "operation": "settings.saveSection",
-          "rule": "exact current organization_sharing_settings.revision"
+          "rule": "Changing organization sharing settings requires the current revision of the exact affiliation consent."
         },
         {
           "operation": "settings.saveSection",
@@ -1256,7 +1254,7 @@
         },
         {
           "operation": "churches.requestWorkspaceDeletion",
-          "rule": "own current plant seat"
+          "rule": "Workspace deletion requires the requesting Owner to hold a current seat in that plant."
         },
         {
           "operation": "settings.saveSection",

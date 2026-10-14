@@ -186,7 +186,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-010.** Retain attended/absent/excused and first_time/returning/core_group categories with one guest row. For Vision first-time use prior chronologically earlier actually attended Vision only; team/orientation/practice/RSVP never substitutes. Core-group category remains distinct from first/returning and captures committed-stage evidence basis at recording/finalized snapshot, not later automatic stage edit. Finalized historical classification changes only reviewed correction; late prior Vision correction recomputes affected current eligibility/obligation delta with history. Whole batch validates/locks all Persons and commits all or none; own team leader only its attendance. Leader clear changes presence only, retaining guest/RSVP/card. Unknown row refuses instead of false success; summary counts attended Persons, including actual planter attendance.
 
-**Target operations:** `meetings.setAttendance`, `meetings.captureAttendanceBatch`, `meetings.setAttendance`, `meetings.clearAttendance`.
+**Target operations:** `meetings.setAttendance`, `meetings.captureAttendanceBatch`, `meetings.clearAttendance`.
 
 **Acceptance:** AC-MTG-010--MTG-010. **Named cases:** TARGET-MTG-010.
 

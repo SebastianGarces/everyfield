@@ -10,7 +10,6 @@
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.list",
-        "communication.list",
         "communication.deliveryTotals",
         "communication.get"
       ],
@@ -126,7 +125,6 @@
       "text": "Compose and resend return confirmed zero-provider-acceptance as failure with saved communication ID and sentAt null; partial results show exact accepted/rejected/unknown counts. An all-unknown result is uncertain rather than success, and missing provider IDs remain reconcilable.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
-        "communication.getExecutionResult",
         "communication.getExecutionResult"
       ],
       "acceptance_ids": [
@@ -221,7 +219,6 @@
       "text": "Resend proposal requires sent original, ≥24 elapsed hours, ≥1 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
-        "communication.resendCandidates",
         "communication.resendCandidates",
         "communication.executeResend"
       ],
@@ -419,15 +416,15 @@
         },
         {
           "operation": "shared",
-          "rule": "command executor exposed: false."
+          "rule": "Model tools expose no command executor."
         },
         {
           "operation": "shared",
-          "rule": "approval exposed: false."
+          "rule": "Model tools expose no approval capability."
         },
         {
           "operation": "shared",
-          "rule": "arbitrary code network filesystem sql exposed: false."
+          "rule": "Model tools expose no arbitrary code, network, filesystem or SQL capability."
         },
         {
           "operation": "shared",
@@ -507,7 +504,7 @@
         },
         {
           "operation": "shared",
-          "rule": "fixed trusted self; never caller-selectable"
+          "rule": "The notification recipient is the trusted authenticated account and cannot be selected by the caller."
         },
         {
           "operation": "shared",
@@ -545,7 +542,7 @@
       "behavior_rules": [
         {
           "operation": "notifications.applyEmailOptOut",
-          "rule": "Explicit native purpose-bound POST"
+          "rule": "Email opt-out requires an explicit native request bound to the opt-out purpose."
         },
         {
           "operation": "notifications.cancelForEntity",

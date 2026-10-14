@@ -162,7 +162,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.appendAssessmentConsequences",
-          "rule": "bounded registered internal protocol"
+          "rule": "Assessment consequences run only through the bounded registered internal protocol."
         },
         {
           "operation": "intelligence.appendAssessmentConsequences",
@@ -1947,7 +1947,7 @@
         },
         {
           "operation": "teams.editRole",
-          "rule": "Required whenever ministryAreaKeys changes."
+          "rule": "Changing a role's ministry areas requires the current mapping revision."
         },
         {
           "operation": "teams.editRole",

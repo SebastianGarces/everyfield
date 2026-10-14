@@ -54,7 +54,6 @@
       "spec": "docs/product/people.md#req-ppl-002",
       "operations": [
         "people.createPerson",
-        "people.createPerson",
         "people.updatePerson"
       ],
       "acceptance_ids": [
@@ -261,7 +260,7 @@
         },
         {
           "operation": "people.getActivities",
-          "rule": "allowedHistoryRecordTypes: ordinary_note, ordinary_activity, own_allowed_follow_up."
+          "rule": "Person activity history contains only ordinary notes, ordinary activities and follow-up history allowed for the caller."
         },
         {
           "operation": "people.getActivities",
@@ -337,11 +336,11 @@
         },
         {
           "operation": "people.createHouseholdWithHead",
-          "rule": "household+head receipt, no orphan"
+          "rule": "Household creation commits the household and its head membership together and returns a receipt without leaving an orphan household."
         },
         {
           "operation": "people.removeFromHousehold",
-          "rule": "ended current household membership/history"
+          "rule": "Removing a person from a household ends their current membership and preserves its history."
         }
       ]
     },
@@ -424,7 +423,6 @@
       "spec": "docs/product/people.md#req-ppl-012",
       "operations": [
         "people.createAssessment",
-        "people.getAssessments",
         "people.getAssessments"
       ],
       "acceptance_ids": [
@@ -468,7 +466,6 @@
       "spec": "docs/product/people.md#req-ppl-013",
       "operations": [
         "people.createInterview",
-        "people.getInterviews",
         "people.getInterviews"
       ],
       "acceptance_ids": [
@@ -491,7 +488,7 @@
         },
         {
           "operation": "people.createInterview",
-          "rule": "reject supplied original actor/provenance"
+          "rule": "Interview recording rejects caller-supplied original actor or provenance."
         },
         {
           "operation": "people.createInterview",
@@ -544,8 +541,6 @@
       "text": "Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
       "spec": "docs/product/people.md#req-ppl-015",
       "operations": [
-        "people.correctPersonRecord",
-        "people.correctPersonRecord",
         "people.correctPersonRecord",
         "people.correctAdultClassification",
         "people.correctCommitmentLifecycle",
@@ -1051,7 +1046,7 @@
         },
         {
           "operation": "people.applyRecordedRecruitmentEvent",
-          "rule": "no model/client call"
+          "rule": "Recorded recruitment events can be applied only by the trusted internal producer, never by a model or client call."
         },
         {
           "operation": "people.applyRecordedRecruitmentEvent",

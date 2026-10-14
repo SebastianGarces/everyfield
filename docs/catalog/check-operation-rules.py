@@ -26,6 +26,114 @@ TOP_SHAPES = {'schema_version', 'status', 'authority', 'field_sets',
               'reviewed_override_ids', 'runtime_semantic_audit', 'ownership_resolution',
               'exposure_counts', 'removed_redundant_product_operations',
               'checklist_canonical_aliases'}
+# Context restored from the named fields in the pre-fix catalog. The audit locates
+# these complete sentences instead of accepting the old context-free fragments.
+RULE_REWRITES = {'3 for critical journeys; 1..3 otherwise': 'Evaluation runs repeat critical journeys three times '
+                                            'and other journeys one to three times.',
+ 'command executor exposed: false.': 'Model tools expose no command executor.',
+ 'approval exposed: false.': 'Model tools expose no approval capability.',
+ 'arbitrary code network filesystem sql exposed: false.': 'Model tools expose no arbitrary code, '
+                                                          'network, filesystem or SQL capability.',
+ 'Explicit native purpose-bound POST': 'Email opt-out requires an explicit native request bound to '
+                                       'the opt-out purpose.',
+ 'fixed trusted self; never caller-selectable': 'The notification recipient is the trusted '
+                                                'authenticated account and cannot be selected by '
+                                                'the caller.',
+ 'Required team, must null churchwide.': 'A team-scoped training program requires the authorized '
+                                         'team; a churchwide program has no team.',
+ 'Redo only; omitted revoke.': 'The completion date is required when redoing training and omitted '
+                               'when revoking completion.',
+ 'private care: false.': 'Shared model context excludes private care.',
+ 'no zero substitution: true.': 'Shared reads never substitute zero for unavailable or unmeasured '
+                                'data.',
+ 'current permission rechecked: true.': 'Shared reads recheck current permission before returning '
+                                        'data.',
+ 'generic no-enumeration request outcome': 'Password recovery returns a generic outcome that does '
+                                           'not reveal whether the account exists.',
+ 'one atomic relationship receipt': 'Responding to a relationship invitation commits the '
+                                    'relationship decision and its receipt together.',
+ 'bounded cancellation/status during30day hold': 'During the 30-day personal deletion hold, '
+                                                 'restricted access permits only deletion status '
+                                                 'and timely cancellation.',
+ 'exact current organization_sharing_settings.revision': 'Changing organization sharing settings '
+                                                         'requires the current revision of the '
+                                                         'exact affiliation consent.',
+ 'own current plant seat': 'Workspace deletion requires the requesting Owner to hold a current '
+                           'seat in that plant.',
+ 'Required contacted only.': 'The actual contact instant is required only when correcting to a '
+                             'contacted outcome.',
+ 'canonical administrative correction receipt': 'Administrative RSVP correction returns the '
+                                                'canonical correction receipt.',
+ 'own task outcome/checklist only': 'A task assignee may change only the outcome and checklist of '
+                                    'their own task.',
+ 'bounded registered internal protocol': 'Assessment consequences run only through the bounded '
+                                         'registered internal protocol.',
+ 'Required whenever ministryAreaKeys changes.': "Changing a role's ministry areas requires the "
+                                                'current mapping revision.',
+ 'own team operational floor': 'A team leader may capture attendance only within the operational '
+                               'access allowed for their own team.',
+ 'ordered sections/id/title/minutes,total/default-version and revision': 'Agenda reads return '
+                                                                         'ordered sections with '
+                                                                         'their identities, titles '
+                                                                         'and minutes, the total '
+                                                                         'duration, copied default '
+                                                                         'version and current '
+                                                                         'revision.',
+ 'current agenda revision receipt': 'Replacing an agenda returns a receipt with the current agenda '
+                                    'revision.',
+ 'required iff correct': 'Correcting signal evidence requires replacement evidence; other signal '
+                         'actions do not require it.',
+ 'null=bounded own portfolio': 'Omitting a plant selection restricts the health read to the '
+                               "caller's authorized portfolio.",
+ 'current plant launch-progress evidence': 'Reporting-region candidates use current '
+                                           'launch-progress evidence for the authorized plant.',
+ 'null=latest valid complete': 'Omitting an organization assessment selection returns the latest '
+                               'valid complete assessment.',
+ 'presentation context only': 'The requested organization view affects presentation only and '
+                              'grants no refresh authority.',
+ 'bounded oversight/shared Network Intelligence': 'Published organization launch summaries contain '
+                                                  'only bounded oversight and shared Network '
+                                                  'Intelligence evidence.',
+ 'not summarized after removal: true.': 'Fact snapshots must not summarize sources removed from '
+                                        "the caller's authorized evidence.",
+ 'eligible valid completion<=start+48h inclusive': 'The timeliness numerator includes only '
+                                                   'eligible valid task completions no later than '
+                                                   '48 elapsed hours after the actual originating '
+                                                   'occurrence.',
+ 'allowedHistoryRecordTypes: ordinary_note, ordinary_activity, own_allowed_follow_up.': 'Person '
+                                                                                        'activity '
+                                                                                        'history '
+                                                                                        'contains '
+                                                                                        'only '
+                                                                                        'ordinary '
+                                                                                        'notes, '
+                                                                                        'ordinary '
+                                                                                        'activities '
+                                                                                        'and '
+                                                                                        'follow-up '
+                                                                                        'history '
+                                                                                        'allowed '
+                                                                                        'for the '
+                                                                                        'caller.',
+ 'household+head receipt, no orphan': 'Household creation commits the household and its head '
+                                      'membership together and returns a receipt without leaving '
+                                      'an orphan household.',
+ 'ended current household membership/history': 'Removing a person from a household ends their '
+                                               'current membership and preserves its history.',
+ 'reject supplied original actor/provenance': 'Interview recording rejects caller-supplied '
+                                              'original actor or provenance.',
+ 'no model/client call': 'Recorded recruitment events can be applied only by the trusted internal '
+                         'producer, never by a model or client call.',
+ 'Evaluation task null.': 'A managed evaluation task has no person target.',
+ 'fixed exact current plant': 'Plant sharing requests bind the plant to the exact current '
+                              'authorized plant.',
+ 'fixed exact current organization': 'Organization sharing requests bind the organization to the '
+                                     'exact current authorized organization.',
+ 'Supported category values: bug, suggestion, question, other[].': 'Feedback category filters '
+                                                                   'accept only bug, suggestion, '
+                                                                   'question and other.'}
+LIST_COUNT_RULE = 'List totals, counts and group buckets come from the authorized database query, never from returned pages or selected rows; a deliberately unmeasured count is null, and an unavailable read returns unavailable, never zero.'
+
 TYPE_KEYS = {'type', 'fields', 'projected_fields', 'result_projection', 'closed',
              'required_parameters', 'additional_parameters', 'mode', 'storage',
              'operation', 'kind', 'source', 'status', 'authority', 'forbidden_input_fields'}
@@ -121,6 +229,8 @@ def removed_fields(before, aliases):
                     if not a['purpose'].startswith(('Current authorized ', 'native operational work')):
                         rules.extend(narrative(a['purpose']))
                 yield op, key, value, [align(replace(x)) for x in rules], 'actor/scope retained; signature shape is builder choice'
+            elif key == 'result' and any(k in value for k in ['count_semantics', 'mode_contract']):
+                yield op, key, value, [LIST_COUNT_RULE], 'result layout is builder choice; authorized count semantics live once in core.md'
             elif key in SHAPE_KEYS or key in ['purpose', 'parameters', 'result']:
                 rules = [parameter_rule(x) for x in narrative(value)] if key == 'parameters' else []
                 yield op, key, value, [align(replace(x)) for x in rules], 'signature, layout or duplicate metadata is builder choice'
@@ -182,13 +292,14 @@ def audit(base, report):
                         'Denials reveal no forbidden record existence.',
                         'truthful retry eligibility',
                         'Actor-private Evry conversation',
-                        'Authorized pure reads have no durable domain effects']:
+                        'Authorized pure reads have no durable domain effects', LIST_COUNT_RULE]:
         assert shared_rule in core, 'Shared rule missing: ' + shared_rule
     rows = []
     missing = []
     for op, field, value, rules, choice in removed_fields(before, aliases):
         locations = []
         for rule in rules:
+            rule = RULE_REWRITES.get(rule, rule)
             targets = [p for p, text in texts.items() if rule in text]
             if not targets:
                 missing.append((op['id'] if op else 'catalog', field, rule))
@@ -196,8 +307,26 @@ def audit(base, report):
         rows.append({'operation': op['id'] if op else None, 'removed_field': field, 'source_value': value,
                      'disposition': choice, 'behavior': locations})
     inventory = json.loads((ROOT / catalog['operation_source']).read_text())['operations']
+    assert len(inventory) == len({o['id'] for o in inventory}), 'Duplicate inventory operation'
+    assert (ROOT / catalog['operation_source']).stat().st_size < 500 * 1024, 'Inventory exceeds the roughly 500 KB budget'
     assert {o['id'] for o in inventory} == {o['id'] for o in before['operations']}, 'Operation lost'
-    assert all(set(o) == INVENTORY_KEYS for o in inventory), 'Unexpected inventory contract field'
+    assert all(set(o) in [INVENTORY_KEYS, INVENTORY_KEYS - {'changes'}] for o in inventory), 'Unexpected inventory contract field'
+    tables = {t['name'] for t in json.loads((ROOT / 'docs/schema/target.json').read_text())['tables']}
+    omitted = []
+    for op in inventory:
+        if 'changes' not in op:
+            assert op['durable_write'], 'Only unresolved writes may omit changes'
+            omitted.append(op['id'])
+            continue
+        changes = op['changes']
+        assert set(changes) == {'records', 'side_effects'}, 'Unexpected effects field'
+        assert len(changes['records']) == len(set(changes['records'])), 'Duplicate table for ' + op['id']
+        assert set(changes['records']) <= tables, 'Unknown affected table for ' + op['id']
+        if op['durable_write']:
+            assert changes['records'] and changes['side_effects'], 'Write effects missing for ' + op['id']
+        else:
+            assert changes == {'records': [], 'side_effects': []}, 'Read claims durable changes'
+    assert 'When changes is omitted, linked requirements and cases define the effects' in json.loads((ROOT / catalog['operation_source']).read_text())['authority']
     by_id = {o['id']: o for o in before['operations']}
     replace, _ = canonicalizer(aliases, before)
     for op in inventory:
@@ -217,11 +346,25 @@ def audit(base, report):
     _, pattern = canonicalizer(aliases, before)
     for p in list((ROOT / 'docs/product').glob('*.md')) + list((ROOT / 'docs/catalog/requirements').glob('*.json')):
         assert not pattern.search(p.read_text()), 'Alias remains in ' + str(p)
+        if p.suffix == '.md':
+            for number, line in enumerate(p.read_text().splitlines(), 1):
+                if line.startswith('**Target operations:**'):
+                    ids = re.findall(r'`([^`]+)`', line)
+                    assert len(ids) == len(set(ids)), f'Duplicate chapter operation: {p}:{number}'
+                    assert not re.search(r', \.', line), f'Empty chapter operation: {p}:{number}'
+        else:
+            for req in json.loads(p.read_text()).get('requirements', []):
+                ids = req.get('operations', [])
+                assert len(ids) == len(set(ids)), 'Duplicate requirement operation: ' + req['id']
+                assert set(ids) <= set(by_id), 'Unknown requirement operation: ' + req['id']
+                for rule in req.get('behavior_rules', []):
+                    assert rule['rule'] not in RULE_REWRITES, 'Context-free rule survives: ' + req['id']
+                    assert not re.search(r': (true|false)\.', rule['rule']), 'Mechanical boolean rule: ' + req['id']
     if report:
-        report.write_text(json.dumps({'base': base, 'fields': rows, 'missing': missing}, indent=2) + '\n')
+        report.write_text(json.dumps({'base': base, 'fields': rows, 'missing': missing, 'omitted_changes': omitted}, indent=2) + '\n')
     if missing:
         raise SystemExit('Missing behavior rules: ' + json.dumps(missing[:8]))
-    print(f'PASS: {len(rows)} removed fields classified; {sum(len(r["behavior"]) for r in rows)} behavior rules located; all {len(inventory)} operations and canonical references retained.')
+    print(f'PASS: {len(omitted)} unresolved writes omit changes; {len(rows)} removed fields classified; {sum(len(r["behavior"]) for r in rows)} behavior rules located; all {len(inventory)} operations and canonical references retained.')
 
 
 if __name__ == '__main__':

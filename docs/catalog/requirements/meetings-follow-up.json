@@ -39,7 +39,7 @@
         },
         {
           "operation": "communication.correctContactLog",
-          "rule": "Required contacted only."
+          "rule": "The actual contact instant is required only when correcting to a contacted outcome."
         },
         {
           "operation": "communication.correctContactLog",
@@ -297,7 +297,7 @@
         },
         {
           "operation": "meetings.correctRsvp",
-          "rule": "canonical administrative correction receipt"
+          "rule": "Administrative RSVP correction returns the canonical correction receipt."
         }
       ]
     },
@@ -379,7 +379,6 @@
       "operations": [
         "meetings.setAttendance",
         "meetings.captureAttendanceBatch",
-        "meetings.setAttendance",
         "meetings.clearAttendance"
       ],
       "acceptance_ids": [
@@ -753,7 +752,7 @@
       "behavior_rules": [
         {
           "operation": "tasks.changeStatus",
-          "rule": "own task outcome/checklist only"
+          "rule": "A task assignee may change only the outcome and checklist of their own task."
         },
         {
           "operation": "tasks.changeStatus",

@@ -1251,7 +1251,7 @@
       "behavior_rules": [
         {
           "operation": "evry.runEvaluation",
-          "rule": "3 for critical journeys; 1..3 otherwise"
+          "rule": "Evaluation runs repeat critical journeys three times and other journeys one to three times."
         },
         {
           "operation": "evry.runEvaluation",

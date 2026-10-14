@@ -89,7 +89,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-002.** Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/edit able. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.
 
-**Target operations:** `people.createPerson`, `people.createPerson`, `people.updatePerson`.
+**Target operations:** `people.createPerson`, `people.updatePerson`.
 
 **Acceptance:** AC-PPL-002--PPL-002. **Named cases:** TARGET-PPL-002.
 
@@ -219,7 +219,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-012.** Record dated human Committed/Compelled/Contagious/Courageous assessment, each integer 1–5 and optional bounded 5000 character lens notes. Compute total 4–20 server-side and enforce score/total integrity. Preserve all records, actor/occurrence date/recorded instant and latest ordering by assessment LocalDate, recordedAt, ID; late historical entry cannot become latest merely by recording time. Advisory early-stage warning is not a hard gate. Recording does not change stage. Correction is REQ-PPL-015 and never supplies model person judgment.
 
-**Target operations:** `people.createAssessment`, `people.getAssessments`, `people.getAssessments`.
+**Target operations:** `people.createAssessment`, `people.getAssessments`.
 
 **Acceptance:** AC-PPL-012--PPL-012. **Named cases:** TARGET-PPL-012.
 
@@ -232,7 +232,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-013.** Keep all five criteria Maturity/Gifted/Chemistry/Right Reasons/Season as pass/fail/concern with dated human notes, next steps and result qualified/qualified_with_notes/not_qualified/follow_up. ANY result means interview occurred; on lower earlier stage record interviewed progression atomically, while an already core_group/launch_team/leader remains advanced. Only explicit stage command demotes. Chronological latest and attributable history match assessments. Next steps remain recorded text; intended-but-undelivered automatic task prompts are not registered as automation. A user can explicitly draft/create named task through ordinary Task command.
 
-**Target operations:** `people.createInterview`, `people.getInterviews`, `people.getInterviews`.
+**Target operations:** `people.createInterview`, `people.getInterviews`.
 
 **Acceptance:** AC-PPL-013--PPL-013. **Named cases:** TARGET-PPL-013.
 
@@ -258,7 +258,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-015.** Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.
 
-**Target operations:** `people.correctPersonRecord`, `people.correctPersonRecord`, `people.correctPersonRecord`, `people.correctAdultClassification`, `people.correctCommitmentLifecycle`, `people.listRecordCorrections`.
+**Target operations:** `people.correctPersonRecord`, `people.correctAdultClassification`, `people.correctCommitmentLifecycle`, `people.listRecordCorrections`.
 
 **Acceptance:** AC-PPL-015--PPL-015. **Named cases:** TARGET-PPL-015.
 

@@ -514,7 +514,7 @@
         },
         {
           "operation": "teams.createProgram",
-          "rule": "Required team, must null churchwide."
+          "rule": "A team-scoped training program requires the authorized team; a churchwide program has no team."
         },
         {
           "operation": "teams.previewRequiredTrainingParticipants",
@@ -534,7 +534,7 @@
         },
         {
           "operation": "teams.recompleteTraining",
-          "rule": "Redo only; omitted revoke."
+          "rule": "The completion date is required when redoing training and omitted when revoking completion."
         },
         {
           "operation": "teams.recompleteTraining",
@@ -550,7 +550,7 @@
         },
         {
           "operation": "shared",
-          "rule": "private care: false."
+          "rule": "Shared model context excludes private care."
         },
         {
           "operation": "shared",
@@ -578,11 +578,11 @@
         },
         {
           "operation": "shared",
-          "rule": "no zero substitution: true."
+          "rule": "Shared reads never substitute zero for unavailable or unmeasured data."
         },
         {
           "operation": "shared",
-          "rule": "current permission rechecked: true."
+          "rule": "Shared reads recheck current permission before returning data."
         },
         {
           "operation": "teams.attestCompletion",
@@ -2541,8 +2541,7 @@
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.articles.list",
-        "wiki.articles.get",
-        "wiki.articles.list"
+        "wiki.articles.get"
       ],
       "acceptance_ids": [
         "AC-WIKI-001--WIKI-001"

@@ -256,7 +256,7 @@
         },
         {
           "operation": "feedback.admin.list",
-          "rule": "Supported category values: bug, suggestion, question, other[]."
+          "rule": "Feedback category filters accept only bug, suggestion, question and other."
         },
         {
           "operation": "feedback.createConfiguredIssue",

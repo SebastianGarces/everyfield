@@ -30,6 +30,8 @@ Date-only deadlines use the plant-local day. Timed appointments retain the chose
 
 Global reference versions and activation history are immutable. Organization Wiki access requires current source entitlement on every body, history, citation and file path. Plant source precedence is sending churches in explicit order, then networks, then global. One eligible actual reader must complete all six canonical Discovery articles strictly above 80 percent; readers cannot pool partial progress. Plant creation enters Phase 1 independently.
 
+List totals, counts and group buckets come from the authorized database query, never from returned pages or selected rows; a deliberately unmeasured count is null, and an unavailable read returns unavailable, never zero.
+
 Every read/list/count/search/export/render/stream/download/model context applies current authority and a purpose-specific projection. Raw rows and protected contributor manifests never become transport output. Shared persistent private response caches are disabled initially. [Security](security.md), [audit](audit.md), [assessment](assessment.md) and [recovery](recovery.md) define the remaining boundaries.
 
 ## Operation inventory and shared boundary rules

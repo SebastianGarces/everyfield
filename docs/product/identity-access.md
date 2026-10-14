@@ -355,7 +355,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-021.** An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.
 
-**Target operations:** `associations.end`, `associations.end`, `associations.getHistory`.
+**Target operations:** `associations.end`, `associations.getHistory`.
 
 **Acceptance:** AC-IDN-021--IDN-021. **Named cases:** TARGET-IDN-021, ROLE43-016, ROLE43-017, ORG55-002, ORG55-003, AF-001, AF-002, AF-003, AF-004, AF-005, AF-006, AF-007, AF-008, AF-009, AF-010, AF-011, AF-012, AF-013, AF-014, AF-015, AF-016, AF-017, AF-018, AF-019, AF-020, AF-021, AF-022, AF-023, AF-024, AF-025, AF-026.
 
@@ -431,7 +431,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-027.** Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.
 
-**Target operations:** `associations.end`, `associations.end`.
+**Target operations:** `associations.end`.
 
 **Acceptance:** AC-IDN-027--IDN-027. **Named cases:** TARGET-IDN-027, ROLE43-016, ORG55-002.
 

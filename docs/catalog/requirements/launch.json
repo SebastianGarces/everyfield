@@ -387,7 +387,7 @@
         },
         {
           "operation": "meetings.captureAttendanceBatch",
-          "rule": "own team operational floor"
+          "rule": "A team leader may capture attendance only within the operational access allowed for their own team."
         },
         {
           "operation": "meetings.checkIn",
@@ -492,11 +492,11 @@
         },
         {
           "operation": "meetings.readAgenda",
-          "rule": "ordered sections/id/title/minutes,total/default-version and revision"
+          "rule": "Agenda reads return ordered sections with their identities, titles and minutes, the total duration, copied default version and current revision."
         },
         {
           "operation": "meetings.replaceAgenda",
-          "rule": "current agenda revision receipt"
+          "rule": "Replacing an agenda returns a receipt with the current agenda revision."
         }
       ]
     },
@@ -618,7 +618,7 @@
         },
         {
           "operation": "signals.correct",
-          "rule": "required iff correct"
+          "rule": "Correcting signal evidence requires replacement evidence; other signal actions do not require it."
         },
         {
           "operation": "signals.getHistory",
@@ -1042,7 +1042,7 @@
         },
         {
           "operation": "oversight.getHealth",
-          "rule": "null=bounded own portfolio"
+          "rule": "Omitting a plant selection restricts the health read to the caller's authorized portfolio."
         },
         {
           "operation": "oversight.getPlant",
@@ -1101,7 +1101,7 @@
       "behavior_rules": [
         {
           "operation": "geography.listReportingRegionCandidates",
-          "rule": "current plant launch-progress evidence"
+          "rule": "Reporting-region candidates use current launch-progress evidence for the authorized plant."
         },
         {
           "operation": "geography.listReportingRegionCandidates",
@@ -1121,7 +1121,7 @@
         },
         {
           "operation": "organizationIntelligence.read",
-          "rule": "null=latest valid complete"
+          "rule": "Omitting an organization assessment selection returns the latest valid complete assessment."
         },
         {
           "operation": "organizationIntelligence.read",
@@ -1145,7 +1145,7 @@
         },
         {
           "operation": "organizationIntelligence.requestRefresh",
-          "rule": "presentation context only"
+          "rule": "The requested organization view affects presentation only and grants no refresh authority."
         },
         {
           "operation": "organizationIntelligence.requestRefresh",
@@ -1157,7 +1157,7 @@
         },
         {
           "operation": "organizationLaunchSummary.readPublished",
-          "rule": "bounded oversight/shared Network Intelligence"
+          "rule": "Published organization launch summaries contain only bounded oversight and shared Network Intelligence evidence."
         },
         {
           "operation": "organizationLaunchSummary.readPublished",
@@ -1454,7 +1454,7 @@
         },
         {
           "operation": "intelligence.buildFactSnapshot",
-          "rule": "not summarized after removal: true."
+          "rule": "Fact snapshots must not summarize sources removed from the caller's authorized evidence."
         },
         {
           "operation": "intelligence.buildFactSnapshot",
@@ -1474,7 +1474,7 @@
         },
         {
           "operation": "intelligence.buildFactSnapshot",
-          "rule": "eligible valid completion<=start+48h inclusive"
+          "rule": "The timeliness numerator includes only eligible valid task completions no later than 48 elapsed hours after the actual originating occurrence."
         },
         {
           "operation": "intelligence.buildFactSnapshot",

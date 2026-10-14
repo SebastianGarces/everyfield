@@ -94,7 +94,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 **REQ-TEAM-004.** Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Parent/team-before-role/member locking makes assignment/vacate/retire/access-removal races coherent, with history and source revision in the same transaction.
 
-**Target operations:** `teams.appointLeader`, `teams.appointLeader`, `teams.leaderCandidates`.
+**Target operations:** `teams.appointLeader`, `teams.leaderCandidates`.
 
 **Acceptance:** AC-TEAM-004--TEAM-004. **Named cases:** TARGET-TEAM-004.
 
@@ -198,7 +198,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 **REQ-TEAM-012.** Preserve all-team and single-team responsive chart, pan, visible leaders/roles/vacancies and identical legible SVG/PDF exports, with long/unbroken-name wrapping in shared drawing model. Leadership template is the fixed root, other teams children; labels say organization view, not formal reporting hierarchy. Current default excludes archived with explicit labelled inclusion option. Tenant DTO excludes raw contact/account/storage IDs and unsafe markup; exports reauthorize current scope. Dormant reports To data does not create hierarchy editing.
 
-**Target operations:** `teams.orgChart`, `teams.exportOrgChart`, `teams.exportOrgChart`.
+**Target operations:** `teams.orgChart`, `teams.exportOrgChart`.
 
 **Acceptance:** AC-TEAM-012--TEAM-012. **Named cases:** TARGET-TEAM-012.
 
