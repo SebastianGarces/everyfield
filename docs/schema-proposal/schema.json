@@ -662,7 +662,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind."
         }
       ],
       "checks": [
@@ -1032,7 +1033,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind."
         }
       ],
       "checks": [
@@ -1174,7 +1176,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind."
         }
       ],
       "checks": [
@@ -9326,7 +9329,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Serving reference activation is global-only; trusted activation boundary verifies a complete approved global release and binds its record to the global tenant."
         }
       ],
       "checks": [
@@ -17308,7 +17312,8 @@
         }
       ],
       "checks": [
-        "kind in ('account', 'affiliation', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'operation', 'organization', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'responsibility', 'review', 'seat', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')"
+        "kind in ('account', 'affiliation', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'operation', 'organization', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'responsibility', 'review', 'seat', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
+        "kind not in ('account','plant','organization') or tenant_id = id"
       ],
       "jsonb_keys": {},
       "capabilities": [

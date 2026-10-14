@@ -20,6 +20,7 @@ CLOSED_VALUE_COLUMNS = {
     'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
+OWNER_ROOTS = {'account', 'plant', 'organization'}
 CURRENT_DOMAINS = {
     'identity': 'auth_user auth_account auth_session auth_verification auth_throttle app_account platform_grant',
     'tenancy': 'tenancy_membership access_invitation plant organization organization_network_link plant_affiliation organization_sharing_settings discovery_profile discovery_association association_invitation association_event account_person_link',
@@ -55,6 +56,8 @@ def scope_exception_name(table, fk):
 
 def owner_columns(table):
     """Recognize tenant aliases from root FKs and unconditional (id, owner) keys."""
+    if table['name'] in OWNER_ROOTS:
+        return {'id'}
     if any(c['name'] == 'tenant_id' for c in table['columns']):
         return {'tenant_id'}
     owners = set()
@@ -208,7 +211,9 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
                     errors.append(f'{prefix}: scope exception not named in README: {exception_name}')
                 paired = any(left in child_owners and right in parent_owners
                              for left, right in zip(local, remote))
-                if child_owners and parent_owners and not paired and not exception:
+                # Root targets identify owners or actors, not same-owner child bodies.
+                if (target_name not in OWNER_ROOTS and child_owners and parent_owners
+                        and not paired and not exception):
                     errors.append(f'{prefix}: tenant-owned parent {target_name} lacks compound owner FK or named scope exception')
             missing_remote = sorted(set(remote) - target_columns.keys())
             if missing_remote:
@@ -368,6 +373,7 @@ def self_test(root):
         ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
         ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
         ('INV-tenancy: publication FK without account owner', 'account_fk', 1, 'tenant-owned parent feedback lacks compound owner FK'),
+        ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'proposal.account: tenant-owned parent file_object lacks compound owner FK'),
         ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
         ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
         ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation conversation_id has no FK'),
@@ -411,11 +417,12 @@ def self_test(root):
                 entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
                 parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'conversation')
                 parent['columns'], parent['references']['columns'] = ['conversation_id'], ['id']
-            elif fault in {'plant_fk', 'organization_fk', 'account_fk', 'undocumented_exception', 'documented_exception'}:
+            elif fault in {'plant_fk', 'organization_fk', 'account_fk', 'root_fk', 'undocumented_exception', 'documented_exception'}:
                 table_name, column = {
                     'plant_fk': ('mail', 'recipient_person_id'),
                     'organization_fk': ('article_editor_state', 'draft_revision_id'),
                     'account_fk': ('feedback_publication', 'feedback_id'),
+                    'root_fk': ('account', 'avatar_object_id'),
                     'undocumented_exception': ('mail', 'recipient_person_id'),
                     'documented_exception': ('mail', 'recipient_person_id'),
                 }[fault]
