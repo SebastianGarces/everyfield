@@ -547,7 +547,7 @@
         "WP-097"
       ],
       "status": "future-not-run",
-      "description": "Anonymous planter/network forms, sent-only normalized duplicates and concurrency, retry after failed mail with the same idempotency key, abuse limits, truthful failures, private CSV export and scheduled retention.",
+      "description": "Approved E3 form fields/phases/results, E4 request/limiter/receipt representation, rate-limit-first duplicate and pending retry, one provider email under concurrent HTTP attempts, safe sixteen-column CSV and strict retention cutoffs.",
       "given": {
         "configuration": {
           "fixture_type": "early_access_configuration",
@@ -557,8 +557,8 @@
           "provider": "available",
           "trusted_ip": "192.0.2.4",
           "existing_requests": [],
-          "email_requests_today": 0,
-          "ip_requests_this_hour": 0
+          "email_attempts_in_24_hours": 0,
+          "ip_attempts_in_one_hour": 0
         }
       },
       "actor": {
@@ -573,44 +573,46 @@
       "action": {
         "operation": "marketing.requestInvitation",
         "arguments": {
-          "form": "planter",
-          "name": "Alex Rivera",
-          "email": " Alex@Example.test ",
-          "plant_name": "Hope Church",
-          "city": "Chicago",
-          "phase": "Phase 1",
-          "sending_church_or_network": "Grace Network",
-          "honeypot": ""
+          "kind": "planter",
+          "fields": {
+            "name": "Alex Rivera",
+            "email": " Alex@Example.test ",
+            "plant_name": "Hope Church",
+            "city": "Chicago",
+            "phase": "1 · Core group",
+            "sending": "Grace Network",
+            "website": ""
+          }
         }
       },
       "expected": {
         "state": {
           "new_access_requests": 1,
           "new_account_rows": 0,
-          "new_crm_rows": 0
-        },
-        "result": {
-          "status": "received",
-          "email_calls": 1,
+          "new_crm_rows": 0,
+          "mail_http_attempts": 1,
           "stored_fields": {
-            "form": "planter",
+            "kind": "planter",
             "name": "Alex Rivera",
             "email": "alex@example.test",
             "plant_name": "Hope Church",
             "city": "Chicago",
-            "phase": "Phase 1",
-            "sending_church_or_network": "Grace Network"
+            "phase": "1 · Core group",
+            "sending": "Grace Network"
           },
           "email_to": "owner@example.test",
           "emailed_fields": {
-            "form": "planter",
+            "kind": "planter",
             "name": "Alex Rivera",
             "email": "alex@example.test",
             "plant_name": "Hope Church",
             "city": "Chicago",
-            "phase": "Phase 1",
-            "sending_church_or_network": "Grace Network"
+            "phase": "1 · Core group",
+            "sending": "Grace Network"
           }
+        },
+        "result": {
+          "status": "received"
         },
         "event": null
       },
@@ -626,8 +628,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -642,44 +644,46 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "network",
-              "name": "Casey Lee",
-              "email": "casey@example.test",
-              "network_or_church": "Grace Network",
-              "role": "Director",
-              "plants_sent_or_supported": "12",
-              "message": "Please contact me about early access.",
-              "honeypot": ""
+              "kind": "network",
+              "fields": {
+                "name": "Casey Lee",
+                "email": "casey@example.test",
+                "organization": "Grace Network",
+                "role": "Director",
+                "plants": "12",
+                "message": "Please contact me about early access.",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
-            },
-            "result": {
-              "status": "received",
-              "email_calls": 1,
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1,
               "stored_fields": {
-                "form": "network",
+                "kind": "network",
                 "name": "Casey Lee",
                 "email": "casey@example.test",
-                "network_or_church": "Grace Network",
+                "organization": "Grace Network",
                 "role": "Director",
-                "plants_sent_or_supported": "12",
+                "plants": 12,
                 "message": "Please contact me about early access."
               },
               "email_to": "owner@example.test",
               "emailed_fields": {
-                "form": "network",
+                "kind": "network",
                 "name": "Casey Lee",
                 "email": "casey@example.test",
-                "network_or_church": "Grace Network",
+                "organization": "Grace Network",
                 "role": "Director",
-                "plants_sent_or_supported": "12",
+                "plants": 12,
                 "message": "Please contact me about early access."
               }
+            },
+            "result": {
+              "status": "received"
             },
             "event": null
           }
@@ -695,8 +699,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -711,27 +715,29 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": "wrong",
-              "plant_name": "",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "wrong",
+                "plant_name": "",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
               "status": "invalid",
-              "email_calls": 0,
-              "field_errors": {
-                "email": "invalid",
+              "fieldErrors": {
+                "email": "email",
                 "plant_name": "required"
               }
             },
@@ -749,8 +755,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -765,26 +771,28 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "network",
-              "name": "Casey Lee",
-              "email": "casey@example.test",
-              "network_or_church": "Grace Network",
-              "role": "",
-              "plants_sent_or_supported": "12",
-              "message": "Please contact me about early access.",
-              "honeypot": ""
+              "kind": "network",
+              "fields": {
+                "name": "Casey Lee",
+                "email": "casey@example.test",
+                "organization": "Grace Network",
+                "role": "",
+                "plants": "12",
+                "message": "Please contact me about early access.",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
               "status": "invalid",
-              "email_calls": 0,
-              "field_errors": {
+              "fieldErrors": {
                 "role": "required"
               }
             },
@@ -802,8 +810,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -818,24 +826,26 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -851,8 +861,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -867,23 +877,25 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "network",
-              "name": "Casey Lee",
-              "email": "casey@example.test",
-              "network_or_church": "Grace Network",
-              "role": "Director",
-              "honeypot": ""
+              "kind": "network",
+              "fields": {
+                "name": "Casey Lee",
+                "email": "casey@example.test",
+                "organization": "Grace Network",
+                "role": "Director",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -899,8 +911,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -915,25 +927,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": "spam"
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": "spam"
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
-              "status": "received",
-              "email_calls": 0
+              "status": "received"
             },
             "event": null
           }
@@ -950,14 +964,34 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "form": "planter",
-                  "email": "alex@example.test",
+                  "id": "00000000-0000-4000-8000-000000000101",
                   "created_at": "2026-10-13T16:00:01Z",
-                  "delivery_state": "sent"
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-10-13T16:00:01Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -972,25 +1006,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": "alex@example.test",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
-              "status": "received",
-              "email_calls": 0
+              "status": "received"
             },
             "event": null
           }
@@ -1007,14 +1043,34 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "form": "planter",
-                  "email": "alex@example.test",
+                  "id": "00000000-0000-4000-8000-000000000102",
                   "created_at": "2026-10-14T15:00:00Z",
-                  "delivery_state": "sent"
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-10-14T15:00:00Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1029,25 +1085,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "network",
-              "name": "Casey Lee",
-              "email": "alex@example.test",
-              "network_or_church": "Grace Network",
-              "role": "Director",
-              "plants_sent_or_supported": "12",
-              "message": "Please contact me about early access.",
-              "honeypot": ""
+              "kind": "network",
+              "fields": {
+                "name": "Casey Lee",
+                "email": "alex@example.test",
+                "organization": "Grace Network",
+                "role": "Director",
+                "plants": "12",
+                "message": "Please contact me about early access.",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -1064,14 +1122,34 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "form": "planter",
-                  "email": "alex@example.test",
+                  "id": "00000000-0000-4000-8000-000000000103",
                   "created_at": "2026-10-13T16:00:00Z",
-                  "delivery_state": "sent"
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-10-13T16:00:00Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1086,25 +1164,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -1120,8 +1200,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 4,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 4,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1136,25 +1216,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -1170,8 +1252,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 5,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 5,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1186,26 +1268,28 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
               "status": "rate_limited",
-              "email_calls": 0,
-              "limit": "email"
+              "reason": "email"
             },
             "event": null
           }
@@ -1221,8 +1305,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 19
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 19
             }
           },
           "actor": {
@@ -1237,25 +1321,27 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1
             },
             "result": {
-              "status": "received",
-              "email_calls": 1
+              "status": "received"
             },
             "event": null
           }
@@ -1271,8 +1357,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 20
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 20
             }
           },
           "actor": {
@@ -1287,26 +1373,28 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
             },
             "result": {
               "status": "rate_limited",
-              "email_calls": 0,
-              "limit": "ip"
+              "reason": "ip"
             },
             "event": null
           }
@@ -1322,8 +1410,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1338,26 +1426,28 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0,
+              "contact_fallback": "contact@example.test"
             },
             "result": {
-              "status": "unavailable",
-              "email_calls": 0,
-              "contact_fallback": "contact@example.test"
+              "status": "unavailable"
             },
             "event": null
           }
@@ -1373,8 +1463,8 @@
               "provider": "refused",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1389,33 +1479,36 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1,
+              "contact_fallback": "contact@example.test",
+              "mail_id": null,
+              "mailed_at": null
             },
             "result": {
-              "status": "unavailable",
-              "email_calls": 1,
-              "contact_fallback": "contact@example.test",
-              "delivery_state": "failed"
+              "status": "unavailable"
             },
             "event": null
           }
         },
         {
-          "name": "failed request retry sends with the same idempotency key",
+          "name": "failed mail retries the pending row with its original payload and key",
           "given": {
             "configuration": {
               "fixture_type": "early_access_configuration",
@@ -1426,16 +1519,35 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "form": "planter",
-                  "email": "alex@example.test",
-                  "created_at": "2026-10-14T15:59:00Z",
-                  "delivery_state": "failed",
                   "id": "00000000-0000-4000-8000-000000000097",
-                  "idempotency_key": "early-access/00000000-0000-4000-8000-000000000097"
+                  "created_at": "2026-10-14T15:59:00Z",
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": null,
+                  "mailed_at": null
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "provider_mail_id": "mail-retry-1"
             }
           },
           "actor": {
@@ -1450,14 +1562,16 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": "alex@example.test",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Changed on retry",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
@@ -1465,14 +1579,17 @@
               "new_access_requests": 0,
               "new_account_rows": 0,
               "new_crm_rows": 0,
-              "access_request_rows": 1,
-              "delivery_state": "sent"
+              "early_access_request_rows": 1,
+              "mail_http_attempts": 1,
+              "email_to": "owner@example.test",
+              "idempotency_key": "early-access/00000000-0000-4000-8000-000000000097",
+              "mail_id": "mail-retry-1",
+              "mailed_at": "2026-10-14T16:00:00Z",
+              "provider_emails_sent": 1,
+              "original_mail_payload_preserved": true
             },
             "result": {
-              "status": "received",
-              "email_calls": 1,
-              "email_to": "owner@example.test",
-              "idempotency_key": "early-access/00000000-0000-4000-8000-000000000097"
+              "status": "received"
             },
             "event": null
           }
@@ -1488,8 +1605,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1504,32 +1621,34 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 0,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0,
+              "contact_fallback": "contact@example.test"
             },
             "result": {
-              "status": "unavailable",
-              "email_calls": 0,
-              "contact_fallback": "contact@example.test"
+              "status": "unavailable"
             },
             "event": null
           }
         },
         {
-          "name": "concurrent same email and form",
+          "name": "concurrent same email and kind sends one provider email",
           "given": {
             "execution": {
               "fixture_type": "concurrency_control",
@@ -1537,14 +1656,16 @@
                 {
                   "operation": "marketing.requestInvitation",
                   "arguments": {
-                    "form": "planter",
-                    "name": "Alex Rivera",
-                    "email": " Alex@Example.test ",
-                    "plant_name": "Hope Church",
-                    "city": "Chicago",
-                    "phase": "Phase 1",
-                    "sending_church_or_network": "Grace Network",
-                    "honeypot": ""
+                    "kind": "planter",
+                    "fields": {
+                      "name": "Alex Rivera",
+                      "email": " Alex@Example.test ",
+                      "plant_name": "Hope Church",
+                      "city": "Chicago",
+                      "phase": "1 · Core group",
+                      "sending": "Grace Network",
+                      "website": ""
+                    }
                   },
                   "actor": {
                     "account": null,
@@ -1553,7 +1674,18 @@
                   }
                 }
               ],
-              "barrier": "before_duplicate_admission"
+              "barrier": "before_duplicate_admission_and_mail_receipt"
+            },
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [],
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1568,28 +1700,31 @@
           "action": {
             "operation": "marketing.requestInvitation",
             "arguments": {
-              "form": "planter",
-              "name": "Alex Rivera",
-              "email": " Alex@Example.test ",
-              "plant_name": "Hope Church",
-              "city": "Chicago",
-              "phase": "Phase 1",
-              "sending_church_or_network": "Grace Network",
-              "honeypot": ""
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
             }
           },
           "expected": {
             "state": {
               "new_access_requests": 1,
               "new_account_rows": 0,
-              "new_crm_rows": 0
+              "new_crm_rows": 0,
+              "provider_emails_sent": 1,
+              "distinct_provider_idempotency_keys": 1
             },
             "result": {
               "statuses": [
                 "received",
                 "received"
-              ],
-              "email_calls": 1
+              ]
             },
             "event": null
           }
@@ -1620,25 +1755,60 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "id": "request-1",
-                  "form": "planter",
-                  "name": "Alex Rivera",
+                  "id": "00000000-0000-4000-8000-000000000104",
+                  "created_at": "2026-10-14T15:00:00.000Z",
+                  "kind": "planter",
                   "email": "alex@example.test",
-                  "plant_name": "Hope, Church",
-                  "city": "Chicago",
-                  "phase": "Phase 1",
-                  "sending_church_or_network": "Grace Network",
-                  "network_or_church": null,
-                  "role": null,
-                  "plants_sent_or_supported": null,
-                  "message": null,
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope, Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
                   "ip_address": "192.0.2.4",
-                  "created_at": "2026-10-14T15:00:00Z",
-                  "delivery_state": "sent"
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope, Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-1",
+                  "mailed_at": "2026-10-14T15:00:01.000Z"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000109",
+                  "created_at": "2026-10-14T15:01:00.000Z",
+                  "kind": "network",
+                  "email": "casey@example.test",
+                  "data": {
+                    "name": "=HYPERLINK(\"x\")",
+                    "organization": "Grace Network",
+                    "role": "Director",
+                    "plants": 12,
+                    "message": "Line 1, \"quoted\"\nLine 2",
+                    "email": "casey@example.test"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "casey@example.test",
+                    "subject": "EveryField early access: network",
+                    "text": "Form: network\nName: =HYPERLINK(\"x\")\nEmail: casey@example.test\nNetwork or church: Grace Network\nRole: Director\nPlants sent or supported: 12\nMessage: Line 1, \"quoted\"\nLine 2"
+                  },
+                  "mail_id": "mail-2",
+                  "mailed_at": "2026-10-14T15:01:01.000Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1655,10 +1825,12 @@
             "arguments": {}
           },
           "expected": {
-            "state": {},
+            "state": {
+              "output_file_mode": "0600",
+              "public_export_endpoint": false
+            },
             "result": {
-              "content_type": "text/csv",
-              "csv": "id,form,name,email,plant_name,city,phase,sending_church_or_network,network_or_church,role,plants_sent_or_supported,message,ip_address,created_at,delivery_state\r\nrequest-1,planter,Alex Rivera,alex@example.test,\"Hope, Church\",Chicago,Phase 1,Grace Network,,,,,192.0.2.4,2026-10-14T15:00:00Z,sent\r\n"
+              "csv": "id,created_at,kind,name,email,plant_name,city,phase,sending,organization,role,plants,message,ip_address,mail_id,mailed_at\r\n\"00000000-0000-4000-8000-000000000104\",\"2026-10-14T15:00:00.000Z\",\"planter\",\"Alex Rivera\",\"alex@example.test\",\"Hope, Church\",\"Chicago\",\"1 · Core group\",\"Grace Network\",\"\",\"\",\"\",\"\",\"192.0.2.4\",\"mail-1\",\"2026-10-14T15:00:01.000Z\"\r\n\"00000000-0000-4000-8000-000000000109\",\"2026-10-14T15:01:00.000Z\",\"network\",\"'=HYPERLINK(\"\"x\"\")\",\"casey@example.test\",\"\",\"\",\"\",\"\",\"Grace Network\",\"Director\",\"12\",\"Line 1, \"\"quoted\"\"\nLine 2\",\"192.0.2.4\",\"mail-2\",\"2026-10-14T15:01:01.000Z\"\r\n"
             },
             "event": null
           }
@@ -1674,8 +1846,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1692,9 +1864,11 @@
             "arguments": {}
           },
           "expected": {
-            "state": {},
+            "state": {
+              "public_export_endpoint": false
+            },
             "result": {},
-            "error_code": "access_denied",
+            "error_code": "not_found",
             "event": null
           }
         },
@@ -1724,32 +1898,155 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "id": "older-request",
-                  "fixture_type": "access_request",
+                  "id": "00000000-0000-4000-8000-000000000105",
                   "created_at": "2025-10-14T15:59:59Z",
-                  "ip_address": "192.0.2.1"
+                  "kind": "planter",
+                  "email": "fixture105@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture105@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.1",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture105@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture105@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2025-10-14T15:59:59Z"
                 },
                 {
-                  "id": "boundary-request",
-                  "fixture_type": "access_request",
+                  "id": "00000000-0000-4000-8000-000000000106",
                   "created_at": "2025-10-14T16:00:00Z",
-                  "ip_address": "192.0.2.2"
+                  "kind": "planter",
+                  "email": "fixture106@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture106@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.2",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture106@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture106@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2025-10-14T16:00:00Z"
                 },
                 {
-                  "id": "ip-boundary",
-                  "fixture_type": "access_request",
+                  "id": "00000000-0000-4000-8000-000000000110",
+                  "created_at": "2026-09-14T15:59:59Z",
+                  "kind": "planter",
+                  "email": "fixture110@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture110@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.5",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture110@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture110@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T15:59:59Z"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000107",
                   "created_at": "2026-09-14T16:00:00Z",
-                  "ip_address": "192.0.2.3"
+                  "kind": "planter",
+                  "email": "fixture107@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture107@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.3",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture107@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture107@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T16:00:00Z"
                 },
                 {
-                  "id": "new-request",
-                  "fixture_type": "access_request",
+                  "id": "00000000-0000-4000-8000-000000000108",
                   "created_at": "2026-09-14T16:00:01Z",
-                  "ip_address": "192.0.2.4"
+                  "kind": "planter",
+                  "email": "fixture108@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture108@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture108@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture108@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T16:00:01Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "existing_attempts": [
+                {
+                  "created_at": "2026-10-13T15:59:59Z",
+                  "email": "older@example.test",
+                  "ip_key": "192.0.2.1"
+                },
+                {
+                  "created_at": "2026-10-13T16:00:00Z",
+                  "email": "boundary@example.test",
+                  "ip_key": "192.0.2.2"
+                },
+                {
+                  "created_at": "2026-10-13T16:00:01Z",
+                  "email": "newer@example.test",
+                  "ip_key": "unknown"
+                }
+              ]
             }
           },
           "actor": {
@@ -1768,23 +2065,42 @@
           "expected": {
             "state": {
               "deleted_request_ids": [
-                "older-request",
-                "boundary-request"
+                "00000000-0000-4000-8000-000000000105"
               ],
               "remaining_requests": [
                 {
-                  "id": "ip-boundary",
+                  "id": "00000000-0000-4000-8000-000000000106",
                   "ip_address": null
                 },
                 {
-                  "id": "new-request",
+                  "id": "00000000-0000-4000-8000-000000000110",
+                  "ip_address": null
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000107",
+                  "ip_address": "192.0.2.3"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000108",
                   "ip_address": "192.0.2.4"
+                }
+              ],
+              "remaining_attempts": [
+                {
+                  "created_at": "2026-10-13T16:00:00Z",
+                  "email": "boundary@example.test",
+                  "ip_key": "192.0.2.2"
+                },
+                {
+                  "created_at": "2026-10-13T16:00:01Z",
+                  "email": "newer@example.test",
+                  "ip_key": "unknown"
                 }
               ]
             },
             "result": {
-              "deleted_requests": 2,
-              "cleared_ips": 1
+              "deleted": 1,
+              "clearedIps": 2
             },
             "event": null
           }
@@ -1815,20 +2131,124 @@
               "trusted_ip": "192.0.2.4",
               "existing_requests": [
                 {
-                  "id": "ip-boundary",
-                  "fixture_type": "access_request",
-                  "created_at": "2026-09-14T16:00:00Z",
-                  "ip_address": null
+                  "id": "00000000-0000-4000-8000-000000000106",
+                  "created_at": "2025-10-14T16:00:00Z",
+                  "kind": "planter",
+                  "email": "fixture106@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture106@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": null,
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture106@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture106@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2025-10-14T16:00:00Z"
                 },
                 {
-                  "id": "new-request",
-                  "fixture_type": "access_request",
+                  "id": "00000000-0000-4000-8000-000000000110",
+                  "created_at": "2026-09-14T15:59:59Z",
+                  "kind": "planter",
+                  "email": "fixture110@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture110@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": null,
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture110@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture110@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T15:59:59Z"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000107",
+                  "created_at": "2026-09-14T16:00:00Z",
+                  "kind": "planter",
+                  "email": "fixture107@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture107@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.3",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture107@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture107@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T16:00:00Z"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000108",
                   "created_at": "2026-09-14T16:00:01Z",
-                  "ip_address": "192.0.2.4"
+                  "kind": "planter",
+                  "email": "fixture108@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "fixture108@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "fixture108@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: fixture108@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-09-14T16:00:01Z"
                 }
               ],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "existing_attempts": [
+                {
+                  "created_at": "2026-10-13T16:00:00Z",
+                  "email": "boundary@example.test",
+                  "ip_key": "192.0.2.2"
+                },
+                {
+                  "created_at": "2026-10-13T16:00:01Z",
+                  "email": "newer@example.test",
+                  "ip_key": "unknown"
+                }
+              ]
             }
           },
           "actor": {
@@ -1848,18 +2268,38 @@
             "state": {
               "remaining_requests": [
                 {
-                  "id": "ip-boundary",
+                  "id": "00000000-0000-4000-8000-000000000106",
                   "ip_address": null
                 },
                 {
-                  "id": "new-request",
+                  "id": "00000000-0000-4000-8000-000000000110",
+                  "ip_address": null
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000107",
+                  "ip_address": "192.0.2.3"
+                },
+                {
+                  "id": "00000000-0000-4000-8000-000000000108",
                   "ip_address": "192.0.2.4"
+                }
+              ],
+              "remaining_attempts": [
+                {
+                  "created_at": "2026-10-13T16:00:00Z",
+                  "email": "boundary@example.test",
+                  "ip_key": "192.0.2.2"
+                },
+                {
+                  "created_at": "2026-10-13T16:00:01Z",
+                  "email": "newer@example.test",
+                  "ip_key": "unknown"
                 }
               ]
             },
             "result": {
-              "deleted_requests": 0,
-              "cleared_ips": 0
+              "deleted": 0,
+              "clearedIps": 0
             },
             "event": null
           }
@@ -1875,8 +2315,8 @@
               "provider": "available",
               "trusted_ip": "192.0.2.4",
               "existing_requests": [],
-              "email_requests_today": 0,
-              "ip_requests_this_hour": 0
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0
             }
           },
           "actor": {
@@ -1896,6 +2336,389 @@
             "state": {},
             "result": {},
             "error_code": "access_denied",
+            "event": null
+          }
+        },
+        {
+          "name": "email limit takes precedence over a sent duplicate",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000101",
+                  "created_at": "2026-10-13T16:00:01Z",
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": "mail-existing",
+                  "mailed_at": "2026-10-13T16:00:01Z"
+                }
+              ],
+              "email_attempts_in_24_hours": 5,
+              "ip_attempts_in_one_hour": 0
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 0,
+              "new_account_rows": 0,
+              "new_crm_rows": 0,
+              "mail_http_attempts": 0
+            },
+            "result": {
+              "status": "rate_limited",
+              "reason": "email"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "email limit takes precedence over a pending retry",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000097",
+                  "created_at": "2026-10-14T15:59:00Z",
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": null,
+                  "mailed_at": null
+                }
+              ],
+              "email_attempts_in_24_hours": 5,
+              "ip_attempts_in_one_hour": 0,
+              "provider_mail_id": "mail-retry-1"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Changed on retry",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 0,
+              "early_access_request_rows": 1,
+              "mail_http_attempts": 0,
+              "mail_id": null,
+              "mailed_at": null
+            },
+            "result": {
+              "status": "rate_limited",
+              "reason": "email"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "pending request at 23 hours requires reconciliation",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000097",
+                  "created_at": "2026-10-13T17:00:00Z",
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": null,
+                  "mailed_at": null
+                }
+              ],
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "provider_mail_id": "mail-retry-1"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Changed on retry",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 0,
+              "early_access_request_rows": 1,
+              "mail_http_attempts": 0,
+              "mail_id": null,
+              "mailed_at": null,
+              "operator_reconciliation_required": true
+            },
+            "result": {
+              "status": "unavailable"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "unresolved pending beyond 24 hours cannot become a new request",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000097",
+                  "created_at": "2026-10-13T15:00:00Z",
+                  "kind": "planter",
+                  "email": "alex@example.test",
+                  "data": {
+                    "name": "Alex Rivera",
+                    "email": "alex@example.test",
+                    "plant_name": "Hope Church",
+                    "city": "Chicago",
+                    "phase": "1 · Core group",
+                    "sending": "Grace Network"
+                  },
+                  "ip_address": "192.0.2.4",
+                  "mail_payload": {
+                    "from": "EveryField <hello@example.test>",
+                    "to": [
+                      "owner@example.test"
+                    ],
+                    "reply_to": "alex@example.test",
+                    "subject": "EveryField early access: planter",
+                    "text": "Form: planter\nName: Alex Rivera\nEmail: alex@example.test\nPlant name: Hope Church\nCity: Chicago\nPhase: 1 · Core group\nSending church or network: Grace Network"
+                  },
+                  "mail_id": null,
+                  "mailed_at": null
+                }
+              ],
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "provider_mail_id": "mail-retry-1"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": "alex@example.test",
+                "plant_name": "Changed on retry",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 0,
+              "early_access_request_rows": 1,
+              "mail_http_attempts": 0,
+              "mail_id": null,
+              "mailed_at": null,
+              "operator_reconciliation_required": true
+            },
+            "result": {
+              "status": "unavailable"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "provider acceptance without a stored receipt stays pending",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [],
+              "email_attempts_in_24_hours": 0,
+              "ip_attempts_in_one_hour": 0,
+              "mail_receipt_storage": "unavailable"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "kind": "planter",
+              "fields": {
+                "name": "Alex Rivera",
+                "email": " Alex@Example.test ",
+                "plant_name": "Hope Church",
+                "city": "Chicago",
+                "phase": "1 · Core group",
+                "sending": "Grace Network",
+                "website": ""
+              }
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 1,
+              "new_account_rows": 0,
+              "new_crm_rows": 0,
+              "mail_http_attempts": 1,
+              "contact_fallback": "contact@example.test",
+              "mail_id": null,
+              "mailed_at": null,
+              "provider_emails_sent": 1
+            },
+            "result": {
+              "status": "unavailable"
+            },
             "event": null
           }
         }

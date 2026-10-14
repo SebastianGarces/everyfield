@@ -1564,24 +1564,31 @@
       "persists": true,
       "entities": [
         "early access request",
-        "bounded delivery result"
+        "admitted limiter attempt",
+        "recorded mail receipt",
+        "migration receipt"
       ],
       "facts": [
-        "Form kind, normalized email, name and every declared planter or sending church/network field.",
-        "Creation instant, stored IP and bounded email delivery state; only an earlier sent request suppresses a duplicate per email and form for 24 hours."
+        "Form kind, normalized email and validated data with every declared planter or network field, including a numeric supplied plants count.",
+        "Creation instant, nullable stored IP, frozen mail payload and nullable mail_id/mailed_at; pending is inferred from absent receipts.",
+        "Short-lived admitted valid attempts, including duplicates and retries, and private applied migration-name receipts."
       ],
       "history": "current-only",
       "invariants": [
-        "An admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO.",
-        "Duplicate and honeypot responses reveal no email-existence information. A pending or failed request retries delivery on the same row with the same idempotency key and returns received only if it succeeds, otherwise unavailable.",
-        "Five requests per email per day and twenty per trusted IP per hour; unavailable storage or mail returns the contact fallback.",
-        "Operator CSV export is private; requests create no account, CRM record, newsletter or double opt-in."
+        "Rate limits take precedence over duplicate suppression and pending retry; admitted valid duplicates/retries add one limiter attempt.",
+        "Concurrent same-email/kind admission preserves one request; repeated provider calls use the same original payload and key and send one email.",
+        "Only a recorded mail receipt suppresses a duplicate within 24 hours; pending is inferred from NULL mail_id and mailed_at.",
+        "No request, limiter attempt or mail for a filled honeypot or invalid input. A rate refusal creates no effects.",
+        "Private operator CSV only; no public export endpoint, tenant-seat, generic record or model access.",
+        "Provider or receipt-storage failure returns unavailable and leaves the request pending; no false success."
       ],
-      "retention": "A scheduled job deletes requests after 12 months and clears stored IP addresses after 30 days.",
+      "retention": "Delete requests strictly older than 12 calendar months, clear request IPs strictly older than 30 days, and delete limiter attempts strictly older than 24 hours. Exact cutoff rows remain. Migration receipts contain no contact data.",
       "current_tables": [
-        "access_request"
+        "early_access_request",
+        "early_access_attempt",
+        "schema_migration"
       ],
-      "notes": "WP-097 owns the independent public request store; later product packages may extend the existing scaffold. Public examples are static synthetic content."
+      "notes": "WP-097 follows applied migration 0001 and the approved E3 form contract. Only recorded mail receipts suppress admitted duplicates; pending retry retains the original payload/key and requires reconciliation at 23 hours."
     },
     {
       "id": "CAP-A-049",

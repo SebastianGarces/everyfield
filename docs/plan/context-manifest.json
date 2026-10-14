@@ -1650,7 +1650,9 @@
       "direct_prerequisites": [],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "access_request"
+        "early_access_attempt",
+        "early_access_request",
+        "schema_migration"
       ],
       "consumer_table_names": [],
       "proof_stage": "early access site only; product privacy update belongs to WP-049",
@@ -2404,7 +2406,6 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -2429,6 +2430,8 @@
         "discovery",
         "document",
         "document_revision",
+        "early_access_attempt",
+        "early_access_request",
         "effect",
         "effect_dependency",
         "event",
@@ -2489,6 +2492,7 @@
         "responsibility",
         "review",
         "rsvp_proof",
+        "schema_migration",
         "seat",
         "suppression",
         "tag",
@@ -27336,7 +27340,6 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -27361,6 +27364,8 @@
         "discovery",
         "document",
         "document_revision",
+        "early_access_attempt",
+        "early_access_request",
         "effect",
         "effect_dependency",
         "event",
@@ -27421,6 +27426,7 @@
         "responsibility",
         "review",
         "rsvp_proof",
+        "schema_migration",
         "seat",
         "suppression",
         "tag",
@@ -33046,7 +33052,6 @@
         "tenant"
       ],
       "consumer_table_names": [
-        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -33071,6 +33076,8 @@
         "discovery",
         "document",
         "document_revision",
+        "early_access_attempt",
+        "early_access_request",
         "effect",
         "effect_dependency",
         "event",
@@ -33127,6 +33134,7 @@
         "responsibility",
         "review",
         "rsvp_proof",
+        "schema_migration",
         "seat",
         "suppression",
         "tag",

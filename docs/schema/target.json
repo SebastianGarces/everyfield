@@ -31028,100 +31028,66 @@
       "physical_verified": false
     },
     {
-      "name": "access_request",
+      "name": "early_access_request",
       "domain": "operations",
-      "purpose": "Private early access contact requests, independent of product accounts and tenants.",
+      "purpose": "Private early access requests and frozen owner-mail payloads, independent of product accounts and tenants.",
       "library_owned": false,
       "columns": [
         {
           "name": "id",
           "type": "uuid",
           "nullable": false,
-          "note": "Independent early access request identity; no account, tenant, Person or generic record grant."
-        },
-        {
-          "name": "form",
-          "type": "text",
-          "nullable": false,
-          "note": "Planter or network form."
-        },
-        {
-          "name": "name",
-          "type": "text",
-          "nullable": false,
-          "note": "Requester name."
-        },
-        {
-          "name": "email",
-          "type": "text",
-          "nullable": false,
-          "note": "Trimmed, case-normalized requester email."
-        },
-        {
-          "name": "plant_name",
-          "type": "text",
-          "nullable": true,
-          "note": "Required only for planter form."
-        },
-        {
-          "name": "city",
-          "type": "text",
-          "nullable": true,
-          "note": "Required only for planter form."
-        },
-        {
-          "name": "phase",
-          "type": "text",
-          "nullable": true,
-          "note": "Required only for planter form; selected approved public phase."
-        },
-        {
-          "name": "sending_church_or_network",
-          "type": "text",
-          "nullable": true,
-          "note": "Optional planter field."
-        },
-        {
-          "name": "network_or_church",
-          "type": "text",
-          "nullable": true,
-          "note": "Required only for network form."
-        },
-        {
-          "name": "role",
-          "type": "text",
-          "nullable": true,
-          "note": "Required only for network form."
-        },
-        {
-          "name": "plants_sent_or_supported",
-          "type": "text",
-          "nullable": true,
-          "note": "Optional network field."
-        },
-        {
-          "name": "message",
-          "type": "text",
-          "nullable": true,
-          "note": "Optional network field."
-        },
-        {
-          "name": "ip_address",
-          "type": "inet",
-          "nullable": true,
-          "note": "Trusted requester IP for abuse limits; clear after 30 days."
+          "note": "Independent request identity and origin of the stable provider idempotency key.",
+          "default": "gen_random_uuid()"
         },
         {
           "name": "created_at",
           "type": "timestamptz",
           "nullable": false,
-          "note": "Request creation instant and retention origin."
+          "note": "Creation instant, duplicate/retry age and retention origin.",
+          "default": "clock_timestamp()"
         },
         {
-          "name": "delivery_state",
+          "name": "kind",
           "type": "text",
           "nullable": false,
-          "note": "Bounded email outcome; only actual stored and sent success returns received."
+          "note": "Planter or network access form."
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "note": "Trimmed, lowercase requester email."
+        },
+        {
+          "name": "data",
+          "type": "jsonb",
+          "nullable": false,
+          "note": "Validated submitted fields; required fields and phases are checked by the shared form contract, not invented SQL checks."
+        },
+        {
+          "name": "ip_address",
+          "type": "inet",
+          "nullable": true,
+          "note": "Trusted IP, or NULL when unavailable; scheduled clearing only when strictly older than 30 days."
+        },
+        {
+          "name": "mail_payload",
+          "type": "jsonb",
+          "nullable": false,
+          "note": "Original owner email, reused unchanged on retry; private addresses and text, never credentials."
+        },
+        {
+          "name": "mail_id",
+          "type": "text",
+          "nullable": true,
+          "note": "Recorded provider mail receipt. NULL with mailed_at means pending, including failed or unresolved delivery."
+        },
+        {
+          "name": "mailed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "note": "Receipt recording instant; NULL exactly when mail_id is NULL."
         }
       ],
       "primary_key": [
@@ -31130,12 +31096,114 @@
       "unique_keys": [],
       "foreign_keys": [],
       "checks": [
-        "form in ('planter', 'network')",
-        "delivery_state in ('pending', 'sent', 'failed', 'unknown')",
+        "kind in ('planter', 'network')",
         "email = lower(btrim(email))",
-        "length(btrim(name)) > 0",
-        "(form = 'planter' and plant_name is not null and city is not null and phase is not null and network_or_church is null and role is null and plants_sent_or_supported is null and message is null) or (form = 'network' and network_or_church is not null and role is not null and plant_name is null and city is null and phase is null and sending_church_or_network is null)"
+        "(mail_id is null) = (mailed_at is null)"
       ],
+      "jsonb_keys": {
+        "data": [
+          "name: trimmed requester name",
+          "email: trimmed lowercase email",
+          "plant_name, city, phase: planter required fields; phase is one approved public choice",
+          "sending: optional planter sending church or network",
+          "organization, role: network required fields",
+          "plants: optional nonnegative integer count, parsed from up to four decimal digits",
+          "message: optional network message; empty optional text is omitted; website honeypot is not stored"
+        ],
+        "mail_payload": [
+          "from: configured sender",
+          "to: exactly one configured owner recipient",
+          "reply_to: normalized requester email",
+          "subject: original early access subject",
+          "text: original rendering of every declared submitted field"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "Rate limits take precedence over duplicate suppression and pending retry; admitted valid duplicates/retries add one limiter attempt.",
+        "Concurrent same-email/kind admission preserves one request; repeated provider calls use the same original payload and key and send one email.",
+        "Only a recorded mail receipt suppresses a duplicate within 24 hours; pending is inferred from NULL mail_id and mailed_at.",
+        "No request, limiter attempt or mail for a filled honeypot or invalid input. A rate refusal creates no effects.",
+        "Private operator CSV only; no public export endpoint, tenant-seat, generic record or model access.",
+        "Provider or receipt-storage failure returns unavailable and leaves the request pending; no false success."
+      ],
+      "revision": "Submitted fields and original mail payload remain immutable; mail receipt recording and scheduled IP clearing update retained rows.",
+      "idempotency": "Admitted sent duplicates within 24 hours return received. Admitted pending requests less than 23 hours old retry the same row, original payload and provider key and return received only after the receipt is saved. Pending requests at least 23 hours old require operator reconciliation, even beyond the duplicate window. Rate limits apply first.",
+      "deletion": "Delete only when strictly older than 12 calendar months; clear IP only when strictly older than 30 days. Exact cutoffs retain the request or IP. These periods cover the request store, not external mailbox retention.",
+      "physical_verified": false,
+      "indexes": [
+        {
+          "name": "early_access_request_duplicate",
+          "columns": [
+            "email",
+            "kind",
+            "created_at"
+          ],
+          "order": {
+            "created_at": "desc"
+          }
+        },
+        {
+          "name": "early_access_request_retention",
+          "columns": [
+            "created_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "early_access_attempt",
+      "domain": "operations",
+      "purpose": "Short-lived admitted valid attempt facts, including duplicate submissions and pending retries.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "Admitted attempt instant and rolling-window origin.",
+          "default": "clock_timestamp()"
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "note": "Normalized requester email."
+        },
+        {
+          "name": "ip_key",
+          "type": "text",
+          "nullable": false,
+          "note": "Trusted IP string, or the shared unknown key when unavailable."
+        }
+      ],
+      "primary_key": [],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [],
       "jsonb_keys": {},
       "capabilities": [
         "CAP-A-048"
@@ -31149,7 +31217,7 @@
         "additional_producers": [
           "WP-097"
         ],
-        "rule": "Phase 4 early access request store, assigned to WP-097 on 2026-10-14; no product scaffold or tenant prerequisite."
+        "rule": "WP-097 owns the applied migration 0001 limiter table, without an invented primary key."
       },
       "feature_ids": [
         "ADM-006"
@@ -31162,23 +31230,99 @@
       ],
       "scope": "operations",
       "invariants": [
-        "One admitted request row per submission; concurrent duplicate suppression uses normalized email and form within 24 hours and requires an earlier sent request.",
-        "No stored request or mail for honeypot, invalid input or refused admission.",
-        "Private operator export only; no public, tenant-seat, generic record or model access.",
-        "A provider or storage failure returns unavailable with contact fallback; a failed send leaves the request stored for retry and cannot claim success."
+        "The applied migration has no primary key or uniqueness constraint; each admitted attempt is a distinct append-only row.",
+        "Admission uses five attempts per email in rolling 24 hours and twenty per IP key in a rolling hour; it checks limits before duplicates.",
+        "Invalid or honeypot input, unusable mail configuration and limited submissions add no attempt."
       ],
-      "revision": "Immutable submitted fields; only delivery outcome and scheduled IP clearing change retained rows.",
-      "idempotency": "Only an earlier sent request suppresses a duplicate within 24 hours per normalized email and form, returning received without another row or email. A retry of a pending or failed request retries delivery on the same row with the same idempotency key and returns received only if delivery succeeds; otherwise it returns unavailable. Concurrent submissions preserve one row and one successful email.",
-      "deletion": "Scheduled deletion after 12 months from creation; scheduled IP clearing after 30 days. These periods cover the request store, not external mailbox retention.",
-      "physical_verified": false
+      "revision": "Append-only until scheduled deletion.",
+      "idempotency": "Every admitted valid attempt, including duplicate receipts and pending retries, counts once; it is not deduplicated.",
+      "deletion": "Scheduled deletion only when strictly older than 24 hours; exact cutoff attempts remain.",
+      "physical_verified": false,
+      "indexes": [
+        {
+          "name": "early_access_attempt_email",
+          "columns": [
+            "email",
+            "created_at"
+          ]
+        },
+        {
+          "name": "early_access_attempt_ip",
+          "columns": [
+            "ip_key",
+            "created_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "schema_migration",
+      "domain": "operations",
+      "purpose": "Private migration-name ledger used by the early access migration runner.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "note": "Applied migration file name and physical primary key."
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "Committed migration receipt time.",
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "name"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [],
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "WP-097 installs the migration runner ledger with its physical text primary key."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "A migration name is recorded only in the transaction that applies its SQL.",
+        "Repeat-equal migration execution finds the existing name and performs no second installation."
+      ],
+      "revision": "Append-only committed migration receipts.",
+      "idempotency": "The text primary key on name prevents a second receipt for the same migration; the runner serializes installation.",
+      "deletion": "Retain committed migration receipts for safe repeat execution; they contain no requester contact data.",
+      "physical_verified": false,
+      "indexes": []
     }
   ],
   "format_version": 2,
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-14",
   "implementation_authorized": false,
-  "table_count": 101,
-  "column_count": 1261,
+  "table_count": 103,
+  "column_count": 1260,
   "foreign_key_count": 408,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -33862,15 +34006,18 @@
       "light",
       "dark"
     ],
-    "access_request.form": [
+    "early_access_request.kind": [
       "planter",
       "network"
     ],
-    "access_request.delivery_state": [
-      "pending",
-      "sent",
-      "failed",
-      "unknown"
+    "early_access_request.data.phase": [
+      "0 · Discovery",
+      "1 · Core group",
+      "2 · Launch team",
+      "3 · Training",
+      "4 · Pre-launch",
+      "5 · Launch Sunday",
+      "6 · Post-launch"
     ]
   },
   "auth_adapter_configuration": {
@@ -35160,7 +35307,7 @@
     {
       "id": "E1-ACCESS-REQUEST",
       "ruling_date": "2026-10-14",
-      "reason": "Add the independent WP-097 access_request table for Phase 4 forms, email delivery, CSV export and scheduled 12-month request/30-day IP retention."
+      "reason": "Align WP-097 with applied E4 migration 0001 and its runner: early_access_request with validated data/frozen mail payload and nullable receipt fields, keyless early_access_attempt limiter facts, and schema_migration with its text key. Strict retention cutoffs and the approved E3 field/phase contract apply; no tenant or product tables are consumed."
     }
   ]
 }

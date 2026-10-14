@@ -33,12 +33,12 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 
 | Package | Task | Clauses | Operations | Cases | Tables | Days |
 |---|---|---:|---:|---:|---:|---:|
-| WP-097 | Early access site | 1 | 7 | 1 | 1 | 3.5 |
+| WP-097 | Early access site | 1 | 7 | 1 | 3 | 3.5 |
 | WP-087 | Local workflow and repository bootstrap | 0 | 0 | 0 | 0 | 3 |
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
 | WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 4 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 7 | 2 | 2 |
-| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 101 | 5 |
+| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 103 | 5 |
 | WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 20 | 8 | 2.5 |
 | WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |
