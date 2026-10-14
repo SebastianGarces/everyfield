@@ -334,7 +334,7 @@
       }
     },
     "access_page": {
-      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also the honeypot answer), duplicate, rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
+      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
       "hero": {
         "eyebrow": "Early access",
         "headline": "Request early access",
@@ -352,7 +352,7 @@
           },
           "email": {
             "label": "Email",
-            "help": "We use it only to reply about early access.",
+            "help": "We use your email to handle your early access request and limit spam.",
             "error": "Enter an email address, such as name@example.com.",
             "placeholder": "name@example.com"
           },
@@ -401,7 +401,7 @@
           },
           "email": {
             "label": "Email",
-            "help": "We use it only to reply about early access.",
+            "help": "We use your email to handle your early access request and limit spam.",
             "error": "Enter an email address, such as name@example.com.",
             "placeholder": "name@example.com"
           },
@@ -434,7 +434,7 @@
       },
       "optional_label": "(optional)",
       "privacy_note": {
-        "text": "We use these details only to reply about early access. Read our privacy policy.",
+        "text": "We use these details to handle your early access request and limit spam. Read our privacy policy.",
         "link": "privacy policy"
       },
       "outcomes": {
@@ -470,12 +470,12 @@
       }
     },
     "privacy_page": {
-      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
+      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data. Unresolved publication items (owner): the provider that hosts the sebastian@everyfield.app mailbox, how long email copies of requests stay in that inbox and how they are deleted, and any reply deadline. Add the confirmed duration and deletion wording to 'How long we keep it' before go-live.",
       "title": "Privacy policy",
       "updated": "October 14, 2026",
       "intro": [
         "This policy covers everyfield.app, the early access site for EveryField. EveryField LLC runs the site.",
-        "The site has no accounts, no sign in and no newsletter. It collects information only when you send a request for early access."
+        "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
       ],
       "sections": [
         {
@@ -510,7 +510,7 @@
         {
           "heading": "Where it is stored and processed",
           "paragraphs": [
-            "Three providers run the site for us. They use your information only to provide their service to us. All three process data in the United States. If you live outside the United States, your request goes to the United States."
+            "Vercel hosts the site through its global network. Neon stores requests in the United States, and Resend stores email data in the United States. These services may process information outside your country."
           ],
           "items": [
             "Vercel hosts the site and runs the forms.",
@@ -522,9 +522,9 @@
           "heading": "How long we keep it",
           "paragraphs": [],
           "items": [
-            "We keep each request for 12 months after you send it. Then we delete it from the database and delete the email copy.",
+            "We keep each request in our database for 12 months after you send it, then delete it.",
             "We delete the IP addresses we keep for request limits after 30 days.",
-            "Vercel keeps its request logs for a short time, as its own policy says.",
+            "Our providers may keep service logs and backup copies under their own retention policies.",
             "If you join early access, we will tell you how the product handles your information before you use it."
           ]
         },
@@ -532,7 +532,7 @@
           "heading": "Ask for a copy, a correction or deletion",
           "paragraphs": [
             "Email sebastian@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
-            "We reply within 30 days. When we delete a request, we delete it from the database and from our inbox."
+            "We will reply by email about your request."
           ]
         },
         {
