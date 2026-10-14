@@ -7,18 +7,15 @@ import { buildBlocks } from '../plan.ts';
 import { loadDag, loadRegistry } from '../lib.ts';
 
 const source = resolve(import.meta.dirname, '../../..');
-test('BUG-workflow: preserve every selected dependency including 26 forward references', () => {
+test('BUG-workflow: preserve selected producer dependencies across forward references', () => {
  const dag = loadDag(source);
  const {blocks} = buildBlocks(source, dag.packages);
  const by = new Map(blocks.map(b => [b.wp, blocks.filter(x => x.wp === b.wp)]));
- let forward = 0;
- for (const [i, p] of dag.packages.entries()) for (const d of p.depends_on) {
-  if (dag.packages.findIndex(x => x.id === d) > i) forward++;
+ for (const p of dag.packages) for (const d of p.depends_on) {
   const producer = by.get(d)!;
   const finals = [producer.find(b => b.part === 'contract') ?? producer.find(b => b.part === 'api') ?? producer[0]].map(b => b.key);
   for (const b of by.get(p.id)!) for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
  }
- assert.equal(forward, 26);
 });
 test('INV-context: load current acceptance and fail when its required input is missing', () => {
  assert.equal(loadRegistry(source).length, 720);
@@ -202,6 +199,11 @@ test('INV-workflow-routing: Next server paths stay with implementor and presenta
  const {blocks}=buildBlocks(source,[pkg]);assert.equal(blocks[0].specialist,'implementor');
  const ui=loadDag(source).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
  assert.ok(buildBlocks(source,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
+ const design=loadDag(source).packages.find(p=>p.id==='WP-088')!;
+ const planned=buildBlocks(source,[design]).blocks;
+ assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/','tests/ui/']}]);
+ assert.equal(draftProofPlan(source,parseTask('WP-088')).ownedPortion,'native');
+ assert.equal(draftProofPlan(source,parseTask('WP-088')).requiresStack,true);
 });
 
 import { ship, listShipped } from '../ship.ts';
@@ -315,6 +317,10 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
  assert.equal(block.acceptanceCount,context.acceptance_ids.length);
  assert.match(renderBrief(source,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
  assert.equal(block.acceptanceCount,8);
+ const brief=renderBrief(source,parseTask('WP-002'),{});
+ assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
+ assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
+ assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
 });
 
 test('INV-proof-draft: drafts account for each selected case and gate without installing authority',()=>{
@@ -355,7 +361,7 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
  const f=qualifiedFixture('WP-001');const oldLog=console.log;try{
   const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug);
   const progressPath=join(f.root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
-  progress.packages['WP-001'].status='not_started';writeFileSync(progressPath,JSON.stringify(progress));f.commit();importGit(wt,'merge','--ff-only','main');
+  delete progress.packages['WP-001'];writeFileSync(progressPath,JSON.stringify(progress));f.commit();importGit(wt,'merge','--ff-only','main');
   const output=join(wt,'packages/reference/fixture.txt');mkdirSync(join(wt,'packages/reference'),{recursive:true});writeFileSync(output,'Reviewed reference bundle');importGit(wt,'add','packages/reference/fixture.txt');importGit(wt,'commit','-qm','Substantive reference output');
   const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
   const state=f.getState();state.allowMerge=true;state.mergeBranch=task.branch;f.setState(state);

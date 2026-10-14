@@ -52,7 +52,7 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
   if(action==='up'&&cfg.stack) {if(typeof cfg.stack.usesPaidProviders!=='boolean')fail("Declare whether the stack uses paid providers before starting it.");if(cfg.stack.usesPaidProviders)requireSpend(root);}
   const argv = stackCmd(cfg, action);
   if (!argv) {
-    const msg = `No stack "${action}" command in evf.config.json yet. The runtime packages (WP-003, WP-004) define it.`;
+    const msg = `No stack "${action}" command in evf.config.json yet. The workflow bootstrap package defines the per-task stack command.`;
     if (optional) {
       console.log(`stack: skipped. ${msg}`);
       return 0;

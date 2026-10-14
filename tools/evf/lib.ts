@@ -34,6 +34,7 @@ export type Config = {
 export type Package = {
   id: string;
   title: string;
+  goal: string;
   lane: string;
   domain: string;
   depends_on: string[];
@@ -43,7 +44,6 @@ export type Package = {
   owning_paths: string[];
   interfaces: string[];
   acceptance_gates: string[];
-  feature_ids: string[];
   integration_rule: string;
 };
 
@@ -63,7 +63,7 @@ export type Catalog = {
 };
 export type Requirement = { id: string; text: string; spec: string };
 export type Case = { id: string; fixture: string; expected: string; work_packages: string[] };
-export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; [key: string]: unknown };
+export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; own_requirement_ids: string[]; own_case_ids: string[]; [key: string]: unknown };
 
 export type Part = "contract" | "api" | "ui" | null;
 
@@ -210,7 +210,7 @@ export function findPackage(dag: Dag, wp: string): Package {
   return p;
 }
 
-export const isUiPath = (p: string) => p.startsWith("apps/web/src/features/") || p.startsWith("apps/web/src/components/") || (p.startsWith("apps/web/src/app/") && !p.startsWith("apps/web/src/app/api/")) || p.startsWith("tests/browser/");
+export const isUiPath = (p: string) => p.startsWith("apps/web/src/features/") || p.startsWith("apps/web/src/components/") || (p.startsWith("apps/web/src/app/") && !p.startsWith("apps/web/src/app/api/")) || p.startsWith("tests/browser/") || p.startsWith("packages/ui/") || p.startsWith("tests/ui/");
 const isContract = (p: string) => p.startsWith("packages/contracts/") || p.startsWith("tests/contracts/");
 
 /** Splits a package into the parts that ship as separate tasks. */

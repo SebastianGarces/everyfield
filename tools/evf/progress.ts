@@ -10,7 +10,7 @@ export type ShippedRecord = {
 };
 type Milestone = {task:string;merge_commit:string;acknowledged:boolean;stage:string;passed_case_portions:unknown[];passed_gate_portions:unknown[];deferred_case_portions:unknown[];deferred_gate_portions:unknown[]};
 type ProgressPackage = {status:string;revision:number;updated_at:string|null;evidence:ShippedRecord['evidence'][];notes:string;milestones?:Record<string,Milestone>};
-type Progress = {revision:number;updated_at:string;packages:Record<string,ProgressPackage>};
+type Progress = {revision:number;updated_at:string;packages:Partial<Record<string,ProgressPackage>>};
 
 function retained(root:string,task:string):ShippedRecord|null {
  const path=join(evfDataDir(root),'shipped',`${parseTask(task).slug}.json`);
@@ -49,8 +49,9 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
  try{fd=openSync(lock,'wx');}catch{fail('Progress writer is busy. Retry after the other evf operation completes; reconcile a stale lock before retrying.');}
  const path=join(root,'docs/build-progress.json'),temp=join(root,`docs/.build-progress-${process.pid}.tmp`);
  try{
-  const progress=readJson<Progress>(path),p=progress.packages[record.package_id];
-  if(!p)fail(`Unknown progress package ${record.package_id}.`);
+  const progress=readJson<Progress>(path);
+  // A known active package may be new to canonical progress; signed integrated proof was checked above.
+  const p=progress.packages[record.package_id]??={status:'not_started',revision:0,updated_at:null,evidence:[],notes:''};
   const plan=record.proof.plan!;
   const milestone:Milestone={task:record.task,merge_commit:record.merge_commit,acknowledged,stage:plan.stage,
    passed_case_portions:record.proof.attestation!.payload.casePortions,passed_gate_portions:record.proof.attestation!.payload.gatePortions,
@@ -68,9 +69,9 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
     let advanced=false;
     for(const wp of pending){
      const pkg=findPackage(dag,wp),target=progress.packages[wp];
-     if(pkg.depends_on.some(id=>progress.packages[id].status!=='done'))continue;
+     if(pkg.depends_on.some(id=>progress.packages[id]?.status!=='done'))continue;
      const parts=partsOf(pkg).map(part=>part?`${wp}/${part}`:wp);
-     if(parts.some(id=>!target.milestones?.[id]?.acknowledged||!retained(root,id)||!reviewedMilestone(root,retained(root,id)!)))fail(`Closure requires every reviewed merged part of ${wp}.`);
+     if(!target||parts.some(id=>!target.milestones?.[id]?.acknowledged||!retained(root,id)||!reviewedMilestone(root,retained(root,id)!)))fail(`Closure requires every reviewed merged part of ${wp}.`);
      const passed=new Set(record.proof.attestation!.payload.casePortions.filter(c=>c.portion==='integration').map(c=>c.caseId));
      if(packageContext(root,wp).case_ids.some(id=>!passed.has(id)))fail(`Closure needs full integration evidence for every ${wp} case.`);
      if(target.status!=='done'){target.status='done';target.evidence.push(record.evidence);target.notes=`Full package gates and cases reviewed at integration by ${record.task}.`;target.revision++;target.updated_at=p.updated_at;}

@@ -7,6 +7,10 @@ export function fixture() {
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
  cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
+ const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
+ const progressPath=join(root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
+ progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,progress.packages[p.id]??{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
+ writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
  cfg.feedback={...cfg.feedback,repo:'test/feedback',botAuthor:'app-bot',botAuthorId:101,triageActorIds:[202],publicAreas:['Documents'],publicTemplates:[{category:'bug',title:'Bug report — {area}',body:'A product bug report was submitted for {area}. Private details are retained for authorized triage. Reference: {marker}.'}]};
@@ -62,7 +66,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
  return {root,cfg,git,
   getState:()=>JSON.parse(readFileSync(statePath,'utf8')),
   setState:(s:unknown)=>writeFileSync(statePath,JSON.stringify(s)),
-  authorize:()=>{const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...Array.from({length:86},(_,i)=>'WP-'+String(i+1).padStart(3,'0')),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
+  authorize:()=>{const progress=JSON.parse(readFileSync(progressPath,'utf8'));for(const pkg of dag.packages)if(!pkg.depends_on.length)progress.packages[pkg.id].status='done';writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...dag.packages.map(p=>p.id),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
   close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}

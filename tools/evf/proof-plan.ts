@@ -1,4 +1,4 @@
-import { fail, findPackage, loadConfig, loadDag, currentCatalog, partsOf, parseTask, packageContext, type TaskRef } from './lib.ts';
+import { fail, findPackage, loadConfig, loadDag, currentCatalog, isUiPath, partsOf, parseTask, packageContext, type TaskRef } from './lib.ts';
 
 export type Portion='reference'|'platform'|'contract'|'domain'|'native'|'assistant'|'integration';
 export type CasePlan={id:string;requiredPortions:Portion[];deferred:Array<{portion:Portion;ownerTask:string}>};
@@ -70,7 +70,7 @@ export function draftProofPlan(root:string,task:TaskRef):ProofPlan {
  if(task.kind==='ops')return {risk:'ordinary',stage:'maintenance',ownedPortion:'platform',requiresStack:false,cases:[],gates:[]};
  const pkg=findPackage(loadDag(root),task.wp),context=packageContext(root,task.wp);
  const stage=task.part??(['WP-056','WP-057'].includes(task.wp)?'full-target':'producer');
- const ownedPortion:Portion=stage==='full-target'?'integration':task.part==='contract'?'contract':task.part==='ui'?'native':pkg.owning_paths.some(p=>p.startsWith('packages/reference/'))?'reference':pkg.owning_paths.some(p=>p.startsWith('packages/domain/'))?'domain':'platform';
+ const ownedPortion:Portion=stage==='full-target'?'integration':task.part==='contract'?'contract':task.part==='ui'||pkg.owning_paths.every(isUiPath)?'native':pkg.owning_paths.some(p=>p.startsWith('packages/reference/'))?'reference':pkg.owning_paths.some(p=>p.startsWith('packages/domain/'))?'domain':'platform';
  return {risk:'ordinary',stage,ownedPortion,requiresStack:ownedPortion==='domain'||ownedPortion==='native'||ownedPortion==='integration',cases:context.case_ids.map(id=>({id,requiredPortions:[ownedPortion],deferred:[]})),gates:pkg.acceptance_gates.map((_,index)=>({index,requiredPortions:[ownedPortion],deferred:[]}))};
 }
 export function requiredPortions(plan:ProofPlan):Array<{caseId:string;portion:Portion}> {

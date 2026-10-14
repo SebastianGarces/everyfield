@@ -146,7 +146,7 @@ export function renderBlocks(blocks: Block[], external: string[], skipped: strin
     out.push(`@@@task ${attrs.join(" ")}`);
     out.push(`# ${b.title}`);
     out.push(`Specialist: \`${b.specialist}\`. Model: ${b.model}.`);
-    if (b.part === "ui") out.push("UI tier: coordinator sets UI-1..UI-4 before delegation (see `.agents/roles/coordinator.md`).");
+    if (b.specialist === "ui-designer") out.push("UI tier: coordinator sets UI-1..UI-4 before delegation (see `.agents/roles/coordinator.md`).");
     out.push(`Owning paths: ${b.paths.map((p) => `\`${p}\``).join(", ")}.`);
     out.push(`Selected acceptance count: ${b.acceptanceCount}.`);
     out.push(`First command: \`evf task start ${b.taskId}\`. Full brief: \`evf task brief ${b.taskId}\`.`);
