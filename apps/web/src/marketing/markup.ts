@@ -209,10 +209,21 @@ function heroSlot() {
 function cxCur() { return '<span class="cx-cur" aria-hidden="true"><i class="cx-ripple"></i><svg viewBox="0 0 24 24"><path d="M5.5 3.5v15.2c0 .6.7.9 1.1.5l3.6-3.5 2.5 5.6c.2.4.7.6 1.1.4l1.9-.9c.4-.2.6-.7.4-1.1l-2.5-5.5 5-.3c.6 0 .8-.7.4-1.1L6.6 2.9c-.4-.4-1.1-.1-1.1.6z"/></svg></span>'; }
 function cxHead(lead: string, title: string, sub: string, right?: string) { return '<div class="cx-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div>" + (right || "") + "</div>"; }
 function cxIcon(tone: string, name: IconName) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
-/* An animated number. It reserves the width of its widest value (--nd digits; tabular figures in site.css), so a count
-   never changes a line break or moves the content below it. */
-function cxNum(name: string, max: number, cls = "", text = "0", tag = "span") {
-  return "<" + tag + (cls ? ' class="' + cls + '"' : "") + ' data-n="' + name + '" style="--nd:' + String(Math.round(max)).length + '">' + text + "</" + tag + ">";
+/* An animated number (site.css "Animated numbers"). Its box never changes size during the count, so a line break never
+   changes and nothing below it moves. Three kinds:
+   - column (default): a number alone at the end of a row. It reserves the width of its widest value (--nd digits) and
+     aligns to the end.
+   - unit: a number inside text, such as "214 people" or "71%". The number and its unit form one group. An invisible copy
+     of the widest text sizes the group, so the number and unit keep normal spacing at every value.
+   - plain: a number whose box does not depend on its text (a full-width block, or one digit). Tabular figures only. */
+type NumOpts = { cls?: string; text?: string; tag?: string; unit?: string; plain?: boolean };
+function cxNum(name: string, max: number, o: NumOpts = {}) {
+  const tag = o.tag || "span", nd = String(Math.round(max)).length;
+  const kind = o.unit !== undefined || o.plain ? "" : "cx-col";
+  const cls = [o.cls, kind].filter(Boolean).join(" ");
+  const el = "<" + tag + (cls ? ' class="' + cls + '"' : "") + ' data-n="' + name + '"' + (kind ? ' style="--nd:' + nd + '"' : "") + ">" + (o.text ?? "0") + "</" + tag + ">";
+  if (o.unit === undefined) return el;
+  return '<span class="cx-fit"><span class="cx-fit-max" aria-hidden="true">' + Math.round(max) + o.unit + "</span><span>" + el + o.unit + "</span></span>";
 }
 const CX_PEOPLE_MAX = CX_PEOPLE.reduce((a, r) => a + Math.max(r[2], r[3]), 0) + 20;
 function cxBtn(cls: string, a: string, b: string) { return '<span class="ha-btn cx-sm ' + cls + '"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">' + a + '</span><span class="ha-l2">' + icon("check") + b + "</span></span>"; }
@@ -228,10 +239,10 @@ const OV_AREAS = [["All", 14], ["Austin", 5], ["San Antonio", 3]] as const;
 /* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
 const CX_MARK: Record<PanelKind, () => string> = {
   people: () =>
-    cxHead(cxIcon("tone-ink", "users"), "Where people are", "Harvest Point · <span class=\"cx-keep\">" + cxNum("total", CX_PEOPLE_MAX) + " people</span>", cxBtn("cx-t0", "Import list", "Added")) +
+    cxHead(cxIcon("tone-ink", "users"), "Where people are", "Harvest Point · " + cxNum("total", CX_PEOPLE_MAX, { unit: " people" }), cxBtn("cx-t0", "Import list", "Added")) +
     '<div class="cx-slot" data-st><span class="cx-pill">' + icon("check") + "24 people added from the sign-up form</span></div>" +
     '<div class="cx-rows">' + CX_PEOPLE.map((r) =>
-      '<div data-st><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span>' + cxNum("r", Math.max(r[2], r[3]), "num") + '</div><div class="ha-meter"><span style="background:' + r[4] + '"></span></div></div>',
+      '<div data-st><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span>' + cxNum("r", Math.max(r[2], r[3]), { cls: "num" }) + '</div><div class="ha-meter"><span style="background:' + r[4] + '"></span></div></div>',
     ).join("") + "</div>" +
     '<div data-st><div class="card-inset cx-ins">14 interviewed people have not committed yet.</div></div>',
   meet: () => {
@@ -239,7 +250,7 @@ const CX_MARK: Record<PanelKind, () => string> = {
     return cxHead(cxIcon("tone-blue", "calendar"), "New gathering", "Harvest Point", cxBtn("cx-t1", "Create", "Created")) +
       '<div data-st><span class="ha-lab">Type</span><div class="cx-in cx-t0"><span class="cx-fr"></span><span class="ha-roll cx-roll"><span>' + CX_TYPES.map((x) => "<i>" + x + "</i>").join("") + "</span></span>" + icon("arrow", "cx-chev") + "</div></div>" +
       '<div class="cx-2" data-st><div><span class="ha-lab">When</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-when", "Sun Oct 12, 5 pm") + '</div></div><div><span class="ha-lab">Where</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-where", "Reyes home") + "</div></div></div>" +
-      '<div class="cx-att" data-st><div class="row"><span class="row"><span class="ha-lab">Checked in</span><span class="badge" data-size="sm" data-status="measured">3 new guests</span></span>' + cxNum("att", CX_COUNT.att, "cx-cnt") + '</div>' +
+      '<div class="cx-att" data-st><div class="row"><span class="row"><span class="ha-lab">Checked in</span><span class="badge" data-size="sm" data-status="measured">3 new guests</span></span>' + cxNum("att", CX_COUNT.att, { cls: "cx-cnt" }) + '</div>' +
       '<div class="cx-names cx-guests">' + guests.map((n) => '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>").join("") + '<span class="ha-chip" style="padding-left:10px">10 more</span></div></div>';
   },
   follow: () => {
@@ -255,14 +266,14 @@ const CX_MARK: Record<PanelKind, () => string> = {
   },
   teams: () =>
     cxHead(cxIcon("tone-violet", "users"), "Your teams", "Harvest Point · committed adults") +
-    CX_TEAMS.map((r, k) => '<div class="cx-team" data-st data-p="dst' + k + '"><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span>' + cxNum("team", r[3] + 1, "num") + '</div><div class="ha-meter"><span style="background:' + r[2] + '"></span></div></div>').join("") +
+    CX_TEAMS.map((r, k) => '<div class="cx-team" data-st data-p="dst' + k + '"><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span>' + cxNum("team", r[3] + 1, { cls: "num" }) + '</div><div class="ha-meter"><span style="background:' + r[2] + '"></span></div></div>').join("") +
     '<div class="cx-sublab" data-st>To record</div>' +
     CX_SIGNS.map((r, k) => '<div class="list-row" data-st><span class="ha-av" data-p="src' + k + '">' + r[0] + '</span><div class="grow"><div class="list-title">' + r[1] + '</div><div class="list-sub">' + r[2] + "</div></div>" + cxBtn("cx-t" + k, "Record", "Recorded") + "</div>").join("") +
     CX_SIGNS.map((r, k) => '<span class="ha-chip cx-fly" data-p="fly' + k + '"><span class="ha-av">' + r[0] + "</span>" + r[1] + "</span>").join(""),
   focus: () => {
     const facts = [["Last vision meeting", "#11, 16 days ago"], ["New guests at #11", "9"], ["Next", "#12, Sun Oct 12"]];
     return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
-      '<div class="insight-metric" data-st><span class="num">' + cxNum("days", CX_COUNT.focusDays) + ' d</span><span class="unit">since the last vision meeting</span></div>' +
+      '<div class="insight-metric" data-st><span class="num">' + cxNum("days", CX_COUNT.focusDays, { unit: " d" }) + '</span><span class="unit">since the last vision meeting</span></div>' +
       '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Next: #12, Sun Oct 12</span></div></div>' +
       '<div class="insight-title" data-st>Hold your next vision meeting this week</div>' +
       '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div><div class="cx-facts">' +
@@ -273,8 +284,8 @@ const CX_MARK: Record<PanelKind, () => string> = {
     const kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>']];
     const names = [["JO", "James Okafor"], ["KW", "Kim Wu"], ["SN", "Sara Nunez"]];
     return cxHead(cxIcon("tone-amber", "alert"), "Follow-up is slipping", "The facts this finding used") +
-      '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct">' + cxNum("pct", CX_COUNT.pct) + '%</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
-      kv.map((r, i) => '<div class="kv' + (i === 2 ? " cx-t0" : "") + '" data-st style="position:relative;isolation:isolate">' + (i === 2 ? '<span class="cx-hl"></span>' : "") + '<span class="k">' + r[0] + '</span><span class="row">' + r[2] + cxNum("kv", Number(r[1]), "v", r[1]) + "</span></div>").join("") +
+      '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct">' + cxNum("pct", CX_COUNT.pct, { unit: "%" }) + '</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
+      kv.map((r, i) => '<div class="kv' + (i === 2 ? " cx-t0" : "") + '" data-st style="position:relative;isolation:isolate">' + (i === 2 ? '<span class="cx-hl"></span>' : "") + '<span class="k">' + r[0] + '</span><span class="row">' + r[2] + cxNum("kv", Number(r[1]), { cls: "v", text: r[1] }) + "</span></div>").join("") +
       '<div class="cx-names" data-st>' + names.map((n) => '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>").join("") + '<span class="ha-chip" style="padding-left:10px">4 more</span></div>';
   },
   evry: () =>
@@ -287,13 +298,13 @@ const CX_MARK: Record<PanelKind, () => string> = {
   scope: () =>
     cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Network Intelligence") +
     '<div class="sd-scope" data-st>' + SD_SCOPES.map((c, i) => { const l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i ? " cx-t" + (i - 1) : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-    '<div class="sd-stats" data-st>' + ["Plants", "With findings", "Launching in 12 months"].map((l, i) => '<div class="sd-stat">' + cxNum("sd", Math.max(...SD_SCOPES.map((s) => Number(s[i + 1]))), "num") + "<small>" + l + "</small></div>").join("") + "</div>" +
+    '<div class="sd-stats" data-st>' + ["Plants", "With findings", "Launching in 12 months"].map((l, i) => '<div class="sd-stat">' + cxNum("sd", Math.max(...SD_SCOPES.map((s) => Number(s[i + 1]))), { cls: "num", plain: true }) + "<small>" + l + "</small></div>").join("") + "</div>" +
     '<div class="sd-areas" data-st><div class="sd-th"><span>By area</span><span>Plants</span><span>Momentum</span></div>' +
     SD_AREAS.map((a, i) => '<div class="sd-area"><b>' + a[0] + "</b><span>" + a[1] + '</span><span><span class="badge" data-size="sm" data-status="' + a[2] + '">' + a[3] + "</span></span>" + (i ? "" : '<span class="cx-hl"></span>') + "</div>").join("") + "</div>",
   pipe: () =>
     cxHead(cxIcon("tone-violet", "calendar"), "Phase pipeline", "Plants in each phase, and typical weeks in it") +
-    "<div data-st>" + SD_PIPE.map((r, i) => '<div class="sd-pl' + (i === 1 ? " cx-t0" : "") + '">' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<b>" + r[0] + '</b><span class="sd-track"><i></i></span>' + cxNum("pl", r[1], "num") + '<span class="wk">' + (r[1] ? r[2] : "none") + "</span></div>").join("") + "</div>" +
-    '<div class="sd-sum" data-st><span>Launches in the next 12 months</span>' + cxNum("sum", CX_COUNT.sum, "num") + '</div>',
+    "<div data-st>" + SD_PIPE.map((r, i) => '<div class="sd-pl' + (i === 1 ? " cx-t0" : "") + '">' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<b>" + r[0] + '</b><span class="sd-track"><i></i></span>' + cxNum("pl", r[1], { cls: "num" }) + '<span class="wk">' + (r[1] ? r[2] : "none") + "</span></div>").join("") + "</div>" +
+    '<div class="sd-sum" data-st><span>Launches in the next 12 months</span>' + cxNum("sum", CX_COUNT.sum, { cls: "num" }) + '</div>',
   lens: () =>
     cxHead(cxIcon("tone-amber", "eye"), "Network lenses", "Across 11 plants with findings") +
     '<div class="sd-lenses">' + SD_LENSES.map((l, i) => {
@@ -306,7 +317,7 @@ const CX_MARK: Record<PanelKind, () => string> = {
     SD_LENS_PLANTS.map((r) => '<div class="sd-pr"><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><span class="t-xs faint">' + r[2] + "</span></div>").join("") + "</div>",
   top: () =>
     '<div class="insight-top" data-st><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
-    '<div class="insight-metric" data-st><span class="num">' + cxNum("top", CX_COUNT.top) + ' of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
+    '<div class="insight-metric" data-st><span class="num">' + cxNum("top", CX_COUNT.top, { unit: " of 6" }) + '</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
     '<div class="insight-title" data-st>Emerging leadership is the most common gap before launch</div>' +
     '<div class="insight-text" data-st>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</div>' +
     '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the plants ' + icon("arrow") + "</span></div>",
@@ -335,13 +346,13 @@ const CX_MARK: Record<PanelKind, () => string> = {
   senders: () =>
     cxHead(cxIcon("tone-teal", "network"), "Sending churches", "Austin Sending Network · 3 churches, 5 plants") +
     '<div class="ov-grps">' + OV_GROUPS.map((g, k) =>
-      '<div class="ov-grp' + (k === 0 ? " cx-t0" : "") + '"><span class="cx-hl"></span><div class="ov-gh"><span class="card-icon ' + g[1] + '">' + icon("heart") + '</span><div class="grow"><div class="list-title">' + g[0] + '</div><div class="list-sub">' + g[2] + '</div></div><span class="ov-gn">' + cxNum("g", g[3].length, "", "0", "b") + ' plant' + (g[3].length > 1 ? "s" : "") + "</span></div>" +
+      '<div class="ov-grp' + (k === 0 ? " cx-t0" : "") + '"><span class="cx-hl"></span><div class="ov-gh"><span class="card-icon ' + g[1] + '">' + icon("heart") + '</span><div class="grow"><div class="list-title">' + g[0] + '</div><div class="list-sub">' + g[2] + '</div></div><span class="ov-gn">' + cxNum("g", g[3].length, { tag: "b", plain: true }) + ' plant' + (g[3].length > 1 ? "s" : "") + "</span></div>" +
       '<div class="ov-gp">' + g[3].map((p) => '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>").join("") + "</div>" +
       '<div class="ov-gs"><span>' + g[4] + '</span><span class="badge" data-size="sm" data-status="' + g[5][0] + '">' + g[5][1] + "</span></div></div>",
     ).join("") + "</div>",
   help: () =>
     '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Where help could matter</span><span class="insight-count">Eastside Commons</span></div>' +
-    '<div class="insight-metric" data-st><span class="num">' + cxNum("days", CX_COUNT.helpDays) + '</span><span class="unit">days to launch Sunday</span></div>' +
+    '<div class="insight-metric" data-st><span class="num">' + cxNum("days", CX_COUNT.helpDays, { unit: "" }) + '</span><span class="unit">days to launch Sunday</span></div>' +
     '<div class="insight-title" data-st>Two leader roles are open, 205 days before launch</div>' +
     '<div class="insight-text" data-st>Kids and Production have no leader yet. From Ministry teams and findings.</div>' +
     '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">' + cxSwap('<span class="ov-bl">Offer help ' + icon("arrow") + "</span>", '<span class="ov-bl">' + icon("check") + "Help offered</span>", "ov-off") + '</span><span class="btn" data-variant="glass">Later</span></div>',

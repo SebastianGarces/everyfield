@@ -93,12 +93,15 @@ a:focus-visible, button:focus-visible, .mk-btn:focus-visible, summary:focus-visi
 /* The request button keeps its colours on /access, where it carries aria-current. */
 .nav-links a.mk-btn[aria-current="page"] { color: var(--mk-cta-text); }
 
-/* Animated numbers in the product panels (E8). markup.ts sets --nd to the digit count of each count's widest value.
-   Tabular figures make every digit the same width, so the box never changes size during a count: line breaks stay put
-   and nothing below moves (on phones the subtitle "Harvest Point · 190 people" wrapped and unwrapped as it counted).
-   :where keeps this below each counter's own display and alignment rules. */
-:where(.mk-signal) [data-n] { display: inline-block; min-width: calc(var(--nd, 1) * 1ch); font-variant-numeric: tabular-nums; text-align: end; }
-/* A count and its unit stay on one line ("214 people"), so a narrow card breaks before them, not inside. */
-.cx-keep { white-space: nowrap; }
-/* Inside a sentence the count starts where the text does; column numbers keep end alignment. */
-.cx-keep [data-n] { text-align: start; }
+/* Animated numbers in the product panels (E8). The box of a counting number never changes size, so line breaks stay put
+   and nothing below moves (on phones "Harvest Point · 214 people" wrapped and unwrapped as it counted). Kinds: see cxNum
+   in markup.ts. Tabular figures give every digit the same width. */
+:where(.mk-signal) [data-n] { font-variant-numeric: tabular-nums; }
+/* Column numbers: --nd digits of space, aligned to the end of the row. */
+.cx-col { display: inline-block; min-width: calc(var(--nd, 1) * 1ch); text-align: end; }
+/* A number with its unit: the hidden copy of the widest text and the live text share one grid cell, so the group keeps
+   its widest width and the number and unit keep normal spacing. The group never wraps inside. */
+.cx-fit { display: inline-grid; white-space: nowrap; }
+.cx-fit > * { grid-area: 1 / 1; }
+/* The hidden copy uses the same tabular figures as the live number, or a proportional "214" measures narrower than a tabular "188". */
+.cx-fit-max { visibility: hidden; font-variant-numeric: tabular-nums; }
