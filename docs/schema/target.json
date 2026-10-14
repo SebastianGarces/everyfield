@@ -3582,7 +3582,8 @@
           "name": "source",
           "type": "text",
           "nullable": false,
-          "note": ""
+          "note": "",
+          "value_contract": "ApprovedRecruitmentSource"
         },
         {
           "name": "source_details",
@@ -3816,7 +3817,7 @@
         "length(btrim(display_name)) between 1 and 255",
         "(household_id is null) = (household_role is null)",
         "merged_into_person_id is null or merged_into_person_id <> id",
-        "source in ('meeting_guest_list', 'other')"
+        "source in ('personal_referral', 'social_media', 'vision_meeting', 'website', 'event', 'partner_church', 'meeting_guest_list', 'other')"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -31070,6 +31071,12 @@
     "uuid": "Stable UUID identity; actual kind/owner must be proved by the typed relation and subtype trigger.",
     "time": "Civil wall-clock time; timezone and resolver provenance remain distinct from UTC instants.",
     "person_source": [
+      "personal_referral",
+      "social_media",
+      "vision_meeting",
+      "website",
+      "event",
+      "partner_church",
       "meeting_guest_list",
       "other"
     ],
@@ -31174,6 +31181,12 @@
       "revoked"
     ],
     "person.source": [
+      "personal_referral",
+      "social_media",
+      "vision_meeting",
+      "website",
+      "event",
+      "partner_church",
       "meeting_guest_list",
       "other"
     ],
@@ -33628,6 +33641,16 @@
       "training_version",
       "venue",
       "wiki_preference"
+    ],
+    "ApprovedRecruitmentSource": [
+      "personal_referral",
+      "social_media",
+      "vision_meeting",
+      "website",
+      "event",
+      "partner_church",
+      "meeting_guest_list",
+      "other"
     ]
   },
   "auth_adapter_configuration": {
@@ -34854,5 +34877,15 @@
       "field": "target_record_id/value snapshots",
       "policy": "Person-kind historical identity and original occurrence/correction evidence are immutable."
     }
-  ]
+  ],
+  "person_source_ruling": {
+    "decision": "SCHEMA-ADOPT-1",
+    "authority": "Coordinator ruling received 2026-10-14, adopting the v2 recruitment-source vocabulary plus the current meeting guest value.",
+    "provenance": [
+      "~/dev/everyfield_v2/src/db/schema/people.ts:35-43 personSources",
+      "docs/product/people.md:90 REQ-PPL-002",
+      "docs/product/meetings-follow-up.md:200 REQ-MTG-011"
+    ],
+    "change_policy": "Sebastian may change this reviewed starting list through review; builders follow the literal authority until then."
+  }
 }

@@ -357,7 +357,7 @@ def validate_metadata(schema, dag, capability_files):
         if schema[key] != actual:
             errors.append(f'{key}: metadata differs from authority')
     person_sources = closed_values(by['person']['checks'], 'source')
-    if not {'other', 'meeting_guest_list'} <= person_sources or set(schema['type_contracts']['person_source']) != person_sources:
+    if not {'other', 'meeting_guest_list'} <= person_sources or any(set(schema['type_contracts'][key]) != person_sources for key in ['person_source', 'person.source', 'ApprovedRecruitmentSource']):
         errors.append('Person source CHECK differs from literal type contract or lacks required sources')
     for name, table in by.items():
         for column in table['columns']:

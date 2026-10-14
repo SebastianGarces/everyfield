@@ -22,13 +22,13 @@ The checker validates structural keys, FK existence/arity/types, unconditional r
 
 | ID | Ruling |
 |---|---|
-| SCHEMA-ADOPT-1 | Person source is the union of literal sources written by Person-creating operations plus `other` and `meeting_guest_list`. The literal CHECK and `type_contracts.person_source` agree. Ordinary creation/CSV import use that list. See the source evidence below. |
+| SCHEMA-ADOPT-1 | Adopt the seven v2 recruitment sources plus the v3 meeting guest value as the literal Person source CHECK and `ApprovedRecruitmentSource` enum. The field and type contracts agree. Sebastian may change this reviewed starting list through review. |
 | SCHEMA-ADOPT-2 | Adopt `record` with the actual subtype PK and owner. Trusted insert/deferred triggers validate exact subtype kind, owner and uniqueness. Retained body-free identities confer no access. |
 | SCHEMA-ADOPT-3 | Adopt `mail_request` and ordered `mail_request_member`; keep exact request replay, membership, provider key and original clock relational. |
 | SCHEMA-ADOPT-4 | Derive current assessment publication from the latest still-authorized complete result, ordered by durable availability and ID. No mutable publication pointer. |
 | SCHEMA-ADOPT-5 | Canonical reference definitions remain packaged reviewed release artifacts. Customer editing would require a separate reviewed product change and typed owned rows. |
 
-Person source evidence: `REQ-PPL-002` and the `people.quickAddPerson` alias write `other`; `REQ-MTG-011`/`meetings.createGuestContact` writes `meeting_guest_list`. `people.createPerson` and CSV input use `ApprovedRecruitmentSource` without enumerating more literals in the current catalog. Bootstrap/seat linking establishes identity rather than recruitment evidence. No unlisted historical vocabulary is imported.
+Person source literals are `personal_referral`, `social_media`, `vision_meeting`, `website`, `event`, `partner_church`, `meeting_guest_list`, `other`. The coordinator ruled this list from `~/dev/everyfield_v2/src/db/schema/people.ts:35-43` (`personSources`), plus `docs/product/people.md:90` for the `other` default and `docs/product/meetings-follow-up.md:200` for `meeting_guest_list`. `people.createPerson` and CSV input use `ApprovedRecruitmentSource`. Bootstrap/seat linking establishes identity rather than recruitment evidence. This explicit adoption uses v2 as reference evidence; it does not make v2 a package prerequisite.
 
 ## Producer derivation
 
