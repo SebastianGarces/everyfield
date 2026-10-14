@@ -381,7 +381,7 @@ function chapterDefs(): Record<string, ChapterDef> {
   };
 }
 function cxCard(kind: PanelKind) {
-  const cls = kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "";
+  const cls = kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sun' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "";
   return '<div class="cx-card' + cls + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>";
 }
 function chapterSection(id: string, cls: string) {
