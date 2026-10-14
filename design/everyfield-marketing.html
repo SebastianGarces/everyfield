@@ -3798,7 +3798,7 @@ function pageTrust() {
   var rows = [
     ["Owner", Y("Full"), Y("Full"), Y("Full"), Y("Own only"), Y("Yes")],
     ["Admin", Y("Full"), Y("Full"), Y("Full"), N("No"), Y("Yes")],
-    ["Member", Y("View"), Y("View"), Y("View"), N("No"), N("No")],
+    ["Member", Y("View"), Y("View, own tasks"), Y("View"), N("No"), Y("Own tasks and duties")],
     ["Sending church or network", N("Never"), N("Counts only"), Y("Summary, when shared"), N("No"), N("No")]
   ];
   var groups = [["For planters", P.planter_rules], ["For sending churches and networks", B.trust]];
