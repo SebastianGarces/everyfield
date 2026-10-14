@@ -112,34 +112,34 @@ Each prototype screen or flow and the features it serves. Feature IDs are in [`d
 
 | Prototype screen or flow | Features | Owning packages | Status |
 | --- | --- | --- | --- |
-| Sign in (`#/signin`) | IDN-001, IDN-017 |  | designed |
-| Onboarding (`#/onboarding`) | IDN-013, IDN-014, IDN-015, PHASE-001 |  | designed |
-| Overview dashboard (`#/overview`) | ADM-004, ADM-005, PI-025, PI-027, LCH-008 |  | designed |
-| People list and pipeline (`#/people`) | PPL-001, PPL-006, PPL-007, PPL-010, PPL-019 |  | designed |
-| Person (`#/people/maria-santos`), including Retire person and the person's team and training tab | PPL-002, PPL-003 (retire only), PPL-004, PPL-005, PPL-008, PPL-009, PPL-011 to PPL-014, PPL-021, TEAM-010 |  | designed |
-| CSV import review (`#/people/import`) | PPL-018 |  | designed |
-| Duplicate review, merge and Unmerge (`#/people/duplicates`) | PPL-016, PPL-017 |  | designed |
-| Meetings and meeting (`#/meetings`, `#/meetings/vision-12`) | MTG-001 to MTG-007, MTG-011 (Add guest), MTG-012 to MTG-014, MTG-016, MTG-019 (Invited by) |  | designed |
-| Tasks, including Member own tasks, New task, Blocked by and Recurring (`#/tasks`) | TSK-001, TSK-002, TSK-003, TSK-005, TSK-006, TSK-007, TSK-008, TSK-009 |  | designed |
-| Ministries and ministry (`#/ministries`, `#/ministries/worship`) | TEAM-001, TEAM-004 to TEAM-008, TEAM-011, TEAM-012 (Org chart), TEAM-013 |  | designed |
-| Wiki article, source bar and editor (`#/wiki`, `#/wiki/edit`) | WIKI-001 to WIKI-007 |  | designed |
-| Plant Intelligence (`#/intelligence`) | PI-014, PI-023 to PI-029, PI-033, PHASE-004 |  | designed |
-| Attestations (`#/intelligence/attestations`) | PI-014, PI-015 |  | designed |
-| Weekly private check-in (`#/me/check-in`) | PI-038 to PI-041 |  | designed |
-| Launch plan (`#/launch`), with milestone completion allowed while linked tasks are open | LCH-001 to LCH-008, LCH-010 |  | designed |
-| Communication (`#/communication`) | COM-001 to COM-004, COM-006, COM-007, COM-009, COM-012 |  | designed |
-| Documents and the generated templates (`#/documents`) | DOC-001 to DOC-014 |  | designed |
-| Notifications page, bell and settings section | NTF-003, NTF-004, IDN-012 |  | designed |
-| Network plants and one plant, with the phase journey (`#/network`, `#/network/plant`) | IDN-022, IDN-023, PI-030, PI-031 |  | designed |
-| Network Intelligence (`#/network/intelligence`) | PI-043, PI-044 |  | designed |
-| Settings dialog: church, seats, sharing, account | IDN-010, IDN-011, IDN-017, IDN-019, IDN-022, IDN-006 to IDN-008 |  | designed |
-| Evry panel | EVR-005, EVR-010, EVR-012 |  | designed |
-| Guide panel | WIKI-008 |  | designed |
-| Feedback dialog | ADM-001 |  | designed |
-| Phone: door check-in, RSVP, follow-up call with outcomes (REQ-MTG-022), invitation, email preferences | MTG-009, MTG-010, COM-010, TSK-004, TSK-011, TSK-012, IDN-017, NTF-012 |  | designed |
-| Emails | IDN-017, MTG-018, COM-005, NTF-007, NTF-013 |  | designed |
+| Sign in (`#/signin`) | IDN-001, IDN-017 | WP-005, WP-008 | designed |
+| Onboarding (`#/onboarding`) | IDN-013, IDN-014, IDN-015, PHASE-001 | WP-009, WP-011, WP-017, WP-038, WP-045 | designed |
+| Overview dashboard (`#/overview`) | ADM-004, ADM-005, PI-025, PI-027, LCH-008 | WP-040, WP-044, WP-045, WP-046, WP-048 | designed |
+| People list and pipeline (`#/people`) | PPL-001, PPL-006, PPL-007, PPL-010, PPL-019 | WP-011, WP-012, WP-013, WP-014, WP-023 | designed |
+| Person (`#/people/maria-santos`), including Retire person and the person's team and training tab | PPL-002, PPL-003 (retire only), PPL-004, PPL-005, PPL-008, PPL-009, PPL-011 to PPL-014, PPL-021, TEAM-010 | WP-011, WP-012, WP-014, WP-019, WP-029 | designed |
+| CSV import review (`#/people/import`) | PPL-018 | WP-013 | designed |
+| Duplicate review, merge and Unmerge (`#/people/duplicates`) | PPL-016, PPL-017 | WP-015 | designed |
+| Meetings and meeting (`#/meetings`, `#/meetings/vision-12`) | MTG-001 to MTG-007, MTG-011 (Add guest), MTG-012 to MTG-014, MTG-016, MTG-019 (Invited by) | WP-020, WP-021, WP-022 | designed |
+| Tasks, including Member own tasks, New task, Blocked by and Recurring (`#/tasks`) | TSK-001, TSK-002, TSK-003, TSK-005, TSK-006, TSK-007, TSK-008, TSK-009 | WP-024, WP-025, WP-026 | designed |
+| Ministries and ministry (`#/ministries`, `#/ministries/worship`) | TEAM-001, TEAM-004 to TEAM-008, TEAM-011, TEAM-012 (Org chart), TEAM-013 | WP-017, WP-018, WP-019 | designed |
+| Wiki article, source bar and editor (`#/wiki`, `#/wiki/edit`) | WIKI-001 to WIKI-007 | WP-034, WP-035 | designed |
+| Plant Intelligence (`#/intelligence`) | PI-014, PI-023 to PI-029, PI-033, PHASE-004 | WP-038, WP-039, WP-040, WP-041, WP-043, WP-044 | designed |
+| Attestations (`#/intelligence/attestations`) | PI-014, PI-015 | WP-039, WP-040 | designed |
+| Weekly private check-in (`#/me/check-in`) | PI-038 to PI-041 | WP-039 | designed |
+| Launch plan (`#/launch`), with milestone completion allowed while linked tasks are open | LCH-001 to LCH-008, LCH-010 | WP-045, WP-046 | designed |
+| Communication (`#/communication`) | COM-001 to COM-004, COM-006, COM-007, COM-009, COM-012 | WP-027, WP-028, WP-029, WP-031 | designed |
+| Documents and the generated templates (`#/documents`) | DOC-001 to DOC-014 | WP-036, WP-037 | designed |
+| Notifications page, bell and settings section | NTF-003, NTF-004, IDN-012 | WP-010, WP-030 | designed |
+| Network plants and one plant, with the phase journey (`#/network`, `#/network/plant`) | IDN-022, IDN-023, PI-030, PI-031 | WP-007, WP-030, WP-038, WP-044, WP-046, WP-047 | designed |
+| Network Intelligence (`#/network/intelligence`) | PI-043, PI-044 | WP-002, WP-004, WP-007, WP-010, WP-032, WP-041, WP-042, WP-043, WP-044, WP-047, WP-058, WP-073, WP-074, WP-093, WP-096 | designed |
+| Settings dialog: church, seats, sharing, account | IDN-010, IDN-011, IDN-017, IDN-019, IDN-022, IDN-006 to IDN-008 | WP-004, WP-005, WP-006, WP-007, WP-008, WP-010, WP-017, WP-024, WP-030, WP-039 | designed |
+| Evry panel | EVR-005, EVR-010, EVR-012 | WP-051, WP-053, WP-054 | designed |
+| Guide panel | WIKI-008 | WP-034 | designed |
+| Feedback dialog | ADM-001 | WP-049 | designed |
+| Phone: door check-in, RSVP, follow-up call with outcomes (REQ-MTG-022), invitation, email preferences | MTG-009, MTG-010, COM-010, TSK-004, TSK-011, TSK-012, IDN-017, NTF-012 | WP-008, WP-021, WP-022, WP-023, WP-028, WP-030 | designed |
+| Emails | IDN-017, MTG-018, COM-005, NTF-007, NTF-013 | WP-005, WP-008, WP-021, WP-028, WP-031 | designed |
 | Public site, privacy and terms (`design/everyfield-marketing.html`) | ADM-006, ADM-007 | WP-097 initial site; WP-049 product privacy update | designed; copy review open for five pages (see `review_status` in [`marketing-copy.json`](../marketing-copy.json)) |
-| Help center and how-to (`#/help`, `#/help/article`) | none in v3 |  | future feature, design kept for later |
+| Help center and how-to (`#/help`, `#/help/article`) | none in v3 | none in v3 | future feature, design kept for later |
 
 
 ### Flows not drawn

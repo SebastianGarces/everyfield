@@ -1652,10 +1652,7 @@
       "producer_table_names": [
         "access_request"
       ],
-      "consumer_table_names": [
-        "admission_attempt",
-        "mail"
-      ],
+      "consumer_table_names": [],
       "proof_stage": "early access site only; product privacy update belongs to WP-049",
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
     },

@@ -1140,7 +1140,7 @@
     {
       "name": "admission_attempt",
       "domain": "identity",
-      "purpose": "Exact expiring reservations for rolling authentication, invitation and public-mail budgets.",
+      "purpose": "Exact expiring reservations for rolling authentication and invitation budgets.",
       "library_owned": false,
       "columns": [
         {
@@ -1199,7 +1199,7 @@
       "unique_keys": [],
       "foreign_keys": [],
       "checks": [
-        "kind in ('login', 'password_change', 'registration', 'reset', 'email_change', 'public_invite', 'seat_invite', 'relationship_invite')",
+        "kind in ('login', 'password_change', 'registration', 'reset', 'email_change', 'seat_invite', 'relationship_invite')",
         "state in ('reserved', 'failed', 'counted', 'cleared')",
         "num_nonnulls(identifier_hash, trusted_ip_hash, workspace_key) >= 1",
         "expires_at > reserved_at"
@@ -1208,8 +1208,7 @@
       "capabilities": [
         "CAP-A-002",
         "CAP-A-006",
-        "CAP-A-009",
-        "CAP-A-048"
+        "CAP-A-009"
       ],
       "replaces": [
         "auth_throttle"
@@ -1225,7 +1224,6 @@
         "rule": "Union of producer packages of replaced tables."
       },
       "feature_ids": [
-        "ADM-006",
         "IDN-001",
         "IDN-002",
         "IDN-007",
@@ -1237,7 +1235,6 @@
         "IDN-027"
       ],
       "acceptance_ids": [
-        "AC-ADM-006--ADM-006",
         "AC-IDN-001--IDN-001",
         "AC-IDN-002--IDN-002",
         "AC-IDN-007--IDN-007",
@@ -1282,7 +1279,6 @@
         "AUTH-005",
         "AUTH-008",
         "B01-022",
-        "CASE-ADM-006",
         "DEL58-001",
         "DEL58-002",
         "DEL58-003",
@@ -1326,14 +1322,11 @@
         "Every endpoint kind matches its actual plant, Discovery account or organization kind; pair links cannot duplicate current accepted relationships.",
         "No duplicate pending subject/address intent; exact receiving organization alone approves its side.",
         "Multiple independent affiliations may coexist and ending one cannot end another or grant a seat.",
-        "A revoked/ended link has no current body entitlement even if historical events survive.",
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation."
+        "A revoked/ended link has no current body entitlement even if historical events survive."
       ],
       "revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
-      "deletion": "Keep attempt times only as needed to enforce the declared windows and recover live reservations; no permanent identifiable attempt history is required. Token authority ends at expiry, revocation, replacement or consumption. Keep dated accepted invitation provenance for roster/history; private recipient data follows deletion ownership, and no indefinite token-secret retention is needed. Keep minimal legitimate counterpart relationship history after source deletion, without retained private plant bodies or contacts. Discovery-owned private association content follows account deletion. Token authority expires and ordinary rejoin never resets existing consent. Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected.",
+      "deletion": "Keep attempt times only as needed to enforce the declared windows and recover live reservations; no permanent identifiable attempt history is required. Token authority ends at expiry, revocation, replacement or consumption. Keep dated accepted invitation provenance for roster/history; private recipient data follows deletion ownership, and no indefinite token-secret retention is needed. Keep minimal legitimate counterpart relationship history after source deletion, without retained private plant bodies or contacts. Discovery-owned private association content follows account deletion. Token authority expires and ordinary rejoin never resets existing consent.",
       "physical_verified": false
     },
     {
@@ -21235,7 +21228,7 @@
     {
       "name": "mail",
       "domain": "communication",
-      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Public-invite purpose alone permits a restricted global variant under the global tenant. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for public_invite payload or body-free outcome stubs; a literal CHECK prevents ordinary global payloads.",
+      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for body-free outcome stubs; a literal CHECK prevents ordinary global payloads.",
       "library_owned": false,
       "columns": [
         {
@@ -21581,8 +21574,8 @@
         "(frozen_payload is null) = (recipient_address_encrypted is null)",
         "frozen_payload is not null or state in ('unknown','refused','accepted','scheduled','sent','cancelled','failed')",
         "(frozen_payload is null) = (address_hash is null)",
-        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'public_invite', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
-        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or purpose = 'public_invite' or frozen_payload is null"
+        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
+        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or frozen_payload is null"
       ],
       "jsonb_keys": {
         "frozen_payload": [
@@ -21594,7 +21587,6 @@
       },
       "capabilities": [
         "CAP-A-003",
-        "CAP-A-048",
         "CAP-B-037",
         "CAP-B-039",
         "CAP-B-040",
@@ -21616,7 +21608,6 @@
         "rule": "Union of producer packages of replaced tables."
       },
       "feature_ids": [
-        "ADM-006",
         "COM-005",
         "COM-006",
         "COM-009",
@@ -21638,7 +21629,6 @@
         "TSK-014"
       ],
       "acceptance_ids": [
-        "AC-ADM-006--ADM-006",
         "AC-COM-005--COM-005",
         "AC-COM-006--COM-006",
         "AC-COM-009--COM-009",
@@ -21677,7 +21667,6 @@
         "B03-015",
         "B03-017",
         "B03-018",
-        "CASE-ADM-006",
         "CASE-COM-005",
         "CASE-COM-006",
         "CASE-COM-009",
@@ -21771,9 +21760,6 @@
         "Token use is purpose-bound, serialized and single-use; credential/email change invalidates outstanding reset/email proofs.",
         "Email-change target remains globally unique; login-email changes leave independently editable CRM email unchanged.",
         "Cancellation proof never creates ordinary content access.",
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation.",
         "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
         "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
         "One ledger serves communication, notification and transactional mail; inbox read/task state cannot become provider delivery truth.",
@@ -21797,13 +21783,13 @@
       ],
       "revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
-      "deletion": "Expire or consume secret proofs at their purpose deadlines; cancellation proof cannot outlive its request deadline. Account deletion purges private proofs; shared security receipts retain minimal attribution. Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected. Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "deletion": "Expire or consume secret proofs at their purpose deadlines; cancellation proof cannot outlive its request deadline. Account deletion purges private proofs; shared security receipts retain minimal attribution. Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
       "physical_verified": false
     },
     {
       "name": "mail_request",
       "domain": "communication",
-      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin. Public-invite purpose alone permits a restricted global variant under the global tenant.",
+      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin.",
       "library_owned": false,
       "columns": [
         {
@@ -21978,7 +21964,7 @@
     {
       "name": "mail_request_member",
       "domain": "communication",
-      "purpose": "Exact ordered intent membership in a provider request. Public-invite purpose alone permits a restricted global variant without an owner.",
+      "purpose": "Exact ordered intent membership in a provider request.",
       "library_owned": false,
       "columns": [
         {
@@ -22169,7 +22155,7 @@
     {
       "name": "mail_attempt",
       "domain": "communication",
-      "purpose": "Truthful provider request attempt with generation-fenced safe outcome. Public-invite purpose alone permits a restricted global variant without an owner.",
+      "purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
       "library_owned": false,
       "columns": [
         {
@@ -31176,13 +31162,13 @@
       ],
       "scope": "operations",
       "invariants": [
-        "One admitted request row per submission; concurrent duplicate suppression uses normalized email and form within 24 hours.",
+        "One admitted request row per submission; concurrent duplicate suppression uses normalized email and form within 24 hours and requires an earlier sent request.",
         "No stored request or mail for honeypot, invalid input or refused admission.",
         "Private operator export only; no public, tenant-seat, generic record or model access.",
-        "A provider or storage failure returns unavailable with contact fallback; no false success."
+        "A provider or storage failure returns unavailable with contact fallback; a failed send leaves the request stored for retry and cannot claim success."
       ],
       "revision": "Immutable submitted fields; only delivery outcome and scheduled IP clearing change retained rows.",
-      "idempotency": "Duplicate within 24 hours per normalized email and form returns received without another row or email, including concurrent submissions.",
+      "idempotency": "Only an earlier sent request suppresses a duplicate within 24 hours per normalized email and form, returning received without another row or email. A retry of a pending or failed request retries delivery on the same row with the same idempotency key and returns received only if delivery succeeds; otherwise it returns unavailable. Concurrent submissions preserve one row and one successful email.",
       "deletion": "Scheduled deletion after 12 months from creation; scheduled IP clearing after 30 days. These periods cover the request store, not external mailbox retention.",
       "physical_verified": false
     }
@@ -31228,7 +31214,6 @@
       "registration",
       "reset",
       "email_change",
-      "public_invite",
       "seat_invite",
       "relationship_invite"
     ],
@@ -31828,7 +31813,6 @@
       "oversight_digest",
       "password_reset",
       "planter_digest",
-      "public_invite",
       "relationship_invitation",
       "relationship_receipt",
       "seat_invitation"

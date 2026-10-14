@@ -547,7 +547,7 @@
         "WP-097"
       ],
       "status": "future-not-run",
-      "description": "Anonymous planter/network forms, normalized duplicates and concurrency, abuse limits, truthful failures, private CSV export and scheduled retention.",
+      "description": "Anonymous planter/network forms, sent-only normalized duplicates and concurrency, retry after failed mail with the same idempotency key, abuse limits, truthful failures, private CSV export and scheduled retention.",
       "given": {
         "configuration": {
           "fixture_type": "early_access_configuration",
@@ -1410,6 +1410,69 @@
               "email_calls": 1,
               "contact_fallback": "contact@example.test",
               "delivery_state": "failed"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "failed request retry sends with the same idempotency key",
+          "given": {
+            "configuration": {
+              "fixture_type": "early_access_configuration",
+              "email_to": "owner@example.test",
+              "contact_fallback": "contact@example.test",
+              "storage": "available",
+              "provider": "available",
+              "trusted_ip": "192.0.2.4",
+              "existing_requests": [
+                {
+                  "form": "planter",
+                  "email": "alex@example.test",
+                  "created_at": "2026-10-14T15:59:00Z",
+                  "delivery_state": "failed",
+                  "id": "00000000-0000-4000-8000-000000000097",
+                  "idempotency_key": "early-access/00000000-0000-4000-8000-000000000097"
+                }
+              ],
+              "email_requests_today": 0,
+              "ip_requests_this_hour": 0
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-14T16:00:00Z",
+            "zone": "UTC"
+          },
+          "action": {
+            "operation": "marketing.requestInvitation",
+            "arguments": {
+              "form": "planter",
+              "name": "Alex Rivera",
+              "email": "alex@example.test",
+              "plant_name": "Hope Church",
+              "city": "Chicago",
+              "phase": "Phase 1",
+              "sending_church_or_network": "Grace Network",
+              "honeypot": ""
+            }
+          },
+          "expected": {
+            "state": {
+              "new_access_requests": 0,
+              "new_account_rows": 0,
+              "new_crm_rows": 0,
+              "access_request_rows": 1,
+              "delivery_state": "sent"
+            },
+            "result": {
+              "status": "received",
+              "email_calls": 1,
+              "email_to": "owner@example.test",
+              "idempotency_key": "early-access/00000000-0000-4000-8000-000000000097"
             },
             "event": null
           }

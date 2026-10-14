@@ -25,13 +25,13 @@
       ],
       "outputs": [
         "E3: Real apps/web scaffold and shared packages; home, /oversight, /access, /privacy and /terms, responsive and accessible, with live-page navigation, sitemap and robots.",
-        "E4: Two validated access forms, one stored request and one email to EARLY_ACCESS_EMAIL_TO per admitted submission, duplicate and abuse limits, truthful failure/contact fallback, operator CSV export and scheduled request/IP retention.",
+        "E4: Shared packages/db and packages/domain package.json and tsconfig files; the DB client, access_request table schema and early-access migration; packages/domain/src/early-access/ request logic; two validated access forms, one stored request and one email to EARLY_ACCESS_EMAIL_TO per admitted submission, sent-only duplicate suppression and retry with the same mail idempotency key, abuse limits, truthful failure/contact fallback, operator CSV export and scheduled request/IP retention.",
         "E5: Preview on the owner Vercel project everyfield with the new everyfield-v3 Neon database and Resend; approved production on everyfield.app and www.everyfield.app, leaving v2 data separate."
       ],
       "owning_paths": [
         "apps/web/",
-        "packages/domain/src/access-requests/",
-        "packages/db/migrations/early-access/",
+        "packages/db/",
+        "packages/domain/",
         "scripts/early-access/",
         "tests/integration/access-requests/"
       ],
@@ -84,7 +84,7 @@
         "tsconfig.base.json",
         ".gitignore"
       ],
-      "integration_rule": "Only the early access site is delivered here; WP-087 extends its scaffold and WP-049 adds feedback, planters/trust pages, product sign-in links and the before-customer-data privacy update. Preserve existing source/reference bytes and v2 data.",
+      "integration_rule": "Only the early access site is delivered here. Shared packages/db and packages/domain ownership is limited to their package.json and tsconfig files, the DB client, access_request schema and migration, and src/early-access/. Later packages retain their owning paths and extend those shared packages after WP-097 under the existing prerequisite ordering rule. WP-087 extends the scaffold and WP-049 adds feedback, planters/trust pages, product sign-in links and the before-customer-data privacy update. Preserve existing source/reference bytes and v2 data.",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "fast_track": {

@@ -52,8 +52,7 @@
         "IDN-002",
         "IDN-007",
         "IDN-008",
-        "IDN-009",
-        "ADM-006"
+        "IDN-009"
       ],
       "persists": true,
       "entities": [
@@ -64,8 +63,7 @@
         "Purpose/kind, normalized identifier or privacy-preserving identifier hash, trustworthy IP or its hash, attempt/reservation time and exact rolling-window occupancy.",
         "Login and password-change failures each use separate 5/identifier and 20/IP budgets per fifteen minutes; successful login clears only the matching identifier/kind failures.",
         "Registration counts every submitted attempt at 3/trusted IP/hour, including success and refused or malformed attempts.",
-        "Reset requests and email-change requests use separate 3/identifier/hour and 10/IP/hour budgets; email-change identifier is the existing own login, not proposed target address.",
-        "Public invite-request counts use 5/address/day and 20/trusted IP/hour plus global provider budget."
+        "Reset requests and email-change requests use separate 3/identifier/hour and 10/IP/hour budgets; email-change identifier is the existing own login, not proposed target address."
       ],
       "history": "current-only",
       "invariants": [
@@ -77,7 +75,7 @@
       "current_tables": [
         "auth_throttle"
       ],
-      "notes": "Sources: REQ-IDN-001, 002, 007, 008, 009; ADM-006. Invitation creation/resend limits are separately recorded in CAP-A-006 and CAP-A-009."
+      "notes": "Sources: REQ-IDN-001, 002, 007, 008, 009. Invitation creation/resend limits are separately recorded in CAP-A-006 and CAP-A-009."
     },
     {
       "id": "CAP-A-003",
@@ -1570,12 +1568,12 @@
       ],
       "facts": [
         "Form kind, normalized email, name and every declared planter or sending church/network field.",
-        "Creation instant, stored IP and bounded email delivery state; duplicate suppression per email and form for 24 hours."
+        "Creation instant, stored IP and bounded email delivery state; only an earlier sent request suppresses a duplicate per email and form for 24 hours."
       ],
       "history": "current-only",
       "invariants": [
         "An admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO.",
-        "Duplicate and honeypot responses reveal no email-existence information.",
+        "Duplicate and honeypot responses reveal no email-existence information. A pending or failed request retries delivery on the same row with the same idempotency key and returns received only if it succeeds, otherwise unavailable.",
         "Five requests per email per day and twenty per trusted IP per hour; unavailable storage or mail returns the contact fallback.",
         "Operator CSV export is private; requests create no account, CRM record, newsletter or double opt-in."
       ],
