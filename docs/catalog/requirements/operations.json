@@ -211,11 +211,13 @@
       "feature_ids": [
         "ADM-006"
       ],
-      "text": "Public landing/examples are static synthetic illustrations with claims matching actual target. Invitation request validates normalized email and honeypot; it neither registers nor creates CRM/lead rows. Durable limited purpose-mail intent dedupes normalized email for a 24-hour window; bounded server rate limit 5 requests/address/day plus 20 trusted-IP requests/hour and global provider budget. Honeypot gets fake success; missing recipient/provider error gives contact fallback, not claimed invitation. No newsletter/double-opt-in/lead-management scope.",
+      "text": "The public early access site serves home, oversight, access, privacy and terms. Examples are static synthetic illustrations with claims matching the actual target. Only live pages appear in navigation, sitemap and robots; planters/trust pages and product sign-in links wait for WP-049. Initial reviewed privacy copy names Vercel, Neon and Resend, collection purpose, retention and how to ask for deletion. Two public access forms collect the declared fields and normalized email; an admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO. The planter form requires name, email, plant name, city and phase; sending church or network is optional. The network form requires name, email, network or church and role; plants sent or supported and message are optional. Duplicate submissions within 24 hours for the same email and form return received without another row or email. Limits are 5 per email per day and 20 per trusted IP per hour; a limit returns rate_limited identifying email or IP. A filled honeypot returns received without storage or mail. Invalid fields return invalid with field errors. Storage or provider failure, including a missing recipient, returns unavailable with the contact fallback and never claims success. Operator-only CSV export includes all retained requests. A restricted scheduled job deletes requests after 12 months and clears stored IP addresses after 30 days. No account, CRM record, newsletter or double opt-in is created.",
       "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
       "operations": [
         "marketing.requestInvitation",
-        "marketing.readProductExamples"
+        "marketing.readProductExamples",
+        "marketing.exportAccessRequests",
+        "marketing.expireAccessRequests"
       ],
       "acceptance_ids": [
         "AC-ADM-006--ADM-006"
@@ -225,15 +227,15 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049"
+        "WP-097"
       ],
       "behavior_rules": [
         {
           "operation": "marketing.requestInvitation",
-          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20 IP hour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
+          "rule": "Two public access forms collect the declared fields and normalized email; an admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO. The planter form requires name, email, plant name, city and phase; sending church or network is optional. The network form requires name, email, network or church and role; plants sent or supported and message are optional. Duplicate submissions within 24 hours for the same email and form return received without another row or email. Limits are 5 per email per day and 20 per trusted IP per hour; a limit returns rate_limited identifying email or IP. A filled honeypot returns received without storage or mail. Invalid fields return invalid with field errors. Storage or provider failure, including a missing recipient, returns unavailable with the contact fallback and never claims success. Operator-only CSV export includes all retained requests. A restricted scheduled job deletes requests after 12 months and clears stored IP addresses after 30 days. No account, CRM record, newsletter or double opt-in is created."
         }
       ],
-      "title": "Public product landing, interactive examples and invite-request form"
+      "title": "Early access site and two access-request forms"
     },
     {
       "id": "REQ-ADM-007",

@@ -1601,6 +1601,65 @@
   "max_brief_bytes": 65536,
   "packages": [
     {
+      "id": "WP-097",
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "own_requirement_ids": [
+        "REQ-ADM-006"
+      ],
+      "own_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "own_operation_ids": [
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
+        "marketing.privacyPolicy",
+        "marketing.readProductExamples",
+        "marketing.requestInvitation",
+        "marketing.sitemap",
+        "marketing.terms"
+      ],
+      "case_requirements_at_start": [
+        "REQ-ADM-006"
+      ],
+      "requirement_ids": [
+        "REQ-ADM-006"
+      ],
+      "shared_requirement_ids": [],
+      "consumed_acceptance_requirement_ids": [],
+      "consumed_acceptance_operation_ids": [],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "case_ids": [
+        "CASE-ADM-006"
+      ],
+      "operation_ids": [
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
+        "marketing.privacyPolicy",
+        "marketing.readProductExamples",
+        "marketing.requestInvitation",
+        "marketing.sitemap",
+        "marketing.terms"
+      ],
+      "shared_operation_ids": [],
+      "shared_contract_ids": [],
+      "unresolved_current_operation_references": [],
+      "direct_prerequisites": [],
+      "ui_prerequisites": [],
+      "producer_table_names": [
+        "access_request"
+      ],
+      "consumer_table_names": [
+        "admission_attempt",
+        "mail"
+      ],
+      "proof_stage": "early access site only; product privacy update belongs to WP-049",
+      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+    },
+    {
       "id": "WP-001",
       "feature_ids": [
         "REF-001",
@@ -2348,6 +2407,7 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
+        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -16870,14 +16930,12 @@
         "ADM-001",
         "ADM-002",
         "ADM-003",
-        "ADM-006",
         "ADM-007"
       ],
       "own_requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
         "REQ-ADM-003",
-        "REQ-ADM-006",
         "REQ-ADM-007",
         "REQ-ADM-008",
         "REQ-KNOW-013",
@@ -16899,7 +16957,6 @@
         "CASE-ADM-001",
         "CASE-ADM-002",
         "CASE-ADM-003",
-        "CASE-ADM-006",
         "CASE-ADM-007",
         "FDB56-001",
         "FDB56-002",
@@ -16922,11 +16979,6 @@
         "feedback.reconcileIssueLink",
         "feedback.submit",
         "feedback.triageIssue",
-        "marketing.privacyPolicy",
-        "marketing.readProductExamples",
-        "marketing.requestInvitation",
-        "marketing.sitemap",
-        "marketing.terms",
         "platformAdmin.authorize"
       ],
       "case_requirements_at_start": [],
@@ -16934,7 +16986,6 @@
         "REQ-ADM-001",
         "REQ-ADM-002",
         "REQ-ADM-003",
-        "REQ-ADM-006",
         "REQ-ADM-007",
         "REQ-ADM-008",
         "REQ-KNOW-013",
@@ -16954,12 +17005,15 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [],
+      "consumed_acceptance_operation_ids": [
+        "marketing.privacyPolicy",
+        "marketing.sitemap",
+        "marketing.terms"
+      ],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
         "AC-ADM-002--ADM-002",
         "AC-ADM-003--ADM-003",
-        "AC-ADM-006--ADM-006",
         "AC-ADM-007--ADM-007"
       ],
       "case_ids": [
@@ -16967,7 +17021,6 @@
         "CASE-ADM-001",
         "CASE-ADM-002",
         "CASE-ADM-003",
-        "CASE-ADM-006",
         "CASE-ADM-007",
         "COST-GATE-001",
         "DEL58-009",
@@ -16998,8 +17051,6 @@
         "feedback.submit",
         "feedback.triageIssue",
         "marketing.privacyPolicy",
-        "marketing.readProductExamples",
-        "marketing.requestInvitation",
         "marketing.sitemap",
         "marketing.terms",
         "platformAdmin.authorize",
@@ -17007,6 +17058,9 @@
       ],
       "shared_operation_ids": [
         "engineering.validateRequirements",
+        "marketing.privacyPolicy",
+        "marketing.sitemap",
+        "marketing.terms",
         "qa.verifyVerticalSlices"
       ],
       "shared_contract_ids": [],
@@ -17027,9 +17081,7 @@
         "record"
       ],
       "consumer_table_names": [
-        "admission_attempt",
         "event",
-        "mail",
         "operation",
         "platform_grant",
         "seat",
@@ -23710,6 +23762,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -26183,6 +26237,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -26846,6 +26902,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -27281,6 +27339,7 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
+        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -29417,6 +29476,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -31890,6 +31951,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -32553,6 +32616,8 @@
         "mail.suppression.restoreReviewed",
         "maintenance.purgeEligibleSubject",
         "maintenance.restoreWithCurrentManifest",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -32984,6 +33049,7 @@
         "tenant"
       ],
       "consumer_table_names": [
+        "access_request",
         "account",
         "admission_attempt",
         "affiliation",
@@ -40369,6 +40435,8 @@
         "feedback.listOwn",
         "feedback.submit",
         "invitations.describeRegistrationContext",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.privacyPolicy",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
@@ -40418,6 +40486,8 @@
         "evry.readCatalog",
         "feedback.admin.changeStatus",
         "feedback.submit",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.requestInvitation",
         "onboarding.complete",
         "onboarding.declareJourney",
@@ -40871,6 +40941,8 @@
         "feedback.triageIssue",
         "identity.answerLeadOnboarding",
         "identity.ensureOwnerPerson",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.readProductExamples",
         "marketing.requestInvitation",
         "onboarding.complete",
@@ -40917,6 +40989,8 @@
         "feedback.getOwnStatus",
         "feedback.listOwn",
         "identity.ensureOwnerPerson",
+        "marketing.expireAccessRequests",
+        "marketing.exportAccessRequests",
         "marketing.readProductExamples",
         "onboarding.getResume",
         "organizations.getProfile",
@@ -41067,7 +41141,9 @@
       "shared_operation_ids": [],
       "shared_contract_ids": [],
       "unresolved_current_operation_references": [],
-      "direct_prerequisites": [],
+      "direct_prerequisites": [
+        "WP-097"
+      ],
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [],
@@ -42132,7 +42208,7 @@
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
     }
   ],
-  "package_count": 95,
+  "package_count": 96,
   "shared_contract_source": "docs/catalog/shared-contracts.json",
   "omission_policy": "All selected IDs remain indexed. Details are on demand; pages report totalPages and selectedCount and never truncate records. Package gates account for owned and explicitly deferred portions, without a mandatory full-packet read."
 }

@@ -1,18 +1,18 @@
 # Future build plan
 
-The approved target has 95 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
+The approved target has 96 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 251.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 93 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 255 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 96.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
-WP-087 delivers local stack/assertion scripts and minimal scaffold/CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.
+WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.
 
 C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.
 
-DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the 100-table baseline; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages.
+DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages.
 
 ## Vertical slices
 
@@ -20,7 +20,7 @@ Each row lists only packages newly reached in that dependency-closed slice.
 
 | Slice | Delivery | New packages |
 |---|---|---|
-| S0 | Fresh foundation and identity/reference skeleton | WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090 |
+| S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090 |
 | S1 | People/meeting/task native and reviewed Evry vertical slice | WP-012, WP-013, WP-014, WP-015, WP-016, WP-020, WP-021, WP-022, WP-023, WP-024, WP-025, WP-051, WP-052, WP-053, WP-059, WP-060 |
 | S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037 |
 | S3 | Full phases/Plant and Network Intelligence/Launch/operations | WP-026, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049 |
@@ -33,11 +33,12 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 
 | Package | Task | Clauses | Operations | Cases | Tables | Days |
 |---|---|---:|---:|---:|---:|---:|
+| WP-097 | Early access site | 1 | 7 | 1 | 1 | 3.5 |
 | WP-087 | Local workflow and repository bootstrap | 0 | 0 | 0 | 0 | 3 |
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
 | WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 4 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 7 | 2 | 2 |
-| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 100 | 5 |
+| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 101 | 5 |
 | WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 20 | 8 | 2.5 |
 | WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |
@@ -85,7 +86,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 117 | 6 | 3 |
 | WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 161 | 4 | 4 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 2 |
-| WP-049 | Feedback admin public waitlist/legal/marketing | 20 | 15 | 15 | 4 | 2.5 |
+| WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 4 | 2.5 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 65 | 9 | 3.5 |
 | WP-051 | Evry conversation/run framework spike | 32 | 18 | 19 | 4 | 3 |
 | WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 3 |
@@ -142,14 +143,15 @@ WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/fi
 
 ## Critical prerequisite chain
 
-WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-011 → WP-012 → WP-015 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
+WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-011 → WP-012 → WP-015 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
 
-The graph has 479 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
+The graph has 480 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
 
 ## Exact dependency graph
 
 ```mermaid
 graph LR
+  WP097["WP-097: Early access site"]
   WP087["WP-087: Local workflow and repository bootstrap"]
   WP001["WP-001: Verify current source authority/version/hash"]
   WP002["WP-002: Shared C0 contracts and transaction patterns"]
@@ -202,7 +204,7 @@ graph LR
   WP043["WP-043: Assessment orchestration/retry/publication"]
   WP044["WP-044: Plant Intelligence/oversight assessment UI"]
   WP048["WP-048: Dashboard/navigation/settings integration"]
-  WP049["WP-049: Feedback admin public waitlist/legal/marketing"]
+  WP049["WP-049: Feedback and later public marketing"]
   WP050["WP-050: Environment bootstrap/ops/observability"]
   WP051["WP-051: Evry conversation/run framework spike"]
   WP052["WP-052: Evry per-feature read/tool coverage"]
@@ -245,6 +247,7 @@ graph LR
   WP096["WP-096: Intelligence browser/file/native-Evry parity integration"]
   WP057["WP-057: Full target browser/file/capability parity gate"]
   WP058["WP-058: Fresh bootstrap and release rehearsal"]
+  WP097 --> WP087
   WP087 --> WP001
   WP001 --> WP002
   WP002 --> WP003

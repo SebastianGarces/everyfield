@@ -138,7 +138,7 @@ Each prototype screen or flow and the features it serves. Feature IDs are in [`d
 | Feedback dialog | ADM-001 | designed |
 | Phone: door check-in, RSVP, follow-up call with outcomes (REQ-MTG-022), invitation, email preferences | MTG-009, MTG-010, COM-010, TSK-004, TSK-011, TSK-012, IDN-017, NTF-012 | designed |
 | Emails | IDN-017, MTG-018, COM-005, NTF-007, NTF-013 | designed |
-| Public site, privacy and terms (`design/everyfield-marketing.html`) | ADM-006, ADM-007 | designed; copy review open for five pages (see `review_status` in [`marketing-copy.json`](../marketing-copy.json)) |
+| Public site, privacy and terms (`design/everyfield-marketing.html`) | ADM-006, ADM-007 | WP-097 initial site; WP-049 product privacy update | designed; copy review open for five pages (see `review_status` in [`marketing-copy.json`](../marketing-copy.json)) |
 | Help center and how-to (`#/help`, `#/help/article`) | none in v3 | future feature, design kept for later |
 
 ### Flows not drawn

@@ -4060,7 +4060,7 @@
     "Supported expectedState values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded.": "Supported expected state values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded.",
     "Visible information for plant_member: namedCohortMetrics, datedActivity, safeAttribution, sourceReferences, completeness, nextCursor.": "Visible information for plant_member: named cohort metrics, dated activity, safe attribution, source references, completeness, next cursor.",
     "Visible information for plant_member: accountKind, exactContext, safeDestination, setupGaps, currentlyAllowedActions.": "Visible information for plant_member: account kind, exact context, safe destination, setup gaps, currently allowed actions.",
-    "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field.": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20 IP hour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field.",
+    "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field.": "Two public access forms collect the declared fields and normalized email; an admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO. The planter form requires name, email, plant name, city and phase; sending church or network is optional. The network form requires name, email, network or church and role; plants sent or supported and message are optional. Duplicate submissions within 24 hours for the same email and form return received without another row or email. Limits are 5 per email per day and 20 per trusted IP per hour; a limit returns rate_limited identifying email or IP. A filled honeypot returns received without storage or mail. Invalid fields return invalid with field errors. Storage or provider failure, including a missing recipient, returns unavailable with the contact fallback and never claims success. Operator-only CSV export includes all retained requests. A restricted scheduled job deletes requests after 12 months and clears stored IP addresses after 30 days. No account, CRM record, newsletter or double opt-in is created.",
     "Supported toStatus values: new, reviewed, resolved, dismissed.": "Supported to status values: new, reviewed, resolved, dismissed.",
     "Visible information for explicit_platform_administrator: items, nextCursor, privateOriginal, privateOpaqueLocator, triageStatus, publishStatus.": "Visible information for explicit_platform_administrator: items, next cursor, private original, private opaque locator, triage status, publish status.",
     "Visible information for explicit_platform_administrator: items, nextCursor, safePublicSummary, category, triageStatus, publishStatus.": "Visible information for explicit_platform_administrator: items, next cursor, safe public summary, category, triage status, publish status.",
@@ -4226,6 +4226,28 @@
       "requirement": "REQ-WIKI-014",
       "operation": "wiki.organizationArticles.getDraft",
       "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-ADM-006",
+      "operation": "marketing.exportAccessRequests",
+      "reason": "Phase 4 early access export and scheduled retention, 2026-10-14."
+    },
+    {
+      "requirement": "REQ-ADM-006",
+      "operation": "marketing.expireAccessRequests",
+      "reason": "Phase 4 early access export and scheduled retention, 2026-10-14."
+    }
+  ],
+  "operation_additions": [
+    {
+      "id": "marketing.exportAccessRequests",
+      "requirement": "REQ-ADM-006",
+      "reason": "Phase 4 early access ruling, 2026-10-14; operator CSV export and restricted scheduled retention."
+    },
+    {
+      "id": "marketing.expireAccessRequests",
+      "requirement": "REQ-ADM-006",
+      "reason": "Phase 4 early access ruling, 2026-10-14; operator CSV export and restricted scheduled retention."
     }
   ]
 }

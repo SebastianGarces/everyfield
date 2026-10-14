@@ -4740,11 +4740,13 @@
       "CASE-ADM-006"
     ],
     "operations": [
+      "marketing.expireAccessRequests",
+      "marketing.exportAccessRequests",
       "marketing.readProductExamples",
       "marketing.requestInvitation"
     ],
     "work_packages": [
-      "WP-049"
+      "WP-097"
     ]
   },
   {

@@ -1559,32 +1559,31 @@
     },
     {
       "id": "CAP-A-048",
-      "name": "Public invitation-request mail intent",
+      "name": "Early access requests and delivery",
       "feature_ids": [
         "ADM-006"
       ],
       "persists": true,
       "entities": [
-        "public invitation-request occurrence",
-        "limited mail intent"
+        "early access request",
+        "bounded delivery result"
       ],
       "facts": [
-        "Validated normalized requester email, twenty-four-hour dedupe occurrence/window and admitted rate-budget receipt.",
-        "Closed purpose, configured authorized destination identity, frozen safe mail payload and truthful pending/sent/failed/unknown transport outcome."
+        "Form kind, normalized email, name and every declared planter or sending church/network field.",
+        "Creation instant, stored IP and bounded email delivery state; duplicate suppression per email and form for 24 hours."
       ],
       "history": "current-only",
       "invariants": [
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation."
+        "An admitted submission stores one request and sends one email to EARLY_ACCESS_EMAIL_TO.",
+        "Duplicate and honeypot responses reveal no email-existence information.",
+        "Five requests per email per day and twenty per trusted IP per hour; unavailable storage or mail returns the contact fallback.",
+        "Operator CSV export is private; requests create no account, CRM record, newsletter or double opt-in."
       ],
-      "retention": "Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected.",
+      "retention": "A scheduled job deletes requests after 12 months and clears stored IP addresses after 30 days.",
       "current_tables": [
-        "email_intent",
-        "email_attempt",
-        "auth_throttle"
+        "access_request"
       ],
-      "notes": "Source: ADM-006. Public examples and landing text are static synthetic content, not stored user-domain records."
+      "notes": "WP-097 owns the independent public request store; later product packages may extend the existing scaffold. Public examples are static synthetic content."
     },
     {
       "id": "CAP-A-049",
