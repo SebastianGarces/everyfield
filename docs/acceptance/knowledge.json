@@ -2395,7 +2395,8 @@
           "passive_restore": true,
           "meaningful_update": true,
           "typo_update": true,
-          "source_active": false
+          "source_active_at_progress": true,
+          "source_active_at_current_read": false
         }
       },
       "actor": {
@@ -2419,7 +2420,8 @@
           "passive_restore": true,
           "meaningful_update": true,
           "typo_update": true,
-          "source_active": false
+          "source_active_at_progress": true,
+          "source_active_at_current_read": false
         }
       },
       "expected": {
@@ -2775,10 +2777,105 @@
           "export_bytes": null,
           "error_code": "content_access_denied",
           "generated_document_history_added": 0,
-          "font_failure_offers_print_fallback": true
+          "font_failure_offers_print_fallback": false
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York",
+              "revision": 3
+            },
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "email": "casey@example.test"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "Q",
+              "role": "Admin",
+              "active": true
+            },
+            "G1": {
+              "fixture_type": "article",
+              "id": "g1",
+              "source": "global",
+              "version": 1,
+              "published": true,
+              "title": "Preparing leaders",
+              "body": "Prepare a leadership conversation."
+            },
+            "case-input": {
+              "fixture_type": "domain_inputs",
+              "article": "g1",
+              "source_active": true,
+              "font_load_failed": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "wiki.article.print",
+            "arguments": {
+              "subject": "P",
+              "article": "g1",
+              "fault": "required_write_before_commit",
+              "source_active": true,
+              "font_load_failed": true
+            }
+          },
+          "name": "authorized-font-failure-offers-print",
+          "expected": {
+            "state": {},
+            "result": {
+              "export_status": "unavailable",
+              "print_fallback_available": true,
+              "generated_document_history_added": 0
+            },
+            "event": []
+          }
+        }
+      ]
     },
     {
       "id": "CASE-WIKI-008",
