@@ -256,7 +256,10 @@ def feature_map(screens):
         unknown = [i for i in ids if i not in features]
         if unknown:
             problems.append(f"unknown feature IDs in map row '{cells[0]}': {', '.join(unknown)}")
-        if not cells[-1].startswith(STATUSES):
+        routed = [i for i in ids if i in features and features[i]["routes"]]
+        if routed and not re.match(r"(?:not designed|designed)\b", cells[-1]):
+            problems.append(f"routed features {', '.join(routed)} have invalid status '{cells[-1]}' in map row '{cells[0]}'; use designed or not designed")
+        elif not cells[-1].startswith(STATUSES):
             problems.append(f"map row '{cells[0]}' has status '{cells[-1]}'; start it with one of: {', '.join(STATUSES)}")
         mapped.update(ids)
         if len(cells) == 4:
