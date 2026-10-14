@@ -865,11 +865,11 @@ function navPill(force?: boolean) {
   if (on !== pillOn) navClose();
   pillOn = on;
   pill.classList.toggle("on", on);
-  // Expose one header at a time, so assistive tech finds one banner and one "Main" nav. The in-flow header stays
-  // live while it holds focus; otherwise the visible pill carries the links.
-  const hideNav = on && !nav.contains(document.activeElement);
-  expose(pill, on);
-  expose(nav, !hideNav);
+  // Expose exactly one header, so assistive tech finds one banner and one "Main" nav. While the in-flow header holds
+  // focus it stays the exposed one (the pill shows but stays inert); once focus leaves, the pill takes over.
+  const pillLive = on && !nav.contains(document.activeElement);
+  expose(pill, pillLive);
+  expose(nav, !pillLive);
 }
 function expose(el: HTMLElement, live: boolean) {
   el.inert = !live;
