@@ -3079,17 +3079,6 @@
       },
       "coverage_notes": [
         {
-          "round_2_4": {
-            "removed_owners": [
-              "WP-020",
-              "WP-038",
-              "WP-044",
-              "WP-046"
-            ],
-            "reason": "Corrected action exercises engineering.inventoryTools; these owners cannot supply it. Retained the actual producer and downstream integration owners."
-          }
-        },
-        {
           "correction_round": {
             "reason": "The original record is a target catalog exclusion/key inspection, not the separate operator source inventory. Registered build inspection reads the target catalog under the declared build proof layer. Restored its product owners.",
             "previous_owners": [
