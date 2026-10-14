@@ -54,7 +54,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "bucket": "backup-private",
           "credentials": [
             "app",
@@ -74,7 +74,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.finalizeAvatar",
+        "operation": "configuration.inspectMixedEnvironment",
         "arguments": {
           "bucket": "backup-private",
           "credentials": [
@@ -96,7 +96,12 @@
           ]
         },
         "event": null
-      }
+      },
+      "layers": [
+        "configuration",
+        "output-inspection",
+        "operator-evidence"
+      ]
     },
     {
       "id": "BKT60-002",
@@ -114,9 +119,7 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
         "WP-037",
-        "WP-050",
         "WP-092"
       ],
       "status": "future-not-run",
@@ -185,7 +188,18 @@
           "key_recoverable_by": "restricted-backup"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises documents.download and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "BKT60-003",
@@ -201,9 +215,7 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
         "WP-050",
-        "WP-049",
         "WP-095"
       ],
       "status": "future-not-run",
@@ -237,11 +249,26 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "snapshot_at": "2026-10-12T17:00:00Z",
           "restore_at": "2026-10-13T16:00:00Z",
           "provider_up": false,
           "copy_available": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "snapshot_at": "2026-10-12T17:00:00Z",
+          "restore_at": "2026-10-13T16:00:00Z",
+          "provider_up": false,
+          "copy_available": true
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -254,12 +281,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "marketing.privacyPolicy",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "snapshot_at": "2026-10-12T17:00:00Z",
-          "restore_at": "2026-10-13T16:00:00Z",
-          "provider_up": false,
-          "copy_available": true
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -270,7 +296,25 @@
           "guaranteed_disaster_RTO": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-049"
+            ],
+            "reason": "Corrected action exercises maintenance.restoreWithCurrentManifest; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "BKT60-004",
@@ -288,8 +332,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-050",
         "WP-092",
         "WP-095",
@@ -326,7 +368,13 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "customer_rows": 0,
+          "backup_configured": false,
+          "cost_approved": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "customer_rows": 0,
           "backup_configured": false,
           "cost_approved": false
@@ -342,12 +390,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.finalizeAvatar",
-        "arguments": {
-          "customer_rows": 0,
-          "backup_configured": false,
-          "cost_approved": false
-        }
+        "operation": "ops.readiness",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -356,7 +400,18 @@
           "build_gate_from_backup": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises ops.readiness and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-001",
@@ -378,10 +433,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-006",
-        "WP-007",
         "WP-010"
       ],
       "status": "future-not-run",
@@ -415,7 +466,18 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "subject": "A",
+          "request_at": "2026-10-13T16:00:00Z",
+          "roles": [
+            "self",
+            "Owner",
+            "Admin",
+            "foreign"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "A",
           "request_at": "2026-10-13T16:00:00Z",
           "roles": [
@@ -436,16 +498,10 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
+        "operation": "account.requestDeletion",
         "arguments": {
-          "subject": "A",
-          "request_at": "2026-10-13T16:00:00Z",
-          "roles": [
-            "self",
-            "Owner",
-            "Admin",
-            "foreign"
-          ]
+          "confirmation": "Delete my account",
+          "request_key": "delete-A-1"
         }
       },
       "expected": {
@@ -467,7 +523,20 @@
           "normal_access": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-005",
+              "WP-006",
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-002",
@@ -485,8 +554,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-006",
         "WP-010"
       ],
       "status": "future-not-run",
@@ -520,11 +587,27 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "subject": "A",
           "status": "pending",
           "private_note": "CARE-CANARY",
           "proof_purpose": "cancel"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "A",
+          "status": "pending",
+          "private_note": "CARE-CANARY",
+          "proof_purpose": "cancel"
+        },
+        "delete-A": {
+          "fixture_type": "account_deletion_request",
+          "id": "delete-A",
+          "account": "A",
+          "status": "pending",
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z",
+          "revision": 2
         }
       },
       "actor": {
@@ -537,13 +620,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
-        "arguments": {
-          "subject": "A",
-          "status": "pending",
-          "private_note": "CARE-CANARY",
-          "proof_purpose": "cancel"
-        }
+        "operation": "account.getDeletionStatus",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -554,7 +632,18 @@
           "cancel_allowed": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-006"
+            ],
+            "reason": "The original scenario exercises account.getDeletionStatus and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-003",
@@ -576,12 +665,7 @@
         "AC-WIKI-003--WIKI-003"
       ],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
-        "WP-031",
-        "WP-035",
-        "WP-047",
         "WP-092"
       ],
       "status": "future-not-run",
@@ -615,7 +699,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "deadline": "2026-11-12T16:00:00Z",
           "attempts": [
             "2026-11-12T15:59:59.999Z",
@@ -623,6 +707,25 @@
           ],
           "request_revision": 2,
           "old_revision": 1
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "deadline": "2026-11-12T16:00:00Z",
+          "attempts": [
+            "2026-11-12T15:59:59.999Z",
+            "2026-11-12T16:00:00Z"
+          ],
+          "request_revision": 2,
+          "old_revision": 1
+        },
+        "delete-A": {
+          "fixture_type": "account_deletion_request",
+          "id": "delete-A",
+          "account": "A",
+          "status": "pending",
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z",
+          "revision": 2
         }
       },
       "actor": {
@@ -631,33 +734,81 @@
         "context": "P"
       },
       "clock": {
-        "now": "2026-10-13T16:00:00Z",
+        "now": "2026-11-12T15:59:59.999Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
+        "operation": "account.cancelDeletion",
         "arguments": {
-          "deadline": "2026-11-12T16:00:00Z",
-          "attempts": [
-            "2026-11-12T15:59:59.999Z",
-            "2026-11-12T16:00:00Z"
-          ],
-          "request_revision": 2,
-          "old_revision": 1
+          "request": "delete-A",
+          "expected_revision": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "cancel_allowed": [
-            true,
-            false
-          ],
+          "cancel_allowed": true,
           "old_request_cancel_allowed": false,
-          "revoked_affiliation_restored": false
+          "ordinary_data_before_cancel": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-006",
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises account.cancelDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-035",
+              "WP-047"
+            ],
+            "reason": "Corrected action exercises account.cancelDeletion; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "at-deadline",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-11-12T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.cancelDeletion",
+            "arguments": {
+              "request": "delete-A",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "cancel_allowed": false,
+              "ordinary_data_allowed": false
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-004",
@@ -687,13 +838,6 @@
         "AC-PI-041--PI-041"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-010",
-        "WP-011",
-        "WP-036",
-        "WP-037",
-        "WP-039",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -744,7 +888,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.cancelDeletion",
+        "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
           "account_document": "DA",
           "plant_document": "DP",
@@ -761,7 +905,30 @@
           "shared_attribution": "Former member"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-005",
+              "WP-010",
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises maintenance.purgeEligibleSubject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-036",
+              "WP-037",
+              "WP-039"
+            ],
+            "reason": "Corrected action exercises maintenance.purgeEligibleSubject; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-005",
@@ -789,13 +956,8 @@
         "AC-WIKI-003--WIKI-003"
       ],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
-        "WP-035",
-        "WP-037",
         "WP-039",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -829,7 +991,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "delete_plant": "P",
           "other_plant": "Q",
           "organizations": [
@@ -842,6 +1004,16 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "delete_plant": "P",
+          "other_plant": "Q",
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "private_author": "A"
         }
       },
       "actor": {
@@ -854,15 +1026,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
+        "operation": "churches.requestWorkspaceDeletion",
         "arguments": {
-          "delete_plant": "P",
-          "other_plant": "Q",
-          "organizations": [
-            "S1",
-            "N1"
-          ],
-          "private_author": "A"
+          "plant": "P",
+          "confirmation": "Delete P",
+          "expected_revision": 7
         }
       },
       "expected": {
@@ -877,7 +1045,28 @@
           "private_author_transferred": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-006",
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises churches.requestWorkspaceDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-035",
+              "WP-037",
+              "WP-047"
+            ],
+            "reason": "Corrected action exercises churches.requestWorkspaceDeletion; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-006",
@@ -898,7 +1087,6 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-037",
         "WP-092"
       ],
@@ -973,7 +1161,17 @@
           "existing_url_may_work_until": "2026-10-13T16:05:00Z"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-007",
@@ -1003,12 +1201,6 @@
         "AC-PI-041--PI-041"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-010",
-        "WP-031",
-        "WP-037",
-        "WP-039",
         "WP-050",
         "WP-093"
       ],
@@ -1043,11 +1235,22 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "deadline": "2026-11-12T16:00:00Z",
           "object_delete": "timeout",
           "retry": true,
           "request_key": "del-A-1"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "deadline": "2026-11-12T16:00:00Z",
+          "object_delete": "timeout",
+          "retry": true,
+          "request_key": "del-A-1"
+        },
+        "delete-A": {
+          "fixture_type": "deletion_request",
+          "id": "delete-A"
         }
       },
       "actor": {
@@ -1060,12 +1263,12 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.cancelDeletion",
+        "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
-          "deadline": "2026-11-12T16:00:00Z",
-          "object_delete": "timeout",
-          "retry": true,
-          "request_key": "del-A-1"
+          "subject": "A",
+          "request": "delete-A",
+          "claim_generation": 2,
+          "chunk": 1
         }
       },
       "expected": {
@@ -1077,7 +1280,29 @@
           "retry_coherent_complete": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-005",
+              "WP-010",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises maintenance.purgeEligibleSubject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-037",
+              "WP-039"
+            ],
+            "reason": "Corrected action exercises maintenance.purgeEligibleSubject; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-008",
@@ -1095,9 +1320,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-037",
         "WP-050",
         "WP-092",
         "WP-095",
@@ -1134,10 +1356,24 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "livePurgedAt": "2026-11-20T16:00:00Z",
           "restore_at": "2026-11-27T16:00:00Z",
           "recopy_at": "2026-11-26T16:00:00Z"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "livePurgedAt": "2026-11-20T16:00:00Z",
+          "restore_at": "2026-11-27T16:00:00Z",
+          "recopy_at": "2026-11-26T16:00:00Z"
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -1150,11 +1386,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.cancelDeletion",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "livePurgedAt": "2026-11-20T16:00:00Z",
-          "restore_at": "2026-11-27T16:00:00Z",
-          "recopy_at": "2026-11-26T16:00:00Z"
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -1165,7 +1401,26 @@
           "cancel_allowed": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-037"
+            ],
+            "reason": "Corrected action exercises maintenance.restoreWithCurrentManifest; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DEL58-009",
@@ -1184,8 +1439,6 @@
       ],
       "work_packages": [
         "WP-010",
-        "WP-049",
-        "WP-050",
         "WP-094"
       ],
       "status": "future-not-run",
@@ -1219,10 +1472,25 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "status": "pending",
           "request_at": "2026-10-13T16:00:00Z",
           "own_feedback": "F1"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "status": "pending",
+          "request_at": "2026-10-13T16:00:00Z",
+          "own_feedback": "F1"
+        },
+        "delete-A": {
+          "fixture_type": "account_deletion_request",
+          "id": "delete-A",
+          "account": "A",
+          "status": "pending",
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z",
+          "revision": 2
         }
       },
       "actor": {
@@ -1235,12 +1503,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.cancelDeletion",
-        "arguments": {
-          "status": "pending",
-          "request_at": "2026-10-13T16:00:00Z",
-          "own_feedback": "F1"
-        }
+        "operation": "account.getDeletionStatus",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -1251,7 +1515,25 @@
           "physical_day37_claim": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises account.getDeletionStatus and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-049"
+            ],
+            "reason": "Corrected action exercises account.getDeletionStatus; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-001",
@@ -1267,8 +1549,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-050",
         "WP-058"
       ],
@@ -1303,7 +1583,16 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "PITR_days": 1,
+          "required_days": 7,
+          "snapshots": [
+            "2026-10-01",
+            "2026-10-13"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "PITR_days": 1,
           "required_days": 7,
           "snapshots": [
@@ -1322,15 +1611,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.finalizeAvatar",
-        "arguments": {
-          "PITR_days": 1,
-          "required_days": 7,
-          "snapshots": [
-            "2026-10-01",
-            "2026-10-13"
-          ]
-        }
+        "operation": "ops.readiness",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -1339,7 +1621,18 @@
           "indefinitely_preserved_latest": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises ops.readiness and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-002",
@@ -1357,7 +1650,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
         "WP-037",
         "WP-050"
       ],
@@ -1412,6 +1704,15 @@
         "isolated": {
           "fixture_type": "restore_target",
           "normal_access": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "native_object_version": "D-v1",
+          "deleted_bucket": "old-bucket"
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
         }
       },
       "actor": {
@@ -1426,8 +1727,7 @@
       "action": {
         "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "native_object_version": "D-v1",
-          "deleted_bucket": "old-bucket",
+          "snapshot": "snapshot-1",
           "current_manifest": "witness-1",
           "target": "isolated"
         }
@@ -1442,7 +1742,17 @@
           "physical_cleanup_synchronous": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-003",
@@ -1462,9 +1772,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
-        "WP-037",
         "WP-050",
         "WP-092"
       ],
@@ -1499,11 +1806,26 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "DB_reference": "D-v2",
           "restored_bytes_version": "D-v1",
           "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "actual_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "DB_reference": "D-v2",
+          "restored_bytes_version": "D-v1",
+          "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "actual_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -1516,12 +1838,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.finalizeAvatar",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "DB_reference": "D-v2",
-          "restored_bytes_version": "D-v1",
-          "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "actual_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -1531,7 +1852,26 @@
           "service_opened": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-037"
+            ],
+            "reason": "Corrected action exercises maintenance.restoreWithCurrentManifest; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-004",
@@ -1547,8 +1887,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-050",
         "WP-092",
         "WP-095",
@@ -1585,11 +1923,26 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "latest_coherent_at": "2026-10-13T15:00:00Z",
           "incident_at": "2026-10-13T16:00:00Z",
           "restore_complete_at": "2026-10-13T20:00:00Z",
           "provider_available": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "latest_coherent_at": "2026-10-13T15:00:00Z",
+          "incident_at": "2026-10-13T16:00:00Z",
+          "restore_complete_at": "2026-10-13T20:00:00Z",
+          "provider_available": true
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -1602,12 +1955,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "ops.applyVersionedMigration",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "latest_coherent_at": "2026-10-13T15:00:00Z",
-          "incident_at": "2026-10-13T16:00:00Z",
-          "restore_complete_at": "2026-10-13T20:00:00Z",
-          "provider_available": true
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -1619,7 +1971,18 @@
           "customer_SLA": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-005",
@@ -1637,8 +2000,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-050",
         "WP-095",
         "WP-058"
@@ -1674,7 +2035,14 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "backup_configured": false,
+          "cost_approved": false,
+          "copy_age_hours": 23,
+          "copy_available": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "backup_configured": false,
           "cost_approved": false,
           "copy_age_hours": 23,
@@ -1691,13 +2059,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "fixtures.resetOwnedEnvironment",
-        "arguments": {
-          "backup_configured": false,
-          "cost_approved": false,
-          "copy_age_hours": 23,
-          "copy_available": true
-        }
+        "operation": "ops.readiness",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -1707,7 +2070,18 @@
           "second_provider_gate": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises ops.readiness and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REC59-006",
@@ -1731,12 +2105,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-028",
-        "WP-029",
-        "WP-031",
-        "WP-037",
-        "WP-049",
         "WP-050",
         "WP-092",
         "WP-095",
@@ -1773,12 +2141,28 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "snapshot_status": "active",
           "current_witness": "purged",
           "copy_expiry": "2026-10-13T15:00:00Z",
           "mail_receipt": "accepted",
           "public_issue_number": 7
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "snapshot_status": "active",
+          "current_witness": "purged",
+          "copy_expiry": "2026-10-13T15:00:00Z",
+          "mail_receipt": "accepted",
+          "public_issue_number": 7
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -1791,13 +2175,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.cancelDeletion",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "snapshot_status": "active",
-          "current_witness": "purged",
-          "copy_expiry": "2026-10-13T15:00:00Z",
-          "mail_receipt": "accepted",
-          "public_issue_number": 7
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -1809,7 +2191,29 @@
           "expiry_reset": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-028",
+              "WP-029",
+              "WP-037",
+              "WP-049"
+            ],
+            "reason": "Corrected action exercises maintenance.restoreWithCurrentManifest; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "RECOVERY-COPY-001",
@@ -1827,7 +2231,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
         "WP-036",
         "WP-037",
         "WP-050"
@@ -1881,10 +2284,25 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "candidate": "snapshot-2",
           "missing_object": "D2",
           "ordinary_app_has_backup_key": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "candidate": "snapshot-2",
+          "missing_object": "D2",
+          "ordinary_app_has_backup_key": false
+        },
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "id": "snapshot-1"
+        },
+        "witness-1": {
+          "fixture_type": "lifecycle_manifest",
+          "id": "witness-1"
         }
       },
       "actor": {
@@ -1899,10 +2317,9 @@
       "action": {
         "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "subject": "P",
-          "candidate": "snapshot-2",
-          "missing_object": "D2",
-          "ordinary_app_has_backup_key": false
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
@@ -1915,7 +2332,17 @@
           "RTO_claim_proven": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "RECOVERY-DELETE-001",
@@ -1935,11 +2362,9 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-004",
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-036",
         "WP-037",
         "WP-050"
@@ -2001,13 +2426,26 @@
           "note": "CARE-CANARY-RECOVERY-DELETE-001"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "deleted_account": "A",
           "shared_owner": "P",
           "backup_contains_private_care": true,
           "scheduled_message": "cancelled",
           "current_witness": "purged",
           "copy_expired": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "deleted_account": "A",
+          "shared_owner": "P",
+          "backup_contains_private_care": true,
+          "scheduled_message": "cancelled",
+          "current_witness": "purged",
+          "copy_expired": true
+        },
+        "delete-A": {
+          "fixture_type": "deletion_request",
+          "id": "delete-A"
         }
       },
       "actor": {
@@ -2023,12 +2461,9 @@
         "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
           "subject": "P",
-          "deleted_account": "A",
-          "shared_owner": "P",
-          "backup_contains_private_care": true,
-          "scheduled_message": "cancelled",
-          "current_witness": "purged",
-          "copy_expired": true
+          "request": "delete-A",
+          "claim_generation": 2,
+          "chunk": 1
         }
       },
       "expected": {
@@ -2041,7 +2476,18 @@
           "failed_purge_reports_complete": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises maintenance.purgeEligibleSubject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     }
   ]
 }

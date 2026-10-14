@@ -2194,7 +2194,6 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-011",
         "WP-012",
         "WP-020",
         "WP-053",
@@ -2265,7 +2264,17 @@
           "commitments": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B02-024",
@@ -2282,7 +2291,6 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-011",
         "WP-012",
         "WP-020",
         "WP-053",
@@ -2353,7 +2361,17 @@
           "guest_links": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B02-025",
@@ -2703,10 +2721,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-007",
-        "WP-010",
-        "WP-032",
         "WP-041",
         "WP-042",
         "WP-043",
@@ -2785,7 +2799,20 @@
           "Location_inputs": []
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-007",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises intelligence.readAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B02-030",
@@ -2959,10 +2986,7 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-038",
-        "WP-044",
-        "WP-046"
+        "WP-050"
       ],
       "status": "future-not-run",
       "description": "Current generated operation catalog includes native practice/debrief while source facts unchanged.",
@@ -2994,11 +3018,9 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "launch-inputs": {
-          "fixture_type": "launch_fixture",
-          "type": "prelaunch_practice",
-          "debrief_submitted": true,
-          "missing_names": false
+        "catalog": {
+          "fixture_type": "operation_inventory",
+          "path": "docs/catalog/operations.json"
         }
       },
       "actor": {
@@ -3011,25 +3033,34 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "launch.readWorkspace",
-        "arguments": {
-          "type": "prelaunch_practice",
-          "debrief_submitted": true,
-          "missing_names": false
-        }
+        "operation": "engineering.inventoryTools",
+        "arguments": {}
       },
       "expected": {
         "state": {},
         "result": {
           "operation_ids": [
-            "meetings.create",
+            "meetings.completePractice",
             "launch.submitDebrief"
           ],
           "guest_key": "guest_data_entered",
           "debrief_key": "debrief_done"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-020",
+              "WP-038",
+              "WP-044",
+              "WP-046"
+            ],
+            "reason": "Corrected action exercises engineering.inventoryTools; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "CASE-LCH-001",
@@ -5458,7 +5489,6 @@
         "AC-LCH-008--LCH-008"
       ],
       "work_packages": [
-        "WP-011",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -5527,7 +5557,17 @@
           "fault_created_people": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "LAUNCH46-003",
@@ -5541,7 +5581,6 @@
         "AC-LCH-006--LCH-006"
       ],
       "work_packages": [
-        "WP-011",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -5611,7 +5650,17 @@
           "commitments": []
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "LAUNCH46-004",
@@ -6724,7 +6773,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-007",
         "WP-046",
         "WP-047"
       ],
@@ -6802,7 +6850,17 @@
           "foreign_summary": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises launch.readWorkspace and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "LAUNCH46-017",
@@ -7085,7 +7143,6 @@
         "AC-EVR-READ--EVR-419"
       ],
       "work_packages": [
-        "WP-006",
         "WP-052",
         "WP-053",
         "WP-075",
@@ -7175,7 +7232,17 @@
           "stale_error": "revision_conflict"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-006"
+            ],
+            "reason": "The original scenario exercises launch.readWorkspace and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "LAUNCH46-021",
@@ -7484,7 +7551,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-046",
         "WP-015",
         "WP-091"
@@ -7788,6 +7854,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -7800,7 +7876,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-046",
         "WP-015",
         "WP-091"
@@ -8108,6 +8183,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8120,7 +8205,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-046",
         "WP-015",
         "WP-091"
@@ -8426,6 +8510,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8438,7 +8532,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-046",
         "WP-015",
         "WP-091"
@@ -8759,6 +8852,16 @@
             "event": null
           },
           "name": "required-write-fault-rolls-back"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
         }
       ]
     }

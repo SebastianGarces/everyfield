@@ -17,7 +17,6 @@
         "AC-REF-008--REF-008"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -121,7 +120,17 @@
           "historical_activation_rewritten": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises reference.rebuildEmbeddings and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "AUDIT-001",
@@ -196,7 +205,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "mutation": "person_name_change",
           "required_faults": [
             "history",
@@ -324,7 +333,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "actor": "A",
           "subject": "P",
           "secret": "TOKEN-CANARY"
@@ -438,7 +447,7 @@
           "note": "CARE-CANARY-AUDIT-003"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "action": "people.updated",
           "diff_utf8_bytes": [
             2048,
@@ -559,7 +568,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "private_author": "A",
           "week": "2026-10-12",
           "note": "CARE-CANARY"
@@ -664,7 +673,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "private_author": "A",
           "note": "CARE-CANARY"
         }
@@ -774,7 +783,7 @@
           "note": "CARE-CANARY-AUDIT-006"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "deleted_account": "A",
           "shared_owner": "P",
           "private_owner": "A",
@@ -884,7 +893,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "runtime_role": "ordinary",
           "attempts": [
             "UPDATE",
@@ -1011,7 +1020,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "request_key": "op-1",
           "repeat": 2,
           "fault": "audit_insert"
@@ -1056,8 +1065,6 @@
         "AC-IDN-013--IDN-013"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-005",
         "WP-006"
       ],
@@ -1082,7 +1089,7 @@
           "id": "A",
           "email": "alex@example.test",
           "personal_timezone": "America/Chicago",
-          "registration": "active"
+          "registration": "pending"
         },
         "seat-A": {
           "fixture_type": "seat",
@@ -1115,9 +1122,25 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "credential_created": true,
           "domain_acceptance_fault": "Person_link"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "fault": "required_write_before_commit",
+          "credential_created": true,
+          "domain_acceptance_fault": "Person_link"
+        },
+        "registration-proof": {
+          "fixture_type": "registration_proof",
+          "account": "A",
+          "expires_at": "2026-10-13T17:00:00Z"
+        },
+        "I": {
+          "fixture_type": "invitation",
+          "id": "I"
         }
       },
       "actor": {
@@ -1132,10 +1155,8 @@
       "action": {
         "operation": "accounts.resumeRegistration",
         "arguments": {
-          "subject": "P",
-          "fault": "required_write_before_commit",
-          "credential_created": true,
-          "domain_acceptance_fault": "Person_link"
+          "proof": "registration-proof",
+          "invitation": "I"
         }
       },
       "expected": {
@@ -1147,7 +1168,18 @@
           "partial_domain_rows": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises accounts.resumeRegistration and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-002",
@@ -1161,8 +1193,6 @@
         "AC-IDN-019--IDN-019"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-006",
         "WP-008"
       ],
       "status": "future-not-run",
@@ -1219,11 +1249,33 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "invitation": "I",
           "concurrent_accepts": 2,
           "revoked": true,
           "expires_at": "2026-10-13T16:00:00Z"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "concurrent_accepts": 2,
+          "revoked": true,
+          "expires_at": "2026-10-13T16:00:00Z"
+        },
+        "I": {
+          "fixture_type": "invitation",
+          "id": "I",
+          "tenant": "P",
+          "recipient": "alex@example.test",
+          "role": "Admin",
+          "revision": 2,
+          "status": "revoked",
+          "expires_at": "2026-10-13T16:00:00Z"
+        },
+        "invite-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I"
         }
       },
       "actor": {
@@ -1238,11 +1290,8 @@
       "action": {
         "operation": "seats.acceptInvitation",
         "arguments": {
-          "subject": "P",
           "invitation": "I",
-          "concurrent_accepts": 2,
-          "revoked": true,
-          "expires_at": "2026-10-13T16:00:00Z"
+          "proof": "invite-proof"
         }
       },
       "expected": {
@@ -1254,7 +1303,18 @@
           "at_expiry_grants": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-006"
+            ],
+            "reason": "The original scenario exercises seats.acceptInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-003",
@@ -1327,16 +1387,38 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "recipient": "alex@example.test",
           "authenticated_account": "B",
           "proof_owner": "A"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "recipient": "alex@example.test",
+          "authenticated_account": "B",
+          "proof_owner": "A"
+        },
+        "I": {
+          "fixture_type": "invitation",
+          "id": "I",
+          "purpose": "seat",
+          "recipient_email": "alex@example.test",
+          "state": "pending",
+          "role": "admin",
+          "tenant_id": "P",
+          "revision": 2
+        },
+        "session-B": {
+          "fixture_type": "session",
+          "account": "B",
+          "expires_at": "2026-11-12T16:00:00Z"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": "B",
+        "session": "session-B",
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1345,11 +1427,7 @@
       "action": {
         "operation": "accounts.getRegistrationOptions",
         "arguments": {
-          "subject": "P",
-          "fault": "required_write_before_commit",
-          "recipient": "alex@example.test",
-          "authenticated_account": "B",
-          "proof_owner": "A"
+          "invitation": "I"
         }
       },
       "expected": {
@@ -1377,7 +1455,6 @@
         "AC-EVR-EFFECT--EVR-100"
       ],
       "work_packages": [
-        "WP-003",
         "WP-005",
         "WP-006"
       ],
@@ -1402,7 +1479,7 @@
           "id": "A",
           "email": "alex@example.test",
           "personal_timezone": "America/Chicago",
-          "registration": "active"
+          "registration": "pending"
         },
         "seat-A": {
           "fixture_type": "seat",
@@ -1435,11 +1512,28 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "request_key": "accept-1",
           "saved_digest": "digest-1",
           "replay_digest": "digest-2",
           "saved_receipt": "receipt-1"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "repeat": 2,
+          "saved_digest": "digest-1",
+          "replay_digest": "digest-2",
+          "saved_receipt": "receipt-1"
+        },
+        "registration-proof": {
+          "fixture_type": "registration_proof",
+          "account": "A",
+          "expires_at": "2026-10-13T17:00:00Z"
+        },
+        "I": {
+          "fixture_type": "invitation",
+          "id": "I"
         }
       },
       "actor": {
@@ -1454,13 +1548,9 @@
       "action": {
         "operation": "accounts.resumeRegistration",
         "arguments": {
-          "subject": "P",
-          "request_key": "accept-1",
-          "repeat": 2,
-          "fault": "required_write_before_commit",
-          "saved_digest": "digest-1",
-          "replay_digest": "digest-2",
-          "saved_receipt": "receipt-1"
+          "proof": "registration-proof",
+          "invitation": "I",
+          "request_key": "accept-1"
         }
       },
       "expected": {
@@ -1471,7 +1561,53 @@
           "saved_receipt": "receipt-1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003"
+            ],
+            "reason": "The original scenario exercises accounts.resumeRegistration and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "required-write-failure",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "required_write_before_commit"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "accounts.resumeRegistration",
+            "arguments": {
+              "proof": "registration-proof",
+              "invitation": "I",
+              "request_key": "accept-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "domain_writes": 0,
+              "required_writes": 0
+            },
+            "event": []
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-005",
@@ -1489,8 +1625,6 @@
         "AC-IDN-009--IDN-009"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-005",
         "WP-010"
       ],
       "status": "future-not-run",
@@ -1557,6 +1691,10 @@
           "adapter_transactions": true,
           "cookie_cache": false,
           "secondary_session_store": null
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "recording_fault_control": "security_event_insert"
         }
       },
       "actor": {
@@ -1573,8 +1711,7 @@
         "arguments": {
           "current_password": "Fixture-old-pass-1",
           "new_password": "Fixture-new-pass-2",
-          "revokeOtherSessions": true,
-          "recording_fault_control": "security_event_insert"
+          "revokeOtherSessions": true
         }
       },
       "expected": {
@@ -1586,7 +1723,18 @@
           "reporting_failure_observable": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-005"
+            ],
+            "reason": "The original scenario exercises account.changePassword and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-006",
@@ -1600,8 +1748,7 @@
         "AC-IDN-028--IDN-028"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-050"
+        "WP-010"
       ],
       "status": "future-not-run",
       "layers": [
@@ -1657,7 +1804,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "lifecycle": "pending_deletion",
           "deadline": "2026-11-12T16:00:00Z",
           "attempts": [
@@ -1665,20 +1812,9 @@
             "2026-11-12T16:00:00Z",
             "2026-11-12T16:00:00.001Z"
           ]
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "account.cancelDeletion",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "lifecycle": "pending_deletion",
           "deadline": "2026-11-12T16:00:00Z",
@@ -1687,22 +1823,121 @@
             "2026-11-12T16:00:00Z",
             "2026-11-12T16:00:00.001Z"
           ]
+        },
+        "delete-A": {
+          "fixture_type": "account_deletion_request",
+          "id": "delete-A",
+          "account": "A",
+          "status": "pending",
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z",
+          "revision": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-11-12T15:59:59.999Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "request": "delete-A",
+          "expected_revision": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "cancel_allowed": [
-            true,
-            false,
-            false
-          ],
-          "ordinary_data_allowed": false,
-          "Evry_allowed": false,
-          "stale_request_can_purge": false
+          "cancel_allowed": true,
+          "old_request_cancel_allowed": false,
+          "ordinary_data_before_cancel": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises account.cancelDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "at-deadline",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-11-12T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.cancelDeletion",
+            "arguments": {
+              "request": "delete-A",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "cancel_allowed": false,
+              "ordinary_data_allowed": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "after-deadline",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-11-12T16:00:00.001Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.cancelDeletion",
+            "arguments": {
+              "request": "delete-A",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "cancel_allowed": false,
+              "ordinary_data_allowed": false
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-007",
@@ -1718,10 +1953,7 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-006",
-        "WP-008",
-        "WP-050"
+        "WP-010"
       ],
       "status": "future-not-run",
       "layers": [
@@ -1777,7 +2009,15 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
+          "last_Owner_account": "A",
+          "delete_request": "A",
+          "platform_grant": true,
+          "lead_title": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
           "last_Owner_account": "A",
           "delete_request": "A",
           "platform_grant": true,
@@ -1796,11 +2036,8 @@
       "action": {
         "operation": "account.requestDeletion",
         "arguments": {
-          "subject": "P",
-          "last_Owner_account": "A",
-          "delete_request": "A",
-          "platform_grant": true,
-          "lead_title": true
+          "confirmation": "Delete my account",
+          "request_key": "delete-A-1"
         }
       },
       "expected": {
@@ -1811,7 +2048,20 @@
           "substitute_Owner": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-006",
+              "WP-008",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "AUTH-008",
@@ -1829,8 +2079,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-004",
         "WP-005"
       ],
       "status": "future-not-run",
@@ -1854,14 +2102,7 @@
           "id": "A",
           "email": "alex@example.test",
           "personal_timezone": "America/Chicago",
-          "registration": "active"
-        },
-        "seat-A": {
-          "fixture_type": "seat",
-          "account": "A",
-          "tenant": "P",
-          "role": "Admin",
-          "active": true
+          "registration": "pending"
         },
         "session-A": {
           "fixture_type": "session",
@@ -1887,7 +2128,14 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
+          "session_store": "PostgreSQL",
+          "cookie_cache": false,
+          "secondary_store": null
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
           "session_store": "PostgreSQL",
           "cookie_cache": false,
           "secondary_store": null
@@ -1904,12 +2152,7 @@
       },
       "action": {
         "operation": "auth.getSession",
-        "arguments": {
-          "subject": "P",
-          "session_store": "PostgreSQL",
-          "cookie_cache": false,
-          "secondary_store": null
-        }
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -1918,7 +2161,18 @@
           "pending_account_business_access": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises auth.getSession and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REF-CASE-001",
@@ -1963,16 +2217,28 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "source_sha256": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"
         },
         "welcome_article": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "welcome-to-the-playbook"
         },
         "one_byte_edit_candidate": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "source_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+          "welcome_article": "welcome-to-the-playbook",
+          "one_byte_edit_candidate": true
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/playbook.md",
+          "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"
         }
       },
       "actor": {
@@ -1987,10 +2253,7 @@
       "action": {
         "operation": "reference.packagePlaybook",
         "arguments": {
-          "subject": "P",
-          "source_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
-          "welcome_article": "welcome-to-the-playbook",
-          "one_byte_edit_candidate": true
+          "source": "source"
         }
       },
       "expected": {
@@ -2267,19 +2530,19 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "checklist_catalog_sha256": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851"
         },
         "checklist_key_count": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 20
         },
         "launch_source_sha256": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "81935ef968ba4864bafb38ee1326b615f21e3cedd6b4a4fd1c7e47389da05485"
         },
         "launch_milestone_task_counts": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": [
             3,
             3,
@@ -2293,26 +2556,15 @@
           ]
         },
         "launch_initial_due_dates": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "none"
         },
         "import_local_date": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "2026-10-13"
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "reference.packageTaskTemplates",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "checklist_catalog_sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851",
           "checklist_key_count": 20,
@@ -2330,6 +2582,26 @@
           ],
           "launch_initial_due_dates": "none",
           "import_local_date": "2026-10-13"
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/task-templates.ts",
+          "sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.packageTaskTemplates",
+        "arguments": {
+          "source": "source"
         }
       },
       "expected": {
@@ -2400,34 +2672,52 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "catalog_sha256": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f"
         },
         "template_count": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 10
         },
         "renamed_worship_team": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "Gathering music"
         },
         "custom_team_same_name": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
         },
         "selected_imports": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": [
             "worship"
           ]
         },
         "required_methodology_areas": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 8
         },
         "prayer_responsibility": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "separate"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "catalog_sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f",
+          "template_count": 10,
+          "renamed_worship_team": "Gathering music",
+          "custom_team_same_name": true,
+          "selected_imports": [
+            "worship"
+          ],
+          "required_methodology_areas": 8,
+          "prayer_responsibility": "separate"
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/ministry-role-templates.ts",
+          "sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f"
         }
       },
       "actor": {
@@ -2442,16 +2732,7 @@
       "action": {
         "operation": "reference.packageTeamTemplates",
         "arguments": {
-          "subject": "P",
-          "catalog_sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f",
-          "template_count": 10,
-          "renamed_worship_team": "Gathering music",
-          "custom_team_same_name": true,
-          "selected_imports": [
-            "worship"
-          ],
-          "required_methodology_areas": 8,
-          "prayer_responsibility": "separate"
+          "source": "source"
         }
       },
       "expected": {
@@ -2512,32 +2793,48 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "catalog_sha256": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
         },
         "template_count": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 7
         },
         "template": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "Vision Meeting Invitation"
         },
         "optional_location": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "optional_agenda": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "tenant_template_fork": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "customized"
         },
         "recipients_in_seed": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 0
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "catalog_sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
+          "template_count": 7,
+          "template": "Vision Meeting Invitation",
+          "optional_location": null,
+          "optional_agenda": null,
+          "tenant_template_fork": "customized",
+          "recipients_in_seed": 0
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/communication-system-templates.ts",
+          "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
         }
       },
       "actor": {
@@ -2552,14 +2849,7 @@
       "action": {
         "operation": "reference.installMessageTemplates",
         "arguments": {
-          "subject": "P",
-          "catalog_sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
-          "template_count": 7,
-          "template": "Vision Meeting Invitation",
-          "optional_location": null,
-          "optional_agenda": null,
-          "tenant_template_fork": "customized",
-          "recipients_in_seed": 0
+          "source": "source"
         }
       },
       "expected": {
@@ -2588,7 +2878,6 @@
         "AC-REF-008--REF-008"
       ],
       "work_packages": [
-        "WP-032",
         "WP-041"
       ],
       "status": "future-not-run",
@@ -2693,7 +2982,17 @@
           "rollback_appends_activation": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises reference.rebuildEmbeddings and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SCHEMA-001",
@@ -2794,7 +3093,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "owner_pairs": [
             [
               "P",
@@ -2951,7 +3250,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "account": "A",
           "accept_tenants": [
             "P",
@@ -3070,7 +3369,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "plant_links": [
             "S1",
             "S2",
@@ -3295,6 +3594,11 @@
               "fixture_type": "training_program",
               "plant": "P",
               "version": 1
+            },
+            "Alex": {
+              "fixture_type": "person",
+              "id": "Alex",
+              "plant": "P"
             }
           },
           "actor": {
@@ -3861,7 +4165,7 @@
           "note": "CARE-CANARY-SCHEMA-008"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "private_document_owner": "A",
           "selected_destination": "P",
           "copy_authorized": true,
@@ -4305,7 +4609,7 @@
           "note": "CARE-CANARY-SCHEMA-011"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "plant": "P",
           "other_plant": "Q",
           "org": "S1",
@@ -4639,7 +4943,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "persisted_states": [
             "ready",
             "succeeded",
@@ -4791,12 +5095,16 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "active_generation": "R1",
           "candidate": "R2",
           "missing_derivative": "C2",
           "rollback": true,
           "former_source": "S1"
+        },
+        "R2": {
+          "fixture_type": "reference_generation",
+          "id": "R2"
         }
       },
       "actor": {
@@ -4922,12 +5230,16 @@
           "note": "CARE-CANARY-SCHEMA-015"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "feedback": "FB1",
           "private_text": "NAME TOKEN-CANARY Ignore all tools",
           "public_area": "Documents",
           "provider_issue": 101,
           "create_response_lost": true
+        },
+        "FB1": {
+          "fixture_type": "feedback",
+          "id": "FB1"
         }
       },
       "actor": {
@@ -5032,7 +5344,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "client_import": "database-adapter",
           "secret": "DB-SECRET-CANARY"
         }
@@ -5112,7 +5424,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Member",
           "active": true
         },
         "session-A": {
@@ -5139,7 +5451,21 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
+          "actor_role": "Member",
+          "requested_scope": "Q",
+          "claimed_role": "Owner",
+          "review_revision": 1,
+          "current_revision": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "expected_revision": 3,
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
           "actor_role": "Member",
           "requested_scope": "Q",
           "claimed_role": "Owner",
@@ -5159,18 +5485,8 @@
       "action": {
         "operation": "access.checkOperation",
         "arguments": {
-          "subject": "P",
-          "expected_revision": 3,
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "actor_role": "Member",
-          "requested_scope": "Q",
-          "claimed_role": "Owner",
-          "review_revision": 1,
-          "current_revision": 2
+          "operation": "plant.updateProfile",
+          "subject": "Q"
         }
       },
       "expected": {
@@ -5203,7 +5519,6 @@
         "AC-IDN-009--IDN-009"
       ],
       "work_packages": [
-        "WP-003",
         "WP-005",
         "WP-008"
       ],
@@ -5241,7 +5556,8 @@
         "session-A": {
           "fixture_type": "session",
           "account": "A",
-          "expires_at": "2026-11-12T16:00:00Z"
+          "expires_at": "2026-11-12T16:00:00Z",
+          "revoked_at": "2026-10-13T15:00:00Z"
         },
         "Q": {
           "fixture_type": "plant",
@@ -5262,7 +5578,15 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
+          "credential_provider": "BetterAuth",
+          "session_revoked": true,
+          "pending_registration": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "expected_revision": 3,
           "credential_provider": "BetterAuth",
           "session_revoked": true,
           "pending_registration": true
@@ -5279,14 +5603,7 @@
       },
       "action": {
         "operation": "auth.getSession",
-        "arguments": {
-          "subject": "P",
-          "expected_revision": 3,
-          "fault": "required_write_before_commit",
-          "credential_provider": "BetterAuth",
-          "session_revoked": true,
-          "pending_registration": true
-        }
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -5297,7 +5614,17 @@
           "parallel_auth_owner": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003"
+            ],
+            "reason": "The original scenario exercises auth.getSession and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-04",
@@ -5313,7 +5640,6 @@
         "AC-PI-043--PI-043"
       ],
       "work_packages": [
-        "WP-003",
         "WP-034",
         "WP-044",
         "WP-047",
@@ -5406,7 +5732,17 @@
           "org_preview_allowed": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003"
+            ],
+            "reason": "The original scenario exercises access.projectRead and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-05",
@@ -5422,10 +5758,8 @@
         "AC-WIKI-001--WIKI-001"
       ],
       "work_packages": [
-        "WP-003",
         "WP-034",
-        "WP-044",
-        "WP-050"
+        "WP-044"
       ],
       "status": "future-not-run",
       "layers": [
@@ -5524,7 +5858,18 @@
           "cross_request_memo_reused": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises access.projectRead and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-06",
@@ -5540,10 +5885,7 @@
         "AC-NTF-012--NTF-012"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-005",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "layers": [
@@ -5644,7 +5986,19 @@
           "unsigned_machine_call_allowed": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-005",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises access.checkOperation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-07",
@@ -5664,9 +6018,6 @@
         "AC-COM-005--COM-005"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-007",
         "WP-010",
         "WP-013",
         "WP-028",
@@ -5727,13 +6078,27 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "patch": {
             "name": "Jamie",
             "kind": "network",
             "material_revision": 999
           },
           "expected_revision": 7,
+          "repeat_key_with_changed_digest": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "invalid_control": {
+            "id": "not-an-id",
+            "name": "   "
+          },
           "repeat_key_with_changed_digest": true
         }
       },
@@ -5749,23 +6114,13 @@
       "action": {
         "operation": "plant.updateProfile",
         "arguments": {
-          "subject": "P",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "invalid_control": {
-            "id": "not-an-id",
-            "name": "   "
-          },
+          "plant": "P",
+          "expected_revision": 7,
           "patch": {
             "name": "Jamie",
             "kind": "network",
             "material_revision": 999
-          },
-          "expected_revision": 7,
-          "repeat_key_with_changed_digest": true
+          }
         }
       },
       "expected": {
@@ -5779,7 +6134,19 @@
           "timezone_inferred": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-005",
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises plant.updateProfile and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-08",
@@ -5797,7 +6164,6 @@
         "AC-DOC-015--DOC-015"
       ],
       "work_packages": [
-        "WP-003",
         "WP-013",
         "WP-037",
         "WP-054"
@@ -6776,6 +7142,16 @@
           },
           "name": "issued-url-bounded-expiry"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003"
+            ],
+            "reason": "The original scenario exercises storage.readAuthorizedObject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -6790,8 +7166,7 @@
         "AC-NTF-010--NTF-010"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "layers": [
@@ -6883,7 +7258,17 @@
           "resends": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises mail.acceptWebhook and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-10",
@@ -6908,7 +7293,8 @@
         "build",
         "request",
         "integration",
-        "output-inspection"
+        "output-inspection",
+        "configuration"
       ],
       "description": "Mixprodpreview DB/object/sender/callback/model/trigger config; attempt startup wipe/customer clone/unsafe fixture reset.",
       "given": {
@@ -6958,7 +7344,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "preview_DB": "production",
           "preview_sender": "real",
           "fixture_target": "shared"
@@ -7008,7 +7394,6 @@
       "work_packages": [
         "WP-027",
         "WP-034",
-        "WP-050",
         "WP-055"
       ],
       "status": "future-not-run",
@@ -7110,7 +7495,17 @@
           "unscoped_operator_read": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises evry.compileContext and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SEC-12",
@@ -7127,8 +7522,6 @@
         "AC-EVR-EFFECT--EVR-101"
       ],
       "work_packages": [
-        "WP-003",
-        "WP-031",
         "WP-043",
         "WP-053",
         "WP-055"
@@ -7225,7 +7618,18 @@
           "new_worker_from_reconnect": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-003",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises evry.executeProposal and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TEN-001",
@@ -7295,7 +7699,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "parent_owner": "P",
           "child_owner": "Q",
           "parent_kind": "plant",
@@ -7411,7 +7815,28 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
+          "actor_tenant": "P",
+          "requested_tenant": "Q",
+          "surfaces": [
+            "get",
+            "list",
+            "count",
+            "search",
+            "export",
+            "history",
+            "RSC",
+            "stream",
+            "file"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
           "actor_tenant": "P",
           "requested_tenant": "Q",
           "surfaces": [
@@ -7439,25 +7864,7 @@
       "action": {
         "operation": "access.projectRead",
         "arguments": {
-          "subject": "P",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "actor_tenant": "P",
-          "requested_tenant": "Q",
-          "surfaces": [
-            "get",
-            "list",
-            "count",
-            "search",
-            "export",
-            "history",
-            "RSC",
-            "stream",
-            "file"
-          ]
+          "subject": "P"
         }
       },
       "expected": {
@@ -7486,8 +7893,6 @@
         "AC-PI-043--PI-043"
       ],
       "work_packages": [
-        "WP-007",
-        "WP-009",
         "WP-034",
         "WP-047"
       ],
@@ -7590,7 +7995,18 @@
           "N1_inferred_plant_grant": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises oversight.getPlant and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TEN-004",
@@ -7643,7 +8059,7 @@
           "account": "A",
           "tenant": "P",
           "role": "Admin",
-          "active": true
+          "active": false
         },
         "session-A": {
           "fixture_type": "session",
@@ -7669,10 +8085,24 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "preview_grant": true,
           "current_grant": false,
           "prior_effect_status": "completed"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "preview_grant": true,
+          "current_grant": false,
+          "prior_effect_status": "completed"
+        },
+        "D": {
+          "fixture_type": "stored_object",
+          "id": "D",
+          "owner": "P",
+          "status": "ready",
+          "bytes_utf8": "Welcome Alex."
         }
       },
       "actor": {
@@ -7687,10 +8117,7 @@
       "action": {
         "operation": "storage.createAuthorizedDownload",
         "arguments": {
-          "subject": "P",
-          "preview_grant": true,
-          "current_grant": false,
-          "prior_effect_status": "completed"
+          "object": "D"
         }
       },
       "expected": {
@@ -7716,9 +8143,7 @@
         "AC-IDN-019--IDN-019"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-006"
+        "WP-008"
       ],
       "status": "future-not-run",
       "layers": [
@@ -7774,7 +8199,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "concurrent_tenants": [
             "P",
             "Q"
@@ -7782,6 +8207,33 @@
           "lead_title": true,
           "affiliation": "S1",
           "pending_domain": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "expected_revision": 3,
+          "concurrent_tenants": [
+            "P",
+            "Q"
+          ],
+          "lead_title": true,
+          "affiliation": "S1",
+          "pending_domain": true
+        },
+        "I": {
+          "fixture_type": "invitation",
+          "id": "I",
+          "tenant": "P",
+          "recipient": "alex@example.test",
+          "role": "Admin",
+          "revision": 2,
+          "status": "pending",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "invite-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I"
         }
       },
       "actor": {
@@ -7796,15 +8248,8 @@
       "action": {
         "operation": "seats.acceptInvitation",
         "arguments": {
-          "subject": "P",
-          "expected_revision": 3,
-          "concurrent_tenants": [
-            "P",
-            "Q"
-          ],
-          "lead_title": true,
-          "affiliation": "S1",
-          "pending_domain": true
+          "invitation": "I",
+          "proof": "invite-proof"
         }
       },
       "expected": {
@@ -7816,7 +8261,19 @@
           "pending_domain_can_act": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-005",
+              "WP-006"
+            ],
+            "reason": "The original scenario exercises seats.acceptInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TEN-006",
@@ -7834,9 +8291,7 @@
         "AC-PI-041--PI-041"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
-        "WP-050",
         "WP-055"
       ],
       "status": "future-not-run",
@@ -7923,7 +8378,18 @@
           "private_history": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises privateCare.readCurrent and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TEN-007",
@@ -7941,8 +8407,6 @@
         "AC-LCH-006--LCH-006"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-050",
         "WP-096"
       ],
       "status": "future-not-run",
@@ -8042,7 +8506,18 @@
           "organization_delete_registered": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TEN-008",
@@ -8238,7 +8713,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "runtime_role": "nonowner",
           "audit_cleanup_role": "cleanup",
           "pooled_connection_reused": true,

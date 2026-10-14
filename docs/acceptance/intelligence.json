@@ -19,7 +19,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -102,7 +101,17 @@
           "new_daily_demand": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.scheduleAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-002",
@@ -118,7 +127,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -195,7 +203,17 @@
           "sweep_source_revision": 8
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-003",
@@ -211,7 +229,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -290,7 +307,17 @@
           "mixed_snapshot": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-004",
@@ -306,7 +333,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -383,7 +409,17 @@
           "mutable_result_pointer": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-005",
@@ -401,7 +437,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -483,7 +518,17 @@
           "new_incomplete_replaces_prior": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.readAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-006",
@@ -499,7 +544,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -578,7 +622,17 @@
           "revision_after_failure": 11
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises people.updatePerson and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-007",
@@ -594,7 +648,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -670,7 +723,17 @@
           "activation1_publish_after3": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-008",
@@ -686,7 +749,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -777,7 +839,17 @@
           "shared_findings_OFF_label": "Not shared"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.read and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-009",
@@ -795,7 +867,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -874,7 +945,17 @@
           "snapshot_count": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.buildFactSnapshot and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-010",
@@ -896,7 +977,6 @@
         "AC-PI-042--PI-042"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -984,7 +1064,17 @@
           "SDK_retries": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises intelligence.executeDemand and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "ASMT-012",
@@ -1000,7 +1090,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
@@ -1080,7 +1169,17 @@
           "broad_audit_rows": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises privateCare.save and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B01-001",
@@ -2913,10 +3012,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-007",
-        "WP-008",
-        "WP-009",
-        "WP-011",
         "WP-038",
         "WP-044"
       ],
@@ -2989,7 +3084,20 @@
           "new_grants": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-008",
+              "WP-009",
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B01-023",
@@ -3797,7 +3905,6 @@
         "AC-TEAM-003--TEAM-003"
       ],
       "work_packages": [
-        "WP-009",
         "WP-017",
         "WP-038",
         "WP-045"
@@ -3870,7 +3977,17 @@
           "new_teams": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises teams.initialize and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "B01-033",
@@ -5964,7 +6081,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -6056,7 +6172,17 @@
           "phase": "Phase1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA003",
@@ -6075,7 +6201,6 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014",
         "WP-040"
       ],
@@ -6152,7 +6277,17 @@
           "phase": "Phase1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA004",
@@ -6171,7 +6306,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-040",
         "WP-044"
       ],
@@ -6653,7 +6787,17 @@
           "phase": "Phase1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA005",
@@ -7185,7 +7329,6 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014",
         "WP-040"
       ],
@@ -7263,7 +7406,17 @@
           "phase": "Phase1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA007",
@@ -7284,7 +7437,6 @@
         "AC-PPL-006--PPL-006"
       ],
       "work_packages": [
-        "WP-011",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -7356,7 +7508,17 @@
           "phase": "Phase1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA008",
@@ -8038,6 +8200,12 @@
               "active": true
             }
           ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "plant": "P",
+          "as_of": "2026-10-13T16:00:00Z",
+          "classification": "adult"
         }
       },
       "actor": {
@@ -8050,12 +8218,12 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "people.updatePerson",
+        "operation": "people.correctAdultClassification",
         "arguments": {
-          "plant": "P",
-          "as_of": "2026-10-13T16:00:00Z",
           "person": "adult-01",
           "classification": "adult",
+          "occurred_on": "2026-10-09",
+          "reason": "Correct classification of existing adult",
           "expected_revision": 4
         }
       },
@@ -8789,7 +8957,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-011",
         "WP-015",
         "WP-040"
       ],
@@ -8872,7 +9039,17 @@
           "foreign_person_included": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA021",
@@ -8897,7 +9074,6 @@
         "AC-PPL-020--PPL-020"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014",
         "WP-015",
         "WP-040",
@@ -8982,7 +9158,17 @@
           "receipt_count": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises people.withdrawCommitment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CA022",
@@ -10243,8 +10429,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -10264,16 +10448,26 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "account": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "A"
         },
         "plant": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "allowed_domains": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": [
+            "wiki",
+            "native_documents"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "account": "A",
+          "plant": null,
+          "allowed_domains": [
             "wiki",
             "native_documents"
           ]
@@ -10289,16 +10483,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
-        "arguments": {
-          "subject": "P",
-          "account": "A",
-          "plant": null,
-          "allowed_domains": [
-            "wiki",
-            "native_documents"
-          ]
-        }
+        "operation": "onboarding.getResume",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -10310,7 +10496,18 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-002",
@@ -10324,7 +10521,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10404,7 +10600,17 @@
           "saved_personal_documents": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-003",
@@ -10418,7 +10624,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10497,7 +10702,17 @@
           "model_calls": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-004",
@@ -10511,7 +10726,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10589,7 +10803,17 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-005",
@@ -10603,7 +10827,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10672,7 +10895,17 @@
           "attachment_alone_qualifies": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-006",
@@ -10686,7 +10919,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10761,7 +10993,17 @@
           "active_content": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-007",
@@ -10775,7 +11017,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10847,7 +11088,17 @@
           "recoverable": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-008",
@@ -10861,7 +11112,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -10936,7 +11186,17 @@
           "org_editor_grant": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-009",
@@ -10950,7 +11210,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11023,7 +11282,17 @@
           "foreign_object": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-010",
@@ -11037,7 +11306,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11116,7 +11384,17 @@
           "download_url": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-011",
@@ -11130,7 +11408,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11205,7 +11482,17 @@
           "archived_evidence_qualifies": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-012",
@@ -11219,7 +11506,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11293,7 +11579,17 @@
           "personal_document_owner": "A"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-013",
@@ -11307,7 +11603,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11384,7 +11679,17 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-014",
@@ -11398,7 +11703,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11479,7 +11783,17 @@
           "version": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-015",
@@ -11493,7 +11807,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11562,7 +11875,17 @@
           "extra_phase0_required": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-016",
@@ -11576,7 +11899,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11650,7 +11972,17 @@
           "other_unread_blocks": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-017",
@@ -11664,7 +11996,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11762,7 +12093,17 @@
           "pooled_readers_complete": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-018",
@@ -11777,8 +12118,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -11813,16 +12152,23 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "ordinaryLeader": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "C"
         },
         "creation_complete": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
         },
         "discovery_course_required": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "ordinaryLeader": "C",
+          "creation_complete": true,
+          "discovery_course_required": false
         }
       },
       "actor": {
@@ -11835,13 +12181,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
-        "arguments": {
-          "subject": "P",
-          "ordinaryLeader": "C",
-          "creation_complete": true,
-          "discovery_course_required": false
-        }
+        "operation": "onboarding.getResume",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -11849,7 +12190,18 @@
           "whole_team_course_required": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-019",
@@ -11863,7 +12215,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -11937,7 +12288,17 @@
           "coach_role": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-020",
@@ -11951,7 +12312,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -12029,7 +12389,17 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-021",
@@ -12044,22 +12414,12 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
       "description": "dc-021-current-target",
       "given": {
-        "P": {
-          "fixture_type": "plant",
-          "id": "P",
-          "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
-          "phase": "Phase1"
-        },
         "A": {
           "fixture_type": "account",
           "id": "A",
@@ -12067,52 +12427,50 @@
           "personal_timezone": "America/Chicago",
           "registration": "active"
         },
-        "seat-A": {
-          "fixture_type": "seat",
-          "account": "A",
-          "tenant": "P",
-          "role": "Admin",
-          "active": true
-        },
         "session-A": {
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "create_plant": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
         },
         "read_articles": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 0
         },
         "values": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "relationship": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "create_plant": true,
+          "read_articles": 0,
+          "values": null,
+          "relationship": null
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.createPlant",
         "arguments": {
-          "subject": "P",
-          "create_plant": true,
-          "read_articles": 0,
-          "values": null,
-          "relationship": null
+          "name": "Harvest Point",
+          "request_key": "create-plant-1"
         }
       },
       "expected": {
@@ -12122,7 +12480,18 @@
           "read_articles": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.createPlant; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-022",
@@ -12141,8 +12510,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -12177,16 +12544,23 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "creation_phase": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 1
         },
         "declare_existing_journey": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 4
         },
         "retry_create": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "creation_phase": 1,
+          "declare_existing_journey": 4,
+          "retry_create": true
         }
       },
       "actor": {
@@ -12199,12 +12573,12 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.declareJourney",
         "arguments": {
-          "subject": "P",
-          "creation_phase": 1,
-          "declare_existing_journey": 4,
-          "retry_create": true
+          "answer": "existing",
+          "phase": 4,
+          "reason": "Record the existing journey",
+          "request_key": "journey-existing"
         }
       },
       "expected": {
@@ -12215,7 +12589,18 @@
           "create_retry_demotes": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.declareJourney; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-023",
@@ -12229,7 +12614,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -12306,7 +12690,17 @@
           "unselected_private_copy": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-024",
@@ -12320,7 +12714,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -12395,7 +12788,17 @@
           "source_private": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-025",
@@ -12409,7 +12812,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -12473,7 +12875,17 @@
           "private_care_in_model": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-026",
@@ -12487,7 +12899,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-035",
         "WP-038",
@@ -12561,7 +12972,17 @@
           "extra_native_approval": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "DC-027",
@@ -12576,22 +12997,12 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
       "description": "dc-027-current-target",
       "given": {
-        "P": {
-          "fixture_type": "plant",
-          "id": "P",
-          "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
-          "phase": "Phase1"
-        },
         "A": {
           "fixture_type": "account",
           "id": "A",
@@ -12599,52 +13010,50 @@
           "personal_timezone": "America/Chicago",
           "registration": "active"
         },
-        "seat-A": {
-          "fixture_type": "seat",
-          "account": "A",
-          "tenant": "P",
-          "role": "Admin",
-          "active": true
-        },
         "session-A": {
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "reading": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 0
         },
         "values": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "relationship": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "create": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "reading": 0,
+          "values": null,
+          "relationship": null,
+          "create": true
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.createPlant",
         "arguments": {
-          "subject": "P",
-          "reading": 0,
-          "values": null,
-          "relationship": null,
-          "create": true
+          "name": "Harvest Point",
+          "request_key": "create-plant-1"
         }
       },
       "expected": {
@@ -12656,7 +13065,18 @@
           "relationship": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.createPlant; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-028",
@@ -12671,8 +13091,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -12692,16 +13110,23 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "reading": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 6
         },
         "plant": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": null
         },
         "create": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "reading": 6,
+          "plant": null,
+          "create": false
         }
       },
       "actor": {
@@ -12714,13 +13139,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
-        "arguments": {
-          "subject": "P",
-          "reading": 6,
-          "plant": null,
-          "create": false
-        }
+        "operation": "onboarding.getResume",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -12730,7 +13150,18 @@
           "completed_articles": 6
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-029",
@@ -12745,22 +13176,12 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
       "description": "dc-029-current-target",
       "given": {
-        "P": {
-          "fixture_type": "plant",
-          "id": "P",
-          "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
-          "phase": "Phase1"
-        },
         "A": {
           "fixture_type": "account",
           "id": "A",
@@ -12768,47 +13189,45 @@
           "personal_timezone": "America/Chicago",
           "registration": "active"
         },
-        "seat-A": {
-          "fixture_type": "seat",
-          "account": "A",
-          "tenant": "P",
-          "role": "Admin",
-          "active": true
-        },
         "session-A": {
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "requests": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 2
         },
         "race_winner_existing": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
         },
         "actual_insert_receipt": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "only_new_row"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "requests": 2,
+          "race_winner_existing": true,
+          "actual_insert_receipt": "only_new_row"
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.createPlant",
         "arguments": {
-          "subject": "P",
-          "requests": 2,
-          "race_winner_existing": true,
-          "actual_insert_receipt": "only_new_row"
+          "name": "Harvest Point",
+          "request_key": "create-plant-1"
         }
       },
       "expected": {
@@ -12819,7 +13238,18 @@
           "from_phase": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.createPlant; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-030",
@@ -12834,8 +13264,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -12870,7 +13298,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "setup_answers": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": [
             "not_sure",
             "discerning",
@@ -12878,8 +13306,18 @@
           ]
         },
         "current_phase": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 1
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "setup_answers": [
+            "not_sure",
+            "discerning",
+            "skip"
+          ],
+          "current_phase": 1
         }
       },
       "actor": {
@@ -12892,15 +13330,10 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.declareJourney",
         "arguments": {
-          "subject": "P",
-          "setup_answers": [
-            "not_sure",
-            "discerning",
-            "skip"
-          ],
-          "current_phase": 1
+          "answer": "unsure",
+          "request_key": "journey-unsure"
         }
       },
       "expected": {
@@ -12910,7 +13343,86 @@
           "attested_existing_journey": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.declareJourney; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "discerning",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "discerning",
+              "request_key": "journey-discerning"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "phase": 1,
+              "attested_existing_journey": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "skip",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "skip",
+              "request_key": "journey-skip"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "phase": 1,
+              "attested_existing_journey": false
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "DC-031",
@@ -12929,22 +13441,12 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
       "description": "dc-031-current-target",
       "given": {
-        "P": {
-          "fixture_type": "plant",
-          "id": "P",
-          "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
-          "phase": "Phase1"
-        },
         "A": {
           "fixture_type": "account",
           "id": "A",
@@ -12952,42 +13454,40 @@
           "personal_timezone": "America/Chicago",
           "registration": "active"
         },
-        "seat-A": {
-          "fixture_type": "seat",
-          "account": "A",
-          "tenant": "P",
-          "role": "Admin",
-          "active": true
-        },
         "session-A": {
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "creation_entry": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": true
         },
         "existing_journey_declaration_slot": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "unused"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "creation_entry": true,
+          "existing_journey_declaration_slot": "unused"
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
+        "operation": "onboarding.createPlant",
         "arguments": {
-          "subject": "P",
-          "creation_entry": true,
-          "existing_journey_declaration_slot": "unused"
+          "name": "Harvest Point",
+          "request_key": "create-plant-1"
         }
       },
       "expected": {
@@ -12997,7 +13497,18 @@
           "initial_declaration_slot": "unused"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.createPlant; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "DC-032",
@@ -13012,8 +13523,6 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-034",
-        "WP-035",
         "WP-038",
         "WP-040"
       ],
@@ -13048,16 +13557,23 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "current_phase": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 4
         },
         "reading": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": 0
         },
         "optional_setup": {
-          "fixture_type": "fixture",
+          "fixture_type": "test_setup",
           "value": "incomplete"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "current_phase": 4,
+          "reading": 0,
+          "optional_setup": "incomplete"
         }
       },
       "actor": {
@@ -13070,13 +13586,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.designateCoreValues",
-        "arguments": {
-          "subject": "P",
-          "current_phase": 4,
-          "reading": 0,
-          "optional_setup": "incomplete"
-        }
+        "operation": "onboarding.getResume",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -13086,7 +13597,18 @@
           "reading_complete": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035"
+            ],
+            "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "GAP-PI-041",
@@ -13566,9 +14088,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -13686,7 +14205,19 @@
           "label": "Region"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-002",
@@ -13698,9 +14229,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -13812,7 +14340,19 @@
           "label": "Region"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-003",
@@ -13824,9 +14364,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -13944,7 +14481,19 @@
           "street_required": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-004",
@@ -13956,9 +14505,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14076,7 +14622,19 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-005",
@@ -14088,9 +14646,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14214,7 +14769,19 @@
           "whole_support": 2
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-006",
@@ -14226,9 +14793,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14346,7 +14910,19 @@
           "whole_support": 2
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-007",
@@ -14358,9 +14934,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14478,7 +15051,19 @@
           "region_status": "unsupported"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-008",
@@ -14490,9 +15075,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14610,7 +15192,19 @@
           "total_distinct_plants": 2
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-009",
@@ -14622,9 +15216,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14742,7 +15333,19 @@
           "actual_locality_changed": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-010",
@@ -14754,9 +15357,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -14873,7 +15473,19 @@
           "historical_release": "R1"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-011",
@@ -14885,9 +15497,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -15013,7 +15622,19 @@
           "private_care": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-012",
@@ -15025,9 +15646,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -15138,7 +15756,19 @@
           "geographic_area_attested": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "GEO-013",
@@ -15150,9 +15780,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
@@ -15276,7 +15903,19 @@
           "contributions": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-010",
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.readLocations and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "LI-001",
@@ -17593,8 +18232,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-009",
-        "WP-010",
         "WP-040",
         "WP-042",
         "WP-043"
@@ -18218,6 +18855,17 @@
           },
           "name": "exact-replay"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009",
+              "WP-010"
+            ],
+            "reason": "The original scenario exercises settings.saveSection and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -18230,7 +18878,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-011",
         "WP-012",
         "WP-014",
         "WP-040",
@@ -18815,6 +19462,16 @@
             "event": null
           },
           "name": "exact-replay"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises people.updatePerson and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -19435,7 +20092,6 @@
       ],
       "work_packages": [
         "WP-015",
-        "WP-011",
         "WP-040",
         "WP-042",
         "WP-043"
@@ -20090,6 +20746,16 @@
             "event": null
           },
           "name": "exact-replay"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises people.mergePeople and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -31363,7 +32029,6 @@
         "AC-PI-043--PI-043"
       ],
       "work_packages": [
-        "WP-007",
         "WP-047",
         "WP-040",
         "WP-042",
@@ -32006,6 +32671,16 @@
           },
           "name": "exact-replay"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises privacy.setSharing and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -32022,10 +32697,6 @@
         "AC-PI-043--PI-043"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-006",
-        "WP-010",
-        "WP-050",
         "WP-096",
         "WP-040",
         "WP-042",
@@ -32600,6 +33271,19 @@
             "event": null
           },
           "name": "exact-replay"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-006",
+              "WP-010",
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises seats.remove and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -33281,7 +33965,6 @@
         "AC-PI-016--PI-016"
       ],
       "work_packages": [
-        "WP-032",
         "WP-033",
         "WP-041",
         "WP-040",
@@ -33879,6 +34562,16 @@
           },
           "name": "exact-replay"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises reference.activateGeneration and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -33893,7 +34586,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-010",
         "WP-047",
         "WP-040",
         "WP-042",
@@ -34555,6 +35247,16 @@
             "event": null
           },
           "name": "exact-replay"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-010"
+            ],
+            "reason": "The original scenario exercises organizations.correctReportingLocation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -42416,7 +43118,6 @@
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-050",
         "WP-073",
         "WP-074"
       ],
@@ -42541,7 +43242,17 @@
           "private_history": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises organizationIntelligence.read and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NI-011",
@@ -48903,7 +49614,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-032",
         "WP-038",
         "WP-044"
       ],
@@ -49027,7 +49737,17 @@
           "phase6_exit_keys": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises phases.readCatalog and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "PHASE-CASE-009",
@@ -52756,8 +53476,7 @@
         "AC-PI-035--PI-035"
       ],
       "work_packages": [
-        "WP-042",
-        "WP-050"
+        "WP-042"
       ],
       "status": "future-not-run",
       "description": "optional-trace-sink-failure-and-minimal-fields",
@@ -52862,7 +53581,17 @@
           "raw_log_fields": []
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises intelligence.recordAttemptTelemetry and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "PI-CASE-027",
@@ -52874,8 +53603,7 @@
         "AC-PI-036--PI-036"
       ],
       "work_packages": [
-        "WP-042",
-        "WP-050"
+        "WP-042"
       ],
       "status": "future-not-run",
       "description": "isolated-synthetic-fleet-evaluation-rollout-gate",
@@ -52972,7 +53700,17 @@
           "rollout_allowed": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-050"
+            ],
+            "reason": "The original scenario exercises intelligence.runEvaluation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "PI-CASE-028",
@@ -53198,7 +53936,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-032",
         "WP-038",
         "WP-044"
       ],
@@ -53300,7 +54037,17 @@
           "new_grants": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "PI-DISC-002",
@@ -53314,7 +54061,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-032",
         "WP-038",
         "WP-044"
       ],
@@ -53436,7 +54182,17 @@
           "pooled_credit": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "PI-GROW-001",

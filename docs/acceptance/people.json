@@ -13,7 +13,6 @@
         "AC-PPL-006--PPL-006"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014"
       ],
       "status": "future-not-run",
@@ -291,6 +290,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises people.changeStatus and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -2416,19 +2425,19 @@
             {
               "person": "Alex",
               "kind": "recruited",
-              "source": "friend",
+              "source": "personal_referral",
               "date": "2026-10-02"
             },
             {
               "person": "Alex",
               "kind": "recruited",
-              "source": "friend",
+              "source": "personal_referral",
               "date": "2026-10-02"
             },
             {
               "person": "Casey",
               "kind": "recruited",
-              "source": "meeting",
+              "source": "meeting_guest_list",
               "date": "2026-10-03"
             },
             {
@@ -2445,6 +2454,11 @@
               "date": "2026-10-04"
             }
           ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "from": "2026-10-01",
+          "through": "2026-10-13"
         }
       },
       "actor": {
@@ -2559,6 +2573,11 @@
                   "date": "2026-10-04"
                 }
               ]
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "from": "2026-09-01",
+              "through": "2026-09-30"
             }
           },
           "actor": {
@@ -2574,8 +2593,7 @@
             "operation": "people.readPipelineMetrics",
             "arguments": {
               "plant": "P",
-              "from": "2026-09-01",
-              "through": "2026-09-30"
+              "window": "2026-09"
             }
           },
           "expected": {
@@ -2611,6 +2629,11 @@
               "fixture_type": "session",
               "account": "foreign-actor",
               "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "from": "2026-10-01",
+              "through": "2026-10-13"
             }
           },
           "actor": {
@@ -2626,8 +2649,7 @@
             "operation": "people.readPipelineMetrics",
             "arguments": {
               "plant": "P",
-              "from": "2026-10-01",
-              "through": "2026-10-13"
+              "window": "2026-09"
             }
           },
           "expected": {
@@ -2652,6 +2674,12 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "from": "2026-10-01",
+              "through": "2026-10-13",
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -2667,9 +2695,7 @@
             "operation": "people.readPipelineMetrics",
             "arguments": {
               "plant": "P",
-              "from": "2026-10-01",
-              "through": "2026-10-13",
-              "fault": "required_source_unavailable"
+              "window": "2026-09"
             }
           },
           "expected": {
@@ -2696,7 +2722,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-014",
         "WP-015",
         "WP-091"
@@ -3000,6 +3025,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3012,7 +3047,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-014",
         "WP-015",
         "WP-091"
@@ -3320,6 +3354,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3332,7 +3376,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-014",
         "WP-015",
         "WP-091"
@@ -3638,6 +3681,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3650,7 +3703,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-014",
         "WP-015",
         "WP-091"
@@ -3972,6 +4024,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3984,7 +4046,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
         "WP-015",
         "WP-091"
@@ -4288,6 +4349,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -4300,7 +4371,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
         "WP-015",
         "WP-091"
@@ -4608,6 +4678,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -4620,7 +4700,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
         "WP-015",
         "WP-091"
@@ -4926,6 +5005,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -4938,7 +5027,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
         "WP-015",
         "WP-091"
@@ -5260,6 +5348,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -5272,7 +5370,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-012",
         "WP-013",
         "WP-014",
@@ -5578,6 +5675,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -5590,7 +5697,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-012",
         "WP-013",
         "WP-014",
@@ -5900,6 +6006,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -5912,7 +6028,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-012",
         "WP-013",
         "WP-014",
@@ -6220,6 +6335,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -6232,7 +6357,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-012",
         "WP-013",
         "WP-014",
@@ -6556,6 +6680,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -6568,8 +6702,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-011",
         "WP-012",
         "WP-015",
         "WP-091"
@@ -6873,6 +7005,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-011"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -6885,8 +7028,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-011",
         "WP-012",
         "WP-015",
         "WP-091"
@@ -7194,6 +7335,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-011"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -7206,8 +7358,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-011",
         "WP-012",
         "WP-015",
         "WP-091"
@@ -7513,6 +7663,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-011"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -7525,8 +7686,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
-        "WP-011",
         "WP-012",
         "WP-015",
         "WP-091"
@@ -7848,6 +8007,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004",
+              "WP-011"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -7860,8 +8030,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
         "WP-015",
         "WP-091"
       ],
@@ -8164,6 +8332,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-002",
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8176,8 +8355,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
         "WP-015",
         "WP-091"
       ],
@@ -8484,6 +8661,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-002",
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8496,8 +8684,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
         "WP-015",
         "WP-091"
       ],
@@ -8802,6 +8988,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-002",
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8814,8 +9011,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
         "WP-015",
         "WP-091"
       ],
@@ -9136,6 +9331,17 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-002",
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -9180,35 +9386,8 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "people_count": 25,
           "equal_created_at": true,
           "required_tags": [
@@ -9219,20 +9398,9 @@
           "page_size": 10,
           "retired_person": "retired-1",
           "adult_classification": null
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "people.listPeople",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
@@ -9250,7 +9418,340 @@
           "search_literal": "%/_",
           "page_size": 10,
           "retired_person": "retired-1",
-          "adult_classification": null
+          "adult_classification": null,
+          "follow_returned_cursors": true
+        },
+        "people": {
+          "fixture_type": "person_set",
+          "rows": [
+            {
+              "id": "person-01",
+              "plant": "P",
+              "first_name": "%/_ 1",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-02",
+              "plant": "P",
+              "first_name": "%/_ 2",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-03",
+              "plant": "P",
+              "first_name": "%/_ 3",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-04",
+              "plant": "P",
+              "first_name": "%/_ 4",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-05",
+              "plant": "P",
+              "first_name": "%/_ 5",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-06",
+              "plant": "P",
+              "first_name": "%/_ 6",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-07",
+              "plant": "P",
+              "first_name": "%/_ 7",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-08",
+              "plant": "P",
+              "first_name": "%/_ 8",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-09",
+              "plant": "P",
+              "first_name": "%/_ 9",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-10",
+              "plant": "P",
+              "first_name": "%/_ 10",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-11",
+              "plant": "P",
+              "first_name": "%/_ 11",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-12",
+              "plant": "P",
+              "first_name": "%/_ 12",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-13",
+              "plant": "P",
+              "first_name": "%/_ 13",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-14",
+              "plant": "P",
+              "first_name": "%/_ 14",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-15",
+              "plant": "P",
+              "first_name": "%/_ 15",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-16",
+              "plant": "P",
+              "first_name": "%/_ 16",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-17",
+              "plant": "P",
+              "first_name": "%/_ 17",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-18",
+              "plant": "P",
+              "first_name": "%/_ 18",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-19",
+              "plant": "P",
+              "first_name": "%/_ 19",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-20",
+              "plant": "P",
+              "first_name": "%/_ 20",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-21",
+              "plant": "P",
+              "first_name": "%/_ 21",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-22",
+              "plant": "P",
+              "first_name": "%/_ 22",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-23",
+              "plant": "P",
+              "first_name": "%/_ 23",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-24",
+              "plant": "P",
+              "first_name": "%/_ 24",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            },
+            {
+              "id": "person-25",
+              "plant": "P",
+              "first_name": "%/_ 25",
+              "stage": "prospect",
+              "age_classification": "unknown",
+              "created_at": "2026-10-01T12:00:00Z",
+              "tags": [
+                "north",
+                "family"
+              ]
+            }
+          ]
+        },
+        "retired-1": {
+          "fixture_type": "person",
+          "id": "retired-1",
+          "plant": "P",
+          "first_name": "%/_ retired",
+          "retired": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.listPeople",
+        "arguments": {
+          "search": "%/_",
+          "tags": [
+            "north",
+            "family"
+          ],
+          "limit": 10
         }
       },
       "expected": {
@@ -9309,36 +9810,26 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
         "B": {
           "fixture_type": "account",
           "id": "B",
           "email": "casey@example.test"
         },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "name": "Jamie",
+          "address_patch": {
+            "city": "Chicago",
+            "street": null
+          },
+          "forged_account": "B",
+          "background_check": "passed"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
           "address_patch": {
             "city": "Chicago",
             "street": null
@@ -9359,16 +9850,14 @@
       "action": {
         "operation": "people.createPerson",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 4,
-          "name": "Jamie",
-          "address_patch": {
+          "patch": {
+            "first_name": "Jamie",
             "city": "Chicago",
-            "street": null
+            "street": null,
+            "account": "B",
+            "background_check": "passed"
           },
-          "forged_account": "B",
-          "background_check": "passed"
+          "request_key": "person-1"
         }
       },
       "expected": {
@@ -9424,24 +9913,6 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
         "Alex": {
           "fixture_type": "person",
           "id": "Alex",
@@ -9449,11 +9920,25 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "revision": 4,
+          "retired": true,
+          "merged_into": "survivor-1"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "person": "Alex",
+          "retired": true,
+          "concurrent_attendance_insert": true,
+          "merged_source": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
           "retired": true,
           "concurrent_attendance_insert": true,
           "merged_source": true
@@ -9469,19 +9954,10 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "people.deletePerson",
+        "operation": "people.restorePerson",
         "arguments": {
-          "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "retired": true,
-          "concurrent_attendance_insert": true,
-          "merged_source": true
+          "expected_revision": 4
         }
       },
       "expected": {
@@ -9537,35 +10013,8 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "matching_contacts": [
             "Alex",
             "Alex-2"
@@ -9573,6 +10022,35 @@
           "same_email": "alex@example.test",
           "existing_link": null,
           "concurrent_accepts": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "matching_contacts": [
+            "Alex",
+            "Alex-2"
+          ],
+          "same_email": "alex@example.test",
+          "existing_link": null,
+          "concurrent_accepts": 2
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "email": "alex@example.test",
+          "first_name": "Alex",
+          "account": null
+        },
+        "Alex-2": {
+          "fixture_type": "person",
+          "id": "Alex-2",
+          "plant": "P",
+          "email": "alex@example.test",
+          "first_name": "Alex",
+          "account": null
         }
       },
       "actor": {
@@ -9587,16 +10065,8 @@
       "action": {
         "operation": "people.ensureAccountPerson",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 4,
-          "matching_contacts": [
-            "Alex",
-            "Alex-2"
-          ],
-          "same_email": "alex@example.test",
-          "existing_link": null,
-          "concurrent_accepts": 2
+          "account": "A",
+          "plant": "P"
         }
       },
       "expected": {
@@ -9764,40 +10234,38 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
         "Alex": {
           "fixture_type": "person",
           "id": "Alex",
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "prospect",
+          "stage": "leader",
           "revision": 4
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "old_stage": "leader",
           "requested_stage": "attendee",
           "reason": "Correct actual stage",
           "handoff_accepted": false,
           "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "repeat": 2,
+          "old_stage": "leader",
+          "requested_stage": "attendee",
+          "handoff_accepted": false
+        },
+        "duty-1": {
+          "fixture_type": "task",
+          "id": "duty-1",
+          "plant": "P",
+          "person": "Alex",
+          "assignee": null,
+          "status": "not_started"
         }
       },
       "actor": {
@@ -9812,15 +10280,11 @@
       "action": {
         "operation": "people.changeStatus",
         "arguments": {
-          "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "request_key": "TARGET-PPL-006-request-1",
-          "repeat": 2,
-          "old_stage": "leader",
-          "requested_stage": "attendee",
+          "stage": "attendee",
           "reason": "Correct actual stage",
-          "handoff_accepted": false
+          "request_key": "status-1"
         }
       },
       "expected": {
@@ -9883,30 +10347,21 @@
           "timezone": "America/New_York",
           "revision": 3
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "plant": "P",
+          "current_stage": "Committed",
+          "foreign_stage_edit": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "person": "Alex",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
           "current_stage": "Committed",
           "foreign_stage_edit": true
         }
@@ -9921,26 +10376,24 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "people.getPipelineData",
+        "operation": "people.reorderPipeline",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 3,
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "plant": "P",
-          "current_stage": "Committed",
-          "foreign_stage_edit": true
+          "plant": "Q",
+          "columns": [
+            "prospect",
+            "attendee",
+            "contacted",
+            "committed",
+            "leader"
+          ],
+          "expected_revision": 3
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "column_count": 5,
-          "foreign_reorder_allowed": false,
+          "error_code": "access_denied",
+          "changed_columns": 0,
           "automatic_urgency": false
         },
         "event": null
@@ -9988,24 +10441,6 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
         "Alex": {
           "fixture_type": "person",
           "id": "Alex",
@@ -10016,7 +10451,7 @@
           "revision": 4
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "person": "Alex",
           "activity_ids": [
             "a1",
@@ -10027,6 +10462,40 @@
           "page_size": 2,
           "note_author": "B",
           "caller": "A"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "expected_revision": 4,
+          "activity_ids": [
+            "a1",
+            "a2",
+            "a3"
+          ],
+          "occurred_at": "2026-10-01T12:00:00Z",
+          "page_size": 2,
+          "note_author": "B",
+          "caller": "A"
+        },
+        "activities": {
+          "fixture_type": "person_activity_set",
+          "rows": [
+            {
+              "id": "a1",
+              "person": "Alex",
+              "occurred_at": "2026-10-01T12:00:00Z"
+            },
+            {
+              "id": "a2",
+              "person": "Alex",
+              "occurred_at": "2026-10-01T12:00:00Z"
+            },
+            {
+              "id": "a3",
+              "person": "Alex",
+              "occurred_at": "2026-10-01T12:00:00Z"
+            }
+          ]
         }
       },
       "actor": {
@@ -10041,18 +10510,8 @@
       "action": {
         "operation": "people.getActivities",
         "arguments": {
-          "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
-          "activity_ids": [
-            "a1",
-            "a2",
-            "a3"
-          ],
-          "occurred_at": "2026-10-01T12:00:00Z",
-          "page_size": 2,
-          "note_author": "B",
-          "caller": "A"
+          "limit": 2
         }
       },
       "expected": {
@@ -10068,7 +10527,52 @@
           "immutable_event_edit_allowed": false
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "other-author-note-edit-denied",
+          "given": {
+            "note-B": {
+              "fixture_type": "person_note",
+              "id": "note-B",
+              "person": "Alex",
+              "author": "B",
+              "text": "Original note.",
+              "revision": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.editNote",
+            "arguments": {
+              "note": "note-B",
+              "expected_revision": 1,
+              "text": "Changed note."
+            }
+          },
+          "expected": {
+            "state": {
+              "note-B": {
+                "text": "Original note.",
+                "revision": 1
+              }
+            },
+            "result": {
+              "error_code": "access_denied",
+              "note_writes": 0
+            },
+            "event": []
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-PPL-009",
@@ -12255,35 +12759,8 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "window": "2026-09",
           "transition_people": [
             "P",
@@ -12295,6 +12772,53 @@
             "S": "P"
           },
           "R_transition_month": "2026-08",
+          "source_cohort_available": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "transition_people": [
+            "P",
+            "P",
+            "Q",
+            "S"
+          ],
+          "merged_canonical": {
+            "S": "P"
+          },
+          "R_transition_month": "2026-08",
+          "source_cohort_available": false
+        },
+        "transitions": {
+          "fixture_type": "person_stage_history_set",
+          "rows": [
+            {
+              "person": "P1",
+              "occurred_on": "2026-09-03"
+            },
+            {
+              "person": "P1",
+              "occurred_on": "2026-09-05"
+            },
+            {
+              "person": "P2",
+              "occurred_on": "2026-09-12"
+            },
+            {
+              "person": "P3",
+              "occurred_on": "2026-09-20"
+            }
+          ],
+          "canonical_redirects": {
+            "P3": "P1"
+          },
           "source_cohort_available": false
         }
       },
@@ -12310,26 +12834,8 @@
       "action": {
         "operation": "people.readPipelineMetrics",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 4,
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "window": "2026-09",
-          "transition_people": [
-            "P",
-            "P",
-            "Q",
-            "S"
-          ],
-          "merged_canonical": {
-            "S": "P"
-          },
-          "R_transition_month": "2026-08",
-          "source_cohort_available": false
+          "plant": "P",
+          "window": "2026-09"
         }
       },
       "expected": {
@@ -12367,7 +12873,6 @@
         "AC-PPL-021--PPL-021"
       ],
       "work_packages": [
-        "WP-004",
         "WP-015",
         "WP-019",
         "WP-021",
@@ -12482,7 +12987,17 @@
           "missing_inverse_policies": []
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises followups.correctOutcome and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-PPL-025",
@@ -12648,7 +13163,6 @@
         "AC-PPL-020--PPL-020"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014",
         "WP-015",
         "WP-040",
@@ -12729,7 +13243,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "people.recordAdultClassification",
+        "operation": "people.withdrawCommitment",
         "arguments": {
           "subject": "P",
           "person": "Alex",
@@ -12749,7 +13263,17 @@
           "stalled": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises people.withdrawCommitment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     }
   ]
 }

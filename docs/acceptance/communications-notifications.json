@@ -55,11 +55,18 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
+          "fixture_type": "test_setup",
           "due": [
             "2026-03-08",
             "2026-11-01"
           ],
+          "next_midnight": [
+            "2026-03-09T05:00:00Z",
+            "2026-11-02T06:00:00Z"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "next_midnight": [
             "2026-03-09T05:00:00Z",
             "2026-11-02T06:00:00Z"
@@ -78,30 +85,53 @@
       "action": {
         "operation": "calendar.resolve",
         "arguments": {
-          "due": [
-            "2026-03-08",
-            "2026-11-01"
-          ],
-          "next_midnight": [
-            "2026-03-09T05:00:00Z",
-            "2026-11-02T06:00:00Z"
-          ]
+          "date": "2026-03-08",
+          "zone": "America/Chicago"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "day_hours": [
-            23,
-            25
-          ],
-          "due_values": [
-            "2026-03-08",
-            "2026-11-01"
-          ]
+          "day_hours": 23,
+          "next_midnight": "2026-03-09T05:00:00Z"
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "fall-day",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "calendar.resolve",
+            "arguments": {
+              "date": "2026-11-01",
+              "zone": "America/Chicago"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "day_hours": 25,
+              "next_midnight": "2026-11-02T06:00:00Z"
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "B03-010",
@@ -152,12 +182,16 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
+          "fixture_type": "test_setup",
           "automatic_local": [
             "2026-03-08T02:30:00",
             "2026-11-01T01:30:00"
           ],
           "resolver": 1,
+          "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "repeat": 2
         }
       },
@@ -173,28 +207,55 @@
       "action": {
         "operation": "calendar.resolve",
         "arguments": {
-          "automatic_local": [
-            "2026-03-08T02:30:00",
-            "2026-11-01T01:30:00"
-          ],
-          "resolver": 1,
-          "repeat": 2
+          "local_datetime": "2026-03-08T02:30:00",
+          "zone": "America/Chicago",
+          "mode": "automatic"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "instants": [
-            "2026-03-08T08:30:00Z",
-            "2026-11-01T06:30:00Z"
-          ],
-          "logical_occurrences": [
-            1,
-            1
-          ]
+          "instant": "2026-03-08T08:30:00Z",
+          "logical_occurrences": 1
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "automatic-fold",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "calendar.resolve",
+            "arguments": {
+              "local_datetime": "2026-11-01T01:30:00",
+              "zone": "America/Chicago",
+              "mode": "automatic"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "instant": "2026-11-01T06:30:00Z",
+              "logical_occurrences": 1
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "B03-011",
@@ -248,7 +309,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
+          "fixture_type": "test_setup",
           "logical_key": "task:T:2026-10-13:A",
           "prior_outcomes": [
             "accepted",
@@ -256,6 +317,32 @@
             "delivered"
           ],
           "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "logical_key": "task:T:2026-10-13:A",
+          "prior_outcomes": [
+            "accepted",
+            "unknown",
+            "delivered"
+          ],
+          "repeat": 2
+        },
+        "reminder-1": {
+          "fixture_type": "notification_intent",
+          "id": "reminder-1",
+          "plant": "P",
+          "recipient": "A",
+          "status": "unknown",
+          "entity": "M",
+          "generation": 2
+        },
+        "M": {
+          "fixture_type": "meeting",
+          "id": "M",
+          "plant": "P",
+          "status": "cancelled",
+          "type": "vision_meeting"
         }
       },
       "actor": {
@@ -268,15 +355,9 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "calendar.resolve",
+        "operation": "notifications.reconcileUnknownOutcome",
         "arguments": {
-          "logical_key": "task:T:2026-10-13:A",
-          "prior_outcomes": [
-            "accepted",
-            "unknown",
-            "delivered"
-          ],
-          "repeat": 2
+          "intent": "reminder-1"
         }
       },
       "expected": {
@@ -305,9 +386,7 @@
         "AC-NTF-007--NTF-007"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-024",
-        "WP-031"
+        "WP-010"
       ],
       "status": "future-not-run",
       "description": "Pending and delivered old logical reminders when zone changes; duplicate sweep/response loss.",
@@ -352,6 +431,27 @@
             }
           ],
           "new_zone": "Pacific/Auckland"
+        },
+        "zone-preview": {
+          "fixture_type": "timezone_preview",
+          "plant": "P",
+          "revision": 7,
+          "current_zone": "America/Chicago",
+          "new_zone": "Pacific/Auckland"
+        },
+        "pending-1": {
+          "fixture_type": "notification_intent",
+          "id": "pending-1",
+          "plant": "P",
+          "status": "pending",
+          "entity": "T"
+        },
+        "delivered-1": {
+          "fixture_type": "notification_intent",
+          "id": "delivered-1",
+          "plant": "P",
+          "status": "delivered",
+          "entity": "T"
         }
       },
       "actor": {
@@ -364,19 +464,12 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "calendar.resolve",
+        "operation": "plant.setTimezone",
         "arguments": {
-          "slots": [
-            {
-              "id": "pending-1",
-              "state": "pending"
-            },
-            {
-              "id": "delivered-1",
-              "state": "delivered"
-            }
-          ],
-          "new_zone": "Pacific/Auckland"
+          "plant": "P",
+          "timezone": "Pacific/Auckland",
+          "expected_revision": 7,
+          "preview": "zone-preview"
         }
       },
       "expected": {
@@ -387,7 +480,26 @@
           "delivered_resends": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises plant.setTimezone and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-020",
+              "WP-024"
+            ],
+            "reason": "Corrected action exercises plant.setTimezone; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "CASE-COM-001",
@@ -1602,7 +1714,7 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "template_ids": [
             "T1",
             "T2",
@@ -1614,20 +1726,9 @@
           ],
           "repeat": 2,
           "plant_fork": "F1"
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "reference.installMessageTemplates",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "communication": "mail-1",
           "expected_revision": 4,
@@ -1642,6 +1743,26 @@
           ],
           "repeat": 2,
           "plant_fork": "F1"
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/communication-system-templates.ts",
+          "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.installMessageTemplates",
+        "arguments": {
+          "source": "source"
         }
       },
       "expected": {
@@ -1935,8 +2056,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Incomplete draft reload; schedule at 30 days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
@@ -2126,6 +2246,16 @@
           },
           "name": "beyond-window"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.saveDraft and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -2200,7 +2330,7 @@
           "revision": 4
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "organizations": [
             "S1",
             "N1"
@@ -2208,6 +2338,38 @@
           "recipient": "A",
           "occurrence": "M1",
           "revoked_category": "meetings"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "additional_calls": [
+            {
+              "operation": "notifications.enqueue",
+              "arguments": {
+                "organization": "N1",
+                "recipient": "A",
+                "category": "meeting",
+                "subject": "P",
+                "occurrence": "event-1",
+                "request_key": "notice-N1"
+              }
+            }
+          ]
+        },
+        "S1": {
+          "fixture_type": "organization",
+          "id": "S1",
+          "kind": "sending_church"
+        },
+        "N1": {
+          "fixture_type": "organization",
+          "id": "N1",
+          "kind": "sending_network"
+        },
+        "event-1": {
+          "fixture_type": "meeting_occurrence",
+          "id": "event-1",
+          "plant": "P",
+          "meeting": "M"
         }
       },
       "actor": {
@@ -2222,16 +2384,12 @@
       "action": {
         "operation": "notifications.enqueue",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "organizations": [
-            "S1",
-            "N1"
-          ],
+          "organization": "S1",
           "recipient": "A",
-          "occurrence": "M1",
-          "revoked_category": "meetings"
+          "category": "meeting",
+          "subject": "P",
+          "occurrence": "event-1",
+          "request_key": "notice-S1"
         }
       },
       "expected": {
@@ -2317,12 +2475,39 @@
           "revision": 4
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "job": "J",
           "old_generation": 1,
           "current_generation": 2,
           "provider_accepted": true,
           "entity_cancelled": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 3,
+          "job": "J",
+          "old_generation": 1,
+          "current_generation": 2,
+          "provider_accepted": true,
+          "entity_cancelled": true
+        },
+        "reminder-1": {
+          "fixture_type": "notification_intent",
+          "id": "reminder-1",
+          "plant": "P",
+          "recipient": "A",
+          "status": "unknown",
+          "entity": "M",
+          "generation": 2
+        },
+        "M": {
+          "fixture_type": "meeting",
+          "id": "M",
+          "plant": "P",
+          "status": "cancelled",
+          "type": "vision_meeting"
         }
       },
       "actor": {
@@ -2337,14 +2522,7 @@
       "action": {
         "operation": "notifications.claimDue",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 3,
-          "job": "J",
-          "old_generation": 1,
-          "current_generation": 2,
-          "provider_accepted": true,
-          "entity_cancelled": true
+          "limit": 10
         }
       },
       "expected": {
@@ -2512,39 +2690,13 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "mail-1": {
-          "fixture_type": "communication",
-          "id": "mail-1",
-          "plant": "P",
-          "status": "draft",
-          "recipients": [
-            "alex@example.test"
-          ],
-          "body": "Welcome Alex.",
-          "revision": 4
-        },
-        "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
-          "digest_period": "2026-10-12",
-          "repeat": 2
+        "preferences-A": {
+          "fixture_type": "notification_preferences",
+          "account": "A",
+          "revision": 4,
+          "category": "task",
+          "email": true,
+          "in_app": true
         }
       },
       "actor": {
@@ -2557,24 +2709,138 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.preferences.get",
+        "operation": "notifications.preferences.set",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "fault": "required_write_before_commit",
-          "digest_period": "2026-10-12",
-          "repeat": 2
+          "category": "task",
+          "channel": "email",
+          "enabled": false,
+          "expected_revision": 4
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "logical_digest_intents": 1,
-          "duplicate_sends": 0
+          "email": false,
+          "in_app": true,
+          "explicit_email_choice": false
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "cadence-save-preserves-explicit-off",
+          "given": {
+            "preferences-A": {
+              "fixture_type": "notification_preferences",
+              "account": "A",
+              "revision": 5,
+              "category": "task",
+              "explicit_email_choice": false,
+              "email": false,
+              "in_app": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "notifications.digestCadence.set",
+            "arguments": {
+              "cadence": "weekly",
+              "expected_revision": 5
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "email": false,
+              "cadence": "weekly"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "default-equivalent-choice-is-explicit",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "notifications.preferences.set",
+            "arguments": {
+              "category": "task",
+              "channel": "email",
+              "enabled": true,
+              "expected_revision": 4
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "email": true,
+              "explicit_email_choice": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "audience-change-keeps-off",
+          "given": {
+            "preferences-A": {
+              "fixture_type": "notification_preferences",
+              "account": "A",
+              "revision": 6,
+              "category": "task",
+              "explicit_email_choice": false,
+              "email": false
+            },
+            "P-N1": {
+              "fixture_type": "affiliation",
+              "plant": "P",
+              "organization": "N1",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "notifications.preferences.get",
+            "arguments": {}
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "email": false,
+              "new_recipients": 0
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "CASE-NTF-005",
@@ -2649,7 +2915,7 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "missed_periods": [
             "2026-10-10",
             "2026-10-11",
@@ -2658,6 +2924,44 @@
           "relevant_open_items": [
             "T1"
           ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 4,
+          "missed_periods": [
+            "2026-10-10",
+            "2026-10-11",
+            "2026-10-12"
+          ],
+          "relevant_open_items": [
+            "T1"
+          ]
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "assignee": "A",
+          "status": "not_started",
+          "due_date": "2026-10-13"
+        },
+        "T2": {
+          "fixture_type": "task",
+          "id": "T2",
+          "plant": "P",
+          "assignee": "A",
+          "status": "complete",
+          "due_date": "2026-10-10"
+        },
+        "digest-cursor": {
+          "fixture_type": "digest_cursor",
+          "plant": "P",
+          "account": "A",
+          "last_period": "2026-10-09",
+          "cadence": "daily",
+          "local_time": "16:00"
         }
       },
       "actor": {
@@ -2670,19 +2974,9 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.syncTaskReminders",
+        "operation": "notifications.generateOwedPlanterDigests",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "missed_periods": [
-            "2026-10-10",
-            "2026-10-11",
-            "2026-10-12"
-          ],
-          "relevant_open_items": [
-            "T1"
-          ]
+          "plant": "P"
         }
       },
       "expected": {
@@ -2770,10 +3064,28 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "organization": "S1",
           "shared_findings": false,
           "share_activity": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 4,
+          "organization": "S1",
+          "shared_findings": false,
+          "share_activity": true
+        },
+        "M": {
+          "fixture_type": "meeting",
+          "id": "M",
+          "plant": "P",
+          "type": "vision_meeting",
+          "status": "completed",
+          "starts_at": "2026-10-20T15:00:00Z",
+          "revision": 5
         }
       },
       "actor": {
@@ -2788,19 +3100,15 @@
       "action": {
         "operation": "notifications.syncMeetingReminders",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "organization": "S1",
-          "shared_findings": false,
-          "share_activity": true
+          "meeting": "M"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "health_reason": null,
-          "private_care": null
+          "CRM_only_recipients": 0,
+          "obsolete_reminders_sent": 0,
+          "removed_guest_account_notified": false
         },
         "event": null
       }
@@ -2877,7 +3185,7 @@
           "revision": 4
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "zone": "America/Chicago",
           "weekly_local_time": "Sunday 16:00",
           "missed_dates": [
@@ -2888,20 +3196,9 @@
           "current_open_tasks": [
             "T1"
           ]
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "notifications.previewPlanterDigest",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "communication": "mail-1",
           "expected_revision": 4,
@@ -2915,6 +3212,45 @@
           "current_open_tasks": [
             "T1"
           ]
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "assignee": "A",
+          "status": "not_started",
+          "due_date": "2026-10-13"
+        },
+        "T2": {
+          "fixture_type": "task",
+          "id": "T2",
+          "plant": "P",
+          "assignee": "A",
+          "status": "complete",
+          "due_date": "2026-10-10"
+        },
+        "digest-cursor": {
+          "fixture_type": "digest_cursor",
+          "plant": "P",
+          "account": "A",
+          "last_period": "2026-10-09",
+          "cadence": "weekly",
+          "local_time": "16:00"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "notifications.generateOwedPlanterDigests",
+        "arguments": {
+          "plant": "P"
         }
       },
       "expected": {
@@ -3005,9 +3341,29 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "logical_slot": "meeting:M:3days:A",
           "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 4,
+          "logical_slot": "meeting:M:3days:A",
+          "repeat": 2
+        },
+        "N1": {
+          "fixture_type": "organization",
+          "id": "N1",
+          "kind": "sending_network"
+        },
+        "P-N1": {
+          "fixture_type": "affiliation",
+          "plant": "P",
+          "organization": "N1",
+          "active": true,
+          "share_activity": false
         }
       },
       "actor": {
@@ -3020,20 +3376,17 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.previewOversightDigest",
+        "operation": "notifications.generateOwedOversightDigests",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "logical_slot": "meeting:M:3days:A",
-          "repeat": 2
+          "organization": "N1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "intents": 1,
-          "provider_exactly_once_claim": false
+          "mail_intents": 0,
+          "S1_activity": null,
+          "private_care": null
         },
         "event": null
       }
@@ -3113,7 +3466,7 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "events": [
             "advance",
             "declaration",
@@ -3121,20 +3474,9 @@
             "end_S1"
           ],
           "survivor": "N1"
-        }
-      },
-      "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
-      },
-      "clock": {
-        "now": "2026-10-13T16:00:00Z",
-        "zone": "America/Chicago"
-      },
-      "action": {
-        "operation": "notifications.emitRelationshipMilestone",
-        "arguments": {
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "subject": "P",
           "communication": "mail-1",
           "expected_revision": 4,
@@ -3147,6 +3489,45 @@
             "end_S1"
           ],
           "survivor": "N1"
+        },
+        "event-1": {
+          "fixture_type": "domain_occurrence",
+          "id": "event-1"
+        },
+        "phase-advance": {
+          "fixture_type": "phase_history",
+          "id": "phase-advance",
+          "plant": "P",
+          "from_phase": 1,
+          "to_phase": 2,
+          "kind": "advance",
+          "occurred_at": "2026-10-13T15:00:00Z"
+        },
+        "N1": {
+          "fixture_type": "organization",
+          "id": "N1",
+          "kind": "sending_network"
+        },
+        "P-N1": {
+          "fixture_type": "affiliation",
+          "plant": "P",
+          "organization": "N1",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "notifications.emitPhaseMilestone",
+        "arguments": {
+          "occurrence": "phase-advance"
         }
       },
       "expected": {
@@ -3156,7 +3537,81 @@
           "N1_revoked": false
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "declaration",
+          "given": {
+            "phase-declaration": {
+              "fixture_type": "phase_history",
+              "id": "phase-declaration",
+              "plant": "P",
+              "from_phase": 2,
+              "to_phase": 1,
+              "kind": "declaration"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "notifications.emitPhaseMilestone",
+            "arguments": {
+              "occurrence": "phase-declaration"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "advance_notices": 0,
+              "N1_revoked": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "backward",
+          "given": {
+            "phase-backward": {
+              "fixture_type": "phase_history",
+              "id": "phase-backward",
+              "plant": "P",
+              "from_phase": 2,
+              "to_phase": 1,
+              "kind": "backward"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "notifications.emitPhaseMilestone",
+            "arguments": {
+              "occurrence": "phase-backward"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "advance_notices": 0,
+              "N1_revoked": false
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "CASE-NTF-010",
@@ -3519,10 +3974,7 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-008",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "Security reset and association purpose mail with optional email preference OFF; transport timeout; log canary token.",
@@ -3622,7 +4074,19 @@
           "body_in_context": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-008",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises mail.sendTransactional and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "CASE-NTF-014",
@@ -3698,7 +4162,7 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "global_updates": [
             {
               "meaningful": false
@@ -3708,6 +4172,36 @@
             }
           ],
           "email_on": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 4,
+          "global_updates": [
+            {
+              "meaningful": false
+            },
+            {
+              "meaningful": true
+            }
+          ],
+          "email_on": true
+        },
+        "g1": {
+          "fixture_type": "article_revision",
+          "id": "g1",
+          "source": "global",
+          "revision": 2,
+          "meaningful": false
+        },
+        "org-article": {
+          "fixture_type": "organization_wiki_article",
+          "id": "org-article",
+          "organization": "S1",
+          "parent": "g1",
+          "customized": true,
+          "body": "S1 guidance."
         }
       },
       "actor": {
@@ -3722,18 +4216,8 @@
       "action": {
         "operation": "notifications.emitWikiUpstreamReview",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "global_updates": [
-            {
-              "meaningful": false
-            },
-            {
-              "meaningful": true
-            }
-          ],
-          "email_on": true
+          "article": "g1",
+          "revision": 2
         }
       },
       "expected": {
@@ -3762,14 +4246,6 @@
       "status": "future-not-run",
       "description": "Seatless Discovery acceptance occurrence with account also org Owner; duplicate receipt trigger, invalid org owner linkage.",
       "given": {
-        "P": {
-          "fixture_type": "plant",
-          "id": "P",
-          "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
-          "phase": "Phase1"
-        },
         "A": {
           "fixture_type": "account",
           "id": "A",
@@ -3780,8 +4256,8 @@
         "seat-A": {
           "fixture_type": "seat",
           "account": "A",
-          "tenant": "P",
-          "role": "Admin",
+          "tenant": "S1",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -3819,16 +4295,43 @@
           "revision": 4
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "discovery_account": "A",
           "org_owner_account": "A",
           "receipt_repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "communication": "mail-1",
+          "expected_revision": 4,
+          "discovery_account": "A",
+          "org_owner_account": "A",
+          "receipt_repeat": 2
+        },
+        "event-1": {
+          "fixture_type": "affiliation_acceptance",
+          "id": "event-1",
+          "discovery_account": "A",
+          "organization": "S1",
+          "organization_owner": "A"
+        },
+        "D": {
+          "fixture_type": "discovery",
+          "id": "D",
+          "account": "A",
+          "converted_plant_id": null
+        },
+        "S1": {
+          "fixture_type": "organization",
+          "id": "S1",
+          "kind": "sending_church"
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": "S1"
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3837,12 +4340,7 @@
       "action": {
         "operation": "notifications.sendDiscoveryAssociationReceipt",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4,
-          "discovery_account": "A",
-          "org_owner_account": "A",
-          "receipt_repeat": 2
+          "occurrence": "event-1"
         }
       },
       "expected": {
@@ -3866,8 +4364,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Saved draft rev1; desired send at now+29 days; second desired now+31 days; provider cancellation unknown",
@@ -4204,6 +4701,16 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.scheduleReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -4233,7 +4740,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-027",
         "WP-029",
         "WP-052",
@@ -4470,6 +4976,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises communication.preview and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -4756,7 +5272,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-020",
         "WP-022",
         "WP-029",
@@ -5018,6 +5533,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.prepareMeetingInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -5951,12 +6476,9 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-008",
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Unknown whole-batch response at 23 hours 50 minutes then 23 hours 56 minutes from first dispatch, with account-private security member from another scope.",
@@ -6075,7 +6597,19 @@
           "foreign_manifest": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-008",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.dispatchAttempt and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL-LEDGER-001",
@@ -6095,12 +6629,9 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-008",
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Native and Evry dispatch same approved receipt, transport accepted before crash, webhook late and old lease resumes.",
@@ -6240,6 +6771,18 @@
           },
           "name": "old-lease-cannot-finalize"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-008",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.dispatchAttempt and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -6350,8 +6893,7 @@
       ],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "Resolved recipient address/content/time changes after exact review but before handoff.",
@@ -6414,7 +6956,17 @@
           "provider_calls": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-003",
@@ -6429,8 +6981,7 @@
       ],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "API schedule at 30 days versus 31 days, batch and DST fold/gap entered localtime.",
@@ -6504,7 +7055,17 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-004",
@@ -6521,8 +7082,7 @@
       ],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Accepted scheduled body/audience frozen; reviewed time-only change and lost update response.",
@@ -6590,7 +7150,17 @@
           "new_communications": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-005",
@@ -6610,8 +7180,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Accepted batch replacement with canceled, sent and unknown original recipient outcomes.",
@@ -6684,7 +7253,17 @@
           "blind_resends": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-006",
@@ -6703,8 +7282,7 @@
       ],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Batch provider results short/mixed, late sent/delivered and per-intent provider IDs.",
@@ -6795,7 +7373,17 @@
           "sent_for_all": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.deliveryTotals and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-007",
@@ -6813,8 +7401,7 @@
         "AC-NTF-010--NTF-010"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "After provider acceptance authority/address/suppression changes before scheduled send.",
@@ -6878,7 +7465,17 @@
           "new_send": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "MAIL51-008",
@@ -7012,7 +7609,6 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-053",
         "WP-055",
         "WP-072"
@@ -7091,7 +7687,17 @@
           "provider_calls": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises communication.scheduleReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-001",
@@ -7226,8 +7832,7 @@
         "AC-NTF-012--NTF-012"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ],
       "status": "future-not-run",
       "description": "Default absence, explicit default-equivalent channel setting, planter digest and changed audience.",
@@ -7303,7 +7908,17 @@
           "new_recipients": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises notifications.applyEmailOptOut and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-003",
@@ -7320,8 +7935,7 @@
       ],
       "work_packages": [
         "WP-028",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ],
       "status": "future-not-run",
       "description": "Security/invitation purpose and seatless Discovery receipt with optional category email OFF.",
@@ -7384,7 +7998,17 @@
           "token_in_logs": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises mail.renderTransactional and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-004",
@@ -7432,7 +8056,13 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "local_weekly": "2026-10-18T16:00:00",
+          "zone": "America/Chicago",
+          "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "local_weekly": "2026-10-18T16:00:00",
           "zone": "America/Chicago",
           "repeat": 2
@@ -7448,11 +8078,9 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "church.digestSchedule.set",
+        "operation": "notifications.generateOwedPlanterDigests",
         "arguments": {
-          "local_weekly": "2026-10-18T16:00:00",
-          "zone": "America/Chicago",
-          "repeat": 2
+          "plant": "P"
         }
       },
       "expected": {
@@ -7479,9 +8107,7 @@
         "AC-NTF-009--NTF-009"
       ],
       "work_packages": [
-        "WP-007",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ],
       "status": "future-not-run",
       "description": "Two independently affiliated orgs, activity sharing OFF for one, frequency/channel edit and no activity.",
@@ -7557,7 +8183,18 @@
           "private_care": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises notifications.digestCadence.set and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-006",
@@ -7610,7 +8247,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "missed_dates": [
             "2026-10-10",
             "2026-10-11",
@@ -7622,6 +8259,44 @@
           "closed_tasks": [
             "T2"
           ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "missed_dates": [
+            "2026-10-10",
+            "2026-10-11",
+            "2026-10-12"
+          ],
+          "open_tasks": [
+            "T1"
+          ],
+          "closed_tasks": [
+            "T2"
+          ]
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "assignee": "A",
+          "status": "not_started",
+          "due_date": "2026-10-13"
+        },
+        "T2": {
+          "fixture_type": "task",
+          "id": "T2",
+          "plant": "P",
+          "assignee": "A",
+          "status": "complete",
+          "due_date": "2026-10-10"
+        },
+        "digest-cursor": {
+          "fixture_type": "digest_cursor",
+          "plant": "P",
+          "account": "A",
+          "last_period": "2026-10-09",
+          "cadence": "daily",
+          "local_time": "16:00"
         }
       },
       "actor": {
@@ -7634,19 +8309,9 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "church.digestSchedule.set",
+        "operation": "notifications.generateOwedPlanterDigests",
         "arguments": {
-          "missed_dates": [
-            "2026-10-10",
-            "2026-10-11",
-            "2026-10-12"
-          ],
-          "open_tasks": [
-            "T1"
-          ],
-          "closed_tasks": [
-            "T2"
-          ]
+          "plant": "P"
         }
       },
       "expected": {
@@ -7712,7 +8377,29 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
+          "tasks": [
+            {
+              "id": "T1",
+              "status": "complete"
+            },
+            {
+              "id": "T2",
+              "status": "no_longer_needed"
+            },
+            {
+              "id": "T3",
+              "due": "2026-10-20"
+            }
+          ],
+          "old_reminders": [
+            "T1",
+            "T2",
+            "T3"
+          ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
           "tasks": [
             {
               "id": "T1",
@@ -7746,25 +8433,7 @@
       "action": {
         "operation": "notifications.cancelForEntity",
         "arguments": {
-          "tasks": [
-            {
-              "id": "T1",
-              "status": "complete"
-            },
-            {
-              "id": "T2",
-              "status": "no_longer_needed"
-            },
-            {
-              "id": "T3",
-              "due": "2026-10-20"
-            }
-          ],
-          "old_reminders": [
-            "T1",
-            "T2",
-            "T3"
-          ]
+          "entity": "T1"
         }
       },
       "expected": {
@@ -7796,8 +8465,7 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "Lost provider acceptance response, out-of-order callback, suppression and webhook persistence outage.",
@@ -7865,7 +8533,17 @@
           "receipt_count": 1
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises mail.acceptWebhook and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-009",
@@ -7881,8 +8559,7 @@
         "AC-NTF-015--NTF-015"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-031"
+        "WP-050"
       ],
       "status": "future-not-run",
       "description": "Category/helper catalog contains unused team health/training/assessment helpers plus live milestones.",
@@ -7915,7 +8592,7 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "requested_alerts": [
             "team_health",
             "snooze",
@@ -7934,15 +8611,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.emitLaunchMilestone",
-        "arguments": {
-          "requested_alerts": [
-            "team_health",
-            "snooze",
-            "NeedsYou",
-            "Wiki_upstream"
-          ]
-        }
+        "operation": "engineering.inventoryTools",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -7952,7 +8622,25 @@
           "unused_helpers_enabled": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises engineering.inventoryTools and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "Corrected action exercises engineering.inventoryTools; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "NOTIFY47-010",
@@ -8063,7 +8751,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-028",
         "WP-029",
         "WP-015",
@@ -8368,6 +9055,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8380,7 +9077,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-028",
         "WP-029",
         "WP-015",
@@ -8689,6 +9385,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -8701,7 +9407,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-028",
         "WP-029",
         "WP-015",
@@ -9008,6 +9713,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -9020,7 +9735,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-028",
         "WP-029",
         "WP-015",
@@ -9343,6 +10057,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -9356,7 +10080,6 @@
       ],
       "work_packages": [
         "WP-030",
-        "WP-031",
         "WP-081",
         "WP-082",
         "WP-015",
@@ -9661,6 +10384,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -9674,7 +10407,6 @@
       ],
       "work_packages": [
         "WP-030",
-        "WP-031",
         "WP-081",
         "WP-082",
         "WP-015",
@@ -9983,6 +10715,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -9996,7 +10738,6 @@
       ],
       "work_packages": [
         "WP-030",
-        "WP-031",
         "WP-081",
         "WP-082",
         "WP-015",
@@ -10303,6 +11044,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -10316,7 +11067,6 @@
       ],
       "work_packages": [
         "WP-030",
-        "WP-031",
         "WP-081",
         "WP-082",
         "WP-015",
@@ -10638,6 +11388,16 @@
             "event": null
           },
           "name": "required-write-fault-rolls-back"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
         }
       ]
     }

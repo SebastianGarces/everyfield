@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, openSync, closeSync, unlinkSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { baseRef, evfDataDir, fail, findPackage, git, gitOk, loadConfig, loadDag, loadProgress, packageContext, parseTask, partsOf, pathsForPart, readJson } from './lib.ts';
+import { baseRef, evfDataDir, fail, findPackage, git, gitOk, loadConfig, loadDag, loadProgress, packageContext, parseTask, partsOf, pathsForPart, readJson, run } from './lib.ts';
 import { shippable, validAttestation, type Proof } from './verify.ts';
 
 export type ShippedRecord = {
@@ -74,6 +74,10 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
      if(!target||parts.some(id=>!target.milestones?.[id]?.acknowledged||!retained(root,id)||!reviewedMilestone(root,retained(root,id)!)))fail(`Closure requires every reviewed merged part of ${wp}.`);
      const passed=new Set(record.proof.attestation!.payload.casePortions.filter(c=>c.portion==='integration').map(c=>c.caseId));
      if(packageContext(root,wp).case_ids.some(id=>!passed.has(id)))fail(`Closure needs full integration evidence for every ${wp} case.`);
+     const cases=run('python3',[join(root,'docs/acceptance/check.py'),'--root',root,'--package',wp],{cwd:root});
+     if(cases.code!==0)fail(`Closure requires runnable cases for ${wp}: ${cases.stderr||cases.stdout}`);
+     const ordering=run('python3',[join(root,'docs/package-context.py'),wp,'--root',root,'--check-case-actions'],{cwd:root});
+     if(ordering.code!==0)fail(`Closure requires available case actions for ${wp}: ${ordering.stderr||ordering.stdout}`);
      if(target.status!=='done'){target.status='done';target.evidence.push(record.evidence);target.notes=`Full package gates and cases reviewed at integration by ${record.task}.`;target.revision++;target.updated_at=p.updated_at;}
      pending.delete(wp);advanced=true;
     }

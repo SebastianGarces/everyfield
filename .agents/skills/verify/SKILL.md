@@ -16,3 +16,5 @@ Read the diff against the selected clauses and try real denied/failure behavior.
 For maintenance (`OPS-n`), prove tooling only with no package cases or gates. The signed runner and independent review flow is unchanged.
 
 Application checks emit passing test names/annotations in `EVF_TEST_REPORT`. Every selected case needs an `AC:<case-id>` marker in at least one passing test. One test may cover several cases. Review the duplicate coverage report for repeated behavior; broad proof stays outside the repo.
+
+At package start, repair its owned acceptance cases against the original scenario, current requirement and operation inventory before building. Keep scenario facts and failure/race controls in given fixtures; actions take real domain inputs and expected results stay outside them. Run `python3 docs/acceptance/check.py --package WP-NNN` and `python3 docs/package-context.py WP-NNN --check-case-actions`. S0 defects fail immediately; later defects are reported until that package is checked. evf blocks package closure on either check. Explicit registered SQL/build/configuration proof inspections remain valid for platform cases.

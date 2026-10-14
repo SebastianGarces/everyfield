@@ -853,7 +853,9 @@
         "TEAM-006"
       ],
       "acceptance_ids": [],
-      "work_packages": [],
+      "work_packages": [
+        "WP-016"
+      ],
       "status": "future-not-run",
       "description": "Childrens team renamed Hospitality; source `templateKey` mentions child-care; Person has a source-only background field",
       "given": {
@@ -1408,7 +1410,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-016",
         "WP-017",
         "WP-018",
@@ -1714,6 +1715,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -1726,7 +1737,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-016",
         "WP-017",
         "WP-018",
@@ -2036,6 +2046,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2048,7 +2068,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-016",
         "WP-017",
         "WP-018",
@@ -2356,6 +2375,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2368,7 +2397,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-016",
         "WP-017",
         "WP-018",
@@ -2692,6 +2720,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2704,7 +2742,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-015",
         "WP-091"
@@ -3008,6 +3045,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3020,7 +3067,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-015",
         "WP-091"
@@ -3328,6 +3374,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3340,7 +3396,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-015",
         "WP-091"
@@ -3646,6 +3701,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3658,7 +3723,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-015",
         "WP-091"
@@ -3980,6 +4044,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3998,7 +4072,6 @@
         "AC-TEAM-008--TEAM-008"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-053",
         "WP-055",
@@ -4081,7 +4154,17 @@
           "Mara_added": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SME53-002",
@@ -4205,7 +4288,6 @@
         "AC-TEAM-009--TEAM-009"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-040",
         "WP-093"
@@ -4287,7 +4369,17 @@
           "history_preserved": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SME53-004",
@@ -4438,7 +4530,6 @@
         "AC-PI-014--PI-014"
       ],
       "work_packages": [
-        "WP-004",
         "WP-039",
         "WP-040",
         "WP-052",
@@ -4517,7 +4608,17 @@
           "private_signal_added": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SME53-006",
@@ -4631,7 +4732,6 @@
         "AC-REF-001--REF-001"
       ],
       "work_packages": [
-        "WP-032",
         "WP-039",
         "WP-040",
         "WP-041"
@@ -4728,7 +4828,17 @@
           ]
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "SME53-008",
@@ -6722,7 +6832,6 @@
         "AC-TEAM-011--TEAM-011"
       ],
       "work_packages": [
-        "WP-004",
         "WP-019",
         "WP-040",
         "WP-069",
@@ -6852,7 +6961,17 @@
           "missing_applicability_rate": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "The original scenario exercises teams.previewRequiredTrainingParticipants and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-TEAM-017",

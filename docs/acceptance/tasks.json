@@ -189,7 +189,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-023",
         "WP-024",
         "WP-025",
@@ -495,6 +494,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -507,7 +516,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-023",
         "WP-024",
         "WP-025",
@@ -817,6 +825,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -829,7 +847,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-023",
         "WP-024",
         "WP-025",
@@ -1137,6 +1154,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -1149,7 +1176,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-023",
         "WP-024",
         "WP-025",
@@ -1472,6 +1498,16 @@
             "event": null
           },
           "name": "required-write-fault-rolls-back"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
         }
       ]
     },
@@ -4877,45 +4913,26 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
-        "T": {
-          "fixture_type": "task",
-          "id": "T",
-          "plant": "P",
-          "assignee": "A",
-          "status": "not_started",
-          "due_date": "2026-10-13",
-          "revision": 4
-        },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "zone": "America/Chicago",
+          "entered_times": [
+            "2026-03-08T02:30",
+            "2026-11-01T01:30"
+          ],
+          "all_day_dates": [
+            "2026-03-08",
+            "2026-11-01"
+          ],
+          "new_zone": "Pacific/Auckland",
+          "reminder_already_delivered": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
           "entered_times": [
             "2026-03-08T02:30",
             "2026-11-01T01:30"
@@ -4938,42 +4955,124 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.previewPersonalTimezoneChange",
+        "operation": "calendar.resolve",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 4,
-          "task": "T",
+          "local_datetime": "2026-03-08T02:30:00",
           "zone": "America/Chicago",
-          "entered_times": [
-            "2026-03-08T02:30",
-            "2026-11-01T01:30"
-          ],
-          "all_day_dates": [
-            "2026-03-08",
-            "2026-11-01"
-          ],
-          "new_zone": "Pacific/Auckland",
-          "reminder_already_delivered": true
+          "mode": "entered"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "entered_time_requires_choice": [
-            true,
-            true
-          ],
-          "all_day_dates": [
-            "2026-03-08",
-            "2026-11-01"
-          ],
-          "delivered_reminder_replayed": false,
-          "fixed_appointment_instant_changed": false,
-          "automatic_slot_dispatches": 1
+          "requires_choice": true
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "entered-fold",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "calendar.resolve",
+            "arguments": {
+              "local_datetime": "2026-11-01T01:30:00",
+              "zone": "America/Chicago",
+              "mode": "entered"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "requires_choice": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "all-day-2026-03-08",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "calendar.resolve",
+            "arguments": {
+              "date": "2026-03-08",
+              "zone": "America/Chicago"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "next_midnight": "2026-03-09T05:00:00Z"
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "all-day-2026-11-01",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "calendar.resolve",
+            "arguments": {
+              "date": "2026-11-01",
+              "zone": "America/Chicago"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "next_midnight": "2026-11-02T06:00:00Z"
+            },
+            "event": null
+          }
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": "Delivered-reminder and fixed-appointment portions are exercised by B03-011/B03-016/B03-018, not by calendar.resolve."
+        }
+      ]
     }
   ]
 }

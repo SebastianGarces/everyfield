@@ -52,13 +52,18 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
+          "fixture_type": "test_setup",
           "meeting": "2026-03-10T09:00:00",
           "offset_days": [
             7,
             3,
             1
           ],
+          "fixed_instant": "2026-03-10T14:00:00Z"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "meeting": "2026-03-10T09:00:00",
           "fixed_instant": "2026-03-10T14:00:00Z"
         }
       },
@@ -74,13 +79,13 @@
       "action": {
         "operation": "calendar.resolve",
         "arguments": {
-          "meeting": "2026-03-10T09:00:00",
+          "local_datetime": "2026-03-10T09:00:00",
+          "zone": "America/Chicago",
           "offset_days": [
             7,
             3,
             1
-          ],
-          "fixed_instant": "2026-03-10T14:00:00Z"
+          ]
         }
       },
       "expected": {
@@ -1799,7 +1804,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-020",
         "WP-015",
         "WP-091"
@@ -2103,6 +2107,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2115,7 +2129,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-020",
         "WP-015",
         "WP-091"
@@ -2423,6 +2436,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2435,7 +2458,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-020",
         "WP-015",
         "WP-091"
@@ -2741,6 +2763,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -2753,7 +2785,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-020",
         "WP-015",
         "WP-091"
@@ -3075,6 +3106,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3087,7 +3128,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-021",
         "WP-022",
         "WP-023",
@@ -3394,6 +3434,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3406,7 +3456,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-021",
         "WP-022",
         "WP-023",
@@ -3717,6 +3766,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -3729,7 +3788,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-021",
         "WP-022",
         "WP-023",
@@ -4038,6 +4096,16 @@
           },
           "name": "required-write-fault-rolls-back"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        }
       ]
     },
     {
@@ -4050,7 +4118,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-004",
         "WP-021",
         "WP-022",
         "WP-023",
@@ -4374,6 +4441,16 @@
             "event": null
           },
           "name": "required-write-fault-rolls-back"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-004"
+            ],
+            "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
         }
       ]
     },
@@ -5077,40 +5154,81 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "revision": 4
-        },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
           "type": "vision_meeting",
-          "starts_at": "2026-10-10T15:00:00Z",
-          "revision": 4
+          "revision": 4,
+          "agenda": [
+            {
+              "id": "v1",
+              "title": "Welcome",
+              "minutes": 10
+            },
+            {
+              "id": "v2",
+              "title": "Worship",
+              "minutes": 15
+            },
+            {
+              "id": "v3",
+              "title": "Vision",
+              "minutes": 25
+            },
+            {
+              "id": "v4",
+              "title": "Q&A",
+              "minutes": 15
+            },
+            {
+              "id": "v5",
+              "title": "Response",
+              "minutes": 10
+            },
+            {
+              "id": "v6",
+              "title": "Fellowship",
+              "minutes": 15
+            }
+          ],
+          "agenda_source_version": 1
+        },
+        "vision-default": {
+          "fixture_type": "agenda_reference",
+          "version": 1,
+          "sections": [
+            {
+              "id": "v1",
+              "title": "Welcome",
+              "minutes": 10
+            },
+            {
+              "id": "v2",
+              "title": "Worship",
+              "minutes": 15
+            },
+            {
+              "id": "v3",
+              "title": "Vision",
+              "minutes": 25
+            },
+            {
+              "id": "v4",
+              "title": "Q&A",
+              "minutes": 15
+            },
+            {
+              "id": "v5",
+              "title": "Response",
+              "minutes": 10
+            },
+            {
+              "id": "v6",
+              "title": "Fellowship",
+              "minutes": 15
+            }
+          ]
         }
       },
       "actor": {
@@ -5123,22 +5241,593 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "meetings.readAgenda",
+        "operation": "meetings.replaceAgenda",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "expected_revision": 4,
           "meeting": "M",
-          "fault": "required_write_before_commit"
+          "expected_revision": 4,
+          "sections": [
+            {
+              "id": "v6",
+              "title": "Fellowship",
+              "minutes": 15
+            },
+            {
+              "id": "v5",
+              "title": "Response",
+              "minutes": 10
+            },
+            {
+              "id": "v4",
+              "title": "Q&A",
+              "minutes": 15
+            },
+            {
+              "id": "v3",
+              "title": "Vision",
+              "minutes": 25
+            },
+            {
+              "id": "v2",
+              "title": "Worship",
+              "minutes": 15
+            },
+            {
+              "id": "v1",
+              "title": "Welcome",
+              "minutes": 10
+            }
+          ],
+          "request_key": "agenda-reorder"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "new_effects": 0
+          "section_ids": [
+            "v6",
+            "v5",
+            "v4",
+            "v3",
+            "v2",
+            "v1"
+          ],
+          "total_minutes": 90,
+          "agenda_source_version": 1
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "empty",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": []
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "sections": [],
+              "total_minutes": 0
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "retime",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "Welcome",
+                  "minutes": 20
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "total_minutes": 20,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "Welcome",
+                  "minutes": 20
+                }
+              ]
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "too-many",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": [
+                {
+                  "id": "s0",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s1",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s2",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s3",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s4",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s5",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s6",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s7",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s8",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s9",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s10",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s11",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s12",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s13",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s14",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s15",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s16",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s17",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s18",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s19",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s20",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s21",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s22",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s23",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s24",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s25",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s26",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s27",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s28",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s29",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s30",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s31",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s32",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s33",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s34",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s35",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s36",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s37",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s38",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s39",
+                  "title": "Section",
+                  "minutes": 1
+                },
+                {
+                  "id": "s40",
+                  "title": "Section",
+                  "minutes": 1
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "agenda_section_limit",
+              "agenda_writes": 0,
+              "agenda_unchanged": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "long-title",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                  "minutes": 10
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "agenda_title_invalid",
+              "agenda_writes": 0,
+              "agenda_unchanged": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "negative",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "Welcome",
+                  "minutes": -1
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "agenda_duration_invalid",
+              "agenda_writes": 0,
+              "agenda_unchanged": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "fractional",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.replaceAgenda",
+            "arguments": {
+              "meeting": "M",
+              "expected_revision": 4,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "Welcome",
+                  "minutes": 1.5
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "agenda_duration_invalid",
+              "agenda_writes": 0,
+              "agenda_unchanged": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "later-reference-keeps-custom-agenda",
+          "given": {
+            "M": {
+              "fixture_type": "meeting",
+              "id": "M",
+              "plant": "P",
+              "type": "vision_meeting",
+              "revision": 5,
+              "agenda": [
+                {
+                  "id": "custom",
+                  "title": "Our welcome",
+                  "minutes": 20
+                }
+              ],
+              "agenda_source_version": 1
+            },
+            "vision-default": {
+              "fixture_type": "agenda_reference",
+              "version": 2,
+              "sections": [
+                {
+                  "id": "v1",
+                  "title": "Welcome",
+                  "minutes": 10
+                },
+                {
+                  "id": "v2",
+                  "title": "Worship",
+                  "minutes": 15
+                },
+                {
+                  "id": "v3",
+                  "title": "Vision",
+                  "minutes": 25
+                },
+                {
+                  "id": "v4",
+                  "title": "Q&A",
+                  "minutes": 15
+                },
+                {
+                  "id": "v5",
+                  "title": "Response",
+                  "minutes": 10
+                },
+                {
+                  "id": "v6",
+                  "title": "Fellowship",
+                  "minutes": 15
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "meetings.readAgenda",
+            "arguments": {
+              "meeting": "M"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "sections": [
+                {
+                  "id": "custom",
+                  "title": "Our welcome",
+                  "minutes": 20
+                }
+              ],
+              "total_minutes": 20,
+              "agenda_source_version": 1
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-MTG-006",

@@ -404,7 +404,22 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
   const integratedOutput=join(integratedWt,'tests/integration/target/wp-057/fixture.txt');mkdirSync(join(integratedWt,'tests/integration/target/wp-057'),{recursive:true});writeFileSync(integratedOutput,'Reviewed complete integration');importGit(integratedWt,'add','tests/integration/target/wp-057/fixture.txt');importGit(integratedWt,'commit','-qm','Integration output');
   const integrationState=f.getState();integrationState.mergeBranch=integration.branch;f.setState(integrationState);
   verify(f.root,integration,'author','full');verify(f.root,integration,'verifier','full');assert.equal(ship(f.root,integration,{maxUpdates:0}),0);
-  assert.equal(loadProgress(f.root)['WP-001'].status,'in_progress');listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
+  assert.equal(loadProgress(f.root)['WP-001'].status,'in_progress');
+  // Even a signed passing integration report cannot close a package with an impossible case.
+  const casePath=join(f.root,'docs/acceptance/meetings-follow-up.json'),caseBytes=readFileSync(casePath,'utf8');
+  const manifestPath=join(f.root,'docs/plan/context-manifest.json'),manifestBytes=readFileSync(manifestPath,'utf8');
+  const caseFile=JSON.parse(caseBytes),agenda=caseFile.cases.find((c:{id:string})=>c.id==='TARGET-MTG-005');
+  agenda.work_packages.push('WP-001');agenda.action.arguments.expected_answer=agenda.expected.result;
+  writeFileSync(casePath,JSON.stringify(caseFile));
+  execFileSync('python3',[join(f.root,'docs/package-context.py'),'--root',f.root,'--refresh-manifest']);
+  const beforeRejectedClosure=readFileSync(progressPath,'utf8');
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*expected answer|Closure requires runnable cases.*expected_answer/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  delete agenda.action.arguments.expected_answer;writeFileSync(casePath,JSON.stringify(caseFile));
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires available case actions.*WP-001\/TARGET-MTG-005/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  writeFileSync(casePath,caseBytes);writeFileSync(manifestPath,manifestBytes);
+  listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
   const closed=readFileSync(progressPath,'utf8');listShipped(f.root,[integration.id]);assert.equal(readFileSync(progressPath,'utf8'),closed);
  }finally{console.log=oldLog;f.close();}
 });

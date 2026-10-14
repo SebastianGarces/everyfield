@@ -50,6 +50,10 @@
           "path": "docs/reference/playbook.md",
           "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
           "bytes": 34025
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "manifest_release": "everyfield-reference-inputs-2026-10-13"
         }
       },
       "actor": {
@@ -64,8 +68,7 @@
       "action": {
         "operation": "reference.packagePlaybook",
         "arguments": {
-          "source": "playbook",
-          "manifest_release": "everyfield-reference-inputs-2026-10-13"
+          "source": "playbook"
         }
       },
       "expected": {
@@ -111,6 +114,10 @@
               "fixture_type": "reference_file",
               "path": "docs/reference/playbook.md",
               "available": false
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13"
             }
           },
           "actor": {
@@ -125,8 +132,7 @@
           "action": {
             "operation": "reference.packagePlaybook",
             "arguments": {
-              "source": "playbook",
-              "manifest_release": "everyfield-reference-inputs-2026-10-13"
+              "source": "playbook"
             }
           },
           "expected": {
@@ -173,6 +179,10 @@
               "path": "docs/reference/playbook.md",
               "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
               "bytes": 34025
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
             }
           },
           "actor": {
@@ -187,8 +197,7 @@
           "action": {
             "operation": "reference.packagePlaybook",
             "arguments": {
-              "source": "playbook",
-              "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              "source": "playbook"
             }
           },
           "expected": {
@@ -223,6 +232,10 @@
               "fixture_type": "session",
               "account": "foreign-actor",
               "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13"
             }
           },
           "actor": {
@@ -237,8 +250,7 @@
           "action": {
             "operation": "reference.packagePlaybook",
             "arguments": {
-              "source": "playbook",
-              "manifest_release": "everyfield-reference-inputs-2026-10-13"
+              "source": "playbook"
             }
           },
           "expected": {
@@ -263,6 +275,11 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13",
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -277,9 +294,7 @@
           "action": {
             "operation": "reference.packagePlaybook",
             "arguments": {
-              "source": "playbook",
-              "manifest_release": "everyfield-reference-inputs-2026-10-13",
-              "fault": "required_source_unavailable"
+              "source": "playbook"
             }
           },
           "expected": {
@@ -804,6 +819,10 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -818,8 +837,7 @@
           "action": {
             "operation": "reference.packageTaskTemplates",
             "arguments": {
-              "source": "templates",
-              "fault": "required_source_unavailable"
+              "source": "templates"
             }
           },
           "expected": {
@@ -981,6 +999,10 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -995,8 +1017,7 @@
           "action": {
             "operation": "reference.packageTeamTemplates",
             "arguments": {
-              "source": "templates",
-              "fault": "required_source_unavailable"
+              "source": "templates"
             }
           },
           "expected": {
@@ -1023,7 +1044,7 @@
         "AC-REF-006--REF-006"
       ],
       "work_packages": [
-        "WP-032"
+        "WP-027"
       ],
       "status": "future-not-run",
       "description": "Seven registered system templates; plant fork changed subject",
@@ -1066,6 +1087,16 @@
           "source": "system",
           "subject": "Our invitation",
           "body": "Welcome {{name}}."
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "release": "R1",
+          "repeat": 2
+        },
+        "source": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/communication-system-templates.ts",
+          "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
         }
       },
       "actor": {
@@ -1080,8 +1111,7 @@
       "action": {
         "operation": "reference.installMessageTemplates",
         "arguments": {
-          "release": "R1",
-          "repeat": 2
+          "source": "source"
         }
       },
       "expected": {
@@ -1187,6 +1217,11 @@
               "fixture_type": "session",
               "account": "foreign-actor",
               "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "release": "R1",
+              "repeat": 2
             }
           },
           "actor": {
@@ -1200,10 +1235,7 @@
           },
           "action": {
             "operation": "reference.installMessageTemplates",
-            "arguments": {
-              "release": "R1",
-              "repeat": 2
-            }
+            "arguments": {}
           },
           "expected": {
             "state": {},
@@ -1227,6 +1259,12 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "release": "R1",
+              "repeat": 2,
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -1240,11 +1278,7 @@
           },
           "action": {
             "operation": "reference.installMessageTemplates",
-            "arguments": {
-              "release": "R1",
-              "repeat": 2,
-              "fault": "required_source_unavailable"
-            }
+            "arguments": {}
           },
           "expected": {
             "state": {},
@@ -1257,6 +1291,14 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [],
+            "reason": "The original scenario exercises reference.installMessageTemplates and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -1485,6 +1527,14 @@
           "hashes_valid": true,
           "editorial_conflict": true,
           "original_available": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "bundle": "candidate"
+        },
+        "R2": {
+          "fixture_type": "reference_generation",
+          "id": "R2"
         }
       },
       "actor": {
@@ -1499,7 +1549,7 @@
       "action": {
         "operation": "reference.validateBundle",
         "arguments": {
-          "bundle": "candidate"
+          "candidate": "R2"
         }
       },
       "expected": {
@@ -1538,6 +1588,10 @@
               "fixture_type": "session",
               "account": "foreign-actor",
               "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "bundle": "candidate"
             }
           },
           "actor": {
@@ -1552,7 +1606,7 @@
           "action": {
             "operation": "reference.validateBundle",
             "arguments": {
-              "bundle": "candidate"
+              "candidate": "R2"
             }
           },
           "expected": {
@@ -1577,6 +1631,11 @@
               "revision": 7,
               "material_revision": 11,
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "bundle": "candidate",
+              "fault": "required_source_unavailable"
             }
           },
           "actor": {
@@ -1591,8 +1650,7 @@
           "action": {
             "operation": "reference.validateBundle",
             "arguments": {
-              "bundle": "candidate",
-              "fault": "required_source_unavailable"
+              "candidate": "R2"
             }
           },
           "expected": {
@@ -1678,10 +1736,23 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "release": "R1",
           "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "repeat": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "release": "R1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "repeat": 2
+        },
+        "R1": {
+          "fixture_type": "reference_release",
+          "id": "R1",
+          "state": "validated",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }
       },
       "actor": {
@@ -1694,12 +1765,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "reference.activateGeneration",
         "arguments": {
-          "subject": "P",
-          "release": "R1",
-          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "repeat": 2
+          "generation": "R1",
+          "expected_activation": 0,
+          "request_key": "activate-1"
         }
       },
       "expected": {
@@ -1726,11 +1796,7 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
-        "WP-032",
-        "WP-033",
-        "WP-034",
-        "WP-036"
+        "WP-034"
       ],
       "status": "future-not-run",
       "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing custom org version/hide and completed reader.",
@@ -1798,7 +1864,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "wiki.articles.get",
         "arguments": {
           "subject": "P",
           "new_global_version": 2,
@@ -1816,7 +1882,27 @@
           "upstream_cue": "in_app"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises wiki.articles.get and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-027",
+              "WP-033",
+              "WP-036"
+            ],
+            "reason": "Corrected action exercises wiki.articles.get; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "REFREL-003",
@@ -1887,9 +1973,18 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "candidate": "R2",
           "missing_chunk": "C2"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "missing_chunk": "C2"
+        },
+        "R2": {
+          "fixture_type": "reference_generation",
+          "id": "R2"
         }
       },
       "actor": {
@@ -1904,9 +1999,7 @@
       "action": {
         "operation": "reference.validateBundle",
         "arguments": {
-          "subject": "P",
-          "candidate": "R2",
-          "missing_chunk": "C2"
+          "candidate": "R2"
         }
       },
       "expected": {
@@ -1987,7 +2080,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "expected_activation": 1,
           "candidates": [
             "R2",
@@ -1996,6 +2089,37 @@
           "concurrent": true,
           "stale_worker_generation": 1,
           "current_generation": 2
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "parallel_calls": [
+            {
+              "operation": "reference.activateGeneration",
+              "arguments": {
+                "generation": "R3",
+                "expected_activation": 1,
+                "request_key": "activate-R3"
+              }
+            }
+          ],
+          "stale_worker_generation": 1,
+          "current_generation": 2
+        },
+        "R1": {
+          "fixture_type": "reference_generation",
+          "id": "R1"
+        },
+        "R2": {
+          "fixture_type": "reference_release",
+          "id": "R2",
+          "state": "validated",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "R3": {
+          "fixture_type": "reference_release",
+          "id": "R3",
+          "state": "validated",
+          "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       },
       "actor": {
@@ -2008,18 +2132,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "reference.activateGeneration",
         "arguments": {
-          "subject": "P",
-          "expected_revision": 3,
+          "generation": "R2",
           "expected_activation": 1,
-          "candidates": [
-            "R2",
-            "R3"
-          ],
-          "concurrent": true,
-          "stale_worker_generation": 1,
-          "current_generation": 2
+          "request_key": "activate-R2"
         }
       },
       "expected": {
@@ -2105,6 +2222,10 @@
           "id": 2,
           "generation": "R2",
           "previous": "R1"
+        },
+        "R1": {
+          "fixture_type": "reference_generation",
+          "id": "R1"
         }
       },
       "actor": {
@@ -2153,7 +2274,6 @@
       ],
       "work_packages": [
         "WP-027",
-        "WP-032",
         "WP-033",
         "WP-034",
         "WP-036"
@@ -2253,7 +2373,17 @@
           "cached_body": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-032"
+            ],
+            "reason": "The original scenario exercises wiki.articles.get and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "REFREL-007",
@@ -2324,10 +2454,20 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "candidate": "R2",
           "source_hash_matches": false,
           "body": "SECRET-CANARY"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "source_hash_matches": false,
+          "body": "SECRET-CANARY"
+        },
+        "R2": {
+          "fixture_type": "reference_generation",
+          "id": "R2"
         }
       },
       "actor": {
@@ -2342,10 +2482,7 @@
       "action": {
         "operation": "reference.validateBundle",
         "arguments": {
-          "subject": "P",
-          "candidate": "R2",
-          "source_hash_matches": false,
-          "body": "SECRET-CANARY"
+          "candidate": "R2"
         }
       },
       "expected": {
@@ -2371,11 +2508,8 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
-        "WP-032",
-        "WP-033",
-        "WP-034",
-        "WP-036"
+        "WP-043",
+        "WP-058"
       ],
       "status": "future-not-run",
       "description": "Assessment pins old reference; activation changes before publication.",
@@ -2426,7 +2560,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "run_reference_activation": 1,
           "current_reference_activation": 2,
           "prior_result": "R0"
@@ -2442,12 +2576,10 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "intelligence.publishAssessment",
         "arguments": {
-          "subject": "P",
-          "run_reference_activation": 1,
-          "current_reference_activation": 2,
-          "prior_result": "R0"
+          "run": "run-1",
+          "expected_activation": 1
         }
       },
       "expected": {

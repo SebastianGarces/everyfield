@@ -127,7 +127,99 @@ def vocabulary_errors(value, fixtures, vocabularies, location, table=None):
     return errors
 
 
-def check(root):
+
+PROOF_ACTIONS = {'sql.inspectConstraints', 'sql.inspectEventRows', 'sql.inspectRuntimeGrants',
+                 'build.inspectBrowserBundle', 'configuration.inspectProviderPrivacy',
+                 'configuration.inspectMixedEnvironment'}
+SETUP_TYPES = {'domain_inputs', 'behavior_inputs', 'example', 'fixture', 'test_setup'}
+HARNESS_KEYS = {'fault', 'fault_control', 'recording_fault_control', 'foreign_control',
+                'invalid_control', 'repeat', 'concurrent', 'concurrent_requests',
+                'concurrent_accepts', 'concurrent_registrations', 'provider_response',
+                'provider_responses', 'provider_accepted', 'current_generation',
+                'old_generation', 'current_source_revision', 'expected_answer', 'expected', 'result'}
+REFERENCE_FIELDS = {'invitation', 'proof', 'discovery', 'organization', 'person', 'personId',
+                    'account', 'plant', 'tenant', 'meeting', 'task', 'intent', 'occurrence',
+                    'object', 'upload', 'generation', 'candidate', 'snapshot', 'current_manifest',
+                    'request', 'seat', 'feedback', 'proposal', 'report', 'preview', 'job', 'article'}
+
+
+def leaves(value):
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from leaves(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from leaves(child)
+    else:
+        yield value
+
+
+def runnable_errors(case, example, given, operations, requirement, name):
+    """Check case semantics without prescribing an implementation signature.
+
+    These checks reject known impossible examples. Independent review still establishes
+    that a chosen operation, fixtures and all scenario portions prove the requirement.
+    """
+    errors = []
+    action = example.get('action', {})
+    oid = action.get('operation')
+    args = action.get('arguments', {})
+    expected = example.get('expected', {})
+    if oid in PROOF_ACTIONS:
+        # Inspections belong only to declared platform-proof layers, not domain examples.
+        layer = oid.split('.')[0]
+        if layer not in case.get('layers', []):
+            return [f'{name}: proof inspection requires its {layer} layer']
+        return errors
+    operation = operations.get(oid)
+    if not operation:
+        return [f'{name}: action must name an inventory operation or registered proof inspection']
+    for key in HARNESS_KEYS & args.keys():
+        errors.append(f'{name}: {key} is test setup, not an operation input')
+    for key in args:
+        if key.startswith('expected_') and key not in {
+                'expected_revision', 'expected_revisions', 'expected_activation',
+                'expected_relationship_revision', 'expected_consent_revision', 'expected_post_revision'}:
+            errors.append(f'{name}: expected answer {key} cannot be an operation input')
+    for label, fixture in given.items():
+        typ = fixture.get('fixture_type', '')
+        values = {k: v for k, v in fixture.items() if k != 'fixture_type'}
+        if values and (typ in SETUP_TYPES or typ.endswith('_fixture')) and all(
+                k in args and args[k] == v for k, v in values.items()):
+            errors.append(f'{name}: arguments copy scenario fixture {label}')
+    if 'fixture_type' in args:
+        errors.append(f'{name}: arguments contain a fixture wrapper')
+    for key in REFERENCE_FIELDS & args.keys():
+        value = args[key]
+        if isinstance(value, str) and value not in given:
+            # Raw UUIDs/URLs and literal environment selectors are boundary inputs.
+            if key in {'report', 'proposal', 'snapshot', 'current_manifest', 'preview'} or re.fullmatch(
+                    r'(?:[A-Za-z]+[0-9]+|[A-Z][A-Za-z]*|[a-z]+-[A-Za-z0-9-]+)', value):
+                errors.append(f'{name}: {key} references undefined fixture {value}')
+    if case['id'].startswith('TARGET-') and args.get('person') == 'Alex' and 'subject' in args and not oid.startswith('people.'):
+        errors.append(f'{name}: generic TARGET Person template does not exercise {oid}')
+    if operation['kind'] == 'query':
+        result = expected.get('result', {})
+        inputs = list(leaves(args))
+        informative = [v for v in leaves(result) if v is not None and not isinstance(v, bool)
+                       and (not isinstance(v, (int, float)) or v not in [0, 1])
+                       and (not isinstance(v, str) or len(v) > 3)]
+        if informative and all(any(type(v) is type(i) and v == i for i in inputs) for v in informative):
+            errors.append(f'{name}: query expected answer is already supplied in arguments')
+        for label, changes in expected.get('state', {}).items():
+            if isinstance(changes, dict) and label in given and any(
+                    k in given[label] and v != given[label][k] for k, v in changes.items()):
+                errors.append(f'{name}: read operation cannot change fixture {label}')
+        if isinstance(result, dict) and any(isinstance(v, (int, float)) and not isinstance(v, bool)
+                and v > 0 and re.search(r'(?:writes|inserted|new_effects|receipts)$', k)
+                for k, v in result.items()):
+            errors.append(f'{name}: read operation cannot produce write effects')
+        if case['id'].startswith('TARGET-') and not case.get('subcases') and any(
+                operations.get(o, {}).get('kind') == 'command' for o in requirement.get('operations', [])):
+            errors.append(f'{name}: TARGET write scenarios need a command action or explicit command subcases')
+    return errors
+
+def check(root, package=None):
     index = read(root / 'docs/catalog/index.json')
     schema = read(root / 'docs/acceptance/case.schema.json')
     vocabularies = closed_vocabularies(read(root / 'docs/schema/target.json'))
@@ -136,10 +228,12 @@ def check(root):
     bundles = read(root / index['acceptance_source'])
     operations = read(root / index['operation_source'])['operations']
     operation_ids = {o['id'] for o in operations}
-    proof_actions = {'sql.inspectConstraints', 'sql.inspectEventRows',
-                     'sql.inspectRuntimeGrants', 'build.inspectBrowserBundle',
-                     'configuration.inspectProviderPrivacy',
-                     'configuration.inspectMixedEnvironment'}
+    operation_by = {o['id']: o for o in operations}
+    dag = read(root / 'docs/plan/dag.json')
+    s0 = set(next(s['required_packages'] for s in dag['vertical_slices'] if s['id'] == 'S0'))
+    if package and package not in {p['id'] for p in dag['packages']}:
+        raise ValueError('Unknown package: ' + package)
+    later = defaultdict(set)
     forbidden = {normalize(r['text']) for r in requirements.values()}
     cases = {}
     inputs = {}
@@ -176,8 +270,14 @@ def check(root):
                 else:
                     inputs[signature] = (name, expected)
                 operation = example.get('action', {}).get('operation')
-                if operation not in operation_ids | proof_actions:
+                if operation not in operation_ids | PROOF_ACTIONS:
                     errors.append(f'{name}: unknown operation {operation}')
+                problems = runnable_errors(case, example, given, operation_by,
+                                           requirements.get(requirement, {}), name)
+                if s0.intersection(case.get('work_packages', [])) or package in case.get('work_packages', []):
+                    errors.extend(problems)
+                elif problems:
+                    later[cid].update(problems)
                 if repeats_requirement(example.get('expected', {}), own_texts, forbidden):
                     errors.append(f'{name}: expected repeats requirement text')
                 try:
@@ -215,15 +315,19 @@ def check(root):
               if 'cases' in read(p)}
     if actual != registered:
         errors.append('case files differ from catalog registration')
+    print(f'Runnable cases: {len(later)} later-package cases still need repair ({sum(map(len, later.values()))} findings).')
+    if package:
+        print(f'Closure check: every owned {package} case must be runnable.')
     return errors, cases
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument('--package', help='Fail on runnable-case defects for this package at closure')
     args = parser.parse_args()
     try:
-        errors, cases = check(args.root)
+        errors, cases = check(args.root, args.package)
     except (ValueError, KeyError, OSError) as error:
         print(f'FAIL: {error}', file=sys.stderr)
         return 1

@@ -1840,12 +1840,33 @@
           "body": "Prepare a leadership conversation."
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "object": "D",
           "owner": "P",
           "issued_at": "2026-10-13T16:00:00Z",
           "TTL_seconds": 300,
           "foreign_actor": "B"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "article": "g1",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "object": "D",
+          "issued_at": "2026-10-13T16:00:00Z",
+          "TTL_seconds": 300,
+          "foreign_actor": "B"
+        },
+        "D": {
+          "fixture_type": "stored_object",
+          "id": "D",
+          "owner": "P",
+          "status": "ready",
+          "bytes_utf8": "Welcome Alex."
         }
       },
       "actor": {
@@ -1858,20 +1879,9 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "storage.putPrivateObject",
+        "operation": "storage.createAuthorizedDownload",
         "arguments": {
-          "subject": "P",
-          "article": "g1",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "object": "D",
-          "owner": "P",
-          "issued_at": "2026-10-13T16:00:00Z",
-          "TTL_seconds": 300,
-          "foreign_actor": "B"
+          "object": "D"
         }
       },
       "expected": {
@@ -1882,7 +1892,42 @@
           "referenced_object_deleted": false
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "foreign-download-denied",
+          "given": {
+            "session-B": {
+              "fixture_type": "session",
+              "account": "B",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "B",
+            "session": "session-B",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "storage.createAuthorizedDownload",
+            "arguments": {
+              "object": "D"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "download_url": null
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "CASE-DOC-016",
@@ -3581,11 +3626,22 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "articles": 96,
           "sections": 21,
           "mail_templates": 7,
           "document_templates": 11
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "articles": 96,
+          "sections": 21,
+          "mail_templates": 7,
+          "document_templates": 11
+        },
+        "R1": {
+          "fixture_type": "reference_generation",
+          "id": "R1"
         }
       },
       "actor": {
@@ -3600,10 +3656,9 @@
       "action": {
         "operation": "reference.activateGeneration",
         "arguments": {
-          "articles": 96,
-          "sections": 21,
-          "mail_templates": 7,
-          "document_templates": 11
+          "generation": "R1",
+          "expected_activation": 0,
+          "request_key": "activate-1"
         }
       },
       "expected": {
@@ -4292,8 +4347,6 @@
         "AC-WIKI-011--WIKI-011"
       ],
       "work_packages": [
-        "WP-005",
-        "WP-009",
         "WP-034",
         "WP-036",
         "WP-037",
@@ -4902,6 +4955,17 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-005",
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -7071,23 +7135,26 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "input": {
-          "fixture_type": "example",
-          "prior_read_version": 1,
-          "publications": [
-            {
-              "version": 2,
-              "meaningful": false
-            },
-            {
-              "version": 3,
-              "meaningful": true
-            },
-            {
-              "version": 4,
-              "meaningful": false
-            }
-          ]
+        "g1": {
+          "fixture_type": "article_revision",
+          "id": "g1",
+          "source": "global",
+          "current_version": 2,
+          "body": "Corrected spelling.",
+          "public": true,
+          "meaningful_versions": [],
+          "revision_number": 2,
+          "meaningful": false,
+          "meaningful_sequence": 0
+        },
+        "read-A": {
+          "fixture_type": "reading",
+          "account": "A",
+          "article_id": "g1",
+          "completed_revision_id": "g1-v1",
+          "completed_fraction": 0.81,
+          "last_read_meaningful_sequence": 0,
+          "completed_at": "2026-10-01T12:00:00Z"
         }
       },
       "actor": {
@@ -7100,37 +7167,144 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.invalidateWikiCache",
+        "operation": "wiki.articles.get",
         "arguments": {
-          "prior_read_version": 1,
-          "publications": [
-            {
-              "version": 2,
-              "meaningful": false
-            },
-            {
-              "version": 3,
-              "meaningful": true
-            },
-            {
-              "version": 4,
-              "meaningful": false
-            }
-          ]
+          "article": "g1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "labels_after_publication": [
-            false,
-            true,
-            true
-          ],
+          "updated_label": false,
           "completed": true
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "meaningful",
+          "given": {
+            "g1": {
+              "fixture_type": "article_revision",
+              "id": "g1",
+              "source": "global",
+              "current_version": 3,
+              "body": "Updated guidance.",
+              "public": true,
+              "meaningful_versions": [
+                3
+              ],
+              "revision_number": 3,
+              "meaningful_sequence": 1,
+              "meaningful": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "wiki.articles.get",
+            "arguments": {
+              "article": "g1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "updated_label": true,
+              "completed": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "intervening-typo",
+          "given": {
+            "g1": {
+              "fixture_type": "article_revision",
+              "id": "g1",
+              "source": "global",
+              "current_version": 4,
+              "body": "Updated guidance.",
+              "public": true,
+              "meaningful_versions": [
+                3
+              ],
+              "revision_number": 4,
+              "meaningful_sequence": 1,
+              "meaningful": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "wiki.articles.get",
+            "arguments": {
+              "article": "g1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "updated_label": true,
+              "completed": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "publisher-flag-absent",
+          "given": {
+            "g1": {
+              "fixture_type": "article_revision",
+              "id": "g1",
+              "source": "global",
+              "current_version": 2,
+              "body": "Updated guidance.",
+              "public": true,
+              "meaningful_versions": [],
+              "revision_number": 2,
+              "meaningful_sequence": 0
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "wiki.articles.get",
+            "arguments": {
+              "article": "g1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "updated_label": false,
+              "completed": true
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "WIKI49-003",
@@ -7335,9 +7509,7 @@
         "AC-WIKI-009--WIKI-009"
       ],
       "work_packages": [
-        "WP-035",
-        "WP-031",
-        "WP-030"
+        "WP-035"
       ],
       "status": "future-not-run",
       "description": "Customized org article and inherited article each receive published global typo/meaningful change.",
@@ -7394,7 +7566,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.cancelForEntity",
+        "operation": "wiki.articles.get",
         "arguments": {
           "S1_fork": "S1 guidance.",
           "global_updates": [
@@ -7417,7 +7589,25 @@
           "inherited_current_version": 3
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises wiki.articles.get and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "Corrected action exercises wiki.articles.get; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "WIKI52-002",
@@ -7472,11 +7662,33 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "input": {
-          "fixture_type": "example",
+          "fixture_type": "test_setup",
           "editor": "A",
           "email_preference": true,
           "global_update": 2,
           "revoked_editor": "B"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "editor": "A",
+          "email_preference": true,
+          "global_update": 2,
+          "revoked_editor": "B"
+        },
+        "g1": {
+          "fixture_type": "article_revision",
+          "id": "g1",
+          "source": "global",
+          "revision": 2,
+          "meaningful": false
+        },
+        "org-article": {
+          "fixture_type": "organization_wiki_article",
+          "id": "org-article",
+          "organization": "S1",
+          "parent": "g1",
+          "customized": true,
+          "body": "S1 guidance."
         }
       },
       "actor": {
@@ -7489,12 +7701,10 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.cancelForEntity",
+        "operation": "notifications.emitWikiUpstreamReview",
         "arguments": {
-          "editor": "A",
-          "email_preference": true,
-          "global_update": 2,
-          "revoked_editor": "B"
+          "article": "g1",
+          "revision": 2
         }
       },
       "expected": {

@@ -19,9 +19,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -58,6 +56,12 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "authorization": null,
+          "registered_schedule": "notifications",
+          "forged_subject": "Q"
         }
       },
       "actor": {
@@ -71,11 +75,7 @@
       },
       "action": {
         "operation": "jobs.tickNotifications",
-        "arguments": {
-          "authorization": null,
-          "registered_schedule": "notifications",
-          "forged_subject": "Q"
-        }
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -119,6 +119,13 @@
               "fixture_type": "plant",
               "id": "Q",
               "timezone": "America/New_York"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "authorization": "valid-scheduler-secret",
+              "registered_schedule": "notifications",
+              "forged_subject": "Q",
+              "forged_operation": "people.deletePerson"
             }
           },
           "actor": {
@@ -132,12 +139,7 @@
           },
           "action": {
             "operation": "jobs.tickNotifications",
-            "arguments": {
-              "authorization": "valid-scheduler-secret",
-              "registered_schedule": "notifications",
-              "forged_subject": "Q",
-              "forged_operation": "people.deletePerson"
-            }
+            "arguments": {}
           },
           "expected": {
             "state": {},
@@ -148,6 +150,17 @@
             "event": null
           },
           "name": "valid-schedule-cannot-select-subject"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.tickNotifications and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -167,9 +180,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -208,6 +219,15 @@
           "state": "ready",
           "generation": 4,
           "due_at": "2026-10-13T15:00:00Z"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "connections": [
+            "worker-1",
+            "worker-2"
+          ],
+          "concurrent": true,
+          "job": "J"
         }
       },
       "actor": {
@@ -221,14 +241,7 @@
       },
       "action": {
         "operation": "jobs.tickNotifications",
-        "arguments": {
-          "connections": [
-            "worker-1",
-            "worker-2"
-          ],
-          "concurrent": true,
-          "job": "J"
-        }
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -274,6 +287,12 @@
               "state": "claimed",
               "generation": 5,
               "lease_until": "2026-10-13T16:05:00Z"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "job": "J",
+              "claim_generation": 4,
+              "checkpoint": "complete"
             }
           },
           "actor": {
@@ -287,11 +306,7 @@
           },
           "action": {
             "operation": "jobs.tickNotifications",
-            "arguments": {
-              "job": "J",
-              "claim_generation": 4,
-              "checkpoint": "complete"
-            }
+            "arguments": {}
           },
           "expected": {
             "state": {},
@@ -303,6 +318,17 @@
             "event": null
           },
           "name": "expired-generation-cannot-publish"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.tickNotifications and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -322,9 +348,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -376,10 +400,23 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "backlogged_tenant": "P",
           "owed_tenant": "Q",
           "owed_job": "digest-Q"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "backlogged_tenant": "P",
+          "owed_tenant": "Q",
+          "owed_job": "digest-Q"
+        },
+        "digest-Q": {
+          "fixture_type": "job",
+          "id": "digest-Q",
+          "status": "pending",
+          "kind": "digest"
         }
       },
       "actor": {
@@ -394,10 +431,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "backlogged_tenant": "P",
-          "owed_tenant": "Q",
-          "owed_job": "digest-Q"
+          "job": "digest-Q"
         }
       },
       "expected": {
@@ -408,7 +442,18 @@
           "cancellation_slot_reserved": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-004",
@@ -426,9 +471,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -482,6 +525,12 @@
           "fixture_type": "executor_configuration",
           "invocation_budget_seconds": 90,
           "provider_timeout_seconds": 45
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "elapsed_seconds": 70,
+          "route_budget_seconds": 90,
+          "cursor": "page-2"
         }
       },
       "actor": {
@@ -495,11 +544,7 @@
       },
       "action": {
         "operation": "jobs.tickNotifications",
-        "arguments": {
-          "elapsed_seconds": 70,
-          "route_budget_seconds": 90,
-          "cursor": "page-2"
-        }
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -510,7 +555,18 @@
           "inflight_external_outcome": "unknown"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.tickNotifications and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-005",
@@ -528,9 +584,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -582,7 +636,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "provider_responses": [
             "retryable",
             "retryable",
@@ -590,6 +644,25 @@
             "permanent_denial"
           ],
           "RetryAfter": 60
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "request_key": "EXEC-005-request-1",
+          "repeat": 2,
+          "provider_responses": [
+            "retryable",
+            "retryable",
+            "retryable",
+            "permanent_denial"
+          ],
+          "RetryAfter": 60
+        },
+        "retry-J": {
+          "fixture_type": "job",
+          "id": "retry-J",
+          "status": "pending",
+          "kind": "mail"
         }
       },
       "actor": {
@@ -604,16 +677,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "request_key": "EXEC-005-request-1",
-          "repeat": 2,
-          "provider_responses": [
-            "retryable",
-            "retryable",
-            "retryable",
-            "permanent_denial"
-          ],
-          "RetryAfter": 60
+          "job": "retry-J"
         }
       },
       "expected": {
@@ -625,7 +689,18 @@
           "terminal_status": "failed"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-006",
@@ -643,9 +718,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -697,7 +770,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "missed_dates": [
             "2026-10-10",
             "2026-10-11",
@@ -705,6 +778,35 @@
           ],
           "compiled_Q_permission": true,
           "live_Q_permission": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "missed_dates": [
+            "2026-10-10",
+            "2026-10-11",
+            "2026-10-12"
+          ],
+          "compiled_Q_permission": true,
+          "live_Q_permission": false
+        },
+        "N1": {
+          "fixture_type": "organization",
+          "id": "N1",
+          "kind": "sending_network"
+        },
+        "P-N1": {
+          "fixture_type": "affiliation",
+          "plant": "P",
+          "organization": "N1",
+          "active": true,
+          "share_activity": false
+        },
+        "oversight-digest-J": {
+          "fixture_type": "job",
+          "id": "oversight-digest-J",
+          "status": "pending",
+          "kind": "digest"
         }
       },
       "actor": {
@@ -719,14 +821,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "missed_dates": [
-            "2026-10-10",
-            "2026-10-11",
-            "2026-10-12"
-          ],
-          "compiled_Q_permission": true,
-          "live_Q_permission": false
+          "job": "oversight-digest-J"
         }
       },
       "expected": {
@@ -737,7 +832,18 @@
           "stale_day_mails": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-007",
@@ -755,9 +861,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -809,7 +913,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "assessment_lease_seconds": 120,
           "provider_timeout_seconds": 45,
           "tick_budget_seconds": 90,
@@ -821,6 +925,24 @@
         "executor-config": {
           "fixture_type": "executor_configuration",
           "invocation_budget_seconds": 90
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "expected_revision": 3,
+          "assessment_lease_seconds": 120,
+          "provider_timeout_seconds": 45,
+          "tick_budget_seconds": 90,
+          "source_revision_at_start": 11,
+          "current_source_revision": 12,
+          "claim_generation": 4,
+          "current_generation": 5
+        },
+        "assessment-J": {
+          "fixture_type": "job",
+          "id": "assessment-J",
+          "status": "pending",
+          "kind": "assessment"
         }
       },
       "actor": {
@@ -835,15 +957,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "expected_revision": 3,
-          "assessment_lease_seconds": 120,
-          "provider_timeout_seconds": 45,
-          "tick_budget_seconds": 90,
-          "source_revision_at_start": 11,
-          "current_source_revision": 12,
-          "claim_generation": 4,
-          "current_generation": 5
+          "job": "assessment-J"
         }
       },
       "expected": {
@@ -857,7 +971,18 @@
           "time_only_demand_has_new_identity": true
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-008",
@@ -875,9 +1000,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -929,10 +1052,23 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "active_release": "R1",
           "candidate": "R2",
           "missing_chunk": "C2"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "active_release": "R1",
+          "candidate": "R2",
+          "missing_chunk": "C2"
+        },
+        "reference-J": {
+          "fixture_type": "job",
+          "id": "reference-J",
+          "status": "pending",
+          "kind": "reference_generation"
         }
       },
       "actor": {
@@ -947,10 +1083,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "active_release": "R1",
-          "candidate": "R2",
-          "missing_chunk": "C2"
+          "job": "reference-J"
         }
       },
       "expected": {
@@ -960,7 +1093,18 @@
           "R2_promoted": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-009",
@@ -978,9 +1122,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -1032,10 +1174,23 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "ready_file": "D1",
           "new_render": "timeout",
           "ready_reference": true
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
+          "ready_file": "D1",
+          "new_render": "timeout",
+          "ready_reference": true
+        },
+        "render-J": {
+          "fixture_type": "job",
+          "id": "render-J",
+          "status": "pending",
+          "kind": "document_render"
         }
       },
       "actor": {
@@ -1050,10 +1205,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P",
-          "ready_file": "D1",
-          "new_render": "timeout",
-          "ready_reference": true
+          "job": "render-J"
         }
       },
       "expected": {
@@ -1064,7 +1216,18 @@
           "new_status": "failed"
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-010",
@@ -1082,9 +1245,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -1133,6 +1294,11 @@
             101,
             102
           ]
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "repository_id": 10,
+          "marker": "feedback-occurrence-1"
         }
       },
       "actor": {
@@ -1147,9 +1313,7 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "job": "feedback-J",
-          "repository_id": 10,
-          "marker": "feedback-occurrence-1"
+          "job": "feedback-J"
         }
       },
       "expected": {
@@ -1160,7 +1324,18 @@
           "public_raw_fallback": null
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ]
     },
     {
       "id": "EXEC-011",
@@ -1178,9 +1353,7 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -1247,7 +1420,8 @@
         "arguments": {
           "subject": "P",
           "request": "R2",
-          "claim_generation": 2
+          "claim_generation": 2,
+          "chunk": 1
         }
       },
       "expected": {
@@ -1323,7 +1497,8 @@
             "arguments": {
               "subject": "P",
               "request": "R2",
-              "claim_generation": 2
+              "claim_generation": 2,
+              "chunk": 1
             }
           },
           "expected": {
@@ -1335,6 +1510,17 @@
             "event": null
           },
           "name": "before-deadline"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises maintenance.purgeEligibleSubject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -1354,9 +1540,6 @@
         "AC-OPS-001--OPS-001"
       ],
       "work_packages": [
-        "WP-007",
-        "WP-030",
-        "WP-031",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -1408,7 +1591,13 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
+          "schedule_configured": false,
+          "paid_tier_approved": false
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "subject": "P",
           "schedule_configured": false,
           "paid_tier_approved": false
         }
@@ -1423,12 +1612,8 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "jobs.manualRun",
-        "arguments": {
-          "subject": "P",
-          "schedule_configured": false,
-          "paid_tier_approved": false
-        }
+        "operation": "ops.readiness",
+        "arguments": {}
       },
       "expected": {
         "state": {},
@@ -1438,7 +1623,26 @@
           "paid_commitment": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007",
+              "WP-031"
+            ],
+            "reason": "The original scenario exercises jobs.manualRun and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "Corrected action exercises ops.readiness; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     }
   ]
 }

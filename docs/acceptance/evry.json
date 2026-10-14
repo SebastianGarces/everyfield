@@ -125,7 +125,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "program_sharing": true,
           "training_use": true,
           "optional_response_state": false
@@ -283,7 +283,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "user_says_enrolled": true,
           "operator_receipt": null
         }
@@ -437,7 +437,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "traffic": "synthetic",
           "contains_sensitive_data": false
         }
@@ -593,7 +593,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "paid_customer_rows": 1,
           "sharing_disabled": false,
           "ZDR_verified": false
@@ -750,7 +750,7 @@
           "active": true
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "paid_customer_data": true,
           "ZDR_verified": false
         }
@@ -914,7 +914,7 @@
           "note": "CARE-CANARY-AI44-006"
         },
         "case-input": {
-          "fixture_type": "domain_inputs",
+          "fixture_type": "test_setup",
           "store": false,
           "ZDR_verified": false,
           "private_canary": "CARE-CANARY",
@@ -1074,7 +1074,7 @@
           "active": true
         },
         "behavior-inputs": {
-          "fixture_type": "behavior_inputs",
+          "fixture_type": "test_setup",
           "review_approved": false,
           "audit_retention_user_approval": null
         }
@@ -1305,12 +1305,8 @@
         "AC-MTG-002--MTG-002"
       ],
       "work_packages": [
-        "WP-007",
         "WP-010",
-        "WP-020",
-        "WP-053",
-        "WP-055",
-        "WP-066"
+        "WP-055"
       ],
       "status": "future-not-run",
       "description": "Future one-time meeting 2026-10-20T15:00Z ; change church zone, then separate appointment edit.",
@@ -1343,9 +1339,21 @@
           "expires_at": "2026-11-12T16:00:00Z"
         },
         "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
+          "fixture_type": "test_setup",
           "appointment": "2026-10-20T15:00:00Z",
           "new_zone": "Pacific/Auckland"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "appointment": "2026-10-20T15:00:00Z",
+          "new_zone": "Pacific/Auckland"
+        },
+        "zone-preview": {
+          "fixture_type": "timezone_preview",
+          "plant": "P",
+          "revision": 7,
+          "new_zone": "Pacific/Auckland",
+          "current_zone": "America/Chicago"
         }
       },
       "actor": {
@@ -1358,10 +1366,12 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "calendar.resolve",
+        "operation": "plant.setTimezone",
         "arguments": {
-          "appointment": "2026-10-20T15:00:00Z",
-          "new_zone": "Pacific/Auckland"
+          "plant": "P",
+          "timezone": "Pacific/Auckland",
+          "expected_revision": 7,
+          "preview": "zone-preview"
         }
       },
       "expected": {
@@ -1371,7 +1381,27 @@
           "appointment_edits": 0
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-007"
+            ],
+            "reason": "The original scenario exercises plant.setTimezone and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-020",
+              "WP-053",
+              "WP-066"
+            ],
+            "reason": "Corrected action exercises plant.setTimezone; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ]
     },
     {
       "id": "B03-036",
@@ -9482,7 +9512,6 @@
         "AC-WIKI-004--WIKI-004"
       ],
       "work_packages": [
-        "WP-009",
         "WP-034",
         "WP-038",
         "WP-073"
@@ -9685,6 +9714,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-009"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -16559,7 +16598,6 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-011",
         "WP-014",
         "WP-052",
         "WP-055",
@@ -16796,6 +16834,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -17107,7 +17155,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-051",
         "WP-052",
         "WP-055",
@@ -17332,6 +17379,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -17594,7 +17651,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-052",
         "WP-053",
         "WP-055",
@@ -17815,6 +17871,16 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -17838,7 +17904,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-052",
         "WP-053",
         "WP-055",
@@ -18072,6 +18137,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -18612,7 +18687,6 @@
         "AC-PPL-008--PPL-008"
       ],
       "work_packages": [
-        "WP-011",
         "WP-022",
         "WP-052",
         "WP-053",
@@ -18849,6 +18923,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -21931,7 +22015,6 @@
         "AC-PPL-008--PPL-008"
       ],
       "work_packages": [
-        "WP-011",
         "WP-052",
         "WP-055",
         "WP-059"
@@ -22159,6 +22242,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -23180,7 +23273,6 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-011",
         "WP-052"
       ],
       "status": "future-not-run",
@@ -23389,6 +23481,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.resolveReferences and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },
@@ -25515,7 +25617,6 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-011",
         "WP-017",
         "WP-052",
         "WP-055",
@@ -25763,6 +25864,16 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -25790,7 +25901,6 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-011",
         "WP-017",
         "WP-052",
         "WP-055",
@@ -26035,6 +26145,16 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
       ]
     },
     {
@@ -26058,7 +26178,6 @@
         "AC-TEAM-008--TEAM-008"
       ],
       "work_packages": [
-        "WP-011",
         "WP-019",
         "WP-052",
         "WP-055",
@@ -26297,6 +26416,16 @@
             "event": null
           },
           "name": "required-boundary-failure"
+        }
+      ],
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-011"
+            ],
+            "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
         }
       ]
     },

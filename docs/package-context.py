@@ -358,8 +358,8 @@ def check_case_actions(root, package=None):
     baseline_policy = read(root, 'docs/plan/case-action-ordering-baseline.json')
     ledger = baseline_policy['entries']
     s0_policy = baseline_policy['s0_policy']
-    if s0_policy not in ['warn', 'fail']:
-        raise ValueError('Unknown S0 case-action baseline policy')
+    if s0_policy != 'fail':
+        raise ValueError('S0 case-action policy must fail; warning-only S0 repair is complete')
     baseline = {(e['owner'], e['case_id'], e['action_operation'], e['action_owner']) for e in ledger}
     if len(baseline) != len(ledger):
         raise ValueError('Duplicate case-action baseline entry')
@@ -376,21 +376,21 @@ def check_case_actions(root, package=None):
                 ancestry[pid] |= ancestors(dep)
         return ancestry[pid]
 
-    def action_operations(value):
-        if isinstance(value, dict):
-            if isinstance(value.get('operation'), str):
-                yield value['operation']
-            for child in value.values():
-                yield from action_operations(child)
-        elif isinstance(value, list):
-            for child in value:
-                yield from action_operations(child)
+    def action_operations(case):
+        # Operation selectors/review fixtures are data, not additional invocations.
+        yield case['action']['operation']
+        execution = case.get('given', {}).get('execution', {})
+        for field in ['parallel_calls', 'additional_calls']:
+            for call in execution.get(field, []):
+                yield call['operation']
+        for subcase in case.get('subcases', []):
+            yield from action_operations(subcase)
 
     failures, checked = [], 0
     current_pairs = set()
     for path in catalog['case_files']:
         for case in read(root, path)['cases']:
-            actions = set(action_operations(case.get('action'))) | set(action_operations(case.get('subcases')))
+            actions = set(action_operations(case))
             for pid in case.get('work_packages', []):
                 for oid in sorted(actions):
                     # SQL/build/configuration proof actions have no domain package owner;
@@ -408,14 +408,12 @@ def check_case_actions(root, package=None):
                     if unordered:
                         if entry in baseline:
                             counts[slices[pid]] += 1
-                        if entry not in baseline or (slices[pid] == 'S0' and s0_policy == 'fail') or package:
+                        if entry not in baseline or slices[pid] == 'S0' or package:
                             failures.append(f'{pid}/{case["id"]}: {oid} belongs to later or unordered {owner}')
     for pid, case_id, oid, owner in sorted(baseline - current_pairs):
         failures.append(f'{pid}/{case_id}: stale baseline entry for {oid} owned by {owner}')
     print('Open case-action baseline by owning slice: ' + ', '.join(f'{sid}={count}' for sid, count in counts.items()))
-    if counts['S0'] and s0_policy == 'warn':
-        print(f'WARN: {counts["S0"]} open S0 baseline entries await Round 2-4, which must clear them and set s0_policy to fail.')
-    print('Packages must clear their entries at package start and cannot close with open entries; check a package with WP-NNN --check-case-actions.')
+    print('Package closure rejects open entries; check a package with WP-NNN --check-case-actions.')
     if failures:
         raise ValueError(f'Owned case action ordering fails: {len(failures)} pairs; ' + '; '.join(failures[:20]))
     return checked

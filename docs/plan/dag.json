@@ -170,7 +170,7 @@
       "depends_on": [
         "WP-002"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-003; linked details on demand.",
         "WP-002 reviewed producer/interface milestone"
@@ -234,7 +234,7 @@
       "depends_on": [
         "WP-003"
       ],
-      "estimate_engineer_days": 5.5,
+      "estimate_engineer_days": 5.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-004; linked details on demand.",
         "WP-003 reviewed producer/interface milestone"
@@ -365,7 +365,7 @@
       "depends_on": [
         "WP-005"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-006; linked details on demand.",
         "WP-005 reviewed producer/interface milestone"
@@ -430,7 +430,7 @@
       "depends_on": [
         "WP-006"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-007; linked details on demand.",
         "WP-006 reviewed producer/interface milestone"
@@ -639,7 +639,7 @@
         "WP-008",
         "WP-009"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-010; linked details on demand.",
         "WP-007 reviewed producer/interface milestone",
@@ -1987,7 +1987,7 @@
         "WP-007",
         "WP-031"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-030; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
@@ -2119,7 +2119,7 @@
         "WP-001",
         "WP-004"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-032; linked details on demand.",
         "WP-001 reviewed producer/interface milestone",
@@ -2242,7 +2242,7 @@
         "WP-032",
         "WP-033"
       ],
-      "estimate_engineer_days": 5.0,
+      "estimate_engineer_days": 4.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-034; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
@@ -2312,7 +2312,7 @@
       "depends_on": [
         "WP-034"
       ],
-      "estimate_engineer_days": 5.0,
+      "estimate_engineer_days": 4.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-035; linked details on demand.",
         "WP-034 reviewed producer/interface milestone"
@@ -7255,9 +7255,9 @@
     "WP-031",
     "WP-005",
     "WP-006",
-    "WP-007",
-    "WP-008",
-    "WP-017",
+    "WP-011",
+    "WP-012",
+    "WP-015",
     "WP-019",
     "WP-045",
     "WP-046",
@@ -7275,8 +7275,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 96.0,
-  "total_engineer_days": 259.5,
+  "critical_path_unconstrained_days": 94.5,
+  "total_engineer_days": 255.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
