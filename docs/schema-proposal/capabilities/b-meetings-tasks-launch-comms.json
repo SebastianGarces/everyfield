@@ -1,0 +1,1582 @@
+{
+  "group": "B",
+  "modules": [
+    "meetings",
+    "tasks",
+    "launch",
+    "phases",
+    "private-checkins",
+    "communication",
+    "notifications"
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-B-001",
+      "name": "Meeting lifecycle and actual occurrence",
+      "feature_ids": [
+        "MTG-002",
+        "MTG-011"
+      ],
+      "persists": true,
+      "entities": [
+        "meeting",
+        "meeting occurrence",
+        "meeting creation receipt"
+      ],
+      "facts": [
+        "Plant, meeting identity, creator attribution, title, notes, type, subtype, current status and revision.",
+        "Type values vision_meeting, orientation, team_meeting and prelaunch_practice; subtype regular, training, planning, special or rehearsal; status planning, ready, in_progress, completed or cancelled.",
+        "Planned LocalDateTime, IANA zone, selected offset and resolved UTC Instant; actual occurrence Instant, held evidence and void/correction lineage separately.",
+        "Optional team, chosen venue and copied venue name/address; Vision sequence number and immutable agenda/kit source version.",
+        "Exact initial guest roster and new-Person/guest/walk-in operation receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Vision numbers are unique within the plant.",
+        "Ordinary edits cannot change type or team identity.",
+        "A completed practice has a valid nonfuture held occurrence; practice has no Vision number, kit, response card, evaluation or first-Vision obligation."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting",
+        "meeting_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-002/011. Quick new guests use ordinary real People records. Scheduling and actual occurrence remain separate; retirement does not void a genuine occurrence."
+    },
+    {
+      "id": "CAP-B-002",
+      "name": "Venue facts, archive and restoration",
+      "feature_ids": [
+        "MTG-003",
+        "MTG-004"
+      ],
+      "persists": true,
+      "entities": [
+        "venue",
+        "venue correction"
+      ],
+      "facts": [
+        "Plant, venue identity, name, address, contact name/phone/email, cost description, optional capacity, notes, active state and revision.",
+        "Attributable old/new corrections, archive/restore reason and time.",
+        "Meeting-owned venue name/address snapshot, independent of current venue text."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Capacity is at least one when supplied.",
+        "New selection requires an active same-plant venue; an unchanged archived selection may remain.",
+        "Venue changes and restoration do not rewrite old meeting snapshots."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting_location",
+        "meeting",
+        "record_correction"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-003/004. Archive is reversible and linked meeting history survives."
+    },
+    {
+      "id": "CAP-B-003",
+      "name": "Ordered meeting agenda",
+      "feature_ids": [
+        "MTG-005"
+      ],
+      "persists": true,
+      "entities": [
+        "meeting agenda section"
+      ],
+      "facts": [
+        "Meeting, stable section identity, order, trimmed title and integer duration in minutes.",
+        "Immutable default source version captured when initialized; subsequent user edits are independent.",
+        "Vision default Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15; non-Vision initial agenda empty."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Zero to 40 sections; title length 1 to 120; duration 0 to 600 whole minutes.",
+        "Whole agenda replacement is atomic and retains exact section identities and order."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting",
+        "reference_template_version"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-005. Total duration is derived, and reference adoption cannot overwrite a saved agenda."
+    },
+    {
+      "id": "CAP-B-004",
+      "name": "Vision logistics kit",
+      "feature_ids": [
+        "MTG-006"
+      ],
+      "persists": true,
+      "entities": [
+        "meeting kit item",
+        "kit initialization identity"
+      ],
+      "facts": [
+        "Meeting and immutable kit source version; stable item identity, order, text, category, optional assigned Person, checked state and bounded notes.",
+        "Category essential, materials, setup, av or organization; explicit once-only seed identity and receipt."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Only Vision meetings have a kit.",
+        "Assignee is a live same-plant Person.",
+        "Repeated initialization preserves existing items and edits; uncheck reverses the current checked fact."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting_checklist_item",
+        "reference_template_version",
+        "command_receipt"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-006. Checked totals are derived; reading does not initialize data."
+    },
+    {
+      "id": "CAP-B-005",
+      "name": "Guest, RSVP and invitation attribution",
+      "feature_ids": [
+        "MTG-007",
+        "MTG-008",
+        "MTG-009",
+        "MTG-019",
+        "COM-010"
+      ],
+      "persists": true,
+      "entities": [
+        "meeting guest",
+        "invitation attribution",
+        "RSVP capability"
+      ],
+      "facts": [
+        "Meeting/Person guest identity, optional inviter Person, creation/import roster snapshot and current revision.",
+        "Canonical nullable Pending or confirmed/declined RSVP, responder provenance, response time and administrative reset/correction lineage.",
+        "Narrow token verifier, purpose, meeting/Person binding, credential revision, expiry, answered/revoked/superseded state and response time; token secret kept outside public histories.",
+        "Recognized legacy invitation response and inviter attribution with original historical meaning; merge/inverse collision references."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One current guest per meeting/Person and at most one live pending RSVP token per pair.",
+        "Inviter is live, same-plant, distinct from invitee, with no self-referral cycle.",
+        "Token answer and canonical RSVP update atomically; admin reset supersedes prior tokens.",
+        "RSVP is independent of attendance, cards, consent, commitment, contact and delivery."
+      ],
+      "retention": "Guest removal cancels pending linked tokens/reminders and removes current card with history; unrelated Person/contact/performed work survives. Tokens normally expire after seven days; answered attribution survives renewal under the subject deletion policy.",
+      "current_tables": [
+        "meeting_participation",
+        "meeting_invitation",
+        "meeting_rsvp_token",
+        "record_correction"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-007/008/009/019; communications-notifications.md, COM-010. No standalone invitation tree or name-only prospect store."
+    },
+    {
+      "id": "CAP-B-006",
+      "name": "Attendance and historical classification",
+      "feature_ids": [
+        "MTG-010",
+        "MTG-011"
+      ],
+      "persists": true,
+      "entities": [
+        "meeting participation",
+        "attendance classification evidence"
+      ],
+      "facts": [
+        "Meeting/Person identity, current attended/absent/excused presence and actual occurrence.",
+        "Recorded first_time/returning/core_group classification; Person stage/revision/as-of evidence and prior chronologically earlier actually attended Vision identity.",
+        "Creator/recorder and correction lineage; walk-in Person/guest/presence receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One meeting/Person participation; guest creation is initially absent.",
+        "A frozen finalized classification changes only through reviewed correction.",
+        "Batch presence and all validated Person references commit together; clearing presence leaves guest, RSVP and card facts."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting_participation",
+        "meeting",
+        "meeting_event",
+        "record_correction",
+        "command_receipt"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-010/011. Neither invitation nor RSVP nor non-Vision attendance establishes first-Vision attendance. Counts derive from unique attended Persons."
+    },
+    {
+      "id": "CAP-B-007",
+      "name": "Attendance finalization and stable generated obligations",
+      "feature_ids": [
+        "MTG-012",
+        "TSK-011"
+      ],
+      "persists": true,
+      "entities": [
+        "finalized attendance identity snapshot",
+        "follow-up obligation",
+        "managed evaluation duty"
+      ],
+      "facts": [
+        "Meeting attendance revision, finalized revision/time, exact attended Person identities and classification basis.",
+        "Immutable plant/origin-kind/origin-meeting/Person/obligation-kind identity and applicability snapshot; assignment, duty, current state/revision, waiver and source-correction lineage.",
+        "Captured actual origin Instant, original meeting LocalDate, IANA zone and formula version; due LocalDate is origin local day plus two.",
+        "One active managed task per obligation; independent meeting/kind identity for the evaluation duty.",
+        "Finalized/already_finalized/reconciled receipt and exact added/superseded obligations and People progression effects."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Distinct same-day meetings have distinct obligations; task edit/deletion cannot erase source identity or regenerate a waiver.",
+        "Finalization, attendance snapshot, People progression, obligations, evaluation task, audit and receipt are one transaction.",
+        "Even zero-attendee Vision produces an evaluation duty; lack of eligible assignee is explicit unowned work.",
+        "Identity replacements and removal reconcile exact identity deltas, not just counts."
+      ],
+      "retention": "Genuine retired origins and completed/waived/outcome history survive source changes. Removed unperformed obligations become source-corrected/no-longer-applicable, not successful. Erroneous-origin correction preserves old/new metric lineage. Apply plant purge and minimal shared attribution policy.",
+      "current_tables": [
+        "meeting",
+        "meeting_event",
+        "follow_up_obligation",
+        "task",
+        "task_status_event",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-020/021 and REQ-MTG-012; tasks.md, REQ-TSK-017/011. Finalization, meeting completed status and practice completion are independent."
+    },
+    {
+      "id": "CAP-B-008",
+      "name": "Vision response cards",
+      "feature_ids": [
+        "MTG-013"
+      ],
+      "persists": true,
+      "entities": [
+        "guest response card",
+        "response correction tombstone"
+      ],
+      "facts": [
+        "Meeting/guest/Person identity, response ready_commit/interested/prayer_request/stay_informed/not_interested.",
+        "Bounded prayer/question notes, immutable original recorder, actual occurrence and recording times, revision.",
+        "Old/new correction and clear tombstone with actor, reason and time."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One current card per existing Vision guest; no card for practice/non-Vision.",
+        "No card is absent evidence, distinct from not_interested.",
+        "Sensitive prayer/question notes have purpose-specific access and no automatic model or organization disclosure."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "vision_response",
+        "meeting_participation",
+        "record_correction"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-013. Attended versus absent card populations derive from separate presence evidence. Cards do not establish commitment or email consent."
+    },
+    {
+      "id": "CAP-B-009",
+      "name": "Human Vision evaluation and corrections",
+      "feature_ids": [
+        "MTG-014",
+        "MTG-015"
+      ],
+      "persists": true,
+      "entities": [
+        "Vision evaluation",
+        "evaluation correction"
+      ],
+      "facts": [
+        "Meeting and evaluator; attendance, location, logistics, agenda, vibe, message, close and next-steps factor scores, notes, reference version and actual recording date.",
+        "Current evaluation revision and old/new factor/notes correction, actor, reason and time.",
+        "First evaluation receipt and linked managed evaluation-task completion history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Exactly one human evaluation per Vision meeting; all eight factor scores are integers 1 to 5.",
+        "First evaluation insert and managed duty settlement commit together.",
+        "Correction changes effective scores without repeating original duty completion or rewriting old assessments."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "meeting_evaluation",
+        "record_correction",
+        "task",
+        "task_status_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-014/015. Arithmetic average, trend and comparison are derived; models do not supply scores."
+    },
+    {
+      "id": "CAP-B-010",
+      "name": "Meeting-provenance operational Person note",
+      "feature_ids": [
+        "MTG-017"
+      ],
+      "persists": true,
+      "entities": [
+        "authored Person activity note"
+      ],
+      "facts": [
+        "Person, exact meeting/type provenance, actual author, recorded Instant and trimmed note of 1 to 5000 characters.",
+        "Own-note edit/deletion correction lineage under the People contract."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Person and meeting have a current valid same-plant guest/attendance relation.",
+        "Server derives meeting provenance; client metadata cannot invent attribution."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "person_activity",
+        "record_correction"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-017; People owns note storage and authored correction rules. This is not private care."
+    },
+    {
+      "id": "CAP-B-011",
+      "name": "Meeting browsing and derived analytics",
+      "feature_ids": [
+        "MTG-001",
+        "MTG-016"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Actual attended Persons, earlier chronological evaluation evidence and current corrected facts define analytics; absent evidence stays Unknown.",
+        "Type/window and denominator remain explicit; no stored derived title, average, growth or attendance counter is needed solely for these reads."
+      ],
+      "retention": "No additional stored data.",
+      "current_tables": [
+        "meeting",
+        "meeting_participation",
+        "meeting_evaluation"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-001/016. Reads reuse meeting lifecycle, attendance and human evaluation capabilities; at most 50 eligible earlier evaluation records exclude self and equal Instant. Filter/cursor state needs no new product persistence."
+    },
+    {
+      "id": "CAP-B-012",
+      "name": "Ordinary task facts and protected relations",
+      "feature_ids": [
+        "TSK-002",
+        "TSK-016"
+      ],
+      "persists": true,
+      "entities": [
+        "task",
+        "task contextual relation"
+      ],
+      "facts": [
+        "Plant, task identity, trimmed bounded title, safe canonical description up to 50000 characters, category, closed priority, current status, creator, revision and creation time for created-order queues.",
+        "Optional assigned actual account and typed Person/meeting/team relation; managed source/obligation identity remains distinct and protected.",
+        "Due kind undated/date-only/timed; LocalDate, optional entered local time, IANA zone, selected offset, resolved Instant and DST resolver version.",
+        "Separate soft-deletion time and receipt; parent/dependency/series links when applicable."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Relation identifies exactly an allowed same-plant target; facility relation is refused.",
+        "Managed origin identity cannot change through ordinary task edits.",
+        "Date-only, timed and undated facts have mutually valid shapes; entered gap refuses and fold requires explicit offset choice."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "task",
+        "task_relation",
+        "command_receipt"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-002/016/018. Date-only overdue begins next stored church-local day; description preview is derived. Status history is separately inventoried."
+    },
+    {
+      "id": "CAP-B-013",
+      "name": "Task completion, reopening and attributable state history",
+      "feature_ids": [
+        "TSK-003",
+        "TSK-004",
+        "TSK-015"
+      ],
+      "persists": true,
+      "entities": [
+        "task status event",
+        "effective task completion"
+      ],
+      "facts": [
+        "Current state not_started/in_progress/blocked/complete/no_longer_needed; successful completion Instant and actor separate from soft deletion and waiver.",
+        "Every creation/transition previous and new state, actual occurrence Instant, recorded Instant, actor or named system cause, task revision and operation receipt.",
+        "Reopen/correction lineage and immutable generated-obligation waiver fact."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Task state and required outcome/successor/reminder/history effects commit atomically.",
+        "No-op replay creates no duplicate state event.",
+        "Waiver/deletion is not successful completion or contact; reopening clears effective completion while preserving prior evidence."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "task",
+        "task_status_event",
+        "follow_up_obligation",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-003/004/015. Actual current assignee governs Member own-duty access; actor removal leaves legitimate minimal historical attribution."
+    },
+    {
+      "id": "CAP-B-014",
+      "name": "One-level checklist children",
+      "feature_ids": [
+        "TSK-005"
+      ],
+      "persists": true,
+      "entities": [
+        "child task"
+      ],
+      "facts": [
+        "Parent task, child identity, order/label, actual assigned account, current state/revision and own completion attribution.",
+        "Inherited assignment at creation and explicit reviewed changes; recurring copies have fresh unchecked child identities."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One parent level only, no self/cycle/nesting or converting a parent with children into a child.",
+        "Children have no due date, recurrence, managed obligation, contact hook or completion automation.",
+        "Parent completion is independent; parent soft deletion preserves child/history evidence."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "task",
+        "task_status_event"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-005. Child Tasks are the only completion truth; inert template checklists need no separate live checkbox record."
+    },
+    {
+      "id": "CAP-B-015",
+      "name": "Advisory task prerequisites",
+      "feature_ids": [
+        "TSK-006"
+      ],
+      "persists": true,
+      "entities": [
+        "task prerequisite edge",
+        "edge change history"
+      ],
+      "facts": [
+        "Dependent task, prerequisite task and plant; current unique directed edges and attributable added/removed edge revision history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Only same-plant top-level tasks; unique edges, no self edge or graph cycle.",
+        "New candidates are not deleted; existing deleted predecessor and its history survive.",
+        "Unfinished actionable prerequisite blocking is derived and separate from manual blocked state."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "task_dependency",
+        "task",
+        "audit_event"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-006. Serialize graph changes for cycle integrity. Waived/completed/deleted predecessor releases advisory blocking without success credit."
+    },
+    {
+      "id": "CAP-B-016",
+      "name": "Task recurrence and occurrence lineage",
+      "feature_ids": [
+        "TSK-007"
+      ],
+      "persists": true,
+      "entities": [
+        "recurrence series",
+        "task occurrence"
+      ],
+      "facts": [
+        "Series identity, source version, daily/weekly/biweekly/monthly/quarterly/yearly interval, inclusive end LocalDate, local wall time/zone and active/stopped state.",
+        "Occurrence identity, predecessor/successor linkage and frozen task/checklist-copy facts.",
+        "Actual completion Instant and LocalDate used as anchor for an undated occurrence."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "At most one open occurrence per series and one successor per predecessor.",
+        "Completion, successor, reset children, history and reminder intent are atomic.",
+        "Older occurrence cannot reopen when another open successor exists."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "recurrence_series",
+        "task",
+        "task_status_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-007/018. Successor advances one interval, clamps month/year end and may already be overdue after late completion; no backfill calendar."
+    },
+    {
+      "id": "CAP-B-017",
+      "name": "Reviewed bulk duty changes and ownership handoff",
+      "feature_ids": [
+        "TSK-008",
+        "TSK-013"
+      ],
+      "persists": true,
+      "entities": [
+        "bulk operation receipt",
+        "follow-up handoff selection",
+        "durable chunk result"
+      ],
+      "facts": [
+        "Operation identity, frozen deduplicated selected task identities and expected revisions; requested completion/date or eligible old/new owner.",
+        "Per-task success/noop/missing/deleted/foreign/closed/unauthorized/stale/conflict results; committed, unsettled and remaining task IDs.",
+        "For handoff, named chunks, exact moved IDs, history/reminder effect references and result receipts."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Bulk request has at most 100 deduplicated IDs and invalid shared input writes nothing.",
+        "Handoff of at most 100 selected live parent duties is atomic; larger handoff uses recorded resumable chunks.",
+        "Replay resumes only unsettled effects and cannot duplicate recurrence or reopen closed/waived work."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "command_receipt",
+        "operation_execution",
+        "operation_effect",
+        "operation_result",
+        "task",
+        "task_status_event"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-008/013. Selection is exact human-reviewed input, not a mutable query; partial outcomes remain explicit."
+    },
+    {
+      "id": "CAP-B-018",
+      "name": "Follow-up assignment facts",
+      "feature_ids": [
+        "TSK-012"
+      ],
+      "persists": true,
+      "entities": [
+        "follow-up duty assignment"
+      ],
+      "facts": [
+        "Task and optional immutable obligation, current assigned account and its Person link, manual versus generated origin, current assignment revision and change attribution.",
+        "Explicit null/unowned assignment; historical departed owner retained separately from current eligibility."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
+        "Shared mailbox, title or unlinked contact never establishes ownership.",
+        "Manual follow-up may be undated and has no invented 48-hour origin."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "task",
+        "follow_up_obligation",
+        "task_status_event",
+        "account_person_link",
+        "tenancy_membership"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-012. Needs owner and uncovered coverage derive from current eligibility and duties; no persisted coverage/urgency flag is needed."
+    },
+    {
+      "id": "CAP-B-019",
+      "name": "Task template imports and phase-offer answer",
+      "feature_ids": [
+        "TSK-009",
+        "TSK-010",
+        "PHASE-006"
+      ],
+      "persists": true,
+      "entities": [
+        "task template reference",
+        "template import receipt",
+        "phase offer answer"
+      ],
+      "facts": [
+        "Immutable canonical template version/key, phase/category, safe description, priority, relative LocalDate offsets and inert checklist definitions.",
+        "Actual phase-transition identity, one accept/decline answer, selected exact valid template keys/versions, author/time and receipt.",
+        "Import operation identity, anchor LocalDate, actual created task IDs and source-template lineage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One answer per actual transition; selected tasks and answer commit together or neither persists.",
+        "Transport retry repeats the same receipt; a deliberate new import identity may create another set.",
+        "Reference updates never rewrite imported ordinary Tasks."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "reference_template_version",
+        "phase_template_offer_response",
+        "template_import_receipt",
+        "phase_transition",
+        "task",
+        "command_receipt"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-009/010; methodology-intelligence.md, PHASE-006. Latest unanswered transition controls offer; acceptance may select any valid subset and decline creates no tasks."
+    },
+    {
+      "id": "CAP-B-020",
+      "name": "Derived task queues and counts",
+      "feature_ids": [
+        "TSK-001"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "My/All/Assignments, filters, current assignment eligibility and stable sort tuple plus identity operate on existing facts.",
+        "Parent and child counts use separate units; derived advisory blocking is not another stored status."
+      ],
+      "retention": "No additional stored data.",
+      "current_tables": [
+        "task",
+        "task_relation",
+        "task_dependency",
+        "follow_up_obligation"
+      ],
+      "notes": "docs/product/tasks.md, REQ-TSK-001. Page default 50/max 100, null due last; safe cursor validation and filter navigation require no new durable capability data."
+    },
+    {
+      "id": "CAP-B-021",
+      "name": "Typed human follow-up outcomes and contact evidence",
+      "feature_ids": [
+        "COM-011",
+        "TSK-003",
+        "TSK-011"
+      ],
+      "persists": true,
+      "entities": [
+        "follow-up outcome",
+        "outcome correction lineage"
+      ],
+      "facts": [
+        "Person, optional task/obligation and origin meeting linkage; typed contacted/attempted_no_contact/administrative_completion/no_longer_needed outcome.",
+        "Actual occurredAt, immutable recordedAt/original actor, revision, operation receipt, optional bounded operational notes and contact channel.",
+        "Correction old/new/reason/actor, superseded or voided outcome identity and attributable actual originating-task completion event."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Only valid effective human-confirmed contacted evidence contributes contact freshness.",
+        "Future/invalid contact or pre-origin successful completion cannot be valid evidence; truthful late recording is allowed.",
+        "Correction/reopen changes current effective evidence but cannot erase original receipts or resend mail."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "follow_up_outcome",
+        "follow_up_obligation",
+        "task",
+        "task_status_event",
+        "record_correction",
+        "command_receipt"
+      ],
+      "notes": "docs/product/meetings-follow-up.md, REQ-MTG-021/022 and COM-011. Timely originating-task fulfillment and confirmed actual contact are derived separately. Mature pending >=48 elapsed hours are misses, younger pending and waivers are separately excluded; manual/missing-origin and post-launch unsupported measures stay Unknown."
+    },
+    {
+      "id": "CAP-B-022",
+      "name": "Launch planned date, actual outcome and journal",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-002",
+        "LCH-006",
+        "LCH-007",
+        "LCH-010"
+      ],
+      "persists": true,
+      "entities": [
+        "launch",
+        "launch change event"
+      ],
+      "facts": [
+        "One plant launch identity, active target LocalDate, actual nonfuture occurrence LocalDate and planning/scheduled/postponed/completed state.",
+        "Nullable actual attendance/decisions counts from 0 to 1000000 and optional outcome text up to 10000 characters.",
+        "Revision, original outcome receipt, old/new date/status/outcome/milestone facts, event kind, actor, actual occurrence and recording time, attributed reason up to 2000 characters."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Planned date is not actual occurrence; absent count is Unknown and recorded zero remains zero.",
+        "Postponement deliberately clears current target but retains former dates.",
+        "Replay/no-op does not duplicate change events; date edits do not rewrite Tasks or automatically move phase."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "launch",
+        "launch_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/launch.md, LCH-001/002/006/007/010. Actor deletion leaves minimal legitimate attribution."
+    },
+    {
+      "id": "CAP-B-023",
+      "name": "Launch milestone seeding and linked ordinary duties",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004",
+        "LCH-005",
+        "LCH-009",
+        "LCH-010"
+      ],
+      "persists": true,
+      "entities": [
+        "launch readiness milestone",
+        "seeded task identity",
+        "milestone/task link"
+      ],
+      "facts": [
+        "Launch and immutable reference version; nine fixed milestone keys, text, area and order; 23 initial undated launch_prep ordinary task template identities.",
+        "Unique seed identity per launch/milestone key and milestone/task-template key, retained creation receipts and deliberate deleted-task/link tombstones.",
+        "Current linked ordinary task identities; explicit milestone completion/reopen attribution and change history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "First schedule and complete nine/23 initialization commit together.",
+        "Repair creates genuinely missing seed items only and cannot resurrect deliberate deletion or reset existing Tasks.",
+        "Milestone completion has a live associated-task guard; linked Tasks retain ordinary assignment and completion authority."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "launch_milestone",
+        "launch_milestone_task",
+        "launch_event",
+        "task",
+        "reference_template_version",
+        "command_receipt"
+      ],
+      "notes": "docs/product/launch.md, LCH-003/004/005/009/010. The approved product contract says 23 tasks despite the stale LCH-003 feature title saying 22. Progress is derived; practice occurrence evidence belongs to Meetings, not task checkboxes."
+    },
+    {
+      "id": "CAP-B-024",
+      "name": "Named Launch guest attendance",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "persists": true,
+      "entities": [
+        "Launch/Person attendance relation"
+      ],
+      "facts": [
+        "Launch, real same-plant Person, named guest attendance kind, recorder, recorded time, revision and optional operational notes.",
+        "Person creation/attachment receipt and relation correction/void lineage; merge/retirement/safe-inverse references."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Unique current Launch/Person relation; single real supplied name is valid, contact fields optional.",
+        "New Person and relation commit atomically; duplicate selection never auto-merges by name.",
+        "Named roster need not equal aggregate headcount and creates no automatic follow-up."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "launch_person_attendance",
+        "person",
+        "record_correction",
+        "command_receipt"
+      ],
+      "notes": "docs/product/launch.md, Actual Launch and named guests. Aggregate counts cannot invent people or unknown names."
+    },
+    {
+      "id": "CAP-B-025",
+      "name": "Versioned Launch debrief evidence",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "persists": true,
+      "entities": [
+        "debrief draft",
+        "valid submitted debrief",
+        "debrief correction"
+      ],
+      "facts": [
+        "Launch/form version, draft answers and revision, latest valid submitted answers/receipt, author and submission/correction times.",
+        "Six question areas: canonical actual date/attendance reference, what went well, what to change, welcoming/children/worship/logistics, guest follow-up plan, operational support needed.",
+        "Single missing-name answer unanswered/No/Yes with positive bounded remaining count only for Yes.",
+        "Original submitted/corrected answer history independent from later incomplete draft."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Debrief references canonical actual launch fields rather than a competing copy.",
+        "Valid submission may say Yes with guests still missing; debrief_done and guest_data_entered remain different derived criteria.",
+        "Incomplete later draft cannot replace prior valid submitted evidence."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "launch",
+        "launch_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/launch.md, Formal debrief and criterion evidence. No Finish/waiver receipt, inferred roster subtraction, narrative quota or automatic task/contact/mail effects. Raw reflections remain outside organization/model inputs; only bounded producer evidence feeds PI."
+    },
+    {
+      "id": "CAP-B-026",
+      "name": "Reviewed Launch operational summary publication",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "persists": true,
+      "entities": [
+        "human summary draft",
+        "published summary revision",
+        "structured source provenance"
+      ],
+      "facts": [
+        "Separate human-authored editable summary draft and current revision.",
+        "Explicitly reviewed published whole-text version, actor, publication time, receipt, previous versions and correction lineage.",
+        "Exact structured source references and frozen source-category union; native Launch/debrief has Meetings baseline, other contributors add People/Tasks/Ministry categories.",
+        "Publication subject and exact organization recipients subject to current affiliation/shared_findings and contributing category grants."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Questionnaire save/submit does not publish or copy raw reflections/guest identities into summary.",
+        "Unknown category/lineage fails closed; an empty claimed union cannot evade Meetings baseline.",
+        "Current grants gate every read of the whole revision; publication never grants plant editing authority."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "launch",
+        "launch_event",
+        "command_receipt"
+      ],
+      "notes": "docs/product/launch.md, Reviewed operational summary. Human publication is immediate to current eligible recipients and independent of PI human-open/72-hour release. No model redaction promise."
+    },
+    {
+      "id": "CAP-B-027",
+      "name": "Launch countdown and excluded recurring services",
+      "feature_ids": [
+        "LCH-008",
+        "LCH-011"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Church-local countdown derives from the one saved target date/status and separately recorded actual outcome.",
+        "No persisted recurring post-launch service calendar, worship schedule or invented post-launch follow-up origin."
+      ],
+      "retention": "No additional stored data.",
+      "current_tables": [
+        "launch",
+        "meeting"
+      ],
+      "notes": "docs/product/launch.md and scope.md. LCH-011 is an explicit exclusion boundary even though indexed by module; no data is added for it. Phase-six follow-up without approved origin is Unknown."
+    },
+    {
+      "id": "CAP-B-028",
+      "name": "Phase state, creation, declaration and movement journal",
+      "feature_ids": [
+        "PHASE-001",
+        "PHASE-002",
+        "PHASE-003",
+        "PHASE-007"
+      ],
+      "persists": true,
+      "entities": [
+        "plant current phase",
+        "phase journal entry"
+      ],
+      "facts": [
+        "Current integer phase 0 to 6 and aggregate/material revision.",
+        "Distinct creation, initial_declaration, ordinary movement and same-phase noop kinds; protected from/to phase, direction, reason, actual actor, occurrence/recording time and receipt.",
+        "Once-only creation into Phase 1 with no prior phase and separate once-only existing-journey declaration identity.",
+        "Transition evidence/reference versions where recorded; initial declaration server-owned reserved reason and no fabricated earlier chronology."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One initial declaration per plant, independent from creation journal entry.",
+        "Current phase, journal, required intents, material revision and receipt are atomic; noops preserve receipt/history without a material revision bump.",
+        "Ordinary transition target is integer 0 to 6 and reason is trimmed 1 to 2000 characters, excluding the reserved declaration sentence."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "plant",
+        "phase_transition",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Phases and Discovery; REQ-PHASE-001/002/003/007. Pre-plant Discovery is account state with no plant phase row. Readiness never blocks, advances or regresses phase."
+    },
+    {
+      "id": "CAP-B-029",
+      "name": "Phase and criterion reference identities",
+      "feature_ids": [
+        "PHASE-008"
+      ],
+      "persists": true,
+      "entities": [
+        "versioned methodology reference"
+      ],
+      "facts": [
+        "Seven exact phase identities/names 0 Discovery through 6 Post-Launch; nineteen stable criterion keys, phase association, authoritative wording and reference/formula versions.",
+        "Eight lenses, eight ministry responsibility identities and separate Prayer responsibility; current operational evidence mappings and source provenance."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Phase 6 is terminal with no exit criteria.",
+        "Reference activation cannot rewrite original published bytes or past evidence snapshots."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "reference_release",
+        "reference_activation",
+        "reference_section",
+        "reference_template_version"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Methodology and current criterion map. Reference inventory is shared with group C; no new criterion, financial subsystem or pastoral qualification model."
+    },
+    {
+      "id": "CAP-B-030",
+      "name": "Dated human phase evidence and reaffirmation",
+      "feature_ids": [
+        "PHASE-004",
+        "PHASE-008"
+      ],
+      "persists": true,
+      "entities": [
+        "plant attestation",
+        "person criterion attestation"
+      ],
+      "facts": [
+        "Exact seven manual keys values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested; answered true/false, unanswered and retracted states remain distinct.",
+        "Actual author, as-of date, attested/reaffirmed time, original question/reference version, optional attributable evidence reference and correction/retraction lineage.",
+        "Dated real sending-church/network relationship, agreed worship leader Person and chosen community statement when supplied as criterion evidence.",
+        "Leadership-candidate Person, both attendance and volunteering statements, sustained period of 60 days/as-of, author, source/question version and corrections."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Only human answers establish attestations; title or account alone cannot establish evidence.",
+        "Giving and both prayer-rhythm answers age independently after 30 days; stale true remains aged, not false.",
+        "Nonexpiring manual keys retain source semantics; candidate evidence cannot automatically assign roles or qualify a person."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "plant_attestation",
+        "person_attestation",
+        "record_correction"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Attestations and current criterion map. Criterion readers use current domain evidence first and require no duplicate attestation for an actual eligible assignment. Leadership-candidate details remain planter-only; shared oversight uses permitted aggregates."
+    },
+    {
+      "id": "CAP-B-031",
+      "name": "Advisory phase readiness and recommendations",
+      "feature_ids": [
+        "PHASE-004",
+        "PHASE-006"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Readiness is derived from criterion conjunction with Met/Not met/Unknown/Not tracked evidence; model standing is a separate vocabulary.",
+        "Current phase and existing authorized reference/read-progress evidence select Wiki recommendations; no extra persisted readiness counter."
+      ],
+      "retention": "No additional stored data.",
+      "current_tables": [
+        "plant",
+        "phase_transition",
+        "phase_template_offer_response",
+        "wiki_read_progress",
+        "intelligence_assessment_run"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, current criterion map. Group C owns immutable assessments/reading facts; the task-template capability owns offer answers. Unknown cannot become a pass and rendering never imports tasks."
+    },
+    {
+      "id": "CAP-B-032",
+      "name": "Typed phase and result event occurrences",
+      "feature_ids": [
+        "PHASE-005",
+        "NTF-009"
+      ],
+      "persists": true,
+      "entities": [
+        "phase/result notification occurrence"
+      ],
+      "facts": [
+        "Durable source phase transition or completed assessment identity, typed event kind, original occurred time and exact plant/audience anchor.",
+        "One committed logical fanout occurrence with source revision and required intent/receipt references."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Declaration/backward/noop are not phase advance; new-plant creation is not fabricated 0-to-1 movement.",
+        "Fanout never duplicates on source-operation replay or widens current grants."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "phase_transition",
+        "intelligence_assessment_run",
+        "email_intent",
+        "inbox_entry",
+        "command_receipt"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Phases and Discovery; communications-notifications.md, NTF-009. Existing assessment producer/result storage belongs to group C."
+    },
+    {
+      "id": "CAP-B-033",
+      "name": "Original-author private weekly check-ins and corrections",
+      "feature_ids": [
+        "PI-038",
+        "PI-040",
+        "PI-041"
+      ],
+      "persists": true,
+      "entities": [
+        "private logical week",
+        "private check-in",
+        "private correction revision",
+        "pending personal timezone transition"
+      ],
+      "facts": [
+        "Immutable original account author plus plant plus logicalWeekId; consecutive week ordinal, original Monday boundary/start and confirmed personal IANA zone.",
+        "Four exact answers Spiritually, Marriage & family, Financially and Pace, each Steady/Strained/Struggling; optional note up to 2000 characters and current revision.",
+        "Private original/corrected answers, actor/time, old/new revision and idempotent correction identity.",
+        "Confirmed personal-zone preference and replaceable pending zone/first strictly future Monday transition; currently open identity remains fixed until rollover.",
+        "Logical weeks with no answers remain distinguishable from Steady and preserve consecutive calendar identity."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Only current same-plant Owner/Admin whose authenticated account is the immutable original author can save/read/correct.",
+        "CRM merge, successor, title change and seat transfer cannot move original authorship.",
+        "Serialized save/edit/rollover creates exactly the next ordinal at future transition; church timezone changes never rekey private periods.",
+        "Answers, notes, existence and calendar/history/nudge metadata have no Evry/model/org/email/export/shared-audit/log/trace path."
+      ],
+      "retention": "Full own history survives beyond the twelve-week viewport. Personal login deletion removes private care, including its private revisions/calendar state; seat removal preserves only approved shared-record attribution and does not transfer access. Subject deletion immediately denies normal access, holds privately for restricted cancellation for 30 days, then purges eligible data; copy expiry is at most seven days after coherent live purge and restore witnesses prevent resurrection.",
+      "current_tables": [
+        "planter_checkin",
+        "planter_checkin_event",
+        "app_account"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Native private care; REQ-PI-038/040/041. Personal-zone/calendar state is private even without answers; correction history is separate from ordinary shared audit."
+    },
+    {
+      "id": "CAP-B-034",
+      "name": "Private trend strip and neutral support question",
+      "feature_ids": [
+        "PI-039"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Three adjacent answered logical weeks in the same author/dimension with Strained or Struggling derive the support question; missing or Steady breaks a run.",
+        "Twelve-week display is a viewport, not retention or eligibility; older streaks retain their actual dates."
+      ],
+      "retention": "No additional stored data; use only original-author private facts under the original-author check-in capability.",
+      "current_tables": [
+        "planter_checkin",
+        "planter_checkin_event"
+      ],
+      "notes": "docs/product/methodology-intelligence.md, Native private care; REQ-PI-039. Recompute after correction without storing a new risk score/nudge/audit/event or generating a support task/message."
+    },
+    {
+      "id": "CAP-B-035",
+      "name": "Communication composition, audience and native drafts",
+      "feature_ids": [
+        "COM-003",
+        "COM-004",
+        "COM-012"
+      ],
+      "persists": true,
+      "entities": [
+        "communication draft",
+        "reviewed communication",
+        "frozen selected recipient"
+      ],
+      "facts": [
+        "Plant, author, communication identity/revision, subject, sanitized HTML and derived plain text, optional template/meeting context and draft lifecycle.",
+        "Incomplete draft content and draft change/deletion history without outgoing mail intent.",
+        "Exact selected deduplicated same-plant Person identities and selected/reachable/missing-email/suppressed exclusions; normalized delivery-time address snapshots.",
+        "Reviewed per-recipient rendered content, payload/audience digest, selected attachments if present, operation/approval receipt and optional entered schedule LocalDateTime/zone/offset/Instant.",
+        "Scheduled provider IDs, reviewed time changes, cancellation request/confirmation outcomes and replacement lineage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Sending has subject length 1 to 500, safe nonempty body and at least one reachable reviewed recipient.",
+        "Source edits to content/audience/address/attachment/time invalidate approval; reviewed domain facts and all mail intents commit together.",
+        "Replacement waits for confirmed cancellation of all affected original accepted sends; sent/unknown/partial cancellation blocks automatic replacement."
+      ],
+      "retention": "Plant-owned communication/delivery history survives personal-login deletion with scrubbed minimal attribution. Actual subject deletion immediately denies access and requests cancellation/reconciliation, holds privately 30 days for restricted cancellation, then purges; copies expire within seven days of live purge and canceled mail is never reinstated by restore.",
+      "current_tables": [
+        "communication",
+        "communication_recipient",
+        "email_intent",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "docs/product/communications-notifications.md, Composition and history; Drafts and provider scheduling. Search result page is not group membership. Only email is retained; no SMS, inbound mail or beyond-window/custom app-held scheduler."
+    },
+    {
+      "id": "CAP-B-036",
+      "name": "System and plant email templates",
+      "feature_ids": [
+        "COM-007",
+        "COM-008"
+      ],
+      "persists": true,
+      "entities": [
+        "email template",
+        "plant template fork",
+        "immutable system template version"
+      ],
+      "facts": [
+        "Template scope/global or exact plant, identity, source/version identity and mapping to category/meeting type.",
+        "Name 1 to 255, description up to 1000, subject up to 500, sanitized nonempty body, merge field contract, current revision and archive state.",
+        "Seven approved immutable system template source/revision identities; one plant fork per source identity and attributable customization."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Plant customization cannot modify global originals; bootstrap mismatch cannot overwrite custom content.",
+        "Referenced templates archive rather than disappear; deleting an unreferenced fork may reveal current global source."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "message_template",
+        "reference_template_version",
+        "reference_release",
+        "reference_activation"
+      ],
+      "notes": "docs/product/communications-notifications.md, COM-007/008. System release history is immutable; plant customizations have current revision. No redundant stored plaintext/HTML copies are needed unless the renderer contract requires them."
+    },
+    {
+      "id": "CAP-B-037",
+      "name": "Single outgoing mail intent and attempt ledger",
+      "feature_ids": [
+        "COM-005",
+        "COM-006",
+        "NTF-002",
+        "NTF-013"
+      ],
+      "persists": true,
+      "entities": [
+        "logical mail intent",
+        "provider request attempt",
+        "dispatch claim",
+        "reconciliation result"
+      ],
+      "facts": [
+        "Immutable outgoing identity, typed account/plant/exact-organization subject and recipient account or Person; purpose, initiating operation/receipt and unique logical occurrence/recipient key.",
+        "Encrypted normalized address/secret operational payload, frozen sanitized per-recipient HTML/plain text, payload hash and optional scheduled Instant.",
+        "Immutable request identity/hash, provider key, ordered exact batch intent identities and each member index; firstDispatchedAt persisted before first request.",
+        "Attempt sequence, claim generation/lease, retry time/count, provider message ID, safe rejection reason/retryability, unknown state and recovery evidence.",
+        "Separate accepted/scheduled/sent/delivered/bounced/complained/opened/clicked and cancellation_requested/cancelled facts with occurrence/receipt times."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One ledger serves communication, notification and transactional mail; inbox read/task state cannot become provider delivery truth.",
+        "Batch size at most 100, single exact ownership/projection scope; private/security batch singleton unless permitted shared scope is proven.",
+        "Unknown replay keeps identical request, order, body and key; confirmed-refused members alone may form a new safe retry.",
+        "Automatic identical-key replay stops at firstDispatchedAt plus 23 hours 55 minutes; retry never resets the origin clock.",
+        "Late weaker events cannot regress stronger facts; batch partial/zero/unknown member results remain exact."
+      ],
+      "retention": "Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects.",
+      "current_tables": [
+        "email_intent",
+        "email_attempt",
+        "job",
+        "communication_recipient",
+        "command_receipt"
+      ],
+      "notes": "docs/product/communications-notifications.md, Mail contract. Timeout/retry/backoff are operational policy, not new product facts. Current subject, authority, audience, preferences and suppression gate dispatch. Unknown acceptance is reconciled, never converted into success."
+    },
+    {
+      "id": "CAP-B-038",
+      "name": "Signed provider event receipts",
+      "feature_ids": [
+        "NTF-010",
+        "COM-005"
+      ],
+      "persists": true,
+      "entities": [
+        "provider webhook receipt",
+        "provider processing checkpoint"
+      ],
+      "facts": [
+        "Provider, unique event identity, message identity, event kind, actual provider occurrence time, receipt time and payload hash.",
+        "Safe permitted receipt payload, processing state/checkpoint and eventual matching intent identity; unmatched valid events retained for reconciliation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Unique provider event ID makes repeated callback application idempotent.",
+        "Durable authenticated receipt precedes acknowledgment; unknown message ID never becomes a public tenant selector."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "provider_event_receipt",
+        "email_attempt",
+        "email_intent"
+      ],
+      "notes": "docs/product/communications-notifications.md, Mail contract. Signature/timestamp validation is boundary behavior; processing state is needed to recover acknowledged but unapplied receipts."
+    },
+    {
+      "id": "CAP-B-039",
+      "name": "Global address suppression and attributable restoration",
+      "feature_ids": [
+        "NTF-011"
+      ],
+      "persists": true,
+      "entities": [
+        "address suppression",
+        "suppression clear event"
+      ],
+      "facts": [
+        "Normalized address identity/hash, hard-bounce/complaint reason, originating provider evidence and suppression time.",
+        "Explicit clear time, reason, authenticated self-account/native fresh identity-proof reference and restoration history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "One current global suppression truth per normalized address.",
+        "Soft bounce cannot become fabricated hard bounce.",
+        "Clear requires current self-address proof and cannot restore another account address or canceled send."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "email_suppression",
+        "provider_event_receipt",
+        "audit_event"
+      ],
+      "notes": "docs/product/communications-notifications.md, suppression contract and NTF-011. Security mail bypasses optional category switches, not address safety; restoration preserves actual provider history."
+    },
+    {
+      "id": "CAP-B-040",
+      "name": "Reviewed resend lineage",
+      "feature_ids": [
+        "COM-009"
+      ],
+      "persists": true,
+      "entities": [
+        "resend communication",
+        "original-recipient lineage"
+      ],
+      "facts": [
+        "Original sent communication/recipient and frozen original delivery content; distinct reviewed resend identity and original/new receipt links.",
+        "Exact currently delivered non-open/non-click recipient selection, current reachable substitutions and exclusions captured for review."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Original is sent, at least 24 elapsed hours old and has confirmed delivery; only current deliverable delivered non-engagers qualify.",
+        "Resend cannot recover unknown acceptance by pretending a new identity is the old retry.",
+        "Original communication remains immutable; current substitution is reviewed rather than silently remerged."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "communication",
+        "communication_recipient",
+        "communication_delivery_retry",
+        "email_intent",
+        "command_receipt"
+      ],
+      "notes": "docs/product/communications-notifications.md, COM-009. Tracking unreliability is a presentation caveat, not inferred human attention. Logical new send uses the single mail ledger."
+    },
+    {
+      "id": "CAP-B-041",
+      "name": "Notification and reminder occurrences",
+      "feature_ids": [
+        "NTF-001",
+        "NTF-005",
+        "NTF-006",
+        "NTF-014",
+        "NTF-015",
+        "MTG-018",
+        "TSK-014"
+      ],
+      "persists": true,
+      "entities": [
+        "logical notice occurrence",
+        "reminder plan",
+        "transactional receipt audience"
+      ],
+      "facts": [
+        "Typed plant/exact-organization/account anchor, source entity/event identity, category/purpose, source revision, recipient and occurrence dedupe key.",
+        "Eligible schedule Instant, civil offset or due/overdue type, original local schedule/zone/resolver version and cancellation state.",
+        "Task current assignee/deadline revision, meeting creator/linked-guest/core-group audience and source notification revision.",
+        "Published upstream organization-customization source revision for in-app-only notice; actual winning Discovery association event and exact eligible account/organization-owner receipt identities."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Unique logical occurrence/purpose/recipient across retry; only legitimate renewed occurrence after cancellation.",
+        "Task/meeting changes and cancel/replan intent commit together; queued dispatch rechecks live entity/current audience.",
+        "Tasks skip undated/unassigned/settled/deleted; meeting 7/3/1 civil-day offsets skip passed slots and obsolete cancelled/completed meetings.",
+        "Global organization customization notices are in-app only; Discovery receipts need no phantom plant/inbox or admin-title recipient."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "email_intent",
+        "inbox_entry",
+        "job",
+        "command_receipt"
+      ],
+      "notes": "docs/product/communications-notifications.md, NTF-001/005/006/014/015; tasks.md, REQ-TSK-014/018; meetings-follow-up.md, REQ-MTG-018. Notification occurrence is not RSVP/presence/contact. Private-care metadata never enters producers."
+    },
+    {
+      "id": "CAP-B-042",
+      "name": "Own inbox entries and read state",
+      "feature_ids": [
+        "NTF-003"
+      ],
+      "persists": true,
+      "entities": [
+        "recipient inbox entry"
+      ],
+      "facts": [
+        "Exact subject/recipient, source occurrence, safe title/body/category, enforced entity reference, due/visibility time, creation sort tuple and source revision.",
+        "Per-recipient read time, archive/cancellation state and occurrence dedupe identity."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Read/unread/mark-all/count share the same current due-visible-uncanceled entitlement predicate.",
+        "Read status cannot complete work or establish provider delivery.",
+        "Paired entity identity is valid and cannot identify arbitrary foreign resources."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "inbox_entry"
+      ],
+      "notes": "docs/product/communications-notifications.md, NTF-003. Bell/unread totals and cursor are derived. Revocation hides entries and counts, including stale history; empty and unavailable remain distinct."
+    },
+    {
+      "id": "CAP-B-043",
+      "name": "Explicit notification preferences and unsubscribe capability",
+      "feature_ids": [
+        "NTF-004",
+        "NTF-012"
+      ],
+      "persists": true,
+      "entities": [
+        "account category/channel choice",
+        "digest schedule preference",
+        "unsubscribe capability key revision"
+      ],
+      "facts": [
+        "Authenticated account, closed category/channel, enabled value, explicit-choice intent and current revision even when equal to default.",
+        "Separate planter/oversight daily or weekly cadence, local schedule and applicable saved plant/organization IANA zone.",
+        "Email opt-out revision and purpose-bound encrypted capability claims binding account/category/address as required, expiry and separate undo identity.",
+        "Versioned encryption-key identifier and decrypt-only key validity through outstanding token expiry, kept as protected configuration rather than ordinary user data."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Absence inherits defaults; cadence changes do not overwrite explicit channel choices.",
+        "Email opt-out leaves in-app state unchanged and never creates CRM marketing consent.",
+        "Disable token lasts 180 days, separate undo lasts one hour; wrong/expired purpose fails closed.",
+        "Preference never adds audience or enables email for in-app-only upstream notices."
+      ],
+      "retention": "Account-owned preferences follow account deletion. Old decrypt-only keys remain available through valid capability lifetime; expiration needs no permanent token table for a stateless authenticated-encryption design. Private-care zone/calendar state is not a notification preference.",
+      "current_tables": [
+        "notification_preference",
+        "app_account",
+        "plant",
+        "organization"
+      ],
+      "notes": "docs/product/communications-notifications.md, NTF-004/012. Planter default weekly Sunday 16:00 church-local email ON/in-app OFF; oversight default daily. Secret key material belongs to reviewed deployment configuration, not a proposed table."
+    },
+    {
+      "id": "CAP-B-044",
+      "name": "Digest coverage and bounded catch-up",
+      "feature_ids": [
+        "NTF-007",
+        "NTF-008"
+      ],
+      "persists": true,
+      "entities": [
+        "recipient digest coverage",
+        "compiled digest intent"
+      ],
+      "facts": [
+        "Recipient, typed planter/exact-organization purpose, cadence/local-zone period and logical coverage identity.",
+        "Last successfully covered period, uncovered date range and durable compiled intent/receipt; bounded current authorized item/date/count snapshot and remainder link.",
+        "Exact source contributor references and scope needed to enforce current relationship/activity sharing at compile and dispatch."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
+        "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
+        "Coverage cursor advances only with committed matching intent/receipt, not failed claim or empty truncated page.",
+        "Retry reuses coverage identity; catch-up consolidates all uncovered relevant dates instead of separate stale-day emails.",
+        "Oversight contains authorized activity counts/dates only, no names/notes/bodies/giving; per-organization permission remains separate."
+      ],
+      "retention": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "current_tables": [
+        "job",
+        "email_intent",
+        "notification_preference",
+        "command_receipt"
+      ],
+      "notes": "docs/product/communications-notifications.md, NTF-007/008 and outage catch-up. At most 100 lines with exact range/count and authorized remainder link. Empty relevant input sends nothing; current access is rechecked and private care excluded."
+    },
+    {
+      "id": "CAP-B-045",
+      "name": "Communication histories, delivery overview and audience queries",
+      "feature_ids": [
+        "COM-001",
+        "COM-002",
+        "COM-004"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "History reads combine frozen delivery-time facts with separately labeled current Person/context facts under current same-plant authorization.",
+        "Selected/reachable/attempted/accepted/delivered/engaged/failed/unknown totals derive from source ledger; zero denominator and missing evidence remain distinct."
+      ],
+      "retention": "No additional stored data.",
+      "current_tables": [
+        "communication",
+        "communication_recipient",
+        "email_intent",
+        "email_attempt",
+        "follow_up_outcome"
+      ],
+      "notes": "docs/product/communications-notifications.md, COM-001/002/004. Reads/search/filters need no duplicate recipient delivery ledger or contact log. Source facts are the typed contact, composition, mail-ledger and provider-receipt capabilities; public RSVP projection is narrower."
+    }
+  ],
+  "observations": [
+    {
+      "current_tables": [
+        "meeting",
+        "meeting_participation"
+      ],
+      "observation": "meeting.actual_attendance duplicates the count of effective unique attended Persons. Finalization must retain an exact identity/revision snapshot, not a count as a substitute. Derived duration totals likewise do not need independent truth."
+    },
+    {
+      "current_tables": [
+        "meeting_invitation",
+        "meeting_participation"
+      ],
+      "observation": "Invitation attribution and canonical RSVP can have one bounded artifact lifecycle when historical source meaning remains distinct. The product does not require an independent invitation tree or two current RSVP truths."
+    },
+    {
+      "current_tables": [
+        "task_relation"
+      ],
+      "observation": "A separate relation row has its own actor-independent revision and timestamps although ordinary task edit and relation edit are one aggregate operation. The requirement needs integrity-enforced optional typed context, not necessarily a standalone lifecycle."
+    },
+    {
+      "current_tables": [
+        "task_status_event",
+        "meeting_event",
+        "launch_event",
+        "record_correction"
+      ],
+      "observation": "Several attributable append-only event shapes repeat actor, tenant, time and revision facts. A shared event mechanism may reduce repetition only if exact subject FKs and domain-specific immutable evidence remain enforced. Private check-in history cannot share the ordinary audit path."
+    },
+    {
+      "current_tables": [
+        "phase_template_offer_response",
+        "template_import_receipt"
+      ],
+      "observation": "A transition needs one durable accept/decline answer with its exact selected set and inserted IDs. One answer per template key is not the required uniqueness; transport cookies and separate competing import receipts add no capability."
+    },
+    {
+      "current_tables": [
+        "launch",
+        "launch_event"
+      ],
+      "observation": "Canonical actual Launch date/counts must not be copied into independently authoritative debrief answers. Submitted debrief and reviewed summary need immutable versions; simultaneous published text, version metadata and arbitrary typed event copies need one authoritative lineage."
+    },
+    {
+      "current_tables": [
+        "communication_recipient",
+        "email_intent",
+        "email_attempt",
+        "communication_delivery_retry"
+      ],
+      "observation": "Recipient state/delivery timestamps and communication-level totals must not compete with the single email ledger. A separately owned retry table is useful only if it adds required reviewed resend lineage not already represented by immutable request/operation identities."
+    },
+    {
+      "current_tables": [
+        "inbox_entry"
+      ],
+      "observation": "Provider dispatch state belongs to email intents/attempts, while inbox entry owns read state only. Its generic resource_type/resource_id pair needs an enforced typed reference in the future design; a string discriminator alone does not prove tenant/target integrity."
+    },
+    {
+      "current_tables": [
+        "meeting",
+        "meeting_evaluation",
+        "communication",
+        "launch",
+        "launch_milestone"
+      ],
+      "observation": "Computed averages, agenda totals, countdowns, aggregate progress and provider recipient counts are query results unless a named snapshot consumer requires frozen evidence. Repeated generic updated/created/actor fields should survive only where ordering, concurrency or actual provenance uses them."
+    },
+    {
+      "current_tables": [
+        "planter_checkin",
+        "planter_checkin_event"
+      ],
+      "observation": "Private correction history is genuinely required, while trend strip and support question are derived from adjacent logical weeks. No separate score, nudge or outreach record is justified. Stable unanswered week identities and pending personal-zone transition are required even though an answers-only current row does not fully express them."
+    }
+  ]
+}
