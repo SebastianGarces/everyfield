@@ -21,7 +21,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Chicago task LocalDate 2026-10-13 at UTC 2026-10-14T03:00Z  and next local midnight.",
       "given": {
         "P": {
@@ -111,7 +110,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Timed task deadlineInstant 18:00 Z; dispatch due notice late/early without editing deadline.",
       "given": {
         "P": {
@@ -199,7 +197,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-task-person-follow-up",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -261,6 +258,11 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -299,12 +301,7 @@
           "changed_references": 0,
           "external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -325,7 +322,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-task-person-follow-up",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -387,6 +383,11 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -431,13 +432,199 @@
           "receipts": 1,
           "dangling_references": 0
         },
-        "event": null,
-        "checks": [
-          "moveCurrentPreserveHistory preserves registered chronology/identity; single shared receipt; no dangling reference",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
@@ -457,7 +644,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-task-person-follow-up",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -519,6 +705,11 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -559,12 +750,7 @@
           "historical_person": "P2",
           "new_external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -585,7 +771,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-task-person-follow-up",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -661,6 +846,11 @@
               "after_revision": 2
             }
           ]
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -702,13 +892,202 @@
           "inverse_receipts": 1,
           "external_resends": 0
         },
-        "event": null,
-        "checks": [
-          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
+              "repeat": 1,
+              "receipt": "merge-1",
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "TARGET-TSK-001",
@@ -723,7 +1102,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "51 equal-key tasks, null due, deleted cursor, 2 sub tasks, My/All team filter and Assignments, foreign team.",
       "given": {
         "P": {
@@ -1248,10 +1626,7 @@
           "top_level_count": 51,
           "child_count": 2
         },
-        "event": null,
-        "checks": [
-          "Stable complete paging/counts, separate child units and truthful filter/Assignments semantics."
-        ]
+        "event": null
       }
     },
     {
@@ -1267,7 +1642,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Whitespace title, invalid date/foreign assignee/facility, failing prerequisite edit, protected generated relation change, parent delete with children.",
       "given": {
         "P": {
@@ -1365,10 +1739,7 @@
           "unauthorized_body": null,
           "prior_history_rewritten": false
         },
-        "event": null,
-        "checks": [
-          "Valid coherent task or zero effects; no partial edit/orphan compensation and protected obligation/history cannot be bypassed."
-        ]
+        "event": null
       }
     },
     {
@@ -1384,7 +1755,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Assignee changed after preview, Member other duty, double complete/lost response, reopen older recurrence with open successor and person administrative task.",
       "given": {
         "P": {
@@ -1449,6 +1819,15 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "task": "T",
+          "assignee": "B",
+          "caller": "A",
+          "reviewed_assignee": "A",
+          "expected_revision": 3,
+          "current_revision": 4
         }
       },
       "actor": {
@@ -1465,21 +1844,25 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "expected_revision": 3,
           "task": "T",
           "request_key": "TARGET-TSK-003-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "assignee": "B",
+          "caller": "A",
+          "reviewed_assignee": "A",
+          "current_revision": 4
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "prior_history_rewritten": false
+          "error_code": "revision_conflict",
+          "completions_added": 0,
+          "contact_outcomes_added": 0,
+          "prior_history_retained": true
         },
-        "event": null,
-        "checks": [
-          "Current own-duty and one completion result; history survives reopen, successor conflict named and no invented contact."
-        ]
+        "event": null
       }
     },
     {
@@ -1495,7 +1878,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Waive generated task then edit/delete/reconcile; counts/notifications/metric; explicit reopen and bulk complete mixed states.",
       "given": {
         "P": {
@@ -1560,6 +1942,17 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "task": "T",
+          "obligation": "O",
+          "status": "waived",
+          "later_actions": [
+            "edit",
+            "delete",
+            "reconcile"
+          ]
         }
       },
       "actor": {
@@ -1577,18 +1970,25 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "obligation": "O",
+          "status": "waived",
+          "later_actions": [
+            "edit",
+            "delete",
+            "reconcile"
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "prior_history_rewritten": false
+          "obligation_status": "waived",
+          "task_success_credit": 0,
+          "regenerated_tasks": 0,
+          "reminders": 0
         },
-        "event": null,
-        "checks": [
-          "Waiver remains closed without credit/regeneration, explicit history/correction only changes current state."
-        ]
+        "event": null
       }
     },
     {
@@ -1604,7 +2004,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Child nesting/self/cycle, implicit versus explicit assignee, tick last child, parent delete and recurring reset checklist. Member creates under own parent with omitted/own/other/null assignments; direct SQL/API child due/recurrence/contact hook attempts.",
       "given": {
         "P": {
@@ -1669,6 +2068,16 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "parent": "T",
+          "child": "C",
+          "child_parent": "T",
+          "last_child_tick": true,
+          "child_due": null,
+          "child_recurrence": null,
+          "child_contact_hook": null
         }
       },
       "actor": {
@@ -1686,21 +2095,27 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "parent": "T",
+          "child": "C",
+          "child_parent": "T",
+          "last_child_tick": true,
+          "child_due": null,
+          "child_recurrence": null,
+          "child_contact_hook": null
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "automatic_extra_effects": 0
+          "max_depth": 1,
+          "child_status": "completed",
+          "parent_auto_completed": false,
+          "contact_credit": 0,
+          "successor_child_status": "pending",
+          "child_completion_history_retained": true
         },
-        "event": null,
-        "checks": [
-          "Exactly one level, scoped independent tick and no automatic parent/contact effect; successor has fresh unchecked children. Member creation inherits own assignment only; other/null denies, actual-child assignee governs tick/reopen. Every child deadline/recurrence/contact hook and separate checkbox state rejects."
-        ]
+        "event": null
       }
     },
     {
@@ -1716,7 +2131,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "A→B→C→A, concurrent A→B/B→A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
       "given": {
         "P": {
@@ -1781,6 +2195,24 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "edges": [
+            [
+              "A",
+              "B"
+            ],
+            [
+              "B",
+              "C"
+            ]
+          ],
+          "requested_edge": [
+            "C",
+            "A"
+          ],
+          "waived_predecessor": "B"
         }
       },
       "actor": {
@@ -1803,19 +2235,35 @@
             "actor": "B",
             "context": "Q",
             "subject": "P"
-          }
+          },
+          "edges": [
+            [
+              "A",
+              "B"
+            ],
+            [
+              "B",
+              "C"
+            ]
+          ],
+          "requested_edge": [
+            "C",
+            "A"
+          ],
+          "waived_predecessor": "B"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "partial_commit_on_required_failure": false,
-          "prior_history_rewritten": false
+          "error_code": "dependency_cycle",
+          "requested_edge_saved": false,
+          "waived_predecessor_blocks": false,
+          "waiver_success_credit": 0,
+          "soft_deleted_predecessor_blocks": false,
+          "badge_is_hard_completion_gate": false
         },
-        "event": null,
-        "checks": [
-          "DAG/integrity enforced atomically; waived or soft-deleted existing predecessor unblocks the dependent without success/contact credit or history loss. Advisory badge differs from status or a hard completion gate."
-        ]
+        "event": null
       }
     },
     {
@@ -1831,7 +2279,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "January 31 monthly, leap February/yearly, end date equal/after, late completion, 2 concurrent complete, fail child copy and older reopen.",
       "given": {
         "P": {
@@ -2689,7 +3136,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "100 IDs including duplicates/missing/foreign/waived/reassigned; fail after 3 commits and lost response; invalid date.",
       "given": {
         "P": {
@@ -2754,6 +3200,21 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "task_ids": [
+            "T1",
+            "T2",
+            "T3",
+            "T3",
+            "T4",
+            "missing",
+            "foreign",
+            "waived"
+          ],
+          "fault_after_commits": 3,
+          "response_lost": true
         }
       },
       "actor": {
@@ -2779,18 +3240,38 @@
           },
           "request_key": "TARGET-TSK-008-request-1",
           "repeat": 2,
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "task_ids": [
+            "T1",
+            "T2",
+            "T3",
+            "T3",
+            "T4",
+            "missing",
+            "foreign",
+            "waived"
+          ],
+          "fault_after_commits": 3,
+          "response_lost": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "committed_ids": [
+            "T1",
+            "T2",
+            "T3"
+          ],
+          "pending_ids": [
+            "T4"
+          ],
+          "duplicate_effects": 0,
+          "missing_status": "not_found",
+          "foreign_status": "not_found",
+          "waived_status": "ineligible"
         },
-        "event": null,
-        "checks": [
-          "Exact per row receipt and resumable pending work, no replayed recurrence or hidden partial success; invalid shared input writes zero."
-        ]
+        "event": null
       }
     },
     {
@@ -2806,7 +3287,6 @@
         "WP-026"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Canonical selected keys/offsets, lost response/retry versus new intent, stale version, source plain multiline text.",
       "given": {
         "P": {
@@ -2871,6 +3351,16 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "selected_template_keys": [
+            "template-1"
+          ],
+          "template_version": 1,
+          "intent": "import-1",
+          "repeat": 2,
+          "existing_title": "Keep my edits"
         }
       },
       "actor": {
@@ -2890,18 +3380,24 @@
           "expected_revision": 3,
           "task": "T",
           "request_key": "TARGET-TSK-009-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "selected_template_keys": [
+            "template-1"
+          ],
+          "template_version": 1,
+          "intent": "import-1",
+          "existing_title": "Keep my edits"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "import_receipts": 1,
+          "duplicate_task_sets": 0,
+          "existing_title": "Keep my edits",
+          "new_intent_allowed": true
         },
-        "event": null,
-        "checks": [
-          "Exact reviewed task set once per intent, deliberate repeat possible, content/date/version truthful and existing work unchanged."
-        ]
+        "event": null
       }
     },
     {
@@ -2917,7 +3413,6 @@
         "WP-026"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Two devices answer accept/decline, subset selection, stale/forged key, fail mid insert and response loss.",
       "given": {
         "P": {
@@ -2982,6 +3477,19 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "offer": "offer-1",
+          "selected_keys": [
+            "line-1",
+            "line-2"
+          ],
+          "concurrent_answers": [
+            "accept",
+            "decline"
+          ],
+          "fault": "required_task_insert"
         }
       },
       "actor": {
@@ -3002,18 +3510,26 @@
           "task": "T",
           "request_key": "TARGET-TSK-010-request-1",
           "repeat": 2,
-          "fault": "required_write_before_commit"
+          "fault": "required_task_insert",
+          "offer": "offer-1",
+          "selected_keys": [
+            "line-1",
+            "line-2"
+          ],
+          "concurrent_answers": [
+            "accept",
+            "decline"
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "partial_commit_on_required_failure": false
+          "answers_committed": 0,
+          "tasks_created": 0,
+          "receipt_rows": 0
         },
-        "event": null,
-        "checks": [
-          "One coherent answer+exact task set or rollback; decline creates nothing and durable receipt converges."
-        ]
+        "event": null
       }
     },
     {
@@ -3029,7 +3545,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Zero Vision evaluation, prior only team attendance, two same-day Vision origins, no lead title, waiver edit/delete and 48 h DST boundary.",
       "given": {
         "P": {
@@ -3133,10 +3648,7 @@
           "owner_label": "Needs owner",
           "contacted_count": 0
         },
-        "event": null,
-        "checks": [
-          "Required origin work exists coherently with correct unique identity/ownership and separate metrics."
-        ]
+        "event": null
       }
     },
     {
@@ -3152,7 +3664,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Linked committed versus demoted/unlinked/shared mailbox; current seat removed; uncovered no-task contact and manual undated create.",
       "given": {
         "P": {
@@ -3217,6 +3728,13 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "contact_person": "Alex",
+          "linked_account": "B",
+          "seat_active": false,
+          "manual_due_kind": "undated"
         }
       },
       "actor": {
@@ -3234,18 +3752,23 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "contact_person": "Alex",
+          "linked_account": "B",
+          "seat_active": false,
+          "manual_due_kind": "undated"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "stale_effects": 0
+          "assignee": null,
+          "owner_label": "Needs owner",
+          "invented_due_at": null,
+          "invented_urgency": null,
+          "contact_credit": 0
         },
-        "event": null,
-        "checks": [
-          "Only actual currently eligible owner assigned, stale Needs owner visible and no due/urgency/metric facts fabricated."
-        ]
+        "event": null
       }
     },
     {
@@ -3261,7 +3784,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Demotion with open/complete/waived tasks, decline, recipient loses eligibility after preview, 101 task chunk response loss.",
       "given": {
         "P": {
@@ -3326,6 +3848,25 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "tasks": [
+            {
+              "id": "T1",
+              "status": "pending"
+            },
+            {
+              "id": "T2",
+              "status": "completed"
+            },
+            {
+              "id": "T3",
+              "status": "waived"
+            }
+          ],
+          "target": "B",
+          "target_eligible": false
         }
       },
       "actor": {
@@ -3345,18 +3886,33 @@
           "expected_revision": 4,
           "task": "T",
           "request_key": "TARGET-TSK-013-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "tasks": [
+            {
+              "id": "T1",
+              "status": "pending"
+            },
+            {
+              "id": "T2",
+              "status": "completed"
+            },
+            {
+              "id": "T3",
+              "status": "waived"
+            }
+          ],
+          "target": "B",
+          "target_eligible": false
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "error_code": "handoff_target_ineligible",
+          "moved_ids": [],
+          "reopened_ids": []
         },
-        "event": null,
-        "checks": [
-          "Exact reviewed open handoff or no write, durable moved/remaining results and retry without duplicate/reopened closed work."
-        ]
+        "event": null
       }
     },
     {
@@ -3372,7 +3928,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Date-only DSTdue, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot.",
       "given": {
         "P": {
@@ -3437,6 +3992,15 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "due_kind": "date_only",
+          "due_date": "2026-03-08",
+          "zone": "America/Chicago",
+          "old_assignee": "A",
+          "current_assignee": "B",
+          "status": "pending"
         }
       },
       "actor": {
@@ -3454,18 +4018,24 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "due_kind": "date_only",
+          "due_date": "2026-03-08",
+          "zone": "America/Chicago",
+          "old_assignee": "A",
+          "current_assignee": "B",
+          "status": "pending"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "recipient": "B",
+          "old_assignee_notices": 0,
+          "logical_reminders": 1,
+          "transport_status": "pending"
         },
-        "event": null,
-        "checks": [
-          "Correct local deadline/reminder and current recipient only; no terminal/old-owner duplicate and transport reported honestly."
-        ]
+        "event": null
       }
     },
     {
@@ -3481,7 +4051,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "User/bulk/system managed completion, no-op retry, corrected outcome, reopen, foreign history request.",
       "given": {
         "P": {
@@ -3546,6 +4115,16 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "task": "T",
+          "transitions": [
+            "completed",
+            "completed",
+            "reopened"
+          ],
+          "actor": "A"
         }
       },
       "actor": {
@@ -3570,19 +4149,27 @@
             "subject": "P"
           },
           "request_key": "TARGET-TSK-015-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "transitions": [
+            "completed",
+            "completed",
+            "reopened"
+          ],
+          "actor": "A"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false
+          "history_transitions": [
+            "completed",
+            "reopened"
+          ],
+          "current_status": "pending",
+          "anonymous_history_rows": 0,
+          "replay_history_added": 0
         },
-        "event": null,
-        "checks": [
-          "Every real transition attributable once and current state agrees; no fake anonymous history or cross-tenant read."
-        ]
+        "event": null
       }
     },
     {
@@ -3598,7 +4185,6 @@
         "WP-026"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "Multiline plaintext, java script link/script HTML, empty clear, long text cap and matching full/preview.",
       "given": {
         "P": {
@@ -3663,6 +4249,11 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "description": "Hello\n<script>alert(1)</script>\n[click](javascript:alert(1))",
+          "clear_value": ""
         }
       },
       "actor": {
@@ -3680,19 +4271,21 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "description": "Hello\n<script>alert(1)</script>\n[click](javascript:alert(1))",
+          "clear_value": ""
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "script_execution": false,
+          "javascript_link_active": false,
+          "full_preview_text_agree": true,
+          "cleared_description": "",
+          "tool_authority_added": false
         },
-        "event": null,
-        "checks": [
-          "Meaningful safe text renders consistently, malicious content cannot execute or grant tool authority and empty clear works."
-        ]
+        "event": null
       }
     },
     {
@@ -3720,7 +4313,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "One finalize caller transaction invokes kernel for 2 Person obligations and 1 evaluation task; duplicate key, two same-day origin meetings, waived/deleted task, failure before outer audit/marker.",
       "given": {
         "P": {
@@ -3785,6 +4377,17 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "meeting_origins": [
+            "M1",
+            "M2"
+          ],
+          "origin_date": "2026-10-13",
+          "person_obligations": 2,
+          "evaluation_tasks": 1,
+          "fault": "outer_audit_before_commit"
         }
       },
       "actor": {
@@ -3803,18 +4406,26 @@
           "person": "Alex",
           "expected_revision": 4,
           "task": "T",
-          "fault": "required_write_before_commit"
+          "fault": "outer_audit_before_commit",
+          "meeting_origins": [
+            "M1",
+            "M2"
+          ],
+          "origin_date": "2026-10-13",
+          "person_obligations": 2,
+          "evaluation_tasks": 1
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "partial_commit_on_required_failure": false
+          "committed_tasks": 0,
+          "committed_obligations": 0,
+          "completion_markers": 0,
+          "separate_origin_identity": true,
+          "waived_obligation_regenerated": false
         },
-        "event": null,
-        "checks": [
-          "Constraints distinguish origins and converge retries, protected waiver survives task changes and all kernel effects roll back with the outer transaction; no separate required producer remains later."
-        ]
+        "event": null
       }
     },
     {
@@ -3851,7 +4462,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "target-tsk",
       "description": "America/Chicago spring gap 02:30 and fall fold 01:30; all-day 2026-03-08/2026-11-01; change to Pacific/Auckland with fixed appointment and delivered reminder; process runsnon UTC.",
       "given": {
         "P": {
@@ -3916,6 +4526,20 @@
           "status": "pending",
           "due_date": "2026-10-13",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "zone": "America/Chicago",
+          "entered_times": [
+            "2026-03-08T02:30",
+            "2026-11-01T01:30"
+          ],
+          "all_day_dates": [
+            "2026-03-08",
+            "2026-11-01"
+          ],
+          "new_zone": "Pacific/Auckland",
+          "reminder_already_delivered": true
         }
       },
       "actor": {
@@ -3933,18 +4557,36 @@
           "subject": "P",
           "person": "Alex",
           "expected_revision": 4,
-          "task": "T"
+          "task": "T",
+          "zone": "America/Chicago",
+          "entered_times": [
+            "2026-03-08T02:30",
+            "2026-11-01T01:30"
+          ],
+          "all_day_dates": [
+            "2026-03-08",
+            "2026-11-01"
+          ],
+          "new_zone": "Pacific/Auckland",
+          "reminder_already_delivered": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "entered_time_requires_choice": [
+            true,
+            true
+          ],
+          "all_day_dates": [
+            "2026-03-08",
+            "2026-11-01"
+          ],
+          "delivered_reminder_replayed": false,
+          "fixed_appointment_instant_changed": false,
+          "automatic_slot_dispatches": 1
         },
-        "event": null,
-        "checks": [
-          "Entered gap/fold needs explicit valid choice, automatic gap/fold runsonce under versioned resolver, due-day/Instant distinction and stored values hold; zone preview replans only future eligible logical work."
-        ]
+        "event": null
       }
     }
   ]

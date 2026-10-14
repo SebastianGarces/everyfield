@@ -25,7 +25,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Unauthenticated/missing-secret tick and valid fixed registered schedule request with forged job arguments.",
       "given": {
         "P": {
@@ -58,49 +57,99 @@
         "Q": {
           "fixture_type": "plant",
           "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+          "timezone": "America/New_York"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "jobs.manualRun",
+        "operation": "jobs.tickNotifications",
         "arguments": {
-          "subject": "P"
+          "authorization": null,
+          "registered_schedule": "notifications",
+          "forged_subject": "Q"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "error_code": "unauthorized",
+          "jobs_claimed": 0
         },
-        "event": null,
-        "checks": [
-          "Missing/invalid auth fails; scheduler cannot select arbitrary subjects/business operation."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "jobs.tickNotifications",
+            "arguments": {
+              "authorization": "valid-scheduler-secret",
+              "registered_schedule": "notifications",
+              "forged_subject": "Q",
+              "forged_operation": "people.deletePerson"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "selected_business_operation": null,
+              "arbitrary_subject_effects": 0
+            },
+            "event": null
+          },
+          "name": "valid-schedule-cannot-select-subject"
+        }
+      ]
     },
     {
       "id": "EXEC-002",
@@ -124,7 +173,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Two connections claim same due job concurrently then one expired generation resumes.",
       "given": {
         "P": {
@@ -154,51 +202,109 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "J": {
+          "fixture_type": "job",
+          "id": "J",
+          "state": "ready",
+          "generation": 4,
+          "due_at": "2026-10-13T15:00:00Z"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "jobs.manualRun",
+        "operation": "jobs.tickNotifications",
         "arguments": {
-          "subject": "P"
+          "connections": [
+            "worker-1",
+            "worker-2"
+          ],
+          "concurrent": true,
+          "job": "J"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "current_claims": 1,
+          "current_generation": 5
         },
-        "event": null,
-        "checks": [
-          "One current claim; old checkpoint/finalization/publication CAS refuses."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "J": {
+              "fixture_type": "job",
+              "id": "J",
+              "state": "running",
+              "generation": 5,
+              "lease_until": "2026-10-13T16:05:00Z"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "jobs.tickNotifications",
+            "arguments": {
+              "job": "J",
+              "claim_generation": 4,
+              "checkpoint": "complete"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "stale_claim",
+              "checkpoint_changed": false,
+              "published": false
+            },
+            "event": null
+          },
+          "name": "expired-generation-cannot-publish"
+        }
+      ]
     },
     {
       "id": "EXEC-003",
@@ -222,7 +328,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "One tenant perpetual mail backlog with other tenant digest/deletion/reference owed work.",
       "given": {
         "P": {
@@ -302,10 +407,7 @@
           "tail_starved": false,
           "cancellation_slot_reserved": true
         },
-        "event": null,
-        "checks": [
-          "Rotating type/tenant cursor, reserved cancellation slot and quotas prevent tail starvation; all owed work retained."
-        ]
+        "event": null
       }
     },
     {
@@ -330,7 +432,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "270second route budget reached mid page with unstarted claims and slow provider call.",
       "given": {
         "P": {
@@ -360,49 +461,50 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
+        "page-2": {
+          "fixture_type": "job_page",
+          "unstarted_jobs": [
+            "J2"
+          ],
+          "inflight_job": "J1"
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
+        "J1": {
+          "fixture_type": "job",
+          "state": "running",
+          "provider_outcome": "timeout"
         },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "J2": {
+          "fixture_type": "job",
+          "state": "ready",
+          "due_at": "2026-10-13T15:00:00Z"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "jobs.manualRun",
+        "operation": "jobs.tickNotifications",
         "arguments": {
-          "subject": "P"
+          "elapsed_seconds": 240,
+          "route_budget_seconds": 270,
+          "cursor": "page-2"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "new_claims": 0,
+          "cursor": "page-2",
+          "unstarted_claims_released": true,
+          "inflight_external_outcome": "unknown"
         },
-        "event": null,
-        "checks": [
-          "No new work after240seconds; settle/release safely, external unknown reconciles, durable due cursor never dropped."
-        ]
+        "event": null
       }
     },
     {
@@ -427,7 +529,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Three confirmed retryable refusals and a permanent policy denial with RetryAfter.",
       "given": {
         "P": {
@@ -474,6 +575,16 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "provider_responses": [
+            "retryable",
+            "retryable",
+            "retryable",
+            "permanent_denial"
+          ],
+          "RetryAfter": 60
         }
       },
       "actor": {
@@ -490,19 +601,25 @@
         "arguments": {
           "subject": "P",
           "request_key": "EXEC-005-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "provider_responses": [
+            "retryable",
+            "retryable",
+            "retryable",
+            "permanent_denial"
+          ],
+          "RetryAfter": 60
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "retryable_attempts": 3,
+          "permanent_retry_count": 0,
+          "unknown_blind_replays": 0,
+          "terminal_status": "failed"
         },
-        "event": null,
-        "checks": [
-          "Bounded safe backoff/fail/manual recovery, permanent no retry and no blind replay of unknown outcome."
-        ]
+        "event": null
       }
     },
     {
@@ -527,7 +644,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Digest catchup has more100lines across several missed periods and sharing revoked after compile.",
       "given": {
         "P": {
@@ -615,10 +731,7 @@
           "Q_body": null,
           "stale_day_mails": 0
         },
-        "event": null,
-        "checks": [
-          "One dated bounded current summary/link, coverage stable and revoked contribution removed before dispatch."
-        ]
+        "event": null
       }
     },
     {
@@ -643,7 +756,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Time-only assessment demand at unchanged source; provider call reaches45second timeout, source changes during inference, and stale claimant resumes after its120second assessment lease.",
       "given": {
         "P": {
@@ -690,6 +802,16 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "assessment_lease_seconds": 120,
+          "provider_timeout_seconds": 45,
+          "tick_budget_seconds": 270,
+          "source_revision_at_start": 11,
+          "current_source_revision": 12,
+          "claim_generation": 4,
+          "current_generation": 5
         }
       },
       "actor": {
@@ -705,20 +827,27 @@
         "operation": "jobs.manualRun",
         "arguments": {
           "subject": "P",
-          "expected_revision": 3
+          "expected_revision": 3,
+          "assessment_lease_seconds": 120,
+          "provider_timeout_seconds": 45,
+          "tick_budget_seconds": 270,
+          "source_revision_at_start": 11,
+          "current_source_revision": 12,
+          "claim_generation": 4,
+          "current_generation": 5
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "stale_effects": 0
+          "stale_publication": false,
+          "prior_result": "R0",
+          "lease_seconds": 120,
+          "provider_timeout_seconds": 45,
+          "tick_budget_seconds": 270,
+          "time_only_demand_has_new_identity": true
         },
-        "event": null,
-        "checks": [
-          "Assessment handler uses120second job/attempt lease rather than default5minutes and provider call≤45seconds within unchanged270second tick budget; domain demand/run identity separate, source/reference/claim CAS refuses stale publication and prior result survives."
-        ]
+        "event": null
       }
     },
     {
@@ -743,7 +872,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Reference job completes subset chunks then provider timeout and manifest replaced.",
       "given": {
         "P": {
@@ -822,10 +950,7 @@
           "active_release": "R1",
           "R2_promoted": false
         },
-        "event": null,
-        "checks": [
-          "Only current candidate checkpoint; old active complete generation continues, no mixed promotion."
-        ]
+        "event": null
       }
     },
     {
@@ -850,7 +975,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Import/render timeout with existing ready file; object cleanup races DBfinalization.",
       "given": {
         "P": {
@@ -930,10 +1054,7 @@
           "ready_file_deleted": false,
           "new_status": "failed"
         },
-        "event": null,
-        "checks": [
-          "Failure truthful/current file survives; scoped hash/reference fence prevents removing ready replacement."
-        ]
+        "event": null
       }
     },
     {
@@ -958,7 +1079,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Feedback external create timeout with exact frozen repository and duplicate candidate marker.",
       "given": {
         "P": {
@@ -988,23 +1108,22 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
+        "feedback-J": {
+          "fixture_type": "job",
+          "kind": "feedback_publish",
+          "state": "reconcile",
+          "repository_id": 10,
+          "marker": "feedback-occurrence-1",
+          "create_outcome": "timeout"
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "provider": {
+          "fixture_type": "issue_lookup",
+          "repository_id": 10,
+          "marker": "feedback-occurrence-1",
+          "matches": [
+            101,
+            102
+          ]
         }
       },
       "actor": {
@@ -1019,19 +1138,19 @@
       "action": {
         "operation": "jobs.manualRun",
         "arguments": {
-          "subject": "P"
+          "job": "feedback-J",
+          "repository_id": 10,
+          "marker": "feedback-occurrence-1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "status": "reconcile",
+          "created_issues": 0,
+          "public_raw_fallback": null
         },
-        "event": null,
-        "checks": [
-          "Reconcile exact marker/actual locator; ambiguous held unknown/no raw fallback or duplicate creation."
-        ]
+        "event": null
       }
     },
     {
@@ -1056,7 +1175,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Deletion deadline claim collides cancellation before/at boundary; new request after old cancel receipt.",
       "given": {
         "P": {
@@ -1086,50 +1204,130 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
+        "R1": {
+          "fixture_type": "deletion_request",
+          "subject": "P",
+          "state": "cancelled",
+          "revision": 1
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
+        "R2": {
+          "fixture_type": "deletion_request",
+          "subject": "P",
+          "state": "pending",
+          "revision": 2,
+          "deadline": "2026-10-13T16:00:00Z",
+          "generation": 2
         },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "old-cancel": {
+          "fixture_type": "cancellation_receipt",
+          "request": "R1",
+          "request_revision": 1
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "jobs.manualRun",
+        "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "request": "R2",
+          "claim_generation": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "stale_effects": 0
+          "status": "purging",
+          "normal_access": false,
+          "old_cancel_applied": false
         },
-        "event": null,
-        "checks": [
-          "DBclock/current request fence and resumable hidden purge; stale cancellation never affects later request."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "R1": {
+              "fixture_type": "deletion_request",
+              "subject": "P",
+              "state": "cancelled",
+              "revision": 1
+            },
+            "R2": {
+              "fixture_type": "deletion_request",
+              "subject": "P",
+              "state": "pending",
+              "revision": 2,
+              "deadline": "2026-10-13T16:00:01Z",
+              "generation": 2
+            },
+            "old-cancel": {
+              "fixture_type": "cancellation_receipt",
+              "request": "R1",
+              "request_revision": 1
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.purgeEligibleSubject",
+            "arguments": {
+              "subject": "P",
+              "request": "R2",
+              "claim_generation": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "not_eligible",
+              "purged_rows": 0
+            },
+            "event": null
+          },
+          "name": "before-deadline"
+        }
+      ]
     },
     {
       "id": "EXEC-012",
@@ -1153,7 +1351,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "exec",
       "description": "Production expected/high burst and actual deployment schedule,maxDuration,handler registration measured; paid config unavailable.",
       "given": {
         "P": {
@@ -1231,10 +1428,7 @@
           "measured_latency_claim": null,
           "paid_commitment": false
         },
-        "event": null,
-        "checks": [
-          "Report actual p95due lag and capacity; unproven schedule/tier remains readiness blocker, no implied paid approval."
-        ]
+        "event": null
       }
     }
   ]

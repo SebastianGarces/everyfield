@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Read-only acceptance schema, linkage and requirement-echo check (stdlib only)."""
+"""Read-only acceptance examples, linkage and behavioral consistency check."""
 import argparse
+from collections import defaultdict
 import datetime
 import json
 from pathlib import Path
@@ -91,6 +92,8 @@ def check(root):
                      'configuration.inspectMixedEnvironment'}
     forbidden = {normalize(r['text']) for r in requirements.values()}
     cases = {}
+    inputs = {}
+    groups = defaultdict(list)
     errors = []
     for file in index['case_files']:
         payload = read(root / file)
@@ -104,12 +107,26 @@ def check(root):
                 errors.append(f'{label}: duplicate case ID')
             cases[cid] = case
             own_text = normalize(case.get('requirement', ''))
-            def expectations(example, name):
+            if case.get('group'):
+                groups[case['group']].append(case)
+            def expectations(example, name, parent_given=None):
+                given = {**(parent_given or {}), **example.get('given', {})}
+                signature = json.dumps([given, example.get('actor'), example.get('clock'),
+                                        example.get('action')], sort_keys=True)
+                expected = json.dumps(example.get('expected'), sort_keys=True)
+                previous = inputs.get(signature)
+                if previous and previous[1] != expected:
+                    errors.append(f'{name}: identical inputs but different expected result from {previous[0]}')
+                else:
+                    inputs[signature] = (name, expected)
                 operation = example.get('action', {}).get('operation')
                 if operation not in operation_ids | proof_actions:
                     errors.append(f'{name}: unknown operation {operation}')
+                # A nested scalar identity such as S1 can also be a terse catalog clause.
+                # Prose, checks and a whole-string result cannot echo even a terse clause.
                 if any((normalize(s) in forbidden or normalize(s) == own_text)
-                       and (len(s.split()) >= 3 or s in example.get('expected', {}).get('checks', []))
+                       and (len(s.split()) >= 3 or s in example.get('expected', {}).get('checks', [])
+                            or s == example.get('expected', {}).get('result'))
                        for s in strings(example.get('expected', {}))):
                     errors.append(f'{name}: expected repeats requirement text')
                 try:
@@ -122,8 +139,19 @@ def check(root):
                 if len(set(names)) != len(names):
                     errors.append(f'{name}: duplicate subcase name')
                 for sub in example.get('subcases', []):
-                    expectations(sub, name + '/' + str(sub.get('name')))
+                    expectations(sub, name + '/' + str(sub.get('name')), given)
             expectations(case, label)
+    for group, members in groups.items():
+        if all(c['id'].casefold().startswith(group.casefold() + '-') for c in members):
+            errors.append(f'group {group}: group is only an ID prefix')
+        group_operations = {c['action']['operation'] for c in members}
+        if len(group_operations) != 1:
+            errors.append(f'group {group}: mixed action operations')
+        shapes = {json.dumps({key: row.get('fixture_type') for key, row in c['given'].items()},
+                             sort_keys=True) for c in members}
+        arguments = {tuple(sorted(c['action']['arguments'])) for c in members}
+        if len(shapes) != 1 or len(arguments) != 1:
+            errors.append(f'group {group}: mixed fixture or action shape')
     for kind, records in [('requirement', requirements.values()), ('acceptance', bundles), ('operation', operations)]:
         for record in records:
             for cid in record.get('case_ids', []):

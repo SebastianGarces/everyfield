@@ -4,6 +4,1612 @@
   "case_schema": "docs/acceptance/case.schema.json",
   "cases": [
     {
+      "id": "GAP-REF-001",
+      "requirement": "Original Playbook package is exact provenance authority",
+      "feature_ids": [
+        "REF-001"
+      ],
+      "acceptance_ids": [
+        "AC-REF-001--REF-001"
+      ],
+      "work_packages": [
+        "WP-032"
+      ],
+      "status": "future-not-run",
+      "description": "Standalone approved source/hash manifest and known unavailable original-source marker",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "playbook": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/playbook.md",
+          "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+          "bytes": 34025
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.packagePlaybook",
+        "arguments": {
+          "source": "playbook",
+          "manifest_release": "everyfield-reference-inputs-2026-10-13"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+          "summary_substituted": false,
+          "published": true
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "playbook": {
+              "fixture_type": "reference_file",
+              "path": "docs/reference/playbook.md",
+              "available": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packagePlaybook",
+            "arguments": {
+              "source": "playbook",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "published": false
+            },
+            "event": null
+          },
+          "name": "missing-original-is-blocked"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "playbook": {
+              "fixture_type": "reference_file",
+              "path": "docs/reference/playbook.md",
+              "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+              "bytes": 34025
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packagePlaybook",
+            "arguments": {
+              "source": "playbook",
+              "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "hash_mismatch",
+              "published": false
+            },
+            "event": null
+          },
+          "name": "hash-mismatch"
+        },
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packagePlaybook",
+            "arguments": {
+              "source": "playbook",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packagePlaybook",
+            "arguments": {
+              "source": "playbook",
+              "manifest_release": "everyfield-reference-inputs-2026-10-13",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-002",
+      "requirement": "Approved global Wiki bootstrap is reproducible and separated from editions",
+      "feature_ids": [
+        "REF-002"
+      ],
+      "acceptance_ids": [
+        "AC-REF-002--REF-002"
+      ],
+      "work_packages": [
+        "WP-033",
+        "WP-034"
+      ],
+      "status": "future-not-run",
+      "description": "Six approved canonical foundation articles with exact source hashes; org edition exists",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "R1": {
+          "fixture_type": "wiki_corpus",
+          "canonical_ids": [
+            "g1",
+            "g2",
+            "g3",
+            "g4",
+            "g5",
+            "g6"
+          ],
+          "complete": true,
+          "approved": true
+        },
+        "edition": {
+          "fixture_type": "wiki_edition",
+          "source": "S1",
+          "canonical": "g1",
+          "body": "Organization edition."
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.installApprovedWiki",
+        "arguments": {
+          "release": "R1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "canonical_articles": 6,
+          "duplicate_articles": 0,
+          "org_edition_promoted": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.installApprovedWiki",
+            "arguments": {
+              "release": "R1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.installApprovedWiki",
+            "arguments": {
+              "release": "R1",
+              "repeat": 2,
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-003",
+      "requirement": "Eleven document templates retain formats and exact merge manifest",
+      "feature_ids": [
+        "REF-003"
+      ],
+      "acceptance_ids": [
+        "AC-REF-003--REF-003"
+      ],
+      "work_packages": [
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "description": "Approved eleven-template package PDF/DOCX/XLSX manifests",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "templates": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/document-templates.ts",
+          "sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+          "bytes": 8054
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.packageDocumentTemplates",
+        "arguments": {
+          "source": "templates",
+          "formats": [
+            "pdf",
+            "docx",
+            "xlsx"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "template_count": 11,
+          "format_count": 12,
+          "foreign_merge_fields": [],
+          "finance_module_created": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageDocumentTemplates",
+            "arguments": {
+              "source": "templates",
+              "formats": [
+                "pdf",
+                "docx",
+                "xlsx"
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageDocumentTemplates",
+            "arguments": {
+              "source": "templates",
+              "formats": [
+                "pdf",
+                "docx",
+                "xlsx"
+              ],
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-004",
+      "requirement": "Twenty task templates are optional copies preserving tenant edits",
+      "feature_ids": [
+        "REF-004"
+      ],
+      "acceptance_ids": [
+        "AC-REF-004--REF-004"
+      ],
+      "work_packages": [
+        "WP-032"
+      ],
+      "status": "future-not-run",
+      "description": "Twenty approved phase/launch template manifests; tenant task edited after earlier copy",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "templates": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/task-templates.ts",
+          "sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851",
+          "bytes": 37259
+        },
+        "T": {
+          "fixture_type": "task",
+          "plant": "P",
+          "title": "Keep edited title",
+          "status": "pending"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.packageTaskTemplates",
+        "arguments": {
+          "source": "templates"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "template_count": 20,
+          "existing_task_title": "Keep edited title",
+          "tasks_completed": 0
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageTaskTemplates",
+            "arguments": {
+              "source": "templates"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageTaskTemplates",
+            "arguments": {
+              "source": "templates",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-005",
+      "requirement": "Ten ministry templates remain optional and eight lens areas independent",
+      "feature_ids": [
+        "REF-005"
+      ],
+      "acceptance_ids": [
+        "AC-REF-005--REF-005"
+      ],
+      "work_packages": [
+        "WP-032"
+      ],
+      "status": "future-not-run",
+      "description": "Ten templates registered; plant has three custom teams covering multiple lens areas",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "templates": {
+          "fixture_type": "reference_file",
+          "path": "docs/reference/ministry-role-templates.ts",
+          "sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f",
+          "bytes": 23284
+        },
+        "custom": {
+          "fixture_type": "team_set",
+          "plant": "P",
+          "names": [
+            "Custom 1",
+            "Custom 2",
+            "Custom 3"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.packageTeamTemplates",
+        "arguments": {
+          "source": "templates"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "template_count": 10,
+          "lens_area_count": 8,
+          "tenant_teams_created": 0,
+          "background_check_fields": []
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageTeamTemplates",
+            "arguments": {
+              "source": "templates"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.packageTeamTemplates",
+            "arguments": {
+              "source": "templates",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-006",
+      "requirement": "Seven message templates preserve copy-on-write fork",
+      "feature_ids": [
+        "REF-006"
+      ],
+      "acceptance_ids": [
+        "AC-REF-006--REF-006"
+      ],
+      "work_packages": [
+        "WP-032"
+      ],
+      "status": "future-not-run",
+      "description": "Seven registered system templates; plant fork changed subject",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "R1": {
+          "fixture_type": "message_template_package",
+          "count": 7,
+          "approved": true
+        },
+        "fork": {
+          "fixture_type": "message_template",
+          "owner": "P",
+          "source": "system",
+          "subject": "Our invitation",
+          "body": "Welcome {{name}}."
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.installMessageTemplates",
+        "arguments": {
+          "release": "R1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "system_template_count": 7,
+          "fork_subject": "Our invitation",
+          "system_subject_overwritten": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "R1": {
+              "fixture_type": "message_template_package",
+              "count": 7,
+              "approved": true
+            },
+            "fork": {
+              "fixture_type": "message_template",
+              "owner": "P",
+              "source": "system",
+              "subject": "Our invitation",
+              "body": "Welcome {{name}}."
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.preview",
+            "arguments": {
+              "template": "fork",
+              "merge_fields": {}
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "missing_merge_variable",
+              "missing": [
+                "name"
+              ],
+              "provider_calls": 0
+            },
+            "event": null
+          },
+          "name": "missing-variable-refuses-preview"
+        },
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.installMessageTemplates",
+            "arguments": {
+              "release": "R1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.installMessageTemplates",
+            "arguments": {
+              "release": "R1",
+              "repeat": 2,
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-007",
+      "requirement": "Embeddings reference authorized release without becoming source truth",
+      "feature_ids": [
+        "REF-007"
+      ],
+      "acceptance_ids": [
+        "AC-REF-007--REF-007"
+      ],
+      "work_packages": [
+        "WP-041"
+      ],
+      "status": "future-not-run",
+      "description": "Approved corpus release R1; embeddings older R0; inaccessible org article",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "R1": {
+          "fixture_type": "reference_release",
+          "approved": true,
+          "published": true
+        },
+        "index": {
+          "fixture_type": "embedding_index",
+          "release": "R0",
+          "rebuild_outcome": "failed"
+        },
+        "foreign": {
+          "fixture_type": "article",
+          "source": "S1",
+          "published": false,
+          "authorized": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.rebuildEmbeddings",
+        "arguments": {
+          "release": "R1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "active_release": "R1",
+          "stale_embedding_results": [],
+          "fallback": "bounded_text_search",
+          "foreign_results": []
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.rebuildEmbeddings",
+            "arguments": {
+              "release": "R1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.rebuildEmbeddings",
+            "arguments": {
+              "release": "R1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
+      "id": "GAP-REF-008",
+      "requirement": "Reference validation fails closed without invented approval",
+      "feature_ids": [
+        "REF-008"
+      ],
+      "acceptance_ids": [
+        "AC-REF-008--REF-008"
+      ],
+      "work_packages": [
+        "WP-032"
+      ],
+      "status": "future-not-run",
+      "description": "Bundle with exact hashes but unresolved editorial conflict and unavailable original",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "candidate": {
+          "fixture_type": "reference_bundle",
+          "hashes_valid": true,
+          "editorial_conflict": true,
+          "original_available": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "bundle": "candidate"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "hash_integrity": true,
+          "editorial_approved": false,
+          "release_allowed": false,
+          "blockers": [
+            "editorial_conflict",
+            "original_unavailable"
+          ]
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.validateBundle",
+            "arguments": {
+              "bundle": "candidate"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "reference.validateBundle",
+            "arguments": {
+              "bundle": "candidate",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
+    },
+    {
       "id": "REFREL-001",
       "requirement": "REQ-REFREL-001",
       "feature_ids": [
@@ -24,7 +1630,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Initial manifest installs twice then sameID/hash mismatch attempted.",
       "given": {
         "P": {
@@ -104,10 +1709,7 @@
           "equal_replay_changes": 0,
           "changed_hash_allowed": false
         },
-        "event": null,
-        "checks": [
-          "Second equal no-op, mismatch stops without active mutation."
-        ]
+        "event": null
       }
     },
     {
@@ -131,7 +1733,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing customorgversion/hide and completed reader.",
       "given": {
         "P": {
@@ -214,10 +1815,7 @@
           "read_credit_retained": true,
           "upstream_cue": "in_app"
         },
-        "event": null,
-        "checks": [
-          "Single coherent pointer switches all eligible derivatives; edits/hide/credit preserved; both customorg upstream inapp cues, meaningful reader label only."
-        ]
+        "event": null
       }
     },
     {
@@ -241,7 +1839,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Candidate missing chunk/hash/dimension or embedding request timeout.",
       "given": {
         "P": {
@@ -318,10 +1915,7 @@
           "active_release": "R1",
           "R2_activated": false
         },
-        "event": null,
-        "checks": [
-          "Old active remains complete, candidate failed/incomplete and no partial new serving."
-        ]
+        "event": null
       }
     },
     {
@@ -345,7 +1939,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Two reviewed complete candidates promote same expectedactivation; stale build worker resumes.",
       "given": {
         "P": {
@@ -392,6 +1985,17 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "expected_activation": 1,
+          "candidates": [
+            "R2",
+            "R3"
+          ],
+          "concurrent": true,
+          "stale_worker_generation": 1,
+          "current_generation": 2
         }
       },
       "actor": {
@@ -407,20 +2011,25 @@
         "operation": "reference.validateBundle",
         "arguments": {
           "subject": "P",
-          "expected_revision": 3
+          "expected_revision": 3,
+          "expected_activation": 1,
+          "candidates": [
+            "R2",
+            "R3"
+          ],
+          "concurrent": true,
+          "stale_worker_generation": 1,
+          "current_generation": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "stale_effects": 0
+          "activation_winners": 1,
+          "stale_worker_activated": false,
+          "loser_requires_review": true
         },
-        "event": null,
-        "checks": [
-          "Only one CAS activation; stale generation refuses; loser requires fresh review."
-        ]
+        "event": null
       }
     },
     {
@@ -444,7 +2053,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "New generation active then reviewed rollback to old complete compatible generation.",
       "given": {
         "P": {
@@ -491,6 +2099,12 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "activation": {
+          "fixture_type": "reference_activation",
+          "id": 2,
+          "generation": "R2",
+          "previous": "R1"
         }
       },
       "actor": {
@@ -503,23 +2117,25 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "reference.rollbackActivation",
         "arguments": {
-          "subject": "P",
-          "fault": "required_write_before_commit"
+          "activation": 2,
+          "generation": "R1",
+          "reason": "Reviewed compatible rollback"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false,
-          "stale_effects": 0
+          "active_generation": "R1",
+          "activation_sequence": 3,
+          "history_entries_retained": [
+            1,
+            2
+          ],
+          "org_adoption_required": false
         },
-        "event": null,
-        "checks": [
-          "Append new activation/reason/attribution; no history erase/org adoption or stale effect replay."
-        ]
+        "event": null
       }
     },
     {
@@ -543,7 +2159,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Rollback with previously departed organization cited in old cached/export/Evry context.",
       "given": {
         "P": {
@@ -590,6 +2205,28 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "activation": {
+          "fixture_type": "reference_activation",
+          "id": 3,
+          "generation": "R1"
+        },
+        "S1": {
+          "fixture_type": "organization",
+          "id": "S1",
+          "kind": "sending_church"
+        },
+        "affiliation": {
+          "fixture_type": "affiliation",
+          "plant": "P",
+          "organization": "S1",
+          "active": false
+        },
+        "cached": {
+          "fixture_type": "wiki_citation",
+          "source": "S1",
+          "article": "S-add",
+          "body": "Former body."
         }
       },
       "actor": {
@@ -602,23 +2239,20 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "reference.validateBundle",
+        "operation": "wiki.articles.get",
         "arguments": {
-          "subject": "P",
-          "fault": "required_write_before_commit"
+          "article": "S-add",
+          "source": "S1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "prior_history_rewritten": false
+          "error_code": "content_access_denied",
+          "body": null,
+          "cached_body": null
         },
-        "event": null,
-        "checks": [
-          "Current entitlement denies former body despite activation/citation history."
-        ]
+        "event": null
       }
     },
     {
@@ -642,7 +2276,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Candidate carries wrong rubric/playbook/template hash or tenant/token/executableMDX canary.",
       "given": {
         "P": {
@@ -721,10 +2354,7 @@
           "activated": false,
           "secret_in_output": null
         },
-        "event": null,
-        "checks": [
-          "Validation rejects before activation; no overwritten authoritative source or content leakage."
-        ]
+        "event": null
       }
     },
     {
@@ -748,7 +2378,6 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "group": "refrel",
       "description": "Assessment pins oldreference; activation changes before publication.",
       "given": {
         "P": {
@@ -795,6 +2424,12 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "run_reference_activation": 1,
+          "current_reference_activation": 2,
+          "prior_result": "R0"
         }
       },
       "actor": {
@@ -809,18 +2444,20 @@
       "action": {
         "operation": "reference.validateBundle",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "run_reference_activation": 1,
+          "current_reference_activation": 2,
+          "prior_result": "R0"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "prior_history_rewritten": false
+          "publication_allowed": false,
+          "current_result": "R0",
+          "historical_result_rewritten": false
         },
-        "event": null,
-        "checks": [
-          "Freshness CAS rejects current publication; original historical prior result survives."
-        ]
+        "event": null
       }
     }
   ]

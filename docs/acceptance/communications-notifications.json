@@ -25,7 +25,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Chicago all-day deadlines 2026-03-08 and 2026-11-01, 23/25 hour days, compare next local midnight.",
       "given": {
         "P": {
@@ -123,7 +122,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Recurring Chicago 02:30  spring gap and 01:30  autumn fold; retry same logical period/recipient.",
       "given": {
         "P": {
@@ -220,7 +218,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Reschedule/retry after provider accepted/unknown/delivered outcome for same logical reminder.",
       "given": {
         "P": {
@@ -313,7 +310,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Pending and delivered old logical reminders when zone changes; duplicate sweep/response loss.",
       "given": {
         "P": {
@@ -406,7 +402,6 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Same plant history has incomplete draft, partial accepted message, confirmed sent message and unknown attempt; query malformed limit/filter and zero reached recipients.",
       "given": {
         "P": {
@@ -464,6 +459,16 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "statuses": [
+            "draft",
+            "partial_accepted",
+            "sent",
+            "unknown"
+          ],
+          "reachable_count": 0
         }
       },
       "actor": {
@@ -484,18 +489,25 @@
           "invalid_control": {
             "id": "not-an-id",
             "name": "   "
-          }
+          },
+          "statuses": [
+            "draft",
+            "partial_accepted",
+            "sent",
+            "unknown"
+          ],
+          "reachable_count": 0
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "rate": null,
+          "draft_counts_as_sent": false,
+          "unknown_counts_as_sent": false,
+          "foreign_rows": []
         },
-        "event": null,
-        "checks": [
-          "Bounded filters and honest selected/reachable/accepted/delivered/unknown totals remain scoped; zero-rate safe; DB error unavailable."
-        ]
+        "event": null
       }
     },
     {
@@ -511,7 +523,6 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "A Person changes address after send; another plant guesses linked Person/meeting/message IDs; provider facts arrive later.",
       "given": {
         "P": {
@@ -569,6 +580,13 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "frozen_address": "old@example.test",
+          "current_address": "new@example.test",
+          "frozen_subject": "Welcome",
+          "provider_fact": "delivered"
         }
       },
       "actor": {
@@ -585,20 +603,23 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "frozen_address": "old@example.test",
+          "current_address": "new@example.test",
+          "frozen_subject": "Welcome",
+          "provider_fact": "delivered"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "prior_history_rewritten": false
+          "delivery_address": "old@example.test",
+          "current_person_address": "new@example.test",
+          "subject": "Welcome",
+          "delivery_status": "delivered",
+          "foreign_child_body": null
         },
-        "event": null,
-        "checks": [
-          "Frozen delivery address/subject and separately labeled current facts retained; foreign parent/child access denies; current authorized history shows actual outcomes."
-        ]
+        "event": null
       }
     },
     {
@@ -614,7 +635,6 @@
         "WP-027"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Preview sanitized rich HTML with person/church/meeting merges, malformed recipient JSON, foreign meeting ID and edited approved audience.",
       "given": {
         "P": {
@@ -672,6 +692,14 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "html": "<p>Hello {{name}}</p><script>alert(1)</script>",
+          "merge_fields": {
+            "name": "Alex"
+          },
+          "audience_changed_after_review": true
         }
       },
       "actor": {
@@ -697,18 +725,23 @@
           "invalid_control": {
             "id": "not-an-id",
             "name": "   "
-          }
+          },
+          "html": "<p>Hello {{name}}</p><script>alert(1)</script>",
+          "merge_fields": {
+            "name": "Alex"
+          },
+          "audience_changed_after_review": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "stale_effects": 0
+          "error_code": "stale_review",
+          "provider_calls": 0,
+          "script_execution": false,
+          "preview_body": "<p>Hello Alex</p>"
         },
-        "event": null,
-        "checks": [
-          "Preview/send hashes agree; malformed/foreign/stale reviewed targets deny before write; no SMS label or unsanitized execution."
-        ]
+        "event": null
       }
     },
     {
@@ -724,7 +757,6 @@
         "WP-027"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Team group contains duplicate role joins, paused team, more than20 people, deleted Person and missing-email member; unknown group token.",
       "given": {
         "P": {
@@ -782,6 +814,41 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "team_person_ids": [
+            "person-1",
+            "person-2",
+            "person-3",
+            "person-4",
+            "person-5",
+            "person-6",
+            "person-7",
+            "person-8",
+            "person-9",
+            "person-10",
+            "person-11",
+            "person-12",
+            "person-13",
+            "person-14",
+            "person-15",
+            "person-16",
+            "person-17",
+            "person-18",
+            "person-19",
+            "person-20",
+            "person-21",
+            "person-22",
+            "person-23",
+            "person-24",
+            "person-25",
+            "person-1"
+          ],
+          "missing_email_ids": [
+            "person-25"
+          ],
+          "search_limit": 20
         }
       },
       "actor": {
@@ -798,18 +865,53 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "team_person_ids": [
+            "person-1",
+            "person-2",
+            "person-3",
+            "person-4",
+            "person-5",
+            "person-6",
+            "person-7",
+            "person-8",
+            "person-9",
+            "person-10",
+            "person-11",
+            "person-12",
+            "person-13",
+            "person-14",
+            "person-15",
+            "person-16",
+            "person-17",
+            "person-18",
+            "person-19",
+            "person-20",
+            "person-21",
+            "person-22",
+            "person-23",
+            "person-24",
+            "person-25",
+            "person-1"
+          ],
+          "missing_email_ids": [
+            "person-25"
+          ],
+          "search_limit": 20
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "resolved_distinct_people": 25,
+          "eligible_recipients": 24,
+          "missing_email_exclusions": [
+            "person-25"
+          ],
+          "search_result_limit": 20,
+          "search_limit_truncates_audience": false
         },
-        "event": null,
-        "checks": [
-          "Whole valid audience deduped; search20 differs from full resolution; invalid selector zero, missing email explicit exclusion; current re-resolution required."
-        ]
+        "event": null
       }
     },
     {
@@ -825,7 +927,6 @@
         "WP-028"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "100-member batch returns positional short response, timeout after acceptance, and crash before local receipt; repeat claim after lease.",
       "given": {
         "P": {
@@ -855,34 +956,219 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "mail-1": {
-          "fixture_type": "communication",
-          "id": "mail-1",
-          "plant": "P",
-          "status": "draft",
-          "recipients": [
-            "alex@example.test"
+        "batch-1": {
+          "fixture_type": "provider_batch",
+          "recipient_order": [
+            "recipient-001",
+            "recipient-002",
+            "recipient-003",
+            "recipient-004",
+            "recipient-005",
+            "recipient-006",
+            "recipient-007",
+            "recipient-008",
+            "recipient-009",
+            "recipient-010",
+            "recipient-011",
+            "recipient-012",
+            "recipient-013",
+            "recipient-014",
+            "recipient-015",
+            "recipient-016",
+            "recipient-017",
+            "recipient-018",
+            "recipient-019",
+            "recipient-020",
+            "recipient-021",
+            "recipient-022",
+            "recipient-023",
+            "recipient-024",
+            "recipient-025",
+            "recipient-026",
+            "recipient-027",
+            "recipient-028",
+            "recipient-029",
+            "recipient-030",
+            "recipient-031",
+            "recipient-032",
+            "recipient-033",
+            "recipient-034",
+            "recipient-035",
+            "recipient-036",
+            "recipient-037",
+            "recipient-038",
+            "recipient-039",
+            "recipient-040",
+            "recipient-041",
+            "recipient-042",
+            "recipient-043",
+            "recipient-044",
+            "recipient-045",
+            "recipient-046",
+            "recipient-047",
+            "recipient-048",
+            "recipient-049",
+            "recipient-050",
+            "recipient-051",
+            "recipient-052",
+            "recipient-053",
+            "recipient-054",
+            "recipient-055",
+            "recipient-056",
+            "recipient-057",
+            "recipient-058",
+            "recipient-059",
+            "recipient-060",
+            "recipient-061",
+            "recipient-062",
+            "recipient-063",
+            "recipient-064",
+            "recipient-065",
+            "recipient-066",
+            "recipient-067",
+            "recipient-068",
+            "recipient-069",
+            "recipient-070",
+            "recipient-071",
+            "recipient-072",
+            "recipient-073",
+            "recipient-074",
+            "recipient-075",
+            "recipient-076",
+            "recipient-077",
+            "recipient-078",
+            "recipient-079",
+            "recipient-080",
+            "recipient-081",
+            "recipient-082",
+            "recipient-083",
+            "recipient-084",
+            "recipient-085",
+            "recipient-086",
+            "recipient-087",
+            "recipient-088",
+            "recipient-089",
+            "recipient-090",
+            "recipient-091",
+            "recipient-092",
+            "recipient-093",
+            "recipient-094",
+            "recipient-095",
+            "recipient-096",
+            "recipient-097",
+            "recipient-098",
+            "recipient-099",
+            "recipient-100"
           ],
-          "body": "Welcome Alex.",
-          "revision": 4
+          "keys": [
+            "mail-001",
+            "mail-002",
+            "mail-003",
+            "mail-004",
+            "mail-005",
+            "mail-006",
+            "mail-007",
+            "mail-008",
+            "mail-009",
+            "mail-010",
+            "mail-011",
+            "mail-012",
+            "mail-013",
+            "mail-014",
+            "mail-015",
+            "mail-016",
+            "mail-017",
+            "mail-018",
+            "mail-019",
+            "mail-020",
+            "mail-021",
+            "mail-022",
+            "mail-023",
+            "mail-024",
+            "mail-025",
+            "mail-026",
+            "mail-027",
+            "mail-028",
+            "mail-029",
+            "mail-030",
+            "mail-031",
+            "mail-032",
+            "mail-033",
+            "mail-034",
+            "mail-035",
+            "mail-036",
+            "mail-037",
+            "mail-038",
+            "mail-039",
+            "mail-040",
+            "mail-041",
+            "mail-042",
+            "mail-043",
+            "mail-044",
+            "mail-045",
+            "mail-046",
+            "mail-047",
+            "mail-048",
+            "mail-049",
+            "mail-050",
+            "mail-051",
+            "mail-052",
+            "mail-053",
+            "mail-054",
+            "mail-055",
+            "mail-056",
+            "mail-057",
+            "mail-058",
+            "mail-059",
+            "mail-060",
+            "mail-061",
+            "mail-062",
+            "mail-063",
+            "mail-064",
+            "mail-065",
+            "mail-066",
+            "mail-067",
+            "mail-068",
+            "mail-069",
+            "mail-070",
+            "mail-071",
+            "mail-072",
+            "mail-073",
+            "mail-074",
+            "mail-075",
+            "mail-076",
+            "mail-077",
+            "mail-078",
+            "mail-079",
+            "mail-080",
+            "mail-081",
+            "mail-082",
+            "mail-083",
+            "mail-084",
+            "mail-085",
+            "mail-086",
+            "mail-087",
+            "mail-088",
+            "mail-089",
+            "mail-090",
+            "mail-091",
+            "mail-092",
+            "mail-093",
+            "mail-094",
+            "mail-095",
+            "mail-096",
+            "mail-097",
+            "mail-098",
+            "mail-099",
+            "mail-100"
+          ],
+          "positional_response": [
+            {
+              "id": "provider-1",
+              "accepted": true
+            }
+          ],
+          "timeout_after_acceptance": true
         }
       },
       "actor": {
@@ -897,21 +1183,20 @@
       "action": {
         "operation": "communication.dispatchAttempt",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4
+          "batch": "batch-1",
+          "claim_generation": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "confirmed_recipient_ids": [
+            "recipient-001"
+          ],
+          "unknown_recipient_count": 99,
+          "replayed_with_new_keys": 0
         },
-        "event": null,
-        "checks": [
-          "Every intent retains its own confirmed/unknown outcome, frozen key and order; reconciliation precedes replay; no sent-for-all or blind new-key duplicate."
-        ]
+        "event": null
       }
     },
     {
@@ -927,7 +1212,6 @@
         "WP-028"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Immediate compose and reviewed non-opener resend each receive all permanent refusals, partial success, or all unknown.",
       "given": {
         "P": {
@@ -985,6 +1269,14 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "recipient_outcomes": [
+            "permanent_refusal",
+            "permanent_refusal"
+          ],
+          "communication": "C1"
         }
       },
       "actor": {
@@ -1000,22 +1292,126 @@
         "operation": "communication.getExecutionResult",
         "arguments": {
           "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4
+          "communication": "C1",
+          "expected_revision": 4,
+          "recipient_outcomes": [
+            "permanent_refusal",
+            "permanent_refusal"
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "communication": "C1",
+          "status": "failed",
+          "accepted": 0,
+          "refused": 2,
+          "unknown": 0
         },
-        "event": null,
-        "checks": [
-          "Both all-refusal paths return saved ID/failure; partial reports truthful counts; all-unknown stays unknown."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York",
+              "revision": 3
+            },
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "email": "casey@example.test"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "Q",
+              "role": "Admin",
+              "active": true
+            },
+            "mail-1": {
+              "fixture_type": "communication",
+              "id": "mail-1",
+              "plant": "P",
+              "status": "draft",
+              "recipients": [
+                "alex@example.test"
+              ],
+              "body": "Welcome Alex.",
+              "revision": 4
+            },
+            "case-input": {
+              "fixture_type": "domain_inputs",
+              "recipient_outcomes": [
+                "permanent_refusal",
+                "permanent_refusal"
+              ],
+              "communication": "C1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.getExecutionResult",
+            "arguments": {
+              "communication": "C1",
+              "recipient_outcomes": [
+                "unknown",
+                "unknown"
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "communication": "C1",
+              "status": "unknown",
+              "accepted": 0,
+              "refused": 0,
+              "unknown": 2
+            },
+            "event": null
+          },
+          "name": "all-unknown-stays-unknown"
+        }
+      ]
     },
     {
       "id": "CASE-COM-007",
@@ -1030,7 +1426,6 @@
         "WP-027"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Two same-plant concurrent forks of one system template; foreign editor; referenced template archive; unreferenced fork deletion.",
       "given": {
         "P": {
@@ -1088,6 +1483,13 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "system_template": "system-1",
+          "concurrent_forks": 2,
+          "fork_plant": "P",
+          "referenced": true
         }
       },
       "actor": {
@@ -1109,20 +1511,22 @@
             "actor": "B",
             "context": "Q",
             "subject": "P"
-          }
+          },
+          "system_template": "system-1",
+          "concurrent_forks": 2,
+          "fork_plant": "P",
+          "referenced": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "prior_history_rewritten": false
+          "plant_forks": 1,
+          "system_template_mutated": false,
+          "referenced_history_retained": true,
+          "foreign_edit_allowed": false
         },
-        "event": null,
-        "checks": [
-          "One scoped fork wins, global original immutable; foreign edit denies; referenced history intact; deleting fork re-exposes current global."
-        ]
+        "event": null
       }
     },
     {
@@ -1139,7 +1543,6 @@
         "WP-027"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Install seven template IDs twice, change same immutable ID checksum, select meeting invitation with existing plant fork.",
       "given": {
         "P": {
@@ -1248,10 +1651,7 @@
           "replay_new_rows": 0,
           "selected_template": "F1"
         },
-        "event": null,
-        "checks": [
-          "Repeat-equal no-op; mismatch stops; fork-by-source wins and approved category/merge fields preserved."
-        ]
+        "event": null
       }
     },
     {
@@ -1267,7 +1667,6 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Original sent25hours ago with delivered-no-open, clicked, no delivery, missing/deleted/suppressed address; two replays of one review.",
       "given": {
         "P": {
@@ -1325,6 +1724,28 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "sent_hours_ago": 25,
+          "recipients": [
+            {
+              "id": "Alex",
+              "delivery": "delivered",
+              "opened": false
+            },
+            {
+              "id": "Casey",
+              "delivery": "delivered",
+              "clicked": true
+            },
+            {
+              "id": "Jamie",
+              "delivery": "unknown",
+              "opened": false
+            }
+          ],
+          "repeat": 2
         }
       },
       "actor": {
@@ -1343,18 +1764,39 @@
           "communication": "mail-1",
           "expected_revision": 4,
           "request_key": "CASE-COM-009-request-1",
-          "repeat": 2
+          "repeat": 2,
+          "sent_hours_ago": 25,
+          "recipients": [
+            {
+              "id": "Alex",
+              "delivery": "delivered",
+              "opened": false
+            },
+            {
+              "id": "Casey",
+              "delivery": "delivered",
+              "clicked": true
+            },
+            {
+              "id": "Jamie",
+              "delivery": "unknown",
+              "opened": false
+            }
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "eligible_resend_ids": [
+            "Alex"
+          ],
+          "new_communications": 1,
+          "original_mutated": false,
+          "replay_new_intents": 0,
+          "open_tracking_is_certain": false
         },
-        "event": null,
-        "checks": [
-          "Only eligible delivered non-openers shown with caveat; original frozen content/new lineage; one replay-safe new communication; original unchanged."
-        ]
+        "event": null
       }
     },
     {
@@ -1371,7 +1813,6 @@
         "WP-028"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Scanner GET plus two concurrent confirm/decline POSTs on same seven-day token; expired token; foreign linked IDs.",
       "given": {
         "P": {
@@ -1429,6 +1870,16 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "token": "token-1",
+          "GET": true,
+          "concurrent_POST": [
+            "confirmed",
+            "declined"
+          ],
+          "token_days": 7
         }
       },
       "actor": {
@@ -1450,19 +1901,26 @@
             "actor": "B",
             "context": "Q",
             "subject": "P"
-          }
+          },
+          "token": "token-1",
+          "GET": true,
+          "concurrent_POST": [
+            "confirmed",
+            "declined"
+          ],
+          "token_days": 7
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "GET_response_writes": 0,
+          "current_RSVP_states": 1,
+          "attendance_writes": 0,
+          "contact_writes": 0,
+          "commitment_writes": 0
         },
-        "event": null,
-        "checks": [
-          "GET no response; one current CAS answer/canonical response wins; expired/foreign refuse; RSVP not attendance/contact/commitment."
-        ]
+        "event": null
       }
     },
     {
@@ -1481,7 +1939,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-com",
       "description": "Incomplete draft reload; schedule at30days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
       "given": {
         "P": {
@@ -1539,6 +1996,12 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "schedule_days": 30,
+          "draft": "C1",
+          "replacement_cancel_status": "unknown"
         }
       },
       "actor": {
@@ -1555,21 +2018,115 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "schedule_days": 30,
+          "draft": "C1",
+          "replacement_cancel_status": "unknown"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "draft_intents": 0,
+          "schedule_status": "accepted",
+          "schedule_sent": false,
+          "replacement_intents": 0
         },
-        "event": null,
-        "checks": [
-          "Draft has no intent, valid reviewed API schedule shows accepted not sent; beyond window refused; unknown old cancel blocks replacement."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York",
+              "revision": 3
+            },
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "email": "casey@example.test"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "Q",
+              "role": "Admin",
+              "active": true
+            },
+            "mail-1": {
+              "fixture_type": "communication",
+              "id": "mail-1",
+              "plant": "P",
+              "status": "draft",
+              "recipients": [
+                "alex@example.test"
+              ],
+              "body": "Welcome Alex.",
+              "revision": 4
+            },
+            "case-input": {
+              "fixture_type": "domain_inputs",
+              "schedule_days": 30,
+              "draft": "C1",
+              "replacement_cancel_status": "unknown"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.saveDraft",
+            "arguments": {
+              "schedule_days": 31,
+              "draft": "C1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "schedule_window_exceeded",
+              "provider_handoffs": 0
+            },
+            "event": null
+          },
+          "name": "beyond-window"
+        }
+      ]
     },
     {
       "id": "CASE-NTF-001",
@@ -1584,7 +2141,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Two independently affiliated organizations share recipient but same occurrence key; forged kind/ID and revoked category input.",
       "given": {
         "P": {
@@ -1642,6 +2198,16 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "recipient": "A",
+          "occurrence": "M1",
+          "revoked_category": "meetings"
         }
       },
       "actor": {
@@ -1658,19 +2224,25 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "recipient": "A",
+          "occurrence": "M1",
+          "revoked_category": "meetings"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "logical_intents": 2,
+          "cross_org_deduplication": false,
+          "revoked_category_intents": 0,
+          "foreign_anchor_disclosed": false
         },
-        "event": null,
-        "checks": [
-          "Typed scoped anchors dedupe independently and refuse incoherent/unauthorized enqueue without leaking counts."
-        ]
+        "event": null
       }
     },
     {
@@ -1686,7 +2258,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Concurrent tick claims, lease expiry after provider acceptance, stale claimant resume and canceled live entity.",
       "given": {
         "P": {
@@ -1744,6 +2315,14 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "job": "J",
+          "old_generation": 1,
+          "current_generation": 2,
+          "provider_accepted": true,
+          "entity_cancelled": true
         }
       },
       "actor": {
@@ -1760,21 +2339,23 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 3
+          "expected_revision": 3,
+          "job": "J",
+          "old_generation": 1,
+          "current_generation": 2,
+          "provider_accepted": true,
+          "entity_cancelled": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0,
-          "stale_effects": 0
+          "old_generation_finalization": false,
+          "duplicate_sends": 0,
+          "obsolete_reminder_status": "cancelled",
+          "accepted_result_fabricated": false
         },
-        "event": null,
-        "checks": [
-          "Fenced current claim/reconciliation avoids duplicate send; stale finalization refuses and obsolete reminder cancels."
-        ]
+        "event": null
       }
     },
     {
@@ -1790,7 +2371,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Self feed includes future, read, canceled, revoked organization and foreign-recipient entries; mark-all unread page.",
       "given": {
         "P": {
@@ -1887,10 +2467,7 @@
           "due_local_date": "2026-10-13",
           "overdue": false
         },
-        "event": null,
-        "checks": [
-          "Count/feed/mark-all use same current visible predicate; future/foreign/revoked hidden; read never changes task state."
-        ]
+        "event": null
       }
     },
     {
@@ -1906,7 +2483,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Explicit email OFF survives cadence save/default-equivalent choice and organization audience change.",
       "given": {
         "P": {
@@ -1997,10 +2573,7 @@
           "logical_digest_intents": 1,
           "duplicate_sends": 0
         },
-        "event": null,
-        "checks": [
-          "Persist explicit human intent independently, default planter email-on/inapp-off and adjustable org cadence; no widened audience."
-        ]
+        "event": null
       }
     },
     {
@@ -2017,7 +2590,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Task reassign/reschedule then complete while old due/overdue claim is pending; timezone calendar day crosses DST.",
       "given": {
         "P": {
@@ -2122,10 +2694,7 @@
             "T1"
           ]
         },
-        "event": null,
-        "checks": [
-          "Old occurrences canceled, current assignee/revision only; completed task sends none; one calendar day differs from24elapsed hours."
-        ]
+        "event": null
       }
     },
     {
@@ -2142,7 +2711,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Meeting moves after7day reminder queued; linked guest account removed; meeting completed; CRM-only address present.",
       "given": {
         "P": {
@@ -2234,10 +2802,7 @@
           "health_reason": null,
           "private_care": null
         },
-        "event": null,
-        "checks": [
-          "Old reminders canceled/resynced; eligible linked accounts/current meeting only; no fallback CRM guest notification."
-        ]
+        "event": null
       }
     },
     {
@@ -2253,7 +2818,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Planter weekly Sunday16local with DST transition and multi-day missed tick; completed tasks in old interval.",
       "given": {
         "P": {
@@ -2311,6 +2875,19 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "zone": "America/Chicago",
+          "weekly_local_time": "Sunday 16:00",
+          "missed_dates": [
+            "2026-10-04",
+            "2026-10-11"
+          ],
+          "current_recipient": "A",
+          "current_open_tasks": [
+            "T1"
+          ]
         }
       },
       "actor": {
@@ -2327,19 +2904,31 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "zone": "America/Chicago",
+          "weekly_local_time": "Sunday 16:00",
+          "missed_dates": [
+            "2026-10-04",
+            "2026-10-11"
+          ],
+          "current_recipient": "A",
+          "current_open_tasks": [
+            "T1"
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0,
-          "stale_effects": 0
+          "catchup_digests": 1,
+          "included_tasks": [
+            "T1"
+          ],
+          "other_assignee_tasks": [],
+          "stale_daily_digests": 0,
+          "cursor_retained": true
         },
-        "event": null,
-        "checks": [
-          "One current nonempty dated catchup, scope to assignee, preserve uncovered cursor, no stale daily pile/duplicate inbox."
-        ]
+        "event": null
       }
     },
     {
@@ -2357,7 +2946,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Two orgs linked to same plant, activity sharing OFF for one; daily/weekly cadence edit and no eligible activity.",
       "given": {
         "P": {
@@ -2447,10 +3035,7 @@
           "intents": 1,
           "provider_exactly_once_claim": false
         },
-        "event": null,
-        "checks": [
-          "Exact independently gated counts/dates only; no private names/body/giving; empty sends nothing, correct saved timezone/coverage."
-        ]
+        "event": null
       }
     },
     {
@@ -2469,7 +3054,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Actual advance, declaration, backward correction and own-link removal each replay; surviving affiliate stays.",
       "given": {
         "P": {
@@ -2571,10 +3155,7 @@
           "advance_notices": 1,
           "N1_revoked": false
         },
-        "event": null,
-        "checks": [
-          "Only actual-advance producer emits advance; committed ending notice scoped to its event, no reopened private data or other-org revocation."
-        ]
+        "event": null
       }
     },
     {
@@ -2590,7 +3171,6 @@
         "WP-028"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Signed delivered event before accepted, repeated eventID, soft bounce, hard bounce and callback storage failure.",
       "given": {
         "P": {
@@ -2648,6 +3228,20 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "events": [
+            "delivered",
+            "accepted",
+            "delivered"
+          ],
+          "event_ids": [
+            "e1",
+            "e2",
+            "e1"
+          ],
+          "signature_valid": true
         }
       },
       "actor": {
@@ -2665,18 +3259,30 @@
           "subject": "P",
           "communication": "mail-1",
           "expected_revision": 4,
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "events": [
+            "delivered",
+            "accepted",
+            "delivered"
+          ],
+          "event_ids": [
+            "e1",
+            "e2",
+            "e1"
+          ],
+          "signature_valid": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "effective_delivery": "delivered",
+          "unique_provider_events": 2,
+          "regression_to_accepted": false,
+          "duplicate_effects": 0,
+          "soft_bounce_creates_hard_suppression": false
         },
-        "event": null,
-        "checks": [
-          "Durable idempotent facts never regress; soft not fabricated hard; hard/complaint suppression; storage failure non2xx enables retry."
-        ]
+        "event": null
       }
     },
     {
@@ -2693,7 +3299,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Self fresh-verified current email restoration with reason, foreign address request, repeat clear and later hard bounce.",
       "given": {
         "P": {
@@ -2751,6 +3356,13 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "caller": "A",
+          "verified_email": "alex@example.test",
+          "requested_email": "other@example.test",
+          "reason": "Verified recovery"
         }
       },
       "actor": {
@@ -2772,21 +3384,21 @@
             "actor": "B",
             "context": "Q",
             "subject": "P"
-          }
+          },
+          "caller": "A",
+          "verified_email": "alex@example.test",
+          "requested_email": "other@example.test",
+          "reason": "Verified recovery"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false
+          "error_code": "access_denied",
+          "suppression_clears": 0,
+          "new_sends": 0
         },
-        "event": null,
-        "checks": [
-          "Only current self clears once with history; foreign denied; repeat no-op; subsequent hard suppression returns; no send resurrection."
-        ]
+        "event": null
       }
     },
     {
@@ -2802,7 +3414,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Disable token at180day boundary, undo token at1hour, wrong purpose/tamper/old key; scanner GET and RFC8058 POST.",
       "given": {
         "P": {
@@ -2895,10 +3506,7 @@
           "GET_change": false,
           "in_app_changed": false
         },
-        "event": null,
-        "checks": [
-          "Expired/wrong token fails; GET no mutation; own category email only; inapp unchanged; permitted decrypt-only key rotation through token TTL."
-        ]
+        "event": null
       }
     },
     {
@@ -2917,7 +3525,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Security reset and association purpose mail with optional email preference OFF; transport timeout; log canary token.",
       "given": {
         "P": {
@@ -2975,6 +3582,13 @@
           ],
           "body": "Welcome Alex.",
           "revision": 4
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "purpose": "password_reset",
+          "optional_email_preference": false,
+          "transport": "timeout",
+          "secret_token": "TOKEN-CANARY"
         }
       },
       "actor": {
@@ -2991,18 +3605,23 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "purpose": "password_reset",
+          "optional_email_preference": false,
+          "transport": "timeout",
+          "secret_token": "TOKEN-CANARY"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "purpose_mail_attempted": true,
+          "delivery_status": "unknown",
+          "token_in_logs": null,
+          "address_in_logs": null,
+          "body_in_context": null
         },
-        "event": null,
-        "checks": [
-          "Purpose and safe recipient policy apply; shared durable outcome unknown; token/address/body absent from logs/context."
-        ]
+        "event": null
       }
     },
     {
@@ -3020,7 +3639,6 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Global typo-only and meaningful updates behind customized org article; generic email prefs ON; unused team helpers.",
       "given": {
         "P": {
@@ -3125,10 +3743,7 @@
           "email_intents": 0,
           "auto_adoptions": 0
         },
-        "event": null,
-        "checks": [
-          "Both updates produce current-editor inapp cue only; no email, auto adoption/reset or new unused producer."
-        ]
+        "event": null
       }
     },
     {
@@ -3145,7 +3760,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "case-ntf",
       "description": "Seatless Discovery acceptance occurrence with account also org Owner; duplicate receipt trigger, invalid org owner linkage.",
       "given": {
         "P": {
@@ -3237,10 +3851,7 @@
           "distinct_recipients": 1,
           "phantom_plant_created": false
         },
-        "event": null,
-        "checks": [
-          "Recipient account deduped, exact valid owners only, no phantom plant/inbox; durable mail failure never undoes association."
-        ]
+        "event": null
       }
     },
     {
@@ -3259,7 +3870,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "gap-com",
       "description": "Saved draft rev1; desired send at now+29days; second desired now+31days; provider cancellation unknown",
       "given": {
         "P": {
@@ -3289,45 +3899,24 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Alex-Rivera": {
-          "fixture_type": "person",
-          "id": "Alex-Rivera",
+        "C1": {
+          "fixture_type": "communication",
           "plant": "P",
-          "name": "Alex Rivera",
-          "city": "Chicago",
-          "revision": 4
-        },
-        "Alex-Chen": {
-          "fixture_type": "person",
-          "id": "Alex-Chen",
-          "plant": "P",
-          "name": "Alex Chen",
-          "city": "Evanston",
-          "revision": 4
-        },
-        "Casey": {
-          "fixture_type": "person",
-          "id": "Casey",
-          "plant": "P",
-          "name": "Casey Reed",
-          "stage": "Leader",
-          "revision": 4
-        },
-        "C": {
-          "fixture_type": "conversation",
-          "id": "C",
-          "account": "A",
-          "context": "P",
-          "sequence": 4,
-          "draft_revision": 2
-        },
-        "R": {
-          "fixture_type": "review",
-          "id": "R",
-          "account": "A",
-          "context": "P",
           "revision": 1,
-          "approved": false,
+          "status": "draft",
+          "body": "Welcome Alex.",
+          "recipients": [
+            "alex@example.test"
+          ]
+        },
+        "R1": {
+          "fixture_type": "review",
+          "account": "A",
+          "context": "P",
+          "approved": true,
+          "communication": "C1",
+          "revision": 1,
+          "send_at": "2026-11-11T16:00:00Z",
           "expires_at": "2026-10-13T16:15:00Z"
         }
       },
@@ -3341,30 +3930,281 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "communication.scheduleReviewed",
         "arguments": {
-          "conversation": "C",
-          "utterances": [
-            "Review save/send schedule then reschedule/cancel/replace"
-          ],
-          "request_key": "GAP-COM-012-turn-1"
+          "communication": "C1",
+          "send_at": "2026-11-11T16:00:00Z",
+          "review": "R1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0
+          "scheduled_at": "2026-11-11T16:00:00Z",
+          "provider_handoffs": 1,
+          "frozen_body": "Welcome Alex.",
+          "recipients": [
+            "alex@example.test"
+          ]
         },
-        "event": null,
-        "checks": [
-          "Exact approved bytes/audience frozen; 29day schedule handed off; 31day refuses; replacement only after known cancellation",
-          "SMS/inbound/tool/custom beyond-window scheduling unavailable; Member send denied",
-          "Unknown cancel/sent race reconciled; never duplicate replacement/send"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "C1": {
+              "fixture_type": "communication",
+              "plant": "P",
+              "revision": 1,
+              "status": "draft",
+              "body": "Welcome Alex.",
+              "recipients": [
+                "alex@example.test"
+              ]
+            },
+            "R1": {
+              "fixture_type": "review",
+              "account": "A",
+              "context": "P",
+              "approved": true,
+              "communication": "C1",
+              "revision": 1,
+              "send_at": "2026-11-11T16:00:00Z",
+              "expires_at": "2026-10-13T16:15:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.scheduleReviewed",
+            "arguments": {
+              "communication": "C1",
+              "send_at": "2026-11-13T16:00:00Z",
+              "review": "R1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "schedule_window_exceeded",
+              "provider_handoffs": 0
+            },
+            "event": null
+          },
+          "name": "thirty-one-days-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "C1": {
+              "fixture_type": "communication",
+              "plant": "P",
+              "revision": 1,
+              "status": "draft",
+              "body": "Welcome Alex.",
+              "recipients": [
+                "alex@example.test"
+              ]
+            },
+            "R1": {
+              "fixture_type": "review",
+              "account": "A",
+              "context": "P",
+              "approved": true,
+              "communication": "C1",
+              "revision": 1,
+              "send_at": "2026-11-11T16:00:00Z",
+              "expires_at": "2026-10-13T16:15:00Z"
+            },
+            "provider": {
+              "fixture_type": "scheduled_provider_fact",
+              "communication": "C1",
+              "cancel_outcome": "unknown"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.replaceScheduledReviewed",
+            "arguments": {
+              "communication": "C1",
+              "send_at": "2026-11-10T16:00:00Z",
+              "review": "R1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "status": "reconciliation_required",
+              "replacement_handoffs": 0
+            },
+            "event": null
+          },
+          "name": "unknown-cancel-blocks-replacement"
+        },
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.scheduleReviewed",
+            "arguments": {
+              "communication": "C1",
+              "send_at": "2026-11-11T16:00:00Z",
+              "review": "R1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.scheduleReviewed",
+            "arguments": {
+              "communication": "C1",
+              "send_at": "2026-11-11T16:00:00Z",
+              "review": "R1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-COMMUNICATION-05",
@@ -3407,7 +4247,6 @@
         "communication.get",
         "people.listPeople"
       ],
-      "group": "inh-communication",
       "description": "Three Prospects: two email eligible, one missing; one duplicate address; visible invitation template",
       "given": {
         "P": {
@@ -3477,6 +4316,33 @@
           "revision": 1,
           "approved": false,
           "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "audience": {
+          "fixture_type": "recipient_candidates",
+          "rows": [
+            {
+              "person": "Alex",
+              "email": "alex@example.test"
+            },
+            {
+              "person": "Casey",
+              "email": "casey@example.test"
+            },
+            {
+              "person": "Jamie",
+              "email": null
+            },
+            {
+              "person": "Alex",
+              "email": "alex@example.test"
+            }
+          ]
+        },
+        "template": {
+          "fixture_type": "communication_template",
+          "plant": "P",
+          "subject": "Invitation",
+          "body": "Welcome {{name}}."
         }
       },
       "actor": {
@@ -3489,27 +4355,123 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "communication.preview",
         "arguments": {
-          "conversation": "C",
-          "utterances": [
-            "Preview an invitation for all prospects with an email address, without sending it."
-          ],
-          "request_key": "INH-COMMUNICATION-05-turn-1"
+          "audience": "audience",
+          "template": "template"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "eligible_recipients": [
+            "alex@example.test",
+            "casey@example.test"
+          ],
+          "excluded_missing_email": [
+            "Jamie"
+          ],
+          "duplicate_addresses_removed": 1,
+          "provider_calls": 0,
+          "saved_drafts": 0
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.preview",
+            "arguments": {
+              "audience": "audience",
+              "template": "template"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.preview",
+            "arguments": {
+              "audience": "audience",
+              "template": "template",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-CROSS-07",
@@ -3542,7 +4504,6 @@
       "operation_ids": [
         "communication.list"
       ],
-      "group": "inh-cross",
       "description": "Review-P unapproved; review-Q applied send message-M provider accepted with deliveryUnknown",
       "given": {
         "P": {
@@ -3612,6 +4573,21 @@
           "revision": 1,
           "approved": false,
           "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "review-P": {
+          "fixture_type": "review",
+          "approved": false,
+          "status": "preview"
+        },
+        "review-Q": {
+          "fixture_type": "review",
+          "approved": true,
+          "status": "applied"
+        },
+        "message-M": {
+          "fixture_type": "provider_delivery",
+          "accepted": true,
+          "delivery": "unknown"
         }
       },
       "actor": {
@@ -3624,7 +4600,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.observeRun",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -3636,15 +4612,114 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "review-P": "preview",
+          "review-Q": "applied",
+          "message-M": "accepted_unknown",
+          "human_contact_recorded": false
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.observeRun",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Did you actually send the invitations, or are you showing me a preview?"
+              ],
+              "request_key": "INH-CROSS-07-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.observeRun",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Did you actually send the invitations, or are you showing me a preview?"
+              ],
+              "request_key": "INH-CROSS-07-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-MEETINGS-08",
@@ -3697,7 +4772,6 @@
         "meetings.list",
         "people.listPeople"
       ],
-      "group": "inh-meetings",
       "description": "Tuesday resolved in plant zone; northside2 eligible unique emails and1 suppressed; location ambiguity; no meeting",
       "given": {
         "P": {
@@ -3779,6 +4853,35 @@
             "Alex-Rivera",
             "Casey"
           ]
+        },
+        "audience": {
+          "fixture_type": "recipient_candidates",
+          "rows": [
+            {
+              "person": "Alex",
+              "email": "alex@example.test"
+            },
+            {
+              "person": "Casey",
+              "email": "casey@example.test"
+            },
+            {
+              "person": "Jamie",
+              "email": "jamie@example.test",
+              "suppressed": true
+            }
+          ]
+        },
+        "draft": {
+          "fixture_type": "meeting_draft",
+          "type": "orientation",
+          "date": "2026-10-20",
+          "zone": "America/Chicago",
+          "location": null,
+          "location_choices": [
+            "North Hall",
+            "North Church"
+          ]
         }
       },
       "actor": {
@@ -3791,7 +4894,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.prepareMeetingInvitation",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -3803,15 +4906,121 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "status": "needs_clarification",
+          "field": "location",
+          "eligible_recipients": [
+            "alex@example.test",
+            "casey@example.test"
+          ],
+          "suppressed_recipients": [
+            "jamie@example.test"
+          ],
+          "meeting_writes": 0,
+          "provider_calls": 0
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.prepareMeetingInvitation",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Create a Vision Meeting next Tuesday at 6 PM and invite the prospects tagged northside."
+              ],
+              "request_key": "INH-MEETINGS-08-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.prepareMeetingInvitation",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Create a Vision Meeting next Tuesday at 6 PM and invite the prospects tagged northside."
+              ],
+              "request_key": "INH-MEETINGS-08-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-REGRESSION-CONFIRM-REPLAY",
@@ -3830,7 +5039,6 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "group": "inh-regression-confirm",
       "description": "Exact trusted approved meeting invitation to two recipients; two concurrent confirm requests; observer reconnect",
       "given": {
         "P": {
@@ -3924,7 +5132,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.executeProposal",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -3936,15 +5144,114 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "meetings": 1,
+          "guest_links": 2,
+          "recipient_intents": 2,
+          "additional_intents_on_reconnect": 0
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Please send the reviewed invitations."
+              ],
+              "request_key": "INH-REGRESSION-CONFIRM-REPLAY-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Please send the reviewed invitations."
+              ],
+              "request_key": "INH-REGRESSION-CONFIRM-REPLAY-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-REGRESSION-EXPIRED-APPROVAL",
@@ -3963,7 +5270,6 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "group": "inh-regression-expired",
       "description": "Proposal createdT0; approval witness expiryT0+15min; clock exactly expiry",
       "given": {
         "P": {
@@ -4027,13 +5333,10 @@
         },
         "R": {
           "fixture_type": "review",
-          "id": "R",
           "account": "A",
           "context": "P",
-          "revision": 1,
           "approved": true,
-          "expires_at": "2026-10-13T15:00:00Z",
-          "canceled": false
+          "expires_at": "2026-10-13T16:00:00Z"
         }
       },
       "actor": {
@@ -4046,7 +5349,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.executeProposal",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -4058,17 +5361,114 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0
+          "error_code": "review_expired",
+          "domain_writes": 0,
+          "provider_calls": 0,
+          "new_review_required": true
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Send the invitations I reviewed earlier."
+              ],
+              "request_key": "INH-REGRESSION-EXPIRED-APPROVAL-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Send the invitations I reviewed earlier."
+              ],
+              "request_key": "INH-REGRESSION-EXPIRED-APPROVAL-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-REGRESSION-REVISED-APPROVAL",
@@ -4087,7 +5487,6 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "group": "inh-regression-revised",
       "description": "Approved review has recipientsAlex+Casey; edit replaces Casey with Jamie",
       "given": {
         "P": {
@@ -4170,7 +5569,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.executeProposal",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -4182,15 +5581,121 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "old_digest_authorizes": [
+            "Alex",
+            "Casey"
+          ],
+          "changed_recipient_ids": [
+            "Alex",
+            "Jamie"
+          ],
+          "old_approval_valid": false,
+          "domain_writes": 0,
+          "new_review_required": true
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Change the recipients, then use my earlier confirmation."
+              ],
+              "request_key": "INH-REGRESSION-REVISED-APPROVAL-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.executeProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Change the recipients, then use my earlier confirmation."
+              ],
+              "request_key": "INH-REGRESSION-REVISED-APPROVAL-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "INH-REGRESSION-TEMPLATE-EDIT",
@@ -4209,7 +5714,6 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "group": "inh-regression-template",
       "description": "Pending review subjectOld, two core recipients, time10am; user changes subject",
       "given": {
         "P": {
@@ -4302,7 +5806,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "evry.reviseProposal",
         "arguments": {
           "conversation": "C",
           "utterances": [
@@ -4315,15 +5819,120 @@
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "replay_additional_effects": 0
+          "subject": "Welcome to orientation",
+          "recipient_ids": [
+            "Alex",
+            "Casey"
+          ],
+          "local_time": "10:00",
+          "old_approval_valid": false,
+          "provider_calls": 0
         },
-        "event": null,
-        "checks": [
-          "Foreign/revoked actor, row, context and guessed references reveal no forbidden record/existence; exact actor-specific allowed operation guards apply.",
-          "Provider/read/storage outage reports unavailable/partial/unknown as appropriate; no unreviewed write or duplicate effect; saved authorized draft/receipt remains."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.reviseProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Prepare the orientation invitation for the core team.",
+                "Change the subject to Welcome to orientation and keep the same people and time."
+              ],
+              "request_key": "INH-REGRESSION-TEMPLATE-EDIT-turn-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "evry.reviseProposal",
+            "arguments": {
+              "conversation": "C",
+              "utterances": [
+                "Prepare the orientation invitation for the core team.",
+                "Change the subject to Welcome to orientation and keep the same people and time."
+              ],
+              "request_key": "INH-REGRESSION-TEMPLATE-EDIT-turn-1",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "MAIL-KEYWINDOW-001",
@@ -4351,7 +5960,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail-keywindow",
       "description": "Unknown whole-batch response at23hours50minutes then23hours56minutes from first dispatch, with account-private security member from another scope.",
       "given": {
         "P": {
@@ -4417,6 +6025,17 @@
           "week": "2026-10-12",
           "answer": "Strained",
           "note": "CARE-CANARY-MAIL-KEYWINDOW-001"
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "hours_since_first_dispatch": [
+            23.833333333333332,
+            23.933333333333334
+          ],
+          "provider_key_window_hours": 24,
+          "automatic_retry_cutoff_hours": 23,
+          "external_outcome": "unknown",
+          "foreign_batch_member": true
         }
       },
       "actor": {
@@ -4433,20 +6052,30 @@
         "arguments": {
           "subject": "P",
           "communication": "mail-1",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "hours_since_first_dispatch": [
+            23.833333333333332,
+            23.933333333333334
+          ],
+          "provider_key_window_hours": 24,
+          "automatic_retry_cutoff_hours": 23,
+          "external_outcome": "unknown",
+          "foreign_batch_member": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0
+          "automatic_replay_allowed": [
+            false,
+            false
+          ],
+          "negative_evidence_required": true,
+          "first_dispatch_clock_reset": false,
+          "cross_scope_batch_allowed": false,
+          "foreign_manifest": null
         },
-        "event": null,
-        "checks": [
-          "Earlier same exact request/key may reconcile/replay under current checks; later automatic replay blocked without negative evidence, original clock unchanged; cross-scope batch refused/singleton receipt has no foreign manifest."
-        ]
+        "event": null
       }
     },
     {
@@ -4475,7 +6104,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail-ledger",
       "description": "Native and Evry dispatch same approved receipt, transport accepted before crash, webhook late and old lease resumes.",
       "given": {
         "P": {
@@ -4505,34 +6133,14 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "mail-1": {
-          "fixture_type": "communication",
-          "id": "mail-1",
+        "recipient-1": {
+          "fixture_type": "delivery_intent",
           "plant": "P",
-          "status": "draft",
-          "recipients": [
-            "alex@example.test"
-          ],
-          "body": "Welcome Alex.",
-          "revision": 4
+          "recipient": "alex@example.test",
+          "key": "frozen-mail-1",
+          "provider_accepted": true,
+          "local_receipt_saved": false,
+          "old_generation": 4
         }
       },
       "actor": {
@@ -4547,21 +6155,93 @@
       "action": {
         "operation": "communication.dispatchAttempt",
         "arguments": {
-          "subject": "P",
-          "communication": "mail-1",
-          "expected_revision": 4
+          "intent": "recipient-1",
+          "adapters": [
+            "native",
+            "Evry"
+          ],
+          "concurrent": true,
+          "claim_generation": 5
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "logical_intents": 1,
+          "provider_attempt_owners": 1,
+          "status": "accepted_unknown",
+          "provider_calls_after_crash": 0
         },
-        "event": null,
-        "checks": [
-          "One logical immutable recipient intent, truthful external uncertainty/facts and fenced idempotent receipt; no duplicate provider owner or blind replay."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "recipient-1": {
+              "fixture_type": "delivery_intent",
+              "plant": "P",
+              "recipient": "alex@example.test",
+              "key": "frozen-mail-1",
+              "provider_accepted": true,
+              "local_receipt_saved": false,
+              "old_generation": 4
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "communication.dispatchAttempt",
+            "arguments": {
+              "intent": "recipient-1",
+              "claim_generation": 4
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "stale_claim",
+              "receipt_writes": 0,
+              "provider_calls": 0
+            },
+            "event": null
+          },
+          "name": "old-lease-cannot-finalize"
+        }
+      ]
     },
     {
       "id": "MAIL51-001",
@@ -4585,7 +6265,6 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Incomplete subject/body/audience draft persists,reloads,edits,deletes and revision conflicts.",
       "given": {
         "P": {
@@ -4676,7 +6355,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Resolved recipient address/content/time changes after exact review but before handoff.",
       "given": {
         "P": {
@@ -4756,7 +6434,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "API schedule at30days versus31days, batch and DSTfold/gap entered localtime.",
       "given": {
         "P": {
@@ -4849,7 +6526,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Accepted scheduled body/audience frozen; reviewed time-only change and lost update response.",
       "given": {
         "P": {
@@ -4939,7 +6615,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Accepted batch replacement with canceled,sent and unknown original recipient outcomes.",
       "given": {
         "P": {
@@ -5033,7 +6708,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Batch provider results short/mixed, late sent/delivered and per-intent providerIDs.",
       "given": {
         "P": {
@@ -5144,7 +6818,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "After provider acceptance authority/address/suppression changes before scheduledsend.",
       "given": {
         "P": {
@@ -5241,7 +6914,6 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Current authorized Person/meeting/detail reads versus foreign/departed/private/token canaries.",
       "given": {
         "P": {
@@ -5280,6 +6952,11 @@
           ],
           "private_note": "CARE-CANARY",
           "token": "TOKEN-CANARY"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -5342,7 +7019,6 @@
         "WP-072"
       ],
       "status": "future-not-run",
-      "group": "mail51",
       "description": "Evry saves draft and separately reviews schedule,reschedule,cancel,replace exact effects.",
       "given": {
         "P": {
@@ -5372,12 +7048,23 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "input": {
-          "fixture_type": "example",
-          "adapter": "Evry",
-          "draft": "C1",
+        "C1": {
+          "fixture_type": "communication",
+          "plant": "P",
+          "revision": 1,
+          "status": "draft",
+          "body": "Welcome Alex.",
+          "recipients": [
+            "alex@example.test"
+          ]
+        },
+        "R1": {
+          "fixture_type": "review",
+          "account": "A",
+          "context": "P",
+          "communication": "C1",
           "approved": false,
-          "requested": "schedule"
+          "revision": 1
         }
       },
       "actor": {
@@ -5390,20 +7077,19 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "communication.cancelScheduledReviewed",
+        "operation": "communication.scheduleReviewed",
         "arguments": {
-          "adapter": "Evry",
-          "draft": "C1",
-          "approved": false,
-          "requested": "schedule"
+          "communication": "C1",
+          "send_at": "2026-10-14T16:00:00Z",
+          "review": "R1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "draft_allowed": true,
-          "provider_calls": 0,
-          "review_required": true
+          "error_code": "review_required",
+          "draft_saved": true,
+          "provider_calls": 0
         },
         "event": null
       }
@@ -5437,7 +7123,6 @@
         "WP-082"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Self/foreign recipient inbox with future/cancelled entries, unread pagination and mark-all-visible.",
       "given": {
         "P": {
@@ -5546,7 +7231,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Default absence, explicit default-equivalent channel setting, planter digest and changed audience.",
       "given": {
         "P": {
@@ -5641,7 +7325,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Security/invitation purpose and seatless Discovery receipt with optional category emailOFF.",
       "given": {
         "P": {
@@ -5720,7 +7403,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Planter Sunday16local weekly/default daily choice across DST and repeated owed period.",
       "given": {
         "P": {
@@ -5803,7 +7485,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Two independently affiliated orgs, activity sharingOFF for one, frequency/channel edit and no activity.",
       "given": {
         "P": {
@@ -5900,7 +7581,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Three-day outage with completed task/cancelled meeting and still-authorized dated org activity.",
       "given": {
         "P": {
@@ -6003,7 +7683,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Task/meeting complete,cancel,reschedule while queued reminder awaits handoff.",
       "given": {
         "P": {
@@ -6122,7 +7801,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Lost provider acceptance response, out-of-order callback, suppression and webhook persistence outage.",
       "given": {
         "P": {
@@ -6208,7 +7886,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Category/helper catalog contains unused teamhealth/training/assessment helpers plus live milestones.",
       "given": {
         "P": {
@@ -6310,7 +7987,6 @@
         "WP-082"
       ],
       "status": "future-not-run",
-      "group": "notify47",
       "description": "Native and reviewed Evry own markread; foreign recipient and revoked oversight grant.",
       "given": {
         "P": {
@@ -6395,7 +8071,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-communication-recipient-contact",
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -6457,6 +8132,11 @@
           "consumer": "communication-recipient-contact",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -6495,12 +8175,7 @@
           "changed_references": 0,
           "external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -6520,7 +8195,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-communication-recipient-contact",
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -6582,6 +8256,11 @@
           "consumer": "communication-recipient-contact",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -6626,13 +8305,199 @@
           "receipts": 1,
           "dangling_references": 0
         },
-        "event": null,
-        "checks": [
-          "moveCurrentPreserveHistory preserves registered chronology/identity; single shared receipt; no dangling reference",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
@@ -6651,7 +8516,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-communication-recipient-contact",
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -6713,6 +8577,11 @@
           "consumer": "communication-recipient-contact",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -6753,12 +8622,7 @@
           "historical_person": "P2",
           "new_external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -6778,7 +8642,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-communication-recipient-contact",
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -6854,6 +8717,11 @@
               "after_revision": 2
             }
           ]
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -6895,13 +8763,202 @@
           "inverse_receipts": 1,
           "external_resends": 0
         },
-        "event": null,
-        "checks": [
-          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "communication-recipient-contact",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "communication-recipient-contact",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE-1",
+              "repeat": 1,
+              "receipt": "merge-1",
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "communication-recipient-contact",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "communication-recipient-contact",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-CONFLICT",
@@ -6921,7 +8978,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-notification-person-subject",
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -6983,6 +9039,11 @@
           "consumer": "notification-person-subject",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7021,12 +9082,7 @@
           "changed_references": 0,
           "external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -7047,7 +9103,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-notification-person-subject",
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7109,6 +9164,11 @@
           "consumer": "notification-person-subject",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7153,13 +9213,199 @@
           "receipts": 1,
           "dangling_references": 0
         },
-        "event": null,
-        "checks": [
-          "immutableEvidenceReference preserves registered chronology/identity; single shared receipt; no dangling reference",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE",
@@ -7179,7 +9425,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-notification-person-subject",
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7241,6 +9486,11 @@
           "consumer": "notification-person-subject",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7281,12 +9531,7 @@
           "historical_person": "P2",
           "new_external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -7307,7 +9552,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-notification-person-subject",
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7383,6 +9627,11 @@
               "after_revision": 2
             }
           ]
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7424,13 +9673,202 @@
           "inverse_receipts": 1,
           "external_resends": 0
         },
-        "event": null,
-        "checks": [
-          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "notification-person-subject",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "notification-person-subject",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE-1",
+              "repeat": 1,
+              "receipt": "merge-1",
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "notification-person-subject",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "notification-person-subject",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     }
   ]
 }

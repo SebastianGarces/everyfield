@@ -24,7 +24,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "bkt60",
       "description": "Ordinaryapp/build/preview credentials attempt list/read/write backupbucket; dedicated restrictedkey succeeds.",
       "given": {
         "P": {
@@ -121,7 +120,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "bkt60",
       "description": "Dated encrypted fullcandidate/checksums,keyescrow,subjectexpiry and oldcopy recopy.",
       "given": {
         "P": {
@@ -209,7 +207,6 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "group": "bkt60",
       "description": "Shared provider/account outage loses primary+backup versus surviving24hour-fresh complete dailycopy.",
       "given": {
         "P": {
@@ -299,7 +296,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "bkt60",
       "description": "Beforecustomerdata gate lacks actual costapproval,hostschedule,key-exclusion and coherentrestore evidence.",
       "given": {
         "P": {
@@ -390,7 +386,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Self account request,current workspaceOwner,ordinaryAdmin/foreign requests and concurrent reads.",
       "given": {
         "P": {
@@ -496,7 +491,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Pending30day private hold with revoked normalsession; fresh restricted status/cancel proof.",
       "given": {
         "P": {
@@ -592,7 +586,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Cancel at deadline-minus1ms,exactdeadline,purgelease and stale oldrequest after newrequest.",
       "given": {
         "P": {
@@ -705,7 +698,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Accountcreator owns private doc and created plant-owned doc/generatedfile/sharedhistory.",
       "given": {
         "P": {
@@ -808,7 +800,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native privatecare.",
       "given": {
         "P": {
@@ -847,6 +838,11 @@
             "N1"
           ],
           "private_author": "A"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -908,7 +904,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Pendingdeletion with unsentintent,accepted scheduledmail,sentmail and unexpired issuedURL.",
       "given": {
         "P": {
@@ -1019,7 +1014,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Deadline purge chunks DB/bytes; object-delete timeout halfway then retry same request.",
       "given": {
         "P": {
@@ -1111,7 +1105,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Old snapshot/branch/objectversion recopy after livePurgedAt+7days and current witness outside image.",
       "given": {
         "P": {
@@ -1197,7 +1190,6 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "group": "del58",
       "description": "Privacycopy and ownfeedback status during hold/purge with actual externalcopy/provider limits.",
       "given": {
         "P": {
@@ -1282,7 +1274,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Actual paidNeon default1day vs configured7days; daily,manual,latest-preserved snapshot and restoredbranch expiry.",
       "given": {
         "P": {
@@ -1372,7 +1363,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Actual Tigris seven-day deletedobject recovery, softdeletedbucket and earlier version cleanup delay.",
       "given": {
         "P": {
@@ -1402,36 +1392,55 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "input": {
-          "fixture_type": "example",
-          "deleted_object": "D",
-          "deleted_bucket": "old-bucket",
-          "native_recovery_days": 7
+        "D-v1": {
+          "fixture_type": "tigris_deleted_object",
+          "key": "D",
+          "body": "Welcome Alex.",
+          "deleted_at": "2026-10-12T16:00:00Z",
+          "recover_until": "2026-10-19T16:00:00Z"
+        },
+        "old-bucket": {
+          "fixture_type": "tigris_bucket",
+          "state": "soft_deleted",
+          "earlier_versions": [
+            "D-v1"
+          ]
+        },
+        "witness-1": {
+          "fixture_type": "current_lifecycle_witness",
+          "D_access": "allowed"
+        },
+        "isolated": {
+          "fixture_type": "restore_target",
+          "normal_access": false
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "account.finalizeAvatar",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "deleted_object": "D",
+          "native_object_version": "D-v1",
           "deleted_bucket": "old-bucket",
-          "native_recovery_days": 7
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "recovery_days": 7,
-          "old_bucket_cleanup_required": true,
-          "separate_disaster_backup": false
+          "native_recovery_days": 7,
+          "object_text": "Welcome Alex.",
+          "separate_control_backup": false,
+          "soft_deleted_bucket_requires_permanent_cleanup": true,
+          "physical_cleanup_synchronous": false
         },
         "event": null
       }
@@ -1461,7 +1470,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Restore DB point with replaced/deleted/private ready files and failed pendingupload candidate.",
       "given": {
         "P": {
@@ -1548,7 +1556,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Timed ordinary mistake drill with accessible live providers and lastcommittedwork instants.",
       "given": {
         "P": {
@@ -1638,7 +1645,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Separate private backup bucket with actual restrictedhost/key/cost approval absent then configuredtested.",
       "given": {
         "P": {
@@ -1738,7 +1744,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "rec59",
       "description": "Isolated old backup has pendingmail/publicissue but current externalreceipts and newer deletion witnesses.",
       "given": {
         "P": {
@@ -1829,7 +1834,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "recovery-copy",
       "description": "Daily encrypted candidate lacks one replaced object; later isolated restore with current witness,key recovered; ordinary app attempts backup-bucket access.",
       "given": {
         "P": {
@@ -1876,6 +1880,12 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "candidate": "snapshot-2",
+          "missing_object": "D2",
+          "ordinary_app_has_backup_key": false
         }
       },
       "actor": {
@@ -1890,19 +1900,22 @@
       "action": {
         "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "candidate": "snapshot-2",
+          "missing_object": "D2",
+          "ordinary_app_has_backup_key": false
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "candidate_promoted": false,
+          "normal_access": false,
+          "ordinary_app_backup_access": false,
+          "RPO_claim_proven": false,
+          "RTO_claim_proven": false
         },
-        "event": null,
-        "checks": [
-          "Incomplete copy not promoted; exact DB+bytes verified/current denial applied; ordinary app key absent/access denied; measured ordinary1h/4h conditional."
-        ]
+        "event": null
       }
     },
     {
@@ -1933,7 +1946,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "recovery-delete",
       "description": "Account creator deleted versus plant owner deleted; old backup contains canceledscheduledmail/privatecare and expiry witness newer than snapshot.",
       "given": {
         "P": {
@@ -1988,6 +2000,15 @@
           "week": "2026-10-12",
           "answer": "Strained",
           "note": "CARE-CANARY-RECOVERY-DELETE-001"
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "deleted_account": "A",
+          "shared_owner": "P",
+          "backup_contains_private_care": true,
+          "scheduled_message": "cancelled",
+          "current_witness": "purged",
+          "copy_expired": true
         }
       },
       "actor": {
@@ -2002,18 +2023,25 @@
       "action": {
         "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "deleted_account": "A",
+          "shared_owner": "P",
+          "backup_contains_private_care": true,
+          "scheduled_message": "cancelled",
+          "current_witness": "purged",
+          "copy_expired": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0
+          "shared_fact_survives": true,
+          "private_body_restored": false,
+          "scheduled_message_replayed": false,
+          "normal_access": false,
+          "failed_purge_reports_complete": false
         },
-        "event": null,
-        "checks": [
-          "Actual ownership preserves shared facts/minimal attribution; no expired/private-body resurrection or canceled-mail replay; failed purge hidden/incomplete."
-        ]
+        "event": null
       }
     }
   ]

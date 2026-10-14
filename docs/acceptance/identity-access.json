@@ -23,7 +23,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; zero affiliations. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -137,7 +136,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one sending church. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -262,7 +260,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one network. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -387,7 +384,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one of each. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -521,7 +517,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two sending churches. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -655,7 +650,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two networks. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -789,7 +783,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; pending requests. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -911,7 +904,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; concurrent distinct org approvals. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1056,7 +1048,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; duplicate same org approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1200,7 +1191,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end one affiliation. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1347,7 +1337,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; plant Owner or ordinary accepted Admin request, exact org Owner/Admin approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1491,7 +1480,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; Discovery conversion. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1642,7 +1630,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; parent network auto access. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1765,7 +1752,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; precise termination roles. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1912,7 +1898,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; automatic replacement or ending other links. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2059,7 +2044,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing plant consent. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2196,7 +2180,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing exact org approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2333,7 +2316,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one exact org Admin approves. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2477,7 +2459,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign org Admin or unrelated affiliates veto. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2612,7 +2593,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; authorized own-link end. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2759,7 +2739,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end foreign link. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2891,7 +2870,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; no surviving valid access path. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3027,7 +3005,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; surviving approved affiliation or independent grant. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3176,7 +3153,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end linkage. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3333,7 +3309,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notice transport failure. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3483,7 +3458,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; replay stale read. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3633,7 +3607,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new approved org. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3778,7 +3751,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new applicable sharing categories. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3934,7 +3906,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org A OFF org B ON. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4087,7 +4058,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; change org A. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4235,7 +4205,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end org A. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4383,7 +4352,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notification policy changed before dispatch. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4533,7 +4501,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; ended before notification. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4683,7 +4650,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign recipient or tampered org settings URL. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4816,7 +4782,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; private checkin or org Admin interview request. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4958,7 +4923,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; planter differs from workspace Owner. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5099,7 +5063,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new source boolean or inactive finance/facilities. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5255,7 +5218,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; portfolio same plant through multiple affiliations. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5395,7 +5357,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end sending church with separately recognized network. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5543,7 +5504,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "af",
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org Admin tries another organization policy or plant private fields. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5681,7 +5641,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Change church Chicago→Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
       "given": {
         "P": {
@@ -5768,7 +5727,6 @@
         "WP-043"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Church zone edit after saved past meeting/history and prior assessment with asOf/zone.",
       "given": {
         "P": {
@@ -5854,7 +5812,6 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "LocalDate 2026-10-13 task remains same text while zone change previews different future UTC boundary.",
       "given": {
         "P": {
@@ -5940,7 +5897,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Two expected-revision zone edits; same-zone retry and failure before replanning-intent insert.",
       "given": {
         "P": {
@@ -6045,7 +6001,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Personal author zone Auckland and church zone Chicago; change church only.",
       "given": {
         "P": {
@@ -6129,7 +6084,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "No personal timezone stored; device and church differ and client supplies inferred UTC.",
       "given": {
         "P": {
@@ -6213,7 +6167,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Answered stable private week; edit personal zone twice without saving answer.",
       "given": {
         "P": {
@@ -6302,7 +6255,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "b03",
       "description": "Inspect selected automatic resolver/viewport engineering attribution and current approved Launch contracts.",
       "given": {
         "P": {
@@ -6388,7 +6340,6 @@
         "maintenance.purgeEligibleSubject"
       ],
       "status": "future-not-run",
-      "group": "evry-internal",
       "description": "Account A requestR is at deadline; plantP requestS is 1 second before deadline; plantQ was canceled; accountB independent. R owns privateCare bytes and account-native document but shares plant-owned ordinary history; object delete for R times out after DB chunk commit.",
       "given": {
         "P": {
@@ -6418,101 +6369,174 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Alex-Rivera": {
-          "fixture_type": "person",
-          "id": "Alex-Rivera",
-          "plant": "P",
-          "name": "Alex Rivera",
-          "city": "Chicago",
-          "revision": 4
-        },
-        "Alex-Chen": {
-          "fixture_type": "person",
-          "id": "Alex-Chen",
-          "plant": "P",
-          "name": "Alex Chen",
-          "city": "Evanston",
-          "revision": 4
-        },
-        "Casey": {
-          "fixture_type": "person",
-          "id": "Casey",
-          "plant": "P",
-          "name": "Casey Reed",
-          "stage": "Leader",
-          "revision": 4
-        },
-        "C": {
-          "fixture_type": "conversation",
-          "id": "C",
-          "account": "A",
-          "context": "P",
-          "sequence": 4,
-          "draft_revision": 2
-        },
         "R": {
-          "fixture_type": "review",
-          "id": "R",
-          "account": "A",
-          "context": "P",
-          "revision": 1,
-          "approved": true,
-          "expires_at": "2026-10-13T16:15:00Z",
-          "canceled": true
+          "fixture_type": "deletion_request",
+          "subject": "A",
+          "deadline": "2026-10-13T16:00:00Z",
+          "state": "pending",
+          "generation": 2
         },
-        "D": {
-          "fixture_type": "document",
-          "id": "D",
+        "S": {
+          "fixture_type": "deletion_request",
+          "subject": "P",
+          "deadline": "2026-10-13T16:00:01Z",
+          "state": "pending"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "deletion_state": "cancelled"
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "lifecycle": "active"
+        },
+        "private-bytes": {
+          "fixture_type": "owned_object",
+          "owner": "A",
+          "delete_outcome": "timeout"
+        },
+        "history": {
+          "fixture_type": "shared_history",
           "owner": "P",
-          "revision": 4,
-          "title": "Core values",
-          "content": "We serve our local community."
-        },
-        "care-A": {
-          "fixture_type": "private_care",
-          "author": "A",
-          "plant": "P",
-          "week": "2026-10-12",
-          "answer": "Strained",
-          "note": "CARE-CANARY"
+          "actor": "A"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "maintenance.purgeEligibleSubject",
         "arguments": {
-          "conversation": "C",
-          "utterances": [
-            "Invoke exact job for R/P/Q, replay R chunk, lose generation and resume with new fenced generation after storage reconciliation."
-          ],
-          "request_key": "EVRY-INTERNAL-PURGEELIGIBLESUBJECT-turn-1"
+          "subject": "A",
+          "request": "R",
+          "claim_generation": 2,
+          "chunk": 1,
+          "repeat": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false,
-          "stale_effects": 0
+          "status": "purging",
+          "livePurgedAt": null,
+          "normal_access": false,
+          "completed_chunks": [
+            1
+          ],
+          "object_cleanup": "unknown",
+          "plant_history_retained": true
         },
-        "event": null,
-        "checks": [
-          "Only R enters purging; account-only ownership scrub preserves independent plant-owned history and B. Timeout keeps normal R reads/context/files denied and livePurgedAt unset. Completed chunk replay does not duplicate; confirmed final bytes cleanup creates minimal witness with bounded original expiry.",
-          "EarlyP/canceledQ/foreignsubject/wrongrequest/stalegeneration/organization subject refuses with zero unauthorized removal.",
-          "Storage timeout/stale checkpoint/manifest mismatch remains resumable same request with denied lifecycle, actual completed chunks and unknown cleanup; never reports complete or restores native/model care existence."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.purgeEligibleSubject",
+            "arguments": {
+              "subject": "A",
+              "request": "R",
+              "claim_generation": 2,
+              "chunk": 1,
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.purgeEligibleSubject",
+            "arguments": {
+              "subject": "A",
+              "request": "R",
+              "claim_generation": 2,
+              "chunk": 1,
+              "repeat": 2,
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "EVRY-INTERNAL-RESTOREWITHCURRENTMANIFEST",
@@ -6533,7 +6557,6 @@
         "maintenance.restoreWithCurrentManifest"
       ],
       "status": "future-not-run",
-      "group": "evry-internal",
       "description": "Encrypted yesterday DB+byte manifest has A active, while current witness says A purged and copies expire today; P pending deletion and affiliationX revoked; provider journal says sendE accepted-unknown and scheduledF canceled. Isolated target normal jobs/mail/issue publishers disabled.",
       "given": {
         "P": {
@@ -6563,86 +6586,241 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Alex-Rivera": {
-          "fixture_type": "person",
-          "id": "Alex-Rivera",
-          "plant": "P",
-          "name": "Alex Rivera",
-          "city": "Chicago",
-          "revision": 4
+        "snapshot-1": {
+          "fixture_type": "recovery_snapshot",
+          "as_of": "2026-10-12T16:00:00Z",
+          "A_lifecycle": "active",
+          "object_checksum_valid": false,
+          "expires_at": "2026-10-14T00:00:00Z"
         },
-        "Alex-Chen": {
-          "fixture_type": "person",
-          "id": "Alex-Chen",
-          "plant": "P",
-          "name": "Alex Chen",
-          "city": "Evanston",
-          "revision": 4
+        "witness-1": {
+          "fixture_type": "current_lifecycle_witness",
+          "A_lifecycle": "purged",
+          "P_lifecycle": "pending_deletion",
+          "X_active": false,
+          "sendE": "accepted_unknown",
+          "scheduledF": "cancelled"
         },
-        "Casey": {
-          "fixture_type": "person",
-          "id": "Casey",
-          "plant": "P",
-          "name": "Casey Reed",
-          "stage": "Leader",
-          "revision": 4
-        },
-        "C": {
-          "fixture_type": "conversation",
-          "id": "C",
-          "account": "A",
-          "context": "P",
-          "sequence": 4,
-          "draft_revision": 2
-        },
-        "R": {
-          "fixture_type": "review",
-          "id": "R",
-          "account": "A",
-          "context": "P",
-          "revision": 1,
-          "approved": true,
-          "expires_at": "2026-10-13T16:15:00Z",
-          "canceled": true
+        "isolated": {
+          "fixture_type": "restore_target",
+          "jobs_enabled": false,
+          "mail_enabled": false,
+          "issue_publishers_enabled": false
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "maintenance.restoreWithCurrentManifest",
         "arguments": {
-          "conversation": "C",
-          "utterances": [
-            "Restore with missing/stale then verified current witness journal; inject one mismatching object checksum; reconcile E/F against actual external facts and attempt reopen."
-          ],
-          "request_key": "EVRY-INTERNAL-RESTOREWITHCURRENTMANIFEST-turn-1"
+          "snapshot": "snapshot-1",
+          "current_manifest": "witness-1",
+          "target": "isolated"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "private_care_in_model": null,
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false,
-          "stale_effects": 0
+          "normalAccessEligible": false,
+          "A_body": null,
+          "P_access": false,
+          "X_active": false,
+          "sendE_replayed": false,
+          "scheduledF": "cancelled",
+          "expires_at": "2026-10-14T00:00:00Z"
         },
-        "event": null,
-        "checks": [
-          "Only checksum-complete current-witness-fenced restore may become normalAccessEligible; A body/bytes/cache/org copies denied/purged, P held denied, X not reinstated, old sessions/URLs invalid. E not resent and F stays canceled. Exact recovery/checkpoint and temporary-copy cleanup truthful; original expiry unchanged.",
-          "Unscoped operator/arbitrary bucket/key/nonisolated target/stale current witness refuses no normal exposure and no job/mail/issue replay.",
-          "Checksum mismatch/missing current journal/provider unknown leaves access disabled with factual unresolved status; no historical account/role/private care resurrection or implicit user restore right."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "snapshot-1": {
+              "fixture_type": "recovery_snapshot",
+              "as_of": "2026-10-12T16:00:00Z",
+              "A_lifecycle": "active",
+              "object_checksum_valid": true,
+              "expires_at": "2026-10-14T00:00:00Z"
+            },
+            "witness-1": {
+              "fixture_type": "current_lifecycle_witness",
+              "A_lifecycle": "purged",
+              "P_lifecycle": "pending_deletion",
+              "X_active": false,
+              "sendE": "accepted_unknown",
+              "scheduledF": "cancelled"
+            },
+            "isolated": {
+              "fixture_type": "restore_target",
+              "jobs_enabled": false,
+              "mail_enabled": false,
+              "issue_publishers_enabled": false
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.restoreWithCurrentManifest",
+            "arguments": {
+              "snapshot": "snapshot-1",
+              "current_manifest": "witness-1",
+              "target": "isolated"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "normalAccessEligible": true,
+              "A_body": null,
+              "P_access": false,
+              "X_active": false,
+              "sendE_replayed": false,
+              "scheduledF": "cancelled",
+              "expires_at": "2026-10-14T00:00:00Z",
+              "A_bytes": null,
+              "old_sessions_valid": false,
+              "old_urls_valid": false
+            },
+            "event": null
+          },
+          "name": "checksum-complete-current-witness"
+        },
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.restoreWithCurrentManifest",
+            "arguments": {
+              "snapshot": "snapshot-1",
+              "current_manifest": "witness-1",
+              "target": "isolated"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "maintenance.restoreWithCurrentManifest",
+            "arguments": {
+              "snapshot": "snapshot-1",
+              "current_manifest": "witness-1",
+              "target": "isolated",
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "GAP-IDN-027",
@@ -6657,7 +6835,6 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "group": "gap-idn",
       "description": "Plant linked directly to org-A and org-B; unprivileged source helper has no actor; org-A Admin has exact current seat",
       "given": {
         "P": {
@@ -6678,7 +6855,7 @@
         "seat-A": {
           "fixture_type": "seat",
           "account": "A",
-          "tenant": "P",
+          "tenant": "org-A",
           "role": "Admin",
           "active": true
         },
@@ -6687,81 +6864,165 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Alex-Rivera": {
-          "fixture_type": "person",
-          "id": "Alex-Rivera",
-          "plant": "P",
-          "name": "Alex Rivera",
-          "city": "Chicago",
-          "revision": 4
+        "org-A": {
+          "fixture_type": "organization",
+          "id": "org-A",
+          "kind": "sending_church"
         },
-        "Alex-Chen": {
-          "fixture_type": "person",
-          "id": "Alex-Chen",
-          "plant": "P",
-          "name": "Alex Chen",
-          "city": "Evanston",
-          "revision": 4
+        "org-B": {
+          "fixture_type": "organization",
+          "id": "org-B",
+          "kind": "sending_network"
         },
-        "Casey": {
-          "fixture_type": "person",
-          "id": "Casey",
-          "plant": "P",
-          "name": "Casey Reed",
-          "stage": "Leader",
-          "revision": 4
-        },
-        "C": {
-          "fixture_type": "conversation",
-          "id": "C",
-          "account": "A",
-          "context": "P",
-          "sequence": 4,
-          "draft_revision": 2
-        },
-        "R": {
-          "fixture_type": "review",
-          "id": "R",
-          "account": "A",
-          "context": "P",
-          "revision": 1,
-          "approved": false,
-          "expires_at": "2026-10-13T16:15:00Z"
+        "links": {
+          "fixture_type": "affiliation_set",
+          "pairs": [
+            {
+              "plant": "P",
+              "organization": "org-A",
+              "active": true,
+              "revision": 2
+            },
+            {
+              "plant": "P",
+              "organization": "org-B",
+              "active": true,
+              "revision": 2
+            }
+          ]
         }
       },
       "actor": {
         "account": "A",
         "session": "session-A",
-        "context": "P"
+        "context": "org-A"
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "evry.submitTurn",
+        "operation": "associations.end",
         "arguments": {
-          "conversation": "C",
-          "utterances": [
-            "Invoke associations.end through native and exact reviewed assistant"
-          ],
-          "request_key": "GAP-IDN-027-turn-1"
+          "plant": "P",
+          "organization": "org-A",
+          "expected_revision": 2,
+          "request_key": "end-A",
+          "repeat": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0
+          "org-A_active": false,
+          "org-B_active": true,
+          "seat_count": 1,
+          "notices": 1,
+          "receipt_count": 1
         },
-        "event": null,
-        "checks": [
-          "Only org-A direct link ends; org-B and independent seats remain; plant receives reviewed notice",
-          "Actorless/helper/foreign-org invocation cannot terminate any relationship",
-          "Conflict on relationship revision yields no ending/notice; replay returns same receipt"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            },
+            "foreign-actor": {
+              "fixture_type": "account",
+              "id": "foreign-actor"
+            },
+            "foreign-seat": {
+              "fixture_type": "seat",
+              "account": "foreign-actor",
+              "tenant": "Q",
+              "role": "Member",
+              "active": true
+            },
+            "foreign-session": {
+              "fixture_type": "session",
+              "account": "foreign-actor",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "foreign-actor",
+            "session": "foreign-session",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "associations.end",
+            "arguments": {
+              "plant": "P",
+              "organization": "org-A",
+              "expected_revision": 2,
+              "request_key": "end-A",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "forbidden_body": null,
+              "forbidden_existence": null,
+              "domain_writes": 0,
+              "provider_effects": 0
+            },
+            "event": null
+          },
+          "name": "foreign-context-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "org-A"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "associations.end",
+            "arguments": {
+              "plant": "P",
+              "organization": "org-A",
+              "expected_revision": 2,
+              "request_key": "end-A",
+              "repeat": 2,
+              "fault": "required_source_unavailable"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "source_unavailable",
+              "new_domain_writes": 0,
+              "new_provider_effects": 0,
+              "prior_committed_receipts_retained": true
+            },
+            "event": null
+          },
+          "name": "required-boundary-failure"
+        }
+      ]
     },
     {
       "id": "ORG55-001",
@@ -6788,7 +7049,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Same-org Owner/Admin/Member and foreign-org Admin edit name/contact/profile and attempt kind/billing/transfer fields.",
       "given": {
         "P": {
@@ -6898,7 +7158,6 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Plant linked to sending S and network N; S Owner/Admin ends S only, races/retries and transport notice fails.",
       "given": {
         "P": {
@@ -7000,7 +7259,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "End S while independent N survives; requery directory/health/notifications/Wiki and cached bodies.",
       "given": {
         "P": {
@@ -7087,7 +7345,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Owner O differs from ordinary recorded lead Person L; absent lead and multiple ordinary role candidates.",
       "given": {
         "P": {
@@ -7171,7 +7428,6 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Inspect directory lead projection for account IDs/contact/care and inspect organization intelligence input.",
       "given": {
         "P": {
@@ -7278,7 +7534,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Personal deletion by original account with private care/avatar/account-owned files plus church-owned documents/records.",
       "given": {
         "P": {
@@ -7368,7 +7623,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Owner and Admin request church deletion; Owner asks to leave while retaining running workspace.",
       "given": {
         "P": {
@@ -7463,7 +7717,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "org55",
       "description": "Deletion requestOctober 13; coherent live purgeNovember 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
       "given": {
         "P": {
@@ -7544,7 +7797,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-account-link",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7606,6 +7858,11 @@
           "consumer": "account-link",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7644,12 +7901,7 @@
           "changed_references": 0,
           "external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -7669,7 +7921,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-account-link",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7731,6 +7982,11 @@
           "consumer": "account-link",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7775,13 +8031,199 @@
           "receipts": 1,
           "dangling_references": 0
         },
-        "event": null,
-        "checks": [
-          "linkedAccountBlocks preserves registered chronology/identity; single shared receipt; no dangling reference",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-ACCOUNT-LINK-RETIRE",
@@ -7800,7 +8242,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-account-link",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -7862,6 +8303,11 @@
           "consumer": "account-link",
           "person": "P2",
           "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -7902,12 +8348,7 @@
           "historical_person": "P2",
           "new_external_effects": 0
         },
-        "event": null,
-        "checks": [
-          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
+        "event": null
       }
     },
     {
@@ -7927,7 +8368,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "personref-account-link",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
       "given": {
         "P": {
@@ -8003,6 +8443,11 @@
               "after_revision": 2
             }
           ]
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York"
         }
       },
       "actor": {
@@ -8044,13 +8489,202 @@
           "inverse_receipts": 1,
           "external_resends": 0
         },
-        "event": null,
-        "checks": [
-          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
-          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
-          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
+              "repeat": 2,
+              "receipt": "merge-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
+              "repeat": 1,
+              "receipt": "merge-1",
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P1",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "ROLE43-001",
@@ -8075,7 +8709,6 @@
         "WP-053"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Plant A Owner O/Admin A/Member M, foreign Owner F and revoked A repeat routine native/Evry administration.",
       "given": {
         "P": {
@@ -8171,7 +8804,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "O/A/M and CRM-only lead L request Plant A deletion; O confirms exact workspace with fresh proof; ask to delete another login.",
       "given": {
         "P": {
@@ -8267,7 +8899,6 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Owner bootstrap races two requests against one linked Person, then response loss and retry.",
       "given": {
         "P": {
@@ -8358,7 +8989,6 @@
         "WP-017"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Owner answers yes with ordinary lead role/container absent, then present; occupied optional Senior Pastor role and unrelated templates exist.",
       "given": {
         "P": {
@@ -8443,7 +9073,6 @@
         "WP-017"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Owner answers no or skips, later edits ordinary ministry lead title.",
       "given": {
         "P": {
@@ -8541,7 +9170,6 @@
         "WP-017"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Linked lead Member, unlinked lead contact and pending/revoked Admin invite each attempt administration.",
       "given": {
         "P": {
@@ -8634,7 +9262,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Separate operating lead accepts addressed ordinary Admin invitation, racing revoke and retry.",
       "given": {
         "P": {
@@ -8731,7 +9358,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Remove/change lead title while account seat, private answers and required meeting work exist.",
       "given": {
         "P": {
@@ -8821,7 +9447,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Admin removes ordinary Admin/Member, targets actual Owner, self-promotes Member and races target-role revision.",
       "given": {
         "P": {
@@ -8919,7 +9544,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Two current Admin authors; guess another author ID through native create/read/correct/history/trend/support.",
       "given": {
         "P": {
@@ -9012,7 +9636,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Merge/relink Persons and edit title/seat role with account-authored private weeks and histories present.",
       "given": {
         "P": {
@@ -9112,7 +9735,6 @@
         "WP-074"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Private-answer canary plus history/week/nudge canaries; inspect every tool/context/model/log/eval/email/org/PI projection.",
       "given": {
         "P": {
@@ -9212,7 +9834,6 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Single eligible reader ratios 0. 80/0. 8001; Owner 0/6, accepted Admin lead 6/6; two eligible readers each disjoint 3/6.",
       "given": {
         "P": {
@@ -9372,7 +9993,6 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Create church at 0/6 reading with no lead title and a different reader’s progress; retry after later phase transition.",
       "given": {
         "P": {
@@ -9473,7 +10093,6 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Finalize Vision with no lead title or eligible selected assignee, including zero attendees.",
       "given": {
         "P": {
@@ -9566,7 +10185,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Plant Admin/lead attempts org/global/platform actions; exact org Owner/Admin approves its own relationship/category.",
       "given": {
         "P": {
@@ -9657,7 +10275,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Inspect native and tool catalog for excluded ownership claim/designation/transfer/special-rejoin/former-lead panels.",
       "given": {
         "P": {
@@ -9756,7 +10373,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "role43",
       "description": "Self deletion request, another-account deletion, former lead, 30 day private hold and 7 day post-completed-purge recovery horizon.",
       "given": {
         "P": {
@@ -9833,7 +10449,6 @@
         "WP-005"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Known account; casing variants; 4/5 identifier failures and 19/20 IP failures just before/at 15 minute cutoff; null and forged IP; concurrent bad secrets; expired cookie with safe nested return; repeated logout.",
       "given": {
         "P": {
@@ -9880,6 +10495,13 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "normalized_identifier": "alex@example.test",
+          "identifier_failures": 5,
+          "trusted_IP_failures": 19,
+          "window_minutes": 15
         }
       },
       "actor": {
@@ -9895,20 +10517,21 @@
         "operation": "auth.signIn",
         "arguments": {
           "subject": "P",
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "normalized_identifier": "alex@example.test",
+          "identifier_failures": 5,
+          "trusted_IP_failures": 19,
+          "window_minutes": 15
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "partial_commit_on_required_failure": false
+          "error_code": "rate_limited",
+          "authenticated": false,
+          "other_identifier_failures_cleared": false
         },
-        "event": null,
-        "checks": [
-          "Threshold refusals and cleanup affect only intended axes. Concurrent admission respects the atomic limit; forged proxy headers do not select attribution; invalid cookie renders login, valid session redirects safely, revoke removes authority immediately."
-        ]
+        "event": null
       }
     },
     {
@@ -9925,7 +10548,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "All 4 account types; concurrent same-email registration; successful, malformed, duplicate and beta-refused attempts sharing IP; credential success followed by failed grant; token revoked during resume.",
       "given": {
         "P": {
@@ -9972,6 +10594,11 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "email": "alex@example.test",
+          "concurrent_registrations": 2
         }
       },
       "actor": {
@@ -9990,21 +10617,19 @@
           "invalid_control": {
             "id": "not-an-id",
             "name": "   "
-          }
+          },
+          "email": "alex@example.test",
+          "concurrent_registrations": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0,
-          "partial_commit_on_required_failure": false
+          "accounts_created": 1,
+          "active_seats_per_account": 1,
+          "duplicate_identities": 0
         },
-        "event": null,
-        "checks": [
-          "Only the advertised identity/domain exists; duplicate email cannot mint a second identity, failures remain unprivileged/resumable, and all submissions consume the declared atomic budget."
-        ]
+        "event": null
       }
     },
     {
@@ -10021,7 +10646,6 @@
         "WP-009"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Gate enabled/disabled; valid/invalid code; all invitation subjects; wrong email, revoked and expired token; expire token while form open.",
       "given": {
         "P": {
@@ -10100,10 +10724,7 @@
           "registration_allowed": false,
           "account_exists_disclosed": false
         },
-        "event": null,
-        "checks": [
-          "Only configured code or exact live invitation bypasses an enabled gate; source description is meaningful and no secret/account enumeration leaks."
-        ]
+        "event": null
       }
     },
     {
@@ -10119,7 +10740,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Production with flags absent and forged switch POST; isolated fixture environment with allowed and arbitrary account IDs.",
       "given": {
         "P": {
@@ -10166,6 +10786,11 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "environment": "production",
+          "fixture_switch_requested": true
         }
       },
       "actor": {
@@ -10180,19 +10805,18 @@
       "action": {
         "operation": "dev.switchFixtureIdentity",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "environment": "production",
+          "fixture_switch_requested": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "error_code": "not_found",
+          "fixture_sessions_issued": 0
         },
-        "event": null,
-        "checks": [
-          "Production cannot issue a fixture session; isolated environment switches only seeded personas."
-        ]
+        "event": null
       }
     },
     {
@@ -10208,7 +10832,6 @@
         "WP-006"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Owner/Admin/Member/Discovery/seatless/org/platform actors; malformed multiple-current-seat row; forged client capabilities; stale role after page load.",
       "given": {
         "P": {
@@ -10290,10 +10913,7 @@
           "effective_role": "Member",
           "admin_allowed": false
         },
-        "event": null,
-        "checks": [
-          "Exact current server-derived context decides the action, inconsistent membership fails closed, and UI/native/Evry outcomes agree."
-        ]
+        "event": null
       }
     },
     {
@@ -10310,7 +10930,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "A/Bac counts; wrong-type/empty/over 3 MiB uploads; failed reference write, failed old deletion and browser cached previous version.",
       "given": {
         "P": {
@@ -10357,6 +10976,14 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "owner": "A",
+          "foreign_owner": "B",
+          "current_avatar": "avatar-v1",
+          "new_avatar": "avatar-v2",
+          "reference_write_outcome": "failed"
         }
       },
       "actor": {
@@ -10371,19 +10998,22 @@
       "action": {
         "operation": "account.finalizeAvatar",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "owner": "A",
+          "foreign_owner": "B",
+          "current_avatar": "avatar-v1",
+          "new_avatar": "avatar-v2",
+          "reference_write_outcome": "failed"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "current_avatar": "avatar-v1",
+          "referenced_old_bytes_deleted": false,
+          "foreign_avatar": null
         },
-        "event": null,
-        "checks": [
-          "A cannot fetch B through arbitrary key; failure retains the correct current avatar, versioned replacement is visible, and referenced bytes are never cleaned."
-        ]
+        "event": null
       }
     },
     {
@@ -10400,7 +11030,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Two pending tabs; target address collision; wrong-account/expired/superseded token; password reset/change racing confirm; changing target addresses; non UTC process.",
       "given": {
         "P": {
@@ -10967,7 +11596,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Stale password tabs, forged actor/current Session ID, wrong secret, competing reset/email confirmation and current vs other sessions.",
       "given": {
         "P": {
@@ -11053,10 +11681,7 @@
           "event_failure_reverts_password": false,
           "unknown_call_blindly_retried": false
         },
-        "event": null,
-        "checks": [
-          "Only winning own credential changes; actual current session may remain and all others immediately revoke; stale requests cannot resurrect credentials or spare another account."
-        ]
+        "event": null
       }
     },
     {
@@ -11072,7 +11697,6 @@
         "WP-005"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Missing/existing addresses; provider outage; expired/reused/foreign-purpose token; 2 concurrent redeemers; credential/email change first; non UTC process.",
       "given": {
         "P": {
@@ -11177,10 +11801,7 @@
           "event_failure_reverts_password": false,
           "unknown_call_blindly_retried": false
         },
-        "event": null,
-        "checks": [
-          "Generic request does not enumerate. One valid redeemer wins, all sessions revoke, old proofs fail and successful reset is not reversed by notice failure."
-        ]
+        "event": null
       }
     },
     {
@@ -11197,7 +11818,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "TARGET-IDN-010",
       "given": {
         "P": {
@@ -11242,6 +11862,20 @@
             "Then explicit shared_findings=true alone at current relationship4/consent8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
             "Submit stale consent7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
           ]
+        },
+        "sharing": {
+          "fixture_type": "sharing_policy",
+          "plant": "P",
+          "organization": "S1",
+          "relationship_revision": 4,
+          "consent_revision": 7,
+          "share_people": false,
+          "share_meetings": true,
+          "share_tasks": false,
+          "share_ministry_teams": false,
+          "share_wiki": true,
+          "share_activity": true,
+          "shared_findings": false
         }
       },
       "actor": {
@@ -11254,25 +11888,124 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "settings.getSection",
+        "operation": "settings.saveSection",
         "arguments": {
-          "subject": "P"
+          "section": "affiliations",
+          "organization": "S1",
+          "expected_relationship_revision": 4,
+          "expected_consent_revision": 7,
+          "patch": {
+            "teams": true,
+            "activityPush": false
+          },
+          "request_key": "sharing-1",
+          "repeat": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "existing_settings_expected": "Authorized sections work accessibly; dirty/rejected drafts survive, forbidden/current actor caches never leak, and cancellation-only session sees bounded deletion controls.",
-          "sharing_after": "First patch changes only share_ministry_teams=true/share_activity=false and consent revision8; shared_findings remains false and other categories/other organization stay unchanged. Explicit findings changes the single existing shared_findings to true at revision9. Native and permitted reviewed Evry/domain routes preserve identical authorized state and declared distinct receipt projections; one receipt/history/audit and conditional material revision per actual change, exact replay no duplicate or revision bump.",
-          "sharing_denial": "Only actual same-plant Owner/Admin may execute sharing branch. Every stale/foreign/missing/revoked/unknown/empty/organization/Member attempt refuses all state, reset, grant and disclosure effects. Transaction failure rolls back policy/history/receipt/audit/material/intents together; changed consent immediately affects saved/current/cache/assistant purpose access. No separate NI toggle and no omitted-value default."
+          "consent_revision": 8,
+          "share_ministry_teams": true,
+          "share_activity": false,
+          "shared_findings": false,
+          "other_categories_changed": false,
+          "other_org_changed": false,
+          "receipt_count": 1,
+          "replay_revision_bumps": 0
         },
-        "event": null,
-        "checks": [
-          "Authorized sections work accessibly; dirty/rejected drafts survive, forbidden/current actor caches never leak, and cancellation-only session sees bounded deletion controls.",
-          "First patch changes only share_ministry_teams=true/share_activity=false and consent revision8; shared_findings remains false and other categories/other organization stay unchanged. Explicit findings changes the single existing shared_findings to true at revision9. Native and permitted reviewed Evry/domain routes preserve identical authorized state and declared distinct receipt projections; one receipt/history/audit and conditional material revision per actual change, exact replay no duplicate or revision bump.",
-          "Only actual same-plant Owner/Admin may execute sharing branch. Every stale/foreign/missing/revoked/unknown/empty/organization/Member attempt refuses all state, reset, grant and disclosure effects. Transaction failure rolls back policy/history/receipt/audit/material/intents together; changed consent immediately affects saved/current/cache/assistant purpose access. No separate NI toggle and no omitted-value default."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "existing_settings_fixture": {
+              "fixture_type": "fixture",
+              "value": "Owner/Admin/Member/org personas, deep link+back+Escape, dirty section switch, forbidden section, failed/stale save and account switching."
+            },
+            "sharing_before": {
+              "fixture_type": "fixture",
+              "value": "Approved current relationship revision4 with exact organization consent revision7: people=false,meetings=true,tasks=false,ministry_teams=false,wiki=true,activity=true,shared_findings=false. Another organization has independent different choices."
+            },
+            "sharing_triggers": {
+              "fixture_type": "fixture",
+              "value": [
+                "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship4/consent7; reset fixture between parity runs.",
+                "Then explicit shared_findings=true alone at current relationship4/consent8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
+                "Submit stale consent7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
+              ]
+            },
+            "sharing": {
+              "fixture_type": "sharing_policy",
+              "plant": "P",
+              "organization": "S1",
+              "relationship_revision": 4,
+              "consent_revision": 8,
+              "share_ministry_teams": true,
+              "share_activity": false,
+              "shared_findings": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "settings.saveSection",
+            "arguments": {
+              "section": "affiliations",
+              "organization": "S1",
+              "expected_relationship_revision": 4,
+              "expected_consent_revision": 8,
+              "patch": {
+                "shared_findings": true
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "consent_revision": 9,
+              "shared_findings": true,
+              "second_NI_consent": null
+            },
+            "event": null
+          },
+          "name": "single-findings-consent"
+        }
+      ]
     },
     {
       "id": "TARGET-IDN-011",
@@ -11288,7 +12021,6 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Partial locality, explicit nullable clears, warning=alert, invalid zone, UTC day differing local day, zone-change future preview and street in oversight.",
       "given": {
         "P": {
@@ -11335,6 +12067,13 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "warning_days": 7,
+          "alert_days": 7,
+          "nullable_clear": "street",
+          "timezone": "America/Chicago"
         }
       },
       "actor": {
@@ -11347,22 +12086,24 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "settings.getSection",
+        "operation": "plant.updateProfile",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "warning_days": 7,
+          "alert_days": 7,
+          "nullable_clear": "street",
+          "timezone": "America/Chicago"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "partial_commit_on_required_failure": false
+          "error_code": "invalid_threshold_order",
+          "profile_writes": 0,
+          "audit_rows": 0,
+          "oversight_street": null
         },
-        "event": null,
-        "checks": [
-          "Valid independent fields save with audit; invalid arithmetic refuses atomically; local badges/digest are stable across DST and oversight excludes street."
-        ]
+        "event": null
       }
     },
     {
@@ -11379,7 +12120,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "A/Bus ers and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save.",
       "given": {
         "P": {
@@ -11460,10 +12200,7 @@
           "B_preference_changed": false,
           "activity_sent": false
         },
-        "event": null,
-        "checks": [
-          "Only A current allowable preference/address changes; audience and consent gates still hold, and UI reflects failure or suppressed transport honestly."
-        ]
+        "event": null
       }
     },
     {
@@ -11480,7 +12217,6 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Double-submit basics, failure before Person/settings/audit, seat acceptance race, partial city only, actual creation at 0/6 reading and no journey answer.",
       "given": {
         "P": {
@@ -11551,10 +12287,7 @@
           "phase": 1,
           "replay_additional_effects": 0
         },
-        "event": null,
-        "checks": [
-          "One coherent plant/Owner/Person/settings set or no domain effects; bootstrap does not count commitment or attest an existing journey; creation enters Phase 1 exactly once."
-        ]
+        "event": null
       }
     },
     {
@@ -11571,7 +12304,6 @@
         "WP-017"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Owner yes/no/skip; ordinary lead role/container absent or present; optional Senior Pastor role occupied/selected; other CRM lead without account seat; finalization with no lead title.",
       "given": {
         "P": {
@@ -11618,6 +12350,11 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "lead_answer": "skip",
+          "senior_pastor_selected": false
         }
       },
       "actor": {
@@ -11632,19 +12369,20 @@
       "action": {
         "operation": "identity.answerLeadOnboarding",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "lead_answer": "skip",
+          "senior_pastor_selected": false
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "role_assignments_added": 0,
+          "template_structure_added": 0,
+          "new_grants": 0,
+          "required_work_without_lead": true
         },
-        "event": null,
-        "checks": [
-          "Yes creates only the reviewed necessary ordinary lead-role assignment; no/skip changes no authority or template structure; no account elevation. Required work exists even without a lead label."
-        ]
+        "event": null
       }
     },
     {
@@ -11662,7 +12400,6 @@
         "WP-045"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Skip each optional step; back after basics; fail launch/phase between saves; repeat finish; existing launch date+no-date selection; 0/6 reading at Phase 1 creation.",
       "given": {
         "P": {
@@ -11709,6 +12446,14 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "read_articles": 0,
+          "phase": 1,
+          "existing_launch_date": "2026-11-10",
+          "new_launch_date_selected": false,
+          "repeat_finish": 2
         }
       },
       "actor": {
@@ -11724,18 +12469,23 @@
         "operation": "onboarding.declareJourney",
         "arguments": {
           "subject": "P",
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "read_articles": 0,
+          "phase": 1,
+          "existing_launch_date": "2026-11-10",
+          "new_launch_date_selected": false,
+          "repeat_finish": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "phase": 1,
+          "launch_date": "2026-11-10",
+          "completion_receipts": 1,
+          "reading_complete": false
         },
-        "event": null,
-        "checks": [
-          "Resume reflects durable facts and retries converge; completion/phase/source revision are attributable and no existing launch schedule or missing-fact truth is lost."
-        ]
+        "event": null
       }
     },
     {
@@ -11752,7 +12502,6 @@
         "WP-009"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Discovery owner/foreign actor, seatless former Member, association ON/OFF conversion and conversion racing first-seat acceptance.",
       "given": {
         "P": {
@@ -11820,7 +12569,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "discovery.getProfile",
+        "operation": "discovery.convertToPlant",
         "arguments": {
           "subject": "P",
           "foreign_control": {
@@ -11845,10 +12594,7 @@
             "S1"
           ]
         },
-        "event": null,
-        "checks": [
-          "Only true Discovery owner converts; one consistent seat/profile/relationship result survives and explicitly chosen consent is preserved."
-        ]
+        "event": null
       }
     },
     {
@@ -11864,7 +12610,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Plant/sending/network invites; new/existing seatless/already seated/associated Discovery; wrong address; concurrent accept/revoke/resend and response loss.",
       "given": {
         "P": {
@@ -11947,10 +12692,7 @@
           "accepted_seats": 1,
           "linked_people": 1
         },
-        "event": null,
-        "checks": [
-          "Exactly one addressed valid first-seat claim wins and Person link is coherent; old token dies, no tenancy move or sender enumeration occurs."
-        ]
+        "event": null
       }
     },
     {
@@ -11967,7 +12709,6 @@
         "WP-006"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Forged coach invitation/assignment route or assistant request; external relationship attestation.",
       "given": {
         "P": {
@@ -11997,23 +12738,11 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "attestation": {
+          "fixture_type": "external_relationship_evidence",
+          "plant": "P",
+          "mentor_name": "Morgan",
+          "confirmed": true
         }
       },
       "actor": {
@@ -12026,21 +12755,19 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
+        "operation": "evry.readCatalog",
         "arguments": {
-          "subject": "P"
+          "context": "P"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "coach_tools": [],
+          "coach_grants": [],
+          "external_attestation_grants": 0
         },
-        "event": null,
-        "checks": [
-          "No coach grant/surface/tool is registered; external human evidence cannot create app authority."
-        ]
+        "event": null
       }
     },
     {
@@ -12059,7 +12786,6 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Two Admin removals, actual Owner target, own self-promotion, foreign Member, role/leader appointment race, open and waived duties.",
       "given": {
         "P": {
@@ -12106,6 +12832,11 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "target_role": "Owner",
+          "requested_action": "remove"
         }
       },
       "actor": {
@@ -12118,25 +12849,26 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "seats.list",
+        "operation": "seats.remove",
         "arguments": {
           "subject": "P",
           "foreign_control": {
             "actor": "B",
             "context": "Q",
             "subject": "P"
-          }
+          },
+          "target_role": "Owner",
+          "requested_action": "remove"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "prior_history_rewritten": false
+          "error_code": "protected_owner",
+          "removed_seats": 0,
+          "handoff_tasks": []
         },
-        "event": null,
-        "checks": [
-          "Owner stays protected while ordinary Admins remain removable; removed access ceases immediately, history survives and only actionable duties enter explicit handoff."
-        ]
+        "event": null
       }
     },
     {
@@ -12153,7 +12885,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "All 5 subjects; plant has 2 networks+2 sending churches; invite approval by wrong/other affiliate Member; competing accepts+revoke; mail failure.",
       "given": {
         "P": {
@@ -12243,10 +12974,7 @@
           "approved_S1": false,
           "existing_links_preserved": true
         },
-        "event": null,
-        "checks": [
-          "Only initiator/exact receiving authorized actors act; valid independent links survive, receipt/notice is durable and no seat/CRM access or account enumeration is added."
-        ]
+        "event": null
       }
     },
     {
@@ -12262,7 +12990,6 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Plant linked 2 orgs; each side endsone; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite.",
       "given": {
         "P": {
@@ -12309,6 +13036,16 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "plant": "P",
+          "links": [
+            "S1",
+            "N1"
+          ],
+          "end": "S1",
+          "repeat": 2
         }
       },
       "actor": {
@@ -12329,19 +13066,28 @@
             "context": "Q",
             "subject": "P"
           },
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "plant": "P",
+          "links": [
+            "S1",
+            "N1"
+          ],
+          "end": "S1",
+          "repeat": 2
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "replay_additional_effects": 0,
-          "prior_history_rewritten": false
+          "active_links": [
+            "N1"
+          ],
+          "S1_body": null,
+          "ended_events": 1,
+          "receipts": 1,
+          "seat_count": 1
         },
-        "event": null,
-        "checks": [
-          "Only exact link ends, other valid grants remain, scoped history includes all subject kinds and retry converges without resurrecting old entitlements."
-        ]
+        "event": null
       }
     },
     {
@@ -12358,7 +13104,6 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Twoorgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. Closed seven-category mapping, independent activity toggle and shared_findings toggle; unknown category and duplicate NI consent attempt.",
       "given": {
         "P": {
@@ -12438,10 +13183,7 @@
           "N1_health_allowed": true,
           "activity_is_health_grant": false
         },
-        "event": null,
-        "checks": [
-          "Consent is independent and preserved; each org sees only currently allowed aggregates, no CRM/private fields, and relationship listing persists. Exact seven category columns roundtrip independently; activity is push-only and released health/NI uses the single shared_findings permission, with no second consent."
-        ]
+        "event": null
       }
     },
     {
@@ -12457,7 +13199,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "OrgA/Blinked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
@@ -12537,10 +13278,7 @@
           "lead_contact": null,
           "health_label": "Not shared"
         },
-        "event": null,
-        "checks": [
-          "Exact directory displays ordinary lead name without contacts; aggregates agree with domain and current consent, revoked body never returns and emptiness does not pretend withheld equals zero."
-        ]
+        "event": null
       }
     },
     {
@@ -12556,7 +13294,6 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Network A/B, sending church Slinked A, plants Pwith S+Aand Qwith S+B, expired pending invite; Sending church Member request.",
       "given": {
         "P": {
@@ -12603,6 +13340,19 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "network": "N1",
+          "sending_church": "S1",
+          "direct_plants": [
+            "P"
+          ],
+          "other_network": "N2",
+          "other_network_plants": [
+            "Q"
+          ],
+          "pending_expired": true
         }
       },
       "actor": {
@@ -12617,20 +13367,33 @@
       "action": {
         "operation": "oversight.listSendingChurches",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "network": "N1",
+          "sending_church": "S1",
+          "direct_plants": [
+            "P"
+          ],
+          "other_network": "N2",
+          "other_network_plants": [
+            "Q"
+          ],
+          "pending_expired": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false,
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "sending_church_ids": [
+            "S1"
+          ],
+          "plant_ids": [
+            "P"
+          ],
+          "Q_body": null,
+          "N2_body": null,
+          "live_pending_count": 0
         },
-        "event": null,
-        "checks": [
-          "Asees S/P only and correct pending counts; Qand B remain unavailable, sending-church actor is denied and linked plant still uses consent."
-        ]
+        "event": null
       }
     },
     {
@@ -12647,7 +13410,6 @@
         "WP-006"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Guess coach collections/detail/download paths and ask Evry to use an assignment read.",
       "given": {
         "P": {
@@ -12724,10 +13486,7 @@
           "registered_surface": false,
           "new_grants": 0
         },
-        "event": null,
-        "checks": [
-          "No target coach surface/grant/tool resolves; existing org or Member authority is not expanded."
-        ]
+        "event": null
       }
     },
     {
@@ -12744,7 +13503,6 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Own org Owner/Admin/Member+foreign org; change org kind; personal self versus another account; plant Owner/Admin deletion; pending cancel.",
       "given": {
         "P": {
@@ -12812,7 +13570,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "organizations.getProfile",
+        "operation": "organizations.updateProfile",
         "arguments": {
           "subject": "P",
           "foreign_control": {
@@ -12834,10 +13592,7 @@
           "profile_name": "Sending One",
           "workspace_delete_allowed": false
         },
-        "event": null,
-        "checks": [
-          "Only allowed own org profile fields change with audit; exact self/Owner deletion rules and finite cancel hold apply without authority expansion."
-        ]
+        "event": null
       }
     },
     {
@@ -12853,7 +13608,6 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Direct helper alias request and ordinary exact-link sever; forged equivalent FKwrite.",
       "given": {
         "P": {
@@ -12900,6 +13654,13 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "actor": null,
+          "plant": "P",
+          "organization": "S1",
+          "invoke_helper_directly": true
         }
       },
       "actor": {
@@ -12914,19 +13675,21 @@
       "action": {
         "operation": "associations.end",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "actor": null,
+          "plant": "P",
+          "organization": "S1",
+          "invoke_helper_directly": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "error_code": "unauthenticated",
+          "ended_relationships": 0,
+          "audit_bypass": false
         },
-        "event": null,
-        "checks": [
-          "Alias resolves to guarded typed sever or no public operation; unguarded write cannot bypass audit/consent."
-        ]
+        "event": null
       }
     },
     {
@@ -12944,7 +13707,6 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UAon People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe.",
       "given": {
         "P": {
@@ -12999,6 +13761,13 @@
           "week": "2026-10-12",
           "answer": "Strained",
           "note": "CARE-CANARY-TARGET-IDN-028"
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "cookie": "revoked",
+          "user_agent": "crawler",
+          "forged_wiki_header": true,
+          "path": "/people"
         }
       },
       "actor": {
@@ -13013,20 +13782,21 @@
       "action": {
         "operation": "security.checkRequestOrigin",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "cookie": "revoked",
+          "user_agent": "crawler",
+          "forged_wiki_header": true,
+          "path": "/people"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "stale_effects": 0
+          "error_code": "unauthenticated",
+          "private_body": null,
+          "private_existence": null
         },
-        "event": null,
-        "checks": [
-          "No cookie/header/crawler trick grants private access; stale login recovers without loop, exact machine proofs admit only their purpose, GET cannot write and domain authority rechecks after admission."
-        ]
+        "event": null
       }
     },
     {
@@ -13066,7 +13836,6 @@
         "WP-006"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Plant A Owner O, Admin A, Member M, seatless CRM lead L, Plant B Owner F, and Network N Member. Repeat each routine action and workspace deletion through native and reviewed Evry entry points; revoke A between preview and execution.",
       "given": {
         "P": {
@@ -13096,23 +13865,20 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "revision": 3
-        },
-        "B": {
+        "M": {
           "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
+          "id": "M"
         },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
+        "L": {
+          "fixture_type": "person",
+          "plant": "P",
+          "lead_role": true,
+          "account": null
+        },
+        "N": {
+          "fixture_type": "organization",
+          "id": "N",
+          "kind": "sending_network"
         }
       },
       "actor": {
@@ -13125,22 +13891,326 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "access.checkOperation",
+        "operation": "plant.updateProfile",
         "arguments": {
-          "subject": "P"
+          "tenant": "P",
+          "patch": {
+            "name": "Harvest Point"
+          },
+          "expected_revision": 7
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "name": "Harvest Point",
+          "routine_admin_allowed": true
         },
-        "event": null,
-        "checks": [
-          "O/A share routine Plant A administration; only O deletes Plant A. M has only named read/own-duty scope, L has no account grant, F/N cannot administer A, and revoked A execution fails before effects."
-        ]
-      }
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M": {
+              "fixture_type": "account",
+              "id": "M"
+            },
+            "L": {
+              "fixture_type": "person",
+              "plant": "P",
+              "lead_role": true,
+              "account": null
+            },
+            "N": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "plant.updateProfile",
+            "arguments": {
+              "tenant": "P",
+              "patch": {
+                "name": "Harvest Point"
+              },
+              "expected_revision": 7
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0
+            },
+            "event": null
+          },
+          "name": "member-cannot-administer-P"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "Q",
+              "role": "Owner",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M": {
+              "fixture_type": "account",
+              "id": "M"
+            },
+            "L": {
+              "fixture_type": "person",
+              "plant": "P",
+              "lead_role": true,
+              "account": null
+            },
+            "N": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network"
+            },
+            "Q": {
+              "fixture_type": "plant",
+              "id": "Q",
+              "timezone": "America/New_York"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "plant.updateProfile",
+            "arguments": {
+              "tenant": "P",
+              "patch": {
+                "name": "Harvest Point"
+              },
+              "expected_revision": 7
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0
+            },
+            "event": null
+          },
+          "name": "foreign-owner-cannot-administer-P"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "N",
+              "role": "Member",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M": {
+              "fixture_type": "account",
+              "id": "M"
+            },
+            "L": {
+              "fixture_type": "person",
+              "plant": "P",
+              "lead_role": true,
+              "account": null
+            },
+            "N": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "plant.updateProfile",
+            "arguments": {
+              "tenant": "P",
+              "patch": {
+                "name": "Harvest Point"
+              },
+              "expected_revision": 7
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0
+            },
+            "event": null
+          },
+          "name": "network-member-cannot-administer-P"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": false
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M": {
+              "fixture_type": "account",
+              "id": "M"
+            },
+            "L": {
+              "fixture_type": "person",
+              "plant": "P",
+              "lead_role": true,
+              "account": null
+            },
+            "N": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "plant.updateProfile",
+            "arguments": {
+              "tenant": "P",
+              "patch": {
+                "name": "Harvest Point"
+              },
+              "expected_revision": 7
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0
+            },
+            "event": null
+          },
+          "name": "revoked-admin"
+        }
+      ]
     },
     {
       "id": "TARGET-IDN-030",
@@ -13168,7 +14238,6 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Fault-inject after credentials, before token claim, during Person link/audit/mail-intent write and after domain commit but before response; concurrently revoke the invitation and retry with the same account/intent plus an unrelated authenticated account.",
       "given": {
         "P": {
@@ -13215,6 +14284,13 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "credential_created": true,
+          "invitation_revoked": true,
+          "grant_commit_outcome": "failed",
+          "repeat": 2
         }
       },
       "actor": {
@@ -13227,26 +14303,26 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "accounts.getRegistrationOptions",
+        "operation": "accounts.register",
         "arguments": {
           "subject": "P",
           "request_key": "TARGET-IDN-030-request-1",
           "repeat": 2,
-          "fault": "required_write_before_commit"
+          "fault": "required_write_before_commit",
+          "credential_created": true,
+          "invitation_revoked": true,
+          "grant_commit_outcome": "failed"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null,
-          "replay_additional_effects": 0,
-          "stale_effects": 0
+          "active_seats": 0,
+          "person_links": 0,
+          "resumable": true,
+          "unrelated_account_resume": false
         },
-        "event": null,
-        "checks": [
-          "Every partial identity is unprivileged and resumable; complete token/grant/Person/audit/intent commit together exactly once. Revocation winner yields no grant; stale response loss returns the saved receipt; unrelated account cannot resume."
-        ]
+        "event": null
       }
     },
     {
@@ -13274,7 +14350,6 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Two Plant A Admin authors with different private care weeks; guessed IDs, merged Persons, role edits, retained Evry context, organization projection, log/audit inspection and personal deletion/isolated restore. Correct a saved entry, attempt individual-entry delete, then request personal lifecycle deletion.",
       "given": {
         "P": {
@@ -13329,6 +14404,13 @@
           "week": "2026-10-12",
           "answer": "Strained",
           "note": "CARE-CANARY-TARGET-IDN-031"
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "entry_author": "A",
+          "caller": "B",
+          "caller_role": "Admin",
+          "CRM_merge": true
         }
       },
       "actor": {
@@ -13343,18 +14425,23 @@
       "action": {
         "operation": "access.checkOperation",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "entry_author": "A",
+          "caller": "B",
+          "caller_role": "Admin",
+          "CRM_merge": true
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unknown_is_zero": false
+          "body": null,
+          "existence": null,
+          "calendar": null,
+          "support_nudge": null,
+          "individual_delete_registered": false
         },
-        "event": null,
-        "checks": [
-          "Each live author sees only their native stream. All other paths disclose neither body nor existence/calendar/nudge metadata; merge preserves author and expired deletion material stays unavailable. Correction retains prior revisions; no individual-entry delete command or permission exists. Only account lifecycle purge removes the private stream under the approved retention deadlines."
-        ]
+        "event": null
       }
     },
     {
@@ -13388,7 +14475,6 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Request at 2026-10-13T12:00Z; cancel one millisecond before/at deadline, race cancellation/purge, inject partial DB/file purge, preserve church-authored shared records, restore an old copy after expiry.",
       "given": {
         "P": {
@@ -13435,6 +14521,12 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "requested_at": "2026-10-13T12:00:00Z",
+          "cancel_at": "2026-11-12T12:00:00Z",
+          "current_request": "R1"
         }
       },
       "actor": {
@@ -13449,19 +14541,21 @@
       "action": {
         "operation": "account.requestDeletion",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "requested_at": "2026-10-13T12:00:00Z",
+          "cancel_at": "2026-11-12T12:00:00Z",
+          "current_request": "R1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "unauthorized_effects": 0,
-          "unauthorized_body": null
+          "normal_access": false,
+          "cancel_allowed": false,
+          "shared_facts_preserved": true,
+          "copy_expiry_reset": false
         },
-        "event": null,
-        "checks": [
-          "Normal access stops at request. Before-deadline valid cancellation may win; deadline/late cancel cannot. Recovery clock begins only at completed live purge and expires without reset; shared church facts keep minimal attribution, private data never reopens after expiry."
-        ]
+        "event": null
       }
     },
     {
@@ -13480,7 +14574,6 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "group": "target-idn",
       "description": "Two same plant authors in Chicago/Auckland; open answer then switch across date line repeatedly; concurrent save/roll over; three mixed concern weeks, missing week, Steady correction and old historical streak.",
       "given": {
         "P": {
@@ -13527,6 +14620,24 @@
           "tenant": "Q",
           "role": "Admin",
           "active": true
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "author": "A",
+          "ordinals": [
+            1,
+            2,
+            3
+          ],
+          "levels": [
+            "strained",
+            null,
+            "struggling"
+          ],
+          "zones": [
+            "America/Chicago",
+            "Pacific/Auckland"
+          ]
         }
       },
       "actor": {
@@ -13541,18 +14652,34 @@
       "action": {
         "operation": "account.previewPersonalTimezoneChange",
         "arguments": {
-          "subject": "P"
+          "subject": "P",
+          "author": "A",
+          "ordinals": [
+            1,
+            2,
+            3
+          ],
+          "levels": [
+            "strained",
+            null,
+            "struggling"
+          ],
+          "zones": [
+            "America/Chicago",
+            "Pacific/Auckland"
+          ]
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "prior_history_rewritten": false
+          "support_question": false,
+          "streak_length": 1,
+          "answers_per_author_ordinal": 1,
+          "historic_zone_rewritten": false,
+          "nonnative_private_fields": []
         },
-        "event": null,
-        "checks": [
-          "One stable answer/week per author and true adjacent ordinal semantics; original keys remain. Only current eligible same-author/dimension run shows private support question, dated old run is historical, all nonnative paths remain empty."
-        ]
+        "event": null
       }
     }
   ]
