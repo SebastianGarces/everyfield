@@ -3,6 +3,7 @@
 import argparse
 import json
 import copy
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 LIBRARY_TABLES = {'auth_user', 'auth_account', 'auth_session', 'auth_verification'}
+CLOSED_VALUE_COLUMNS = {
+    'mail': ['purpose'], 'notice': ['purpose'], 'effect': ['kind'],
+    'operation': ['name', 'stop_reason', 'provider'], 'mail_request': ['provider'],
+    'provider_event': ['provider'], 'job_cursor': ['kind'],
+    'evidence_link': ['purpose', 'projection', 'source_purpose'],
+    'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
+    'recovery_copy': ['environment'],
+}
 CURRENT_DOMAINS = {
     'identity': 'auth_user auth_account auth_session auth_verification auth_throttle app_account platform_grant',
     'tenancy': 'tenancy_membership access_invitation plant organization organization_network_link plant_affiliation organization_sharing_settings discovery_profile discovery_association association_invitation association_event account_person_link',
@@ -38,6 +47,58 @@ def read(path):
 
 def key_columns(key):
     return tuple(key['columns'])
+
+
+def forced_null_columns(expression):
+    """Recognize unconditional NULL predicates, including nested AND/OR forms.
+
+    This is a bounded documentation lint, not a SQL evaluator. Conditional NULL
+    shape checks stay legal; every OR branch must force NULL for this to reject it.
+    """
+    tokens = re.findall(r"'(?:''|[^'])*'|[a-zA-Z_][\w]*|\d+|\S", expression.lower())
+
+    def scan(parts):
+        while parts and parts[0] == '(' and parts[-1] == ')':
+            depth = 0
+            for i, token in enumerate(parts):
+                depth += (token == '(') - (token == ')')
+                if depth == 0:
+                    break
+            if i != len(parts) - 1:
+                break
+            parts = parts[1:-1]
+        for operator in ['or', 'and']:
+            depth, start, groups = 0, 0, []
+            for i, token in enumerate(parts):
+                depth += (token == '(') - (token == ')')
+                if depth == 0 and token == operator:
+                    groups.append(scan(parts[start:i]))
+                    start = i + 1
+            if groups:
+                groups.append(scan(parts[start:]))
+                return set.intersection(*groups) if operator == 'or' else set.union(*groups)
+        text = ' '.join(parts)
+        for pattern in [r'(\w+) is null', r'(\w+) is not distinct from null',
+                        r'not \( (\w+) is not null \)', r'num_nonnulls \( (\w+) \) = 0']:
+            match = re.fullmatch(pattern, text)
+            if match:
+                return {match[1]}
+        return set()
+
+    return scan(tokens)
+
+
+def closed_values(checks, column):
+    """Read a literal text IN set, rather than a prose placeholder CHECK."""
+    for check in checks:
+        match = re.search(r'\b' + re.escape(column) + r'\s+in\s*\(([^)]*)\)', check, re.I)
+        if not match:
+            continue
+        body = match[1]
+        literals = re.findall(r"'((?:''|[^'])*)'", body)
+        if literals and not re.sub(r"'(?:''|[^'])*'|[\s,]", '', body):
+            return {value.replace("''", "'") for value in literals}
+    return set()
 
 
 def validate_schema(schema, label, proposal=False):
@@ -92,6 +153,22 @@ def validate_schema(schema, label, proposal=False):
                 errors.append(f'{prefix}: JSONB documentation does not match columns')
             if any(not keys for keys in table['jsonb_keys'].values()):
                 errors.append(f'{prefix}: empty JSONB key documentation')
+            fk_columns = {c for fk in table['foreign_keys'] for c in fk['columns']}
+            for column in table['columns']:
+                historical_request = name == 'lifecycle_witness' and column['name'] == 'request_id'
+                if (not table['library_owned'] and column['type'] == 'uuid'
+                        and column['name'].endswith('_id') and not column['name'].startswith('opaque_')
+                        and column['name'] != 'requester_opaque_id' and not historical_request
+                        and column['name'] not in pk and column['name'] not in fk_columns):
+                    errors.append(f'{prefix}: UUID relation {column["name"]} has no FK')
+            if 'tenant_id' in columns and columns['tenant_id']['nullable']:
+                errors.append(f'{prefix}: tenant_id must be nonnull, including restricted global work')
+            for check in table['checks']:
+                for column in forced_null_columns(check) & columns.keys():
+                    errors.append(f'{prefix}: CHECK forces column {column} to stay null')
+            for column in CLOSED_VALUE_COLUMNS.get(name, []):
+                if column in columns and not closed_values(table['checks'], column):
+                    errors.append(f'{prefix}: closed-value column {column} lacks literal IN CHECK')
         for fk in table['foreign_keys']:
             target_name = fk['references']['table']
             local = fk['columns']
@@ -104,6 +181,10 @@ def validate_schema(schema, label, proposal=False):
                 continue
             target = by_name[target_name]
             target_columns = {c['name']: c for c in target['columns']}
+            if proposal and 'tenant_id' in columns and 'tenant_id' in target_columns:
+                paired = ('tenant_id', 'tenant_id') in zip(local, remote)
+                if not paired and not fk.get('scope_exception', '').strip():
+                    errors.append(f'{prefix}: mixed-scope parent {target_name} lacks compound (parent_id, tenant_id) FK')
             missing_remote = sorted(set(remote) - target_columns.keys())
             if missing_remote:
                 errors.append(f'{prefix}: FK names missing {target_name} columns {missing_remote}')
@@ -118,6 +199,23 @@ def validate_schema(schema, label, proposal=False):
                 if left in columns and right in target_columns:
                     if columns[left]['type'].lower() != target_columns[right]['type'].lower():
                         errors.append(f'{prefix}: FK type mismatch {left} -> {target_name}.{right}')
+    return errors
+
+
+def validate_catalog_sets(proposal, operations):
+    """INV-schema-catalog: literal operation/projection sets must match their authority."""
+    operations = [o for o in operations if not o['id'].startswith('privateCare.')]
+    expected = {
+        ('operation', 'name'): {o['id'] for o in operations},
+        ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
+        ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
+        ('evidence_link', 'projection'): {a['result_projection'] for o in operations if o['kind'] == 'query' for a in o['authority']},
+    }
+    tables = {t['name']: t for t in proposal['tables']}
+    errors = []
+    for (name, column), values in expected.items():
+        if name in tables and closed_values(tables[name]['checks'], column) != values:
+            errors.append(f'proposal.{name}: {column} IN CHECK differs from current operation catalog')
     return errors
 
 
@@ -171,6 +269,7 @@ def run(root, proposal_path):
     capability_files = [read(path) for path in files]
     features = read(root / 'docs/catalog/features.json')
     errors = validate_schema(current, 'current') + validate_schema(proposal, 'proposal', True)
+    errors.extend(validate_catalog_sets(proposal, read(root / 'docs/catalog/operations.json')['operations']))
     coverage_errors, coverage_lines = coverage(capability_files, features, proposal)
     errors.extend(coverage_errors)
     for table in proposal['tables']:
@@ -218,7 +317,7 @@ def run(root, proposal_path):
         for error in errors:
             print('- ' + error)
         return 1
-    print('\nPASS: structural keys, references, JSONB documentation and coverage')
+    print('\nPASS: structural keys, references, ownership, closed sets, NULL guards, JSONB documentation and coverage')
     return 0
 
 
@@ -238,6 +337,14 @@ def self_test(root):
         ('missing unique column', 'unique', 1, 'key names missing columns'),
         ('unmapped persistent capability', 'capability', 1, 'persistent capabilities without a table'),
         ('missing active feature', 'feature', 1, 'active features missing from capabilities'),
+        ('mixed-scope child without compound FK', 'tenant_fk', 1, 'mixed-scope parent conversation lacks compound'),
+        ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation conversation_id has no FK'),
+        ('nullable global owner bypass', 'nullable_tenant', 1, 'tenant_id must be nonnull'),
+        ('unconditional NULL CHECK', 'null_check', 1, 'CHECK forces column title to stay null'),
+        ('conjunctive NULL CHECK', 'null_and', 1, 'CHECK forces column title to stay null'),
+        ('NULL in every alternative', 'null_or', 1, 'CHECK forces column title to stay null'),
+        ('missing closed-value CHECK', 'closed', 1, 'closed-value column purpose lacks literal IN CHECK'),
+        ('catalog drift', 'catalog', 1, 'name IN CHECK differs from current operation catalog'),
     ]
     with tempfile.TemporaryDirectory(prefix='evf-schema-check-') as directory:
         fixture = Path(directory)
@@ -245,6 +352,7 @@ def self_test(root):
             (fixture / folder).mkdir(parents=True, exist_ok=True)
         (fixture / 'docs/schema/target.json').write_text(json.dumps(current))
         (fixture / 'docs/catalog/features.json').write_text(json.dumps(features))
+        (fixture / 'docs/catalog/operations.json').write_text(json.dumps(read(root / 'docs/catalog/operations.json')))
         for label, fault, status, expected in cases:
             candidate, cap_files = copy.deepcopy(schema), copy.deepcopy(capabilities)
             auth_account = next(t for t in candidate['tables'] if t['name'] == 'auth_account')
@@ -266,6 +374,29 @@ def self_test(root):
                 for file in cap_files:
                     for capability in file['capabilities']:
                         capability['feature_ids'] = [f for f in capability['feature_ids'] if f != 'IDN-001']
+            elif fault == 'tenant_fk':
+                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
+                parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'conversation')
+                parent['columns'], parent['references']['columns'] = ['conversation_id'], ['id']
+            elif fault == 'missing_parent':
+                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
+                entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'conversation']
+            elif fault == 'nullable_tenant':
+                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
+                next(c for c in entry['columns'] if c['name'] == 'tenant_id')['nullable'] = True
+            elif fault in {'null_check', 'null_and', 'null_or'}:
+                conversation = next(t for t in candidate['tables'] if t['name'] == 'conversation')
+                conversation['checks'].append({
+                    'null_check': '(title IS NULL)',
+                    'null_and': '(title is null) and revision >= 1',
+                    'null_or': "(title is null and state = 'open') or (state = 'archived' and title is null)",
+                }[fault])
+            elif fault == 'closed':
+                mail = next(t for t in candidate['tables'] if t['name'] == 'mail')
+                mail['checks'] = [c for c in mail['checks'] if not c.startswith('purpose in')]
+            elif fault == 'catalog':
+                operation = next(t for t in candidate['tables'] if t['name'] == 'operation')
+                operation['checks'] = ["name in ('invented.command')" if c.startswith('name in') else c for c in operation['checks']]
             (fixture / 'docs/schema-proposal/schema.json').write_text(json.dumps(candidate))
             for path, content in zip(capability_paths, cap_files):
                 (fixture / 'docs/schema-proposal/capabilities' / path.name).write_text(json.dumps(content))

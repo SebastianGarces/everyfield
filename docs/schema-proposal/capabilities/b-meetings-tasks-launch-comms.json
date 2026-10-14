@@ -158,8 +158,7 @@
       "facts": [
         "Meeting/Person guest identity, optional inviter Person, creation/import roster snapshot and current revision.",
         "Canonical nullable Pending or confirmed/declined RSVP, responder provenance, response time and administrative reset/correction lineage.",
-        "Narrow token verifier, purpose, meeting/Person binding, credential revision, expiry, answered/revoked/superseded state and response time; token secret kept outside public histories.",
-        "Recognized legacy invitation response and inviter attribution with original historical meaning; merge/inverse collision references."
+        "Narrow token verifier, purpose, meeting/Person binding, credential revision, expiry, answered/revoked/superseded state and response time; token secret kept outside public histories."
       ],
       "history": "append-only events",
       "invariants": [
