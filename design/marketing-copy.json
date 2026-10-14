@@ -2,14 +2,14 @@
   "version": 2,
   "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
-    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). The copy of the other pages is not yet reviewed.",
+    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). E2 (2026-10-14) drafted the copy of access, privacy and terms in shared.access_page, shared.privacy_page and shared.terms_page; Sebastian must review it and confirm the assumptions in the E2 task note before go-live. The copy of planters and trust is not yet reviewed.",
     "home": "look approved, copy approved",
     "oversight": "look approved, copy approved",
     "planters": "look approved, copy not yet reviewed",
     "trust": "look approved, copy not yet reviewed",
-    "access": "look approved, copy not yet reviewed",
-    "privacy": "look approved, copy not yet reviewed",
-    "terms": "look approved, copy not yet reviewed"
+    "access": "draft, owner review required",
+    "privacy": "draft, owner review required",
+    "terms": "draft, owner review required"
   },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
@@ -331,6 +331,306 @@
         "body": "We are working with a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "Request early access as a planter"
+      }
+    },
+    "access_page": {
+      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
+      "hero": {
+        "eyebrow": "Early access",
+        "headline": "Request early access",
+        "subhead": "EveryField is in early access for church planters and the churches and networks that send them."
+      },
+      "contact_email": "sebastian@everyfield.app",
+      "planter_form": {
+        "eyebrow": "For planters",
+        "headline": "Know what needs you this week.",
+        "body": "You do the work. EveryField keeps the record and points at the next step.",
+        "fields": {
+          "name": {
+            "label": "Your name",
+            "error": "Enter your name."
+          },
+          "email": {
+            "label": "Email",
+            "help": "We use your email to handle your early access request and limit spam.",
+            "error": "Enter an email address, such as name@example.com.",
+            "placeholder": "name@example.com"
+          },
+          "plant_name": {
+            "label": "Church plant name",
+            "help": "A working name is fine.",
+            "error": "Enter the name of your church plant. A working name is fine."
+          },
+          "city": {
+            "label": "City",
+            "help": "The city where you are planting.",
+            "error": "Enter the city where you are planting."
+          },
+          "phase": {
+            "label": "Phase",
+            "help": "Choose the phase you are in now.",
+            "error": "Choose the phase you are in now.",
+            "prompt": "Choose a phase"
+          },
+          "sending": {
+            "label": "Sending church or network",
+            "optional": true,
+            "help": "Leave it blank if you do not have one yet."
+          }
+        },
+        "phases": [
+          "0 · Discovery",
+          "1 · Core group",
+          "2 · Launch team",
+          "3 · Training",
+          "4 · Pre-launch",
+          "5 · Launch Sunday",
+          "6 · Post-launch"
+        ],
+        "submit": "Request early access",
+        "submitting": "Sending your request"
+      },
+      "network_form": {
+        "eyebrow": "For networks and sending churches",
+        "headline": "Bring EveryField to your network.",
+        "body": "We are working with a small group of networks and sending churches during early access.",
+        "fields": {
+          "name": {
+            "label": "Your name",
+            "error": "Enter your name."
+          },
+          "email": {
+            "label": "Email",
+            "help": "We use your email to handle your early access request and limit spam.",
+            "error": "Enter an email address, such as name@example.com.",
+            "placeholder": "name@example.com"
+          },
+          "organization": {
+            "label": "Network or church",
+            "error": "Enter the name of your network or church."
+          },
+          "role": {
+            "label": "Your role",
+            "help": "For example, network director or sending pastor.",
+            "error": "Enter your role."
+          },
+          "plants": {
+            "label": "Plants you send or support",
+            "optional": true,
+            "help": "A rough number is fine.",
+            "error": "Enter a whole number, such as 4."
+          },
+          "message": {
+            "label": "What would you like to talk about?",
+            "optional": true,
+            "help": "Tell us about your plants or what you want to see."
+          }
+        },
+        "submit": "Talk to us about your network",
+        "submitting": "Sending your request"
+      },
+      "errors": {
+        "too_long": "Shorten this to {max} characters or fewer."
+      },
+      "optional_label": "(optional)",
+      "privacy_note": {
+        "text": "We use these details to handle your early access request and limit spam. Read our privacy policy.",
+        "link": "privacy policy"
+      },
+      "outcomes": {
+        "received": {
+          "title": "Request received",
+          "body": "Thank you. We have your request and will reply by email. You will not get an automatic confirmation email."
+        },
+        "duplicate": {
+          "title": "We already have your request",
+          "body": "A request from this email on this form arrived in the last 24 hours, so we did not save a new one. We will reply by email."
+        },
+        "rate_limited_email": {
+          "title": "Too many requests from this email today",
+          "body": "Try again tomorrow, or email sebastian@everyfield.app."
+        },
+        "rate_limited_ip": {
+          "title": "Too many requests from this connection",
+          "body": "Try again in an hour, or email sebastian@everyfield.app."
+        },
+        "invalid": {
+          "title": "Check the marked fields",
+          "body": "Fix each field with a message below it, then send your request again."
+        },
+        "unavailable": {
+          "title": "Your request was not sent",
+          "body": "The request form is not working right now. Your answers are still in the form. Email them to sebastian@everyfield.app and we will reply.",
+          "link": "Email sebastian@everyfield.app"
+        },
+        "offline": {
+          "title": "Your request was not sent",
+          "body": "Check your internet connection and send it again. Your answers are still in the form."
+        }
+      }
+    },
+    "privacy_page": {
+      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data. Unresolved publication items (owner): the provider that hosts the sebastian@everyfield.app mailbox, how long email copies of requests stay in that inbox and how they are deleted, and any reply deadline. Add the confirmed duration and deletion wording to 'How long we keep it' before go-live.",
+      "title": "Privacy policy",
+      "updated": "October 14, 2026",
+      "intro": [
+        "This policy covers everyfield.app, the early access site for EveryField. EveryField LLC runs the site.",
+        "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
+      ],
+      "sections": [
+        {
+          "heading": "What we collect",
+          "paragraphs": [],
+          "items": [
+            "From the planter form: your name, email, church plant name, city and phase. If you add it, your sending church or network.",
+            "From the network form: your name, email, network or church and role. If you add them, the number of plants you send or support and your message.",
+            "With each request: the date and time, the form you used and your IP address.",
+            "When you visit any page: Vercel, our hosting provider, keeps request logs. These include your IP address, your browser type and the page you opened."
+          ]
+        },
+        {
+          "heading": "Why we collect it",
+          "paragraphs": [],
+          "items": [
+            "To read your request and reply to you about early access.",
+            "To decide who joins early access, and when.",
+            "To stop spam and repeat requests. We use your email and IP address to limit how many requests can come from one email address or one internet connection."
+          ]
+        },
+        {
+          "heading": "What we do not do",
+          "paragraphs": [],
+          "items": [
+            "We do not add you to a newsletter or a mailing list.",
+            "We do not create an account for you.",
+            "We do not sell your information or share it for advertising.",
+            "We do not use advertising or tracking cookies."
+          ]
+        },
+        {
+          "heading": "Where it is stored and processed",
+          "paragraphs": [
+            "Vercel hosts the site through its global network. Neon stores requests in the United States, and Resend stores email data in the United States. These services may process information outside your country."
+          ],
+          "items": [
+            "Vercel hosts the site and runs the forms.",
+            "Neon stores each request in a database on Amazon Web Services, in the US East (N. Virginia) region, us-east-1.",
+            "Resend sends a copy of each request by email to sebastian@everyfield.app."
+          ]
+        },
+        {
+          "heading": "How long we keep it",
+          "paragraphs": [],
+          "items": [
+            "We keep each request in our database for 12 months after you send it, then delete it.",
+            "We delete the IP addresses we keep for request limits after 30 days.",
+            "Our providers may keep service logs and backup copies under their own retention policies.",
+            "If you join early access, we will tell you how the product handles your information before you use it."
+          ]
+        },
+        {
+          "heading": "Ask for a copy, a correction or deletion",
+          "paragraphs": [
+            "Email sebastian@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
+            "We will reply by email about your request."
+          ]
+        },
+        {
+          "heading": "Children",
+          "paragraphs": [
+            "The forms are for adults who lead or support church plants. Do not send a request for a child."
+          ]
+        },
+        {
+          "heading": "Changes to this policy",
+          "paragraphs": [
+            "If we change this policy, we post the new version on this page and change the date at the top."
+          ]
+        },
+        {
+          "heading": "Contact",
+          "paragraphs": [
+            "Send questions about this policy to sebastian@everyfield.app."
+          ]
+        }
+      ]
+    },
+    "terms_page": {
+      "note": "E2 (2026-10-14): draft terms for /terms, owner review required. Short terms for the marketing site during early access. Product terms come later.",
+      "title": "Terms",
+      "updated": "October 14, 2026",
+      "intro": [
+        "These terms apply to everyfield.app, the early access site for EveryField. EveryField LLC runs the site. When you use the site, you agree to these terms."
+      ],
+      "sections": [
+        {
+          "heading": "Early access",
+          "paragraphs": [
+            "EveryField is in early access. You cannot sign in or use the product on this site.",
+            "A request does not reserve a place. We choose who joins early access and when, and we can say no.",
+            "The product will have its own terms. We will give them to you before you use it."
+          ]
+        },
+        {
+          "heading": "What the site shows",
+          "paragraphs": [
+            "The site describes EveryField as we build it. Features can change before you can use them.",
+            "Names and numbers in the product pictures come from a sample church."
+          ]
+        },
+        {
+          "heading": "Your requests",
+          "paragraphs": [
+            "Send true information that you have the right to share. Request access only for yourself, or for a church or network you represent."
+          ]
+        },
+        {
+          "heading": "Fair use",
+          "paragraphs": [],
+          "items": [
+            "Do not use the site to send spam, to pose as someone else or to break the law.",
+            "Do not try to get around the request limits, overload the site or get into systems you have no right to use."
+          ]
+        },
+        {
+          "heading": "Our content",
+          "paragraphs": [
+            "The EveryField name, logo, text and pictures on this site belong to EveryField LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
+          ]
+        },
+        {
+          "heading": "No warranty",
+          "paragraphs": [
+            "We provide the site as it is. We work to keep it correct and online, but we do not promise that it is always correct, complete or available."
+          ]
+        },
+        {
+          "heading": "Limit of liability",
+          "paragraphs": [
+            "As far as the law allows, EveryField LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
+          ]
+        },
+        {
+          "heading": "Privacy",
+          "paragraphs": [
+            "Our privacy policy explains what we collect when you send a request and how to have it deleted."
+          ]
+        },
+        {
+          "heading": "Changes to these terms",
+          "paragraphs": [
+            "If we change these terms, we post the new version on this page and change the date at the top."
+          ]
+        },
+        {
+          "heading": "Contact",
+          "paragraphs": [
+            "Send questions about these terms to sebastian@everyfield.app."
+          ]
+        }
+      ],
+      "links": {
+        "privacy": "privacy policy"
       }
     }
   },
