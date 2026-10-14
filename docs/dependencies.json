@@ -253,6 +253,22 @@
       },
       "response_sha256": "02fc014d214782a2570b1c149d78a74b6cfbd27d07853044cb237f196b3a77bd",
       "verified_date": "2026-10-13"
+    },
+    {
+      "name": "motion",
+      "version": "14.2.0",
+      "official_registry_url": "https://registry.npmjs.org/motion/latest",
+      "repository": {
+        "url": "git+https://github.com/motiondivision/motion.git",
+        "type": "git"
+      },
+      "engines": null,
+      "peer_dependencies": {
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
+      },
+      "response_sha256": "4504dc589504d5ffc149478aa633b32c288d00a287589c7ce33326d12560ef06",
+      "verified_date": "2026-10-14"
     }
   ]
 }

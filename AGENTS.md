@@ -57,6 +57,7 @@ Read the file for your specialist before you start:
 | Debugging with traces, logs and the browser | skill `debug-with-traces` |
 | Recording a ruling | skill `decisions` |
 | Local previews | skill `portless-preview` |
+| React and Next.js performance | skill `vercel-react-best-practices` |
 | UI quality | skill `better-interface` and the `better-*` suite |
 | Workflow config | `evf.config.json` |
 
