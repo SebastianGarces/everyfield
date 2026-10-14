@@ -9,7 +9,7 @@ import { ACCESS, btn, icon, logo, mark, t } from "./markup";
 const FOOTER: Record<string, string> = {
   Overview: "/",
   "Plant Intelligence": "/#intelligence",
-  "Sending churches and networks": "/oversight",
+  "Churches & Networks": "/oversight",
   Contact: ACCESS,
   "Privacy policy": "/privacy",
   Terms: "/terms",
