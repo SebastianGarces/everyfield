@@ -1,0 +1,2020 @@
+{
+  "scope": "Current recovery behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "BKT60-001",
+      "requirement": "REQ-KNOW-011",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "bkt60",
+      "description": "Ordinaryapp/build/preview credentials attempt list/read/write backupbucket; dedicated restrictedkey succeeds.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "bucket": "backup-private",
+          "credentials": [
+            "app",
+            "build",
+            "preview",
+            "restricted-backup"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.finalizeAvatar",
+        "arguments": {
+          "bucket": "backup-private",
+          "credentials": [
+            "app",
+            "build",
+            "preview",
+            "restricted-backup"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "can_read": [
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "BKT60-002",
+      "requirement": "REQ-KNOW-012",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-037",
+        "WP-050",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "bkt60",
+      "description": "Dated encrypted fullcandidate/checksums,keyescrow,subjectexpiry and oldcopy recopy.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "snapshot_date": "2026-10-13",
+          "DB_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "object_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "subject_expiry": "2026-10-20T16:00:00Z",
+          "recopy_at": "2026-10-19T16:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.download",
+        "arguments": {
+          "snapshot_date": "2026-10-13",
+          "DB_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "object_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "subject_expiry": "2026-10-20T16:00:00Z",
+          "recopy_at": "2026-10-19T16:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "copy_encrypted": true,
+          "subject_expiry": "2026-10-20T16:00:00Z",
+          "key_recoverable_by": "restricted-backup"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "BKT60-003",
+      "requirement": "REQ-KNOW-013",
+      "feature_ids": [
+        "ADM-007",
+        "DOC-015",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-007--ADM-007",
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-050",
+        "WP-049",
+        "WP-057"
+      ],
+      "status": "future-not-run",
+      "group": "bkt60",
+      "description": "Shared provider/account outage loses primary+backup versus surviving24hour-fresh complete dailycopy.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "snapshot_at": "2026-10-12T17:00:00Z",
+          "restore_at": "2026-10-13T16:00:00Z",
+          "provider_up": false,
+          "copy_available": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "marketing.privacyPolicy",
+        "arguments": {
+          "snapshot_at": "2026-10-12T17:00:00Z",
+          "restore_at": "2026-10-13T16:00:00Z",
+          "provider_up": false,
+          "copy_available": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "copy_age_hours": 23,
+          "daily_fallback_eligible": true,
+          "guaranteed_disaster_RTO": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "BKT60-004",
+      "requirement": "REQ-KNOW-014",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "bkt60",
+      "description": "Beforecustomerdata gate lacks actual costapproval,hostschedule,key-exclusion and coherentrestore evidence.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "customer_rows": 0,
+          "backup_configured": false,
+          "cost_approved": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.finalizeAvatar",
+        "arguments": {
+          "customer_rows": 0,
+          "backup_configured": false,
+          "cost_approved": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "blocked",
+          "build_gate_from_backup": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-001",
+      "requirement": "REQ-KNOW-066",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-001",
+        "IDN-005",
+        "IDN-006",
+        "IDN-010",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-005",
+        "WP-006",
+        "WP-007",
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Self account request,current workspaceOwner,ordinaryAdmin/foreign requests and concurrent reads.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "subject": "A",
+          "request_at": "2026-10-13T16:00:00Z",
+          "roles": [
+            "self",
+            "Owner",
+            "Admin",
+            "foreign"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "access.checkOperation",
+        "arguments": {
+          "subject": "A",
+          "request_at": "2026-10-13T16:00:00Z",
+          "roles": [
+            "self",
+            "Owner",
+            "Admin",
+            "foreign"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "personal_allowed": [
+            true,
+            false,
+            false,
+            false
+          ],
+          "workspace_allowed": [
+            false,
+            true,
+            false,
+            false
+          ],
+          "cancel_until": "2026-11-12T16:00:00Z",
+          "normal_access": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-002",
+      "requirement": "REQ-KNOW-067",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-005",
+        "IDN-010",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-005",
+        "WP-006",
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Pending30day private hold with revoked normalsession; fresh restricted status/cancel proof.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "subject": "A",
+          "status": "pending",
+          "private_note": "CARE-CANARY",
+          "proof_purpose": "cancel"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "access.checkOperation",
+        "arguments": {
+          "subject": "A",
+          "status": "pending",
+          "private_note": "CARE-CANARY",
+          "proof_purpose": "cancel"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "status_visible": "pending",
+          "private_note": null,
+          "ordinary_access": false,
+          "cancel_allowed": true
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-003",
+      "requirement": "REQ-KNOW-068",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-021",
+        "IDN-022",
+        "IDN-023",
+        "IDN-026",
+        "WIKI-003"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-022--IDN-022",
+        "AC-IDN-023--IDN-023",
+        "AC-IDN-026--IDN-026",
+        "AC-WIKI-003--WIKI-003"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-007",
+        "WP-010",
+        "WP-031",
+        "WP-035",
+        "WP-047",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Cancel at deadline-minus1ms,exactdeadline,purgelease and stale oldrequest after newrequest.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "deadline": "2026-11-12T16:00:00Z",
+          "attempts": [
+            "2026-11-12T15:59:59.999Z",
+            "2026-11-12T16:00:00Z"
+          ],
+          "request_revision": 2,
+          "old_revision": 1
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "access.checkOperation",
+        "arguments": {
+          "deadline": "2026-11-12T16:00:00Z",
+          "attempts": [
+            "2026-11-12T15:59:59.999Z",
+            "2026-11-12T16:00:00Z"
+          ],
+          "request_revision": 2,
+          "old_revision": 1
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "cancel_allowed": [
+            true,
+            false
+          ],
+          "old_request_cancel_allowed": false,
+          "revoked_affiliation_restored": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-004",
+      "requirement": "REQ-KNOW-069",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-013",
+        "IDN-026",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-026--IDN-026",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-005",
+        "WP-010",
+        "WP-011",
+        "WP-036",
+        "WP-037",
+        "WP-039",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Accountcreator owns private doc and created plant-owned doc/generatedfile/sharedhistory.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "account_document": "DA",
+          "plant_document": "DP",
+          "creator": "A",
+          "shared_person": "Alex"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "account_document": "DA",
+          "plant_document": "DP",
+          "creator": "A",
+          "shared_person": "Alex"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "DA_purged": true,
+          "DP_retained": true,
+          "Alex_retained": true,
+          "shared_attribution": "Former member"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-005",
+      "requirement": "REQ-KNOW-070",
+      "feature_ids": [
+        "DOC-015",
+        "DOC-016",
+        "IDN-005",
+        "IDN-021",
+        "IDN-022",
+        "IDN-023",
+        "PI-038",
+        "PI-040",
+        "WIKI-003"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-022--IDN-022",
+        "AC-IDN-023--IDN-023",
+        "AC-PI-038--PI-038",
+        "AC-PI-040--PI-040",
+        "AC-WIKI-003--WIKI-003"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-007",
+        "WP-010",
+        "WP-035",
+        "WP-037",
+        "WP-039",
+        "WP-047",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native privatecare.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "delete_plant": "P",
+          "other_plant": "Q",
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "private_author": "A"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "access.checkOperation",
+        "arguments": {
+          "delete_plant": "P",
+          "other_plant": "Q",
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "private_author": "A"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "P_visible": false,
+          "Q_visible": true,
+          "organizations_retained": [
+            "S1",
+            "N1"
+          ],
+          "private_author_transferred": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-006",
+      "requirement": "REQ-KNOW-071",
+      "feature_ids": [
+        "COM-012",
+        "DOC-015",
+        "NTF-001",
+        "NTF-002"
+      ],
+      "acceptance_ids": [
+        "AC-COM-012--COM-012",
+        "AC-DOC-015--DOC-015",
+        "AC-NTF-001--NTF-001",
+        "AC-NTF-002--NTF-002"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031",
+        "WP-037",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Pendingdeletion with unsentintent,accepted scheduledmail,sentmail and unexpired issuedURL.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "intents": [
+            "pending",
+            "provider_scheduled",
+            "sent"
+          ],
+          "signed_url_expires": "2026-10-13T16:05:00Z",
+          "delete_at": "2026-10-13T16:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "communication.cancelScheduledReviewed",
+        "arguments": {
+          "intents": [
+            "pending",
+            "provider_scheduled",
+            "sent"
+          ],
+          "signed_url_expires": "2026-10-13T16:05:00Z",
+          "delete_at": "2026-10-13T16:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_handoffs": 0,
+          "scheduled_cancel": "reconcile",
+          "sent_recalled": false,
+          "existing_url_may_work_until": "2026-10-13T16:05:00Z"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-007",
+      "requirement": "REQ-KNOW-072",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-026",
+        "OPS-007",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-007--OPS-007",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-005",
+        "WP-010",
+        "WP-031",
+        "WP-037",
+        "WP-039",
+        "WP-050",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Deadline purge chunks DB/bytes; object-delete timeout halfway then retry same request.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "deadline": "2026-11-12T16:00:00Z",
+          "object_delete": "timeout",
+          "retry": true,
+          "request_key": "del-A-1"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "deadline": "2026-11-12T16:00:00Z",
+          "object_delete": "timeout",
+          "retry": true,
+          "request_key": "del-A-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "first_state": "purging",
+          "first_livePurgedAt": null,
+          "ordinary_access": false,
+          "retry_coherent_complete": true
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-008",
+      "requirement": "REQ-KNOW-073",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-026",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-010",
+        "WP-037",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Old snapshot/branch/objectversion recopy after livePurgedAt+7days and current witness outside image.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "livePurgedAt": "2026-11-20T16:00:00Z",
+          "restore_at": "2026-11-27T16:00:00Z",
+          "recopy_at": "2026-11-26T16:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "livePurgedAt": "2026-11-20T16:00:00Z",
+          "restore_at": "2026-11-27T16:00:00Z",
+          "recopy_at": "2026-11-26T16:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "copy_expiry": "2026-11-27T16:00:00Z",
+          "restored_visible": false,
+          "cancel_allowed": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "DEL58-009",
+      "requirement": "REQ-KNOW-074",
+      "feature_ids": [
+        "ADM-001",
+        "ADM-003",
+        "ADM-007",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-003--ADM-003",
+        "AC-ADM-007--ADM-007",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-010",
+        "WP-049",
+        "WP-050",
+        "WP-057"
+      ],
+      "status": "future-not-run",
+      "group": "del58",
+      "description": "Privacycopy and ownfeedback status during hold/purge with actual externalcopy/provider limits.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "status": "pending",
+          "request_at": "2026-10-13T16:00:00Z",
+          "own_feedback": "F1"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "status": "pending",
+          "request_at": "2026-10-13T16:00:00Z",
+          "own_feedback": "F1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "cancellation_days": 30,
+          "recovery_days_after_live_purge": 7,
+          "normal_feedback_body": null,
+          "physical_day37_claim": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-001",
+      "requirement": "REQ-KNOW-084",
+      "feature_ids": [
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Actual paidNeon default1day vs configured7days; daily,manual,latest-preserved snapshot and restoredbranch expiry.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "PITR_days": 1,
+          "required_days": 7,
+          "snapshots": [
+            "2026-10-01",
+            "2026-10-13"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.finalizeAvatar",
+        "arguments": {
+          "PITR_days": 1,
+          "required_days": 7,
+          "snapshots": [
+            "2026-10-01",
+            "2026-10-13"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "release_gate": "blocked",
+          "indefinitely_preserved_latest": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-002",
+      "requirement": "REQ-KNOW-085",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-037",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Actual Tigris seven-day deletedobject recovery, softdeletedbucket and earlier version cleanup delay.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "deleted_object": "D",
+          "deleted_bucket": "old-bucket",
+          "native_recovery_days": 7
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.finalizeAvatar",
+        "arguments": {
+          "deleted_object": "D",
+          "deleted_bucket": "old-bucket",
+          "native_recovery_days": 7
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "recovery_days": 7,
+          "old_bucket_cleanup_required": true,
+          "separate_disaster_backup": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-003",
+      "requirement": "REQ-KNOW-086",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-037",
+        "WP-050",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Restore DB point with replaced/deleted/private ready files and failed pendingupload candidate.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "DB_reference": "D-v2",
+          "restored_bytes_version": "D-v1",
+          "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "actual_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.finalizeAvatar",
+        "arguments": {
+          "DB_reference": "D-v2",
+          "restored_bytes_version": "D-v1",
+          "expected_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "actual_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "restore_success": false,
+          "service_opened": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-004",
+      "requirement": "REQ-KNOW-087",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Timed ordinary mistake drill with accessible live providers and lastcommittedwork instants.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "latest_coherent_at": "2026-10-13T15:00:00Z",
+          "incident_at": "2026-10-13T16:00:00Z",
+          "restore_complete_at": "2026-10-13T20:00:00Z",
+          "provider_available": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "ops.applyVersionedMigration",
+        "arguments": {
+          "latest_coherent_at": "2026-10-13T15:00:00Z",
+          "incident_at": "2026-10-13T16:00:00Z",
+          "restore_complete_at": "2026-10-13T20:00:00Z",
+          "provider_available": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "observed_loss_hours": 1,
+          "observed_restore_hours": 4,
+          "internal_target_met": true,
+          "customer_SLA": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-005",
+      "requirement": "REQ-KNOW-088",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-006",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-006--OPS-006",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003",
+        "WP-004",
+        "WP-050",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Separate private backup bucket with actual restrictedhost/key/cost approval absent then configuredtested.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "backup_configured": false,
+          "cost_approved": false,
+          "copy_age_hours": 23,
+          "copy_available": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "fixtures.resetOwnedEnvironment",
+        "arguments": {
+          "backup_configured": false,
+          "cost_approved": false,
+          "copy_age_hours": 23,
+          "copy_available": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "blocked",
+          "daily_fallback_eligible": true,
+          "second_provider_gate": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "REC59-006",
+      "requirement": "REQ-KNOW-089",
+      "feature_ids": [
+        "ADM-003",
+        "COM-012",
+        "DOC-015",
+        "IDN-026",
+        "NTF-002",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-003--ADM-003",
+        "AC-COM-012--COM-012",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-026--IDN-026",
+        "AC-NTF-002--NTF-002",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-028",
+        "WP-029",
+        "WP-031",
+        "WP-037",
+        "WP-049",
+        "WP-050",
+        "WP-056",
+        "WP-057",
+        "WP-058"
+      ],
+      "status": "future-not-run",
+      "group": "rec59",
+      "description": "Isolated old backup has pendingmail/publicissue but current externalreceipts and newer deletion witnesses.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "input": {
+          "fixture_type": "example",
+          "snapshot_status": "active",
+          "current_witness": "purged",
+          "copy_expiry": "2026-10-13T15:00:00Z",
+          "mail_receipt": "accepted",
+          "public_issue_number": 7
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.cancelDeletion",
+        "arguments": {
+          "snapshot_status": "active",
+          "current_witness": "purged",
+          "copy_expiry": "2026-10-13T15:00:00Z",
+          "mail_receipt": "accepted",
+          "public_issue_number": 7
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "restored_body": null,
+          "new_mail": 0,
+          "new_issues": 0,
+          "expiry_reset": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "RECOVERY-COPY-001",
+      "requirement": "REQ-OPS-014",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-036",
+        "WP-037",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "recovery-copy",
+      "description": "Daily encrypted candidate lacks one replaced object; later isolated restore with current witness,key recovered; ordinary app attempts backup-bucket access.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "maintenance.restoreWithCurrentManifest",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Incomplete copy not promoted; exact DB+bytes verified/current denial applied; ordinary app key absent/access denied; measured ordinary1h/4h conditional."
+        ]
+      }
+    },
+    {
+      "id": "RECOVERY-DELETE-001",
+      "requirement": "REQ-OPS-013",
+      "feature_ids": [
+        "COM-012",
+        "DOC-015",
+        "DOC-016",
+        "NTF-002",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-COM-012--COM-012",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-NTF-002--NTF-002",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-031",
+        "WP-036",
+        "WP-037",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "recovery-delete",
+      "description": "Account creator deleted versus plant owner deleted; old backup contains canceledscheduledmail/privatecare and expiry witness newer than snapshot.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "private-A": {
+          "fixture_type": "private_care",
+          "author": "A",
+          "plant": "P",
+          "week": "2026-10-12",
+          "answer": "Strained",
+          "note": "CARE-CANARY-RECOVERY-DELETE-001"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "maintenance.purgeEligibleSubject",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Actual ownership preserves shared facts/minimal attribution; no expired/private-body resurrection or canceled-mail replay; failed purge hidden/incomplete."
+        ]
+      }
+    }
+  ]
+}

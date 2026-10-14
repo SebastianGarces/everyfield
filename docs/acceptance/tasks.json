@@ -1,0 +1,3951 @@
+{
+  "scope": "Current tasks behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "B03-001",
+      "requirement": "A date-only task is due throughout its church-local date, even when UTC has changed day; next local day is overdue.",
+      "requirement_ids": [
+        "REQ-TSK-018"
+      ],
+      "feature_ids": [
+        "TSK-001",
+        "TSK-014"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-001--TSK-001",
+        "AC-TSK-014--TSK-014"
+      ],
+      "work_packages": [
+        "WP-024"
+      ],
+      "status": "future-not-run",
+      "group": "b03",
+      "description": "Chicago task LocalDate 2026-10-13 at UTC 2026-10-14T03:00Z  and next local midnight.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "calendar-inputs": {
+          "fixture_type": "calendar_fixture",
+          "due": "2026-10-13",
+          "instants": [
+            "2026-10-14T03:00:00Z",
+            "2026-10-14T05:00:00Z"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "calendar.resolve",
+        "arguments": {
+          "due": "2026-10-13",
+          "instants": [
+            "2026-10-14T03:00:00Z",
+            "2026-10-14T05:00:00Z"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "overdue": [
+            false,
+            true
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B03-003",
+      "requirement": "A timed deadline compares its resolved Instant; reminder send timing cannot redefine deadline state.",
+      "requirement_ids": [
+        "REQ-TSK-018"
+      ],
+      "feature_ids": [
+        "TSK-001",
+        "TSK-002",
+        "TSK-014"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-001--TSK-001",
+        "AC-TSK-002--TSK-002",
+        "AC-TSK-014--TSK-014"
+      ],
+      "work_packages": [
+        "WP-024",
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "b03",
+      "description": "Timed task deadlineInstant 18:00 Z; dispatch due notice late/early without editing deadline.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "calendar-inputs": {
+          "fixture_type": "calendar_fixture",
+          "deadline": "2026-10-13T18:00:00Z",
+          "now": [
+            "2026-10-13T17:59:59Z",
+            "2026-10-13T18:00:01Z"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "calendar.resolve",
+        "arguments": {
+          "deadline": "2026-10-13T18:00:00Z",
+          "now": [
+            "2026-10-13T17:59:59Z",
+            "2026-10-13T18:00:01Z"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "overdue": [
+            false,
+            true
+          ],
+          "deadline": "2026-10-13T18:00:00Z"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT",
+      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-023",
+        "WP-024",
+        "WP-025",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-task-person-follow-up",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "plant": "P",
+          "revision": 3
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "task-person-follow-up",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2",
+            "revision": 3
+          }
+        },
+        "result": {
+          "error_code": "revision_conflict",
+          "changed_references": 0,
+          "external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
+      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-023",
+        "WP-024",
+        "WP-025",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-task-person-follow-up",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "task-person-follow-up",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "reference-1": {
+            "person": "P1"
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "current_reference_person": "P1",
+          "historical_person": "P2",
+          "receipts": 1,
+          "dangling_references": 0
+        },
+        "event": null,
+        "checks": [
+          "moveCurrentPreserveHistory preserves registered chronology/identity; single shared receipt; no dangling reference",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
+      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-023",
+        "WP-024",
+        "WP-025",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-task-person-follow-up",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.deletePerson",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "task-person-follow-up",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "operational_selector_contains_P2": false,
+          "historical_person": "P2",
+          "new_external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
+      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-023",
+        "WP-024",
+        "WP-025",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-task-person-follow-up",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "task-person-follow-up",
+          "person": "P1",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "task-person-follow-up",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "merge-receipt": {
+          "fixture_type": "merge_receipt",
+          "id": "merge-1",
+          "survivor": "P1",
+          "retired": "P2",
+          "moved_rows": [
+            {
+              "row": "reference-1",
+              "before_person": "P2",
+              "after_person": "P1",
+              "after_revision": 2
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.unmergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "task-person-follow-up",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
+          "repeat": 2,
+          "receipt": "merge-1"
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2"
+          },
+          "P2": {
+            "retired": false
+          }
+        },
+        "result": {
+          "restored_person": "P2",
+          "inverse_receipts": 1,
+          "external_resends": 0
+        },
+        "event": null,
+        "checks": [
+          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-001",
+      "requirement": "REQ-TSK-001",
+      "feature_ids": [
+        "TSK-001"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-001--TSK-001"
+      ],
+      "work_packages": [
+        "WP-024"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "51 equal-key tasks, null due, deleted cursor, 2 sub tasks, My/All team filter and Assignments, foreign team.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "tasks": [
+            {
+              "id": "T00",
+              "due": null
+            },
+            {
+              "id": "T01",
+              "due": null
+            },
+            {
+              "id": "T02",
+              "due": null
+            },
+            {
+              "id": "T03",
+              "due": null
+            },
+            {
+              "id": "T04",
+              "due": null
+            },
+            {
+              "id": "T05",
+              "due": null
+            },
+            {
+              "id": "T06",
+              "due": null
+            },
+            {
+              "id": "T07",
+              "due": null
+            },
+            {
+              "id": "T08",
+              "due": null
+            },
+            {
+              "id": "T09",
+              "due": null
+            },
+            {
+              "id": "T10",
+              "due": null
+            },
+            {
+              "id": "T11",
+              "due": null
+            },
+            {
+              "id": "T12",
+              "due": null
+            },
+            {
+              "id": "T13",
+              "due": null
+            },
+            {
+              "id": "T14",
+              "due": null
+            },
+            {
+              "id": "T15",
+              "due": null
+            },
+            {
+              "id": "T16",
+              "due": null
+            },
+            {
+              "id": "T17",
+              "due": null
+            },
+            {
+              "id": "T18",
+              "due": null
+            },
+            {
+              "id": "T19",
+              "due": null
+            },
+            {
+              "id": "T20",
+              "due": null
+            },
+            {
+              "id": "T21",
+              "due": null
+            },
+            {
+              "id": "T22",
+              "due": null
+            },
+            {
+              "id": "T23",
+              "due": null
+            },
+            {
+              "id": "T24",
+              "due": null
+            },
+            {
+              "id": "T25",
+              "due": null
+            },
+            {
+              "id": "T26",
+              "due": null
+            },
+            {
+              "id": "T27",
+              "due": null
+            },
+            {
+              "id": "T28",
+              "due": null
+            },
+            {
+              "id": "T29",
+              "due": null
+            },
+            {
+              "id": "T30",
+              "due": null
+            },
+            {
+              "id": "T31",
+              "due": null
+            },
+            {
+              "id": "T32",
+              "due": null
+            },
+            {
+              "id": "T33",
+              "due": null
+            },
+            {
+              "id": "T34",
+              "due": null
+            },
+            {
+              "id": "T35",
+              "due": null
+            },
+            {
+              "id": "T36",
+              "due": null
+            },
+            {
+              "id": "T37",
+              "due": null
+            },
+            {
+              "id": "T38",
+              "due": null
+            },
+            {
+              "id": "T39",
+              "due": null
+            },
+            {
+              "id": "T40",
+              "due": null
+            },
+            {
+              "id": "T41",
+              "due": null
+            },
+            {
+              "id": "T42",
+              "due": null
+            },
+            {
+              "id": "T43",
+              "due": null
+            },
+            {
+              "id": "T44",
+              "due": null
+            },
+            {
+              "id": "T45",
+              "due": null
+            },
+            {
+              "id": "T46",
+              "due": null
+            },
+            {
+              "id": "T47",
+              "due": null
+            },
+            {
+              "id": "T48",
+              "due": null
+            },
+            {
+              "id": "T49",
+              "due": null
+            },
+            {
+              "id": "T50",
+              "due": null
+            }
+          ],
+          "page_size": 50,
+          "child_ids": [
+            "C1",
+            "C2"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.list",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "tasks": [
+            {
+              "id": "T00",
+              "due": null
+            },
+            {
+              "id": "T01",
+              "due": null
+            },
+            {
+              "id": "T02",
+              "due": null
+            },
+            {
+              "id": "T03",
+              "due": null
+            },
+            {
+              "id": "T04",
+              "due": null
+            },
+            {
+              "id": "T05",
+              "due": null
+            },
+            {
+              "id": "T06",
+              "due": null
+            },
+            {
+              "id": "T07",
+              "due": null
+            },
+            {
+              "id": "T08",
+              "due": null
+            },
+            {
+              "id": "T09",
+              "due": null
+            },
+            {
+              "id": "T10",
+              "due": null
+            },
+            {
+              "id": "T11",
+              "due": null
+            },
+            {
+              "id": "T12",
+              "due": null
+            },
+            {
+              "id": "T13",
+              "due": null
+            },
+            {
+              "id": "T14",
+              "due": null
+            },
+            {
+              "id": "T15",
+              "due": null
+            },
+            {
+              "id": "T16",
+              "due": null
+            },
+            {
+              "id": "T17",
+              "due": null
+            },
+            {
+              "id": "T18",
+              "due": null
+            },
+            {
+              "id": "T19",
+              "due": null
+            },
+            {
+              "id": "T20",
+              "due": null
+            },
+            {
+              "id": "T21",
+              "due": null
+            },
+            {
+              "id": "T22",
+              "due": null
+            },
+            {
+              "id": "T23",
+              "due": null
+            },
+            {
+              "id": "T24",
+              "due": null
+            },
+            {
+              "id": "T25",
+              "due": null
+            },
+            {
+              "id": "T26",
+              "due": null
+            },
+            {
+              "id": "T27",
+              "due": null
+            },
+            {
+              "id": "T28",
+              "due": null
+            },
+            {
+              "id": "T29",
+              "due": null
+            },
+            {
+              "id": "T30",
+              "due": null
+            },
+            {
+              "id": "T31",
+              "due": null
+            },
+            {
+              "id": "T32",
+              "due": null
+            },
+            {
+              "id": "T33",
+              "due": null
+            },
+            {
+              "id": "T34",
+              "due": null
+            },
+            {
+              "id": "T35",
+              "due": null
+            },
+            {
+              "id": "T36",
+              "due": null
+            },
+            {
+              "id": "T37",
+              "due": null
+            },
+            {
+              "id": "T38",
+              "due": null
+            },
+            {
+              "id": "T39",
+              "due": null
+            },
+            {
+              "id": "T40",
+              "due": null
+            },
+            {
+              "id": "T41",
+              "due": null
+            },
+            {
+              "id": "T42",
+              "due": null
+            },
+            {
+              "id": "T43",
+              "due": null
+            },
+            {
+              "id": "T44",
+              "due": null
+            },
+            {
+              "id": "T45",
+              "due": null
+            },
+            {
+              "id": "T46",
+              "due": null
+            },
+            {
+              "id": "T47",
+              "due": null
+            },
+            {
+              "id": "T48",
+              "due": null
+            },
+            {
+              "id": "T49",
+              "due": null
+            },
+            {
+              "id": "T50",
+              "due": null
+            }
+          ],
+          "page_size": 50,
+          "child_ids": [
+            "C1",
+            "C2"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "page1_count": 50,
+          "page2_ids": [
+            "T50"
+          ],
+          "top_level_count": 51,
+          "child_count": 2
+        },
+        "event": null,
+        "checks": [
+          "Stable complete paging/counts, separate child units and truthful filter/Assignments semantics."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-002",
+      "requirement": "REQ-TSK-002",
+      "feature_ids": [
+        "TSK-002"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-002--TSK-002"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Whitespace title, invalid date/foreign assignee/facility, failing prerequisite edit, protected generated relation change, parent delete with children.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.create",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_effects": 0,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Valid coherent task or zero effects; no partial edit/orphan compensation and protected obligation/history cannot be bypassed."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-003",
+      "requirement": "REQ-TSK-003",
+      "feature_ids": [
+        "TSK-003"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-003--TSK-003"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Assignee changed after preview, Member other duty, double complete/lost response, reopen older recurrence with open successor and person administrative task.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.complete",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "request_key": "TARGET-TSK-003-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Current own-duty and one completion result; history survives reopen, successor conflict named and no invented contact."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-004",
+      "requirement": "REQ-TSK-004",
+      "feature_ids": [
+        "TSK-004"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-004--TSK-004"
+      ],
+      "work_packages": [
+        "WP-023"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Waive generated task then edit/delete/reconcile; counts/notifications/metric; explicit reopen and bulk complete mixed states.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.waive",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Waiver remains closed without credit/regeneration, explicit history/correction only changes current state."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-005",
+      "requirement": "REQ-TSK-005",
+      "feature_ids": [
+        "TSK-005"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-005--TSK-005"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Child nesting/self/cycle, implicit versus explicit assignee, tick last child, parent delete and recurring reset checklist. Member creates under own parent with omitted/own/other/null assignments; direct SQL/API child due/recurrence/contact hook attempts.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.listSubtasks",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "automatic_extra_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Exactly one level, scoped independent tick and no automatic parent/contact effect; successor has fresh unchecked children. Member creation inherits own assignment only; other/null denies, actual-child assignee governs tick/reopen. Every child deadline/recurrence/contact hook and separate checkbox state rejects."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-006",
+      "requirement": "REQ-TSK-006",
+      "feature_ids": [
+        "TSK-006"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-006--TSK-006"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "A→B→C→A, concurrent A→B/B→A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.replacePrerequisites",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "partial_commit_on_required_failure": false,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "DAG/integrity enforced atomically; waived or soft-deleted existing predecessor unblocks the dependent without success/contact credit or history loss. Advisory badge differs from status or a hard completion gate."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-007",
+      "requirement": "REQ-TSK-007",
+      "feature_ids": [
+        "TSK-007"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-007--TSK-007"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "January 31 monthly, leap February/yearly, end date equal/after, late completion, 2 concurrent complete, fail child copy and older reopen.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "due_date": "2026-01-31",
+          "status": "pending",
+          "series": "S",
+          "revision": 4
+        },
+        "S": {
+          "fixture_type": "recurrence",
+          "id": "S",
+          "kind": "monthly",
+          "interval": 1,
+          "end_date": null,
+          "source_version": 1
+        },
+        "C1": {
+          "fixture_type": "task",
+          "id": "C1",
+          "parent": "T",
+          "title": "Call venue",
+          "status": "completed"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.completeOccurrence",
+        "arguments": {
+          "task": "T",
+          "completion_date": "2026-01-31",
+          "expected_revision": 4,
+          "request_key": "rec-month-end",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "T": {
+            "status": "completed"
+          },
+          "successor_children": [
+            {
+              "title": "Call venue",
+              "status": "pending",
+              "assignee": null
+            }
+          ]
+        },
+        "result": {
+          "successor_due": "2026-02-28",
+          "successor_count": 1,
+          "open_series_tasks": 1
+        },
+        "event": {
+          "kind": "task_completed",
+          "subject": "T",
+          "count": 1
+        }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2024-02-29",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "yearly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "completion_date": "2024-02-29",
+              "expected_revision": 4,
+              "request_key": "rec-leap-year",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "completed"
+              },
+              "successor_children": [
+                {
+                  "title": "Call venue",
+                  "status": "pending",
+                  "assignee": null
+                }
+              ]
+            },
+            "result": {
+              "successor_due": "2025-02-28",
+              "successor_count": 1,
+              "open_series_tasks": 1
+            },
+            "event": {
+              "kind": "task_completed",
+              "subject": "T",
+              "count": 1
+            }
+          },
+          "name": "leap-year"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-31",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "monthly",
+              "interval": 1,
+              "end_date": "2026-02-28",
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "completion_date": "2026-01-31",
+              "expected_revision": 4,
+              "request_key": "rec-inclusive-end",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "completed"
+              },
+              "successor_children": [
+                {
+                  "title": "Call venue",
+                  "status": "pending",
+                  "assignee": null
+                }
+              ]
+            },
+            "result": {
+              "successor_due": "2026-02-28",
+              "successor_count": 1,
+              "open_series_tasks": 1
+            },
+            "event": {
+              "kind": "task_completed",
+              "subject": "T",
+              "count": 1
+            }
+          },
+          "name": "inclusive-end"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-31",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "monthly",
+              "interval": 1,
+              "end_date": "2026-02-27",
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "completion_date": "2026-01-31",
+              "expected_revision": 4,
+              "request_key": "rec-past-end",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "completed"
+              },
+              "successor_children": []
+            },
+            "result": {
+              "successor_due": null,
+              "successor_count": 0,
+              "open_series_tasks": 0
+            },
+            "event": {
+              "kind": "task_completed",
+              "subject": "T",
+              "count": 1
+            }
+          },
+          "name": "past-end"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-01",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "weekly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "completion_date": "2026-01-20",
+              "expected_revision": 4,
+              "request_key": "rec-late",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "completed"
+              },
+              "successor_children": [
+                {
+                  "title": "Call venue",
+                  "status": "pending",
+                  "assignee": null
+                }
+              ]
+            },
+            "result": {
+              "successor_due": "2026-01-08",
+              "successor_count": 1,
+              "open_series_tasks": 1
+            },
+            "event": {
+              "kind": "task_completed",
+              "subject": "T",
+              "count": 1
+            }
+          },
+          "name": "late"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": null,
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "weekly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "completion_date": "2026-01-20",
+              "expected_revision": 4,
+              "request_key": "rec-undated",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "completed"
+              },
+              "successor_children": [
+                {
+                  "title": "Call venue",
+                  "status": "pending",
+                  "assignee": null
+                }
+              ]
+            },
+            "result": {
+              "successor_due": "2026-01-27",
+              "successor_count": 1,
+              "open_series_tasks": 1
+            },
+            "event": {
+              "kind": "task_completed",
+              "subject": "T",
+              "count": 1
+            }
+          },
+          "name": "undated"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-31",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "monthly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "expected_revision": 4,
+              "fault": "child_copy"
+            }
+          },
+          "expected": {
+            "state": {
+              "T": {
+                "status": "pending"
+              },
+              "successor_count": 0
+            },
+            "result": {
+              "error_code": "required_write_failed"
+            },
+            "event": null
+          },
+          "name": "child-copy-rollback"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-31",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "monthly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.completeOccurrence",
+            "arguments": {
+              "task": "T",
+              "expected_revision": 4,
+              "concurrent_requests": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "successor_count": 1,
+              "completion_count": 1
+            },
+            "event": null
+          },
+          "name": "concurrent-completion"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "due_date": "2026-01-31",
+              "status": "pending",
+              "series": "S",
+              "revision": 4
+            },
+            "S": {
+              "fixture_type": "recurrence",
+              "id": "S",
+              "kind": "monthly",
+              "interval": 1,
+              "end_date": null,
+              "source_version": 1
+            },
+            "C1": {
+              "fixture_type": "task",
+              "id": "C1",
+              "parent": "T",
+              "title": "Call venue",
+              "status": "completed"
+            },
+            "successor": {
+              "fixture_type": "task",
+              "id": "T2",
+              "series": "S",
+              "status": "pending"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.reopen",
+            "arguments": {
+              "task": "T",
+              "expected_revision": 5
+            }
+          },
+          "expected": {
+            "state": {
+              "T2": {
+                "status": "pending"
+              }
+            },
+            "result": {
+              "error_code": "open_successor_collision"
+            },
+            "event": null
+          },
+          "name": "older-reopen-collision"
+        }
+      ]
+    },
+    {
+      "id": "TARGET-TSK-008",
+      "requirement": "REQ-TSK-008",
+      "feature_ids": [
+        "TSK-008"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-008--TSK-008"
+      ],
+      "work_packages": [
+        "WP-025"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "100 IDs including duplicates/missing/foreign/waived/reassigned; fail after 3 commits and lost response; invalid date.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.bulkComplete",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "request_key": "TARGET-TSK-008-request-1",
+          "repeat": 2,
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Exact per row receipt and resumable pending work, no replayed recurrence or hidden partial success; invalid shared input writes zero."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-009",
+      "requirement": "REQ-TSK-009",
+      "feature_ids": [
+        "TSK-009"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-009--TSK-009"
+      ],
+      "work_packages": [
+        "WP-026"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Canonical selected keys/offsets, lost response/retry versus new intent, stale version, source plain multiline text.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.listTemplates",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3,
+          "task": "T",
+          "request_key": "TARGET-TSK-009-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Exact reviewed task set once per intent, deliberate repeat possible, content/date/version truthful and existing work unchanged."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-010",
+      "requirement": "REQ-TSK-010",
+      "feature_ids": [
+        "TSK-010"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-010--TSK-010"
+      ],
+      "work_packages": [
+        "WP-026"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Two devices answer accept/decline, subset selection, stale/forged key, fail mid insert and response loss.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.readPhaseOffer",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3,
+          "task": "T",
+          "request_key": "TARGET-TSK-010-request-1",
+          "repeat": 2,
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "partial_commit_on_required_failure": false
+        },
+        "event": null,
+        "checks": [
+          "One coherent answer+exact task set or rollback; decline creates nothing and durable receipt converges."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-011",
+      "requirement": "REQ-TSK-011",
+      "feature_ids": [
+        "TSK-011"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-011--TSK-011"
+      ],
+      "work_packages": [
+        "WP-023"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Zero Vision evaluation, prior only team attendance, two same-day Vision origins, no lead title, waiver edit/delete and 48 h DST boundary.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "meeting": "M",
+          "attendee": "Alex",
+          "no_assignee": true,
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.ensureObligation",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "meeting": "M",
+          "attendee": "Alex",
+          "no_assignee": true,
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "contact_obligations": 1,
+          "required_work_exists": true,
+          "owner_label": "Needs owner",
+          "contacted_count": 0
+        },
+        "event": null,
+        "checks": [
+          "Required origin work exists coherently with correct unique identity/ownership and separate metrics."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-012",
+      "requirement": "REQ-TSK-012",
+      "feature_ids": [
+        "TSK-012"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-012--TSK-012"
+      ],
+      "work_packages": [
+        "WP-023"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Linked committed versus demoted/unlinked/shared mailbox; current seat removed; uncovered no-task contact and manual undated create.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.followUpCoverage",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Only actual currently eligible owner assigned, stale Needs owner visible and no due/urgency/metric facts fabricated."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-013",
+      "requirement": "REQ-TSK-013",
+      "feature_ids": [
+        "TSK-013"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-013--TSK-013"
+      ],
+      "work_packages": [
+        "WP-023"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Demotion with open/complete/waived tasks, decline, recipient loses eligibility after preview, 101 task chunk response loss.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.planHandoff",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "request_key": "TARGET-TSK-013-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Exact reviewed open handoff or no write, durable moved/remaining results and retry without duplicate/reopened closed work."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-014",
+      "requirement": "REQ-TSK-014",
+      "feature_ids": [
+        "TSK-014"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-014--TSK-014"
+      ],
+      "work_packages": [
+        "WP-024"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Date-only DSTdue, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "notifications.syncTaskReminders",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Correct local deadline/reminder and current recipient only; no terminal/old-owner duplicate and transport reported honestly."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-015",
+      "requirement": "REQ-TSK-015",
+      "feature_ids": [
+        "TSK-015"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-015--TSK-015"
+      ],
+      "work_packages": [
+        "WP-024"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "User/bulk/system managed completion, no-op retry, corrected outcome, reopen, foreign history request.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.statusHistory",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "request_key": "TARGET-TSK-015-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Every real transition attributable once and current state agrees; no fake anonymous history or cross-tenant read."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-016",
+      "requirement": "REQ-TSK-016",
+      "feature_ids": [
+        "TSK-016"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-016--TSK-016"
+      ],
+      "work_packages": [
+        "WP-026"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "Multiline plaintext, java script link/script HTML, empty clear, long text cap and matching full/preview.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.normalizeDescription",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Meaningful safe text renders consistently, malicious content cannot execute or grant tool authority and empty clear works."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-017",
+      "requirement": "REQ-TSK-017",
+      "feature_ids": [
+        "MTG-012",
+        "TSK-001",
+        "TSK-004",
+        "TSK-011",
+        "TSK-014",
+        "TSK-015"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-012--MTG-012",
+        "AC-TSK-001--TSK-001",
+        "AC-TSK-004--TSK-004",
+        "AC-TSK-011--TSK-011",
+        "AC-TSK-014--TSK-014",
+        "AC-TSK-015--TSK-015"
+      ],
+      "work_packages": [
+        "WP-024",
+        "WP-022",
+        "WP-023"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "One finalize caller transaction invokes kernel for 2 Person obligations and 1 evaluation task; duplicate key, two same-day origin meetings, waived/deleted task, failure before outer audit/marker.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.ensureObligation",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T",
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "partial_commit_on_required_failure": false
+        },
+        "event": null,
+        "checks": [
+          "Constraints distinguish origins and converge retries, protected waiver survives task changes and all kernel effects roll back with the outer transaction; no separate required producer remains later."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TSK-018",
+      "requirement": "REQ-TSK-018",
+      "feature_ids": [
+        "IDN-010",
+        "IDN-011",
+        "MTG-002",
+        "MTG-018",
+        "TSK-001",
+        "TSK-002",
+        "TSK-007",
+        "TSK-011",
+        "TSK-014"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-010--IDN-010",
+        "AC-IDN-011--IDN-011",
+        "AC-MTG-002--MTG-002",
+        "AC-MTG-018--MTG-018",
+        "AC-TSK-001--TSK-001",
+        "AC-TSK-002--TSK-002",
+        "AC-TSK-007--TSK-007",
+        "AC-TSK-011--TSK-011",
+        "AC-TSK-014--TSK-014"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-010",
+        "WP-020",
+        "WP-024",
+        "WP-025",
+        "WP-031"
+      ],
+      "status": "future-not-run",
+      "group": "target-tsk",
+      "description": "America/Chicago spring gap 02:30 and fall fold 01:30; all-day 2026-03-08/2026-11-01; change to Pacific/Auckland with fixed appointment and delivered reminder; process runsnon UTC.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "T": {
+          "fixture_type": "task",
+          "id": "T",
+          "plant": "P",
+          "assignee": "A",
+          "status": "pending",
+          "due_date": "2026-10-13",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.previewPersonalTimezoneChange",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "task": "T"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Entered gap/fold needs explicit valid choice, automatic gap/fold runsonce under versioned resolver, due-day/Instant distinction and stored values hold; zone preview replans only future eligible logical work."
+        ]
+      }
+    }
+  ]
+}

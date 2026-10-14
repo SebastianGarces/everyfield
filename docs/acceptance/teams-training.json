@@ -1,0 +1,4470 @@
+{
+  "scope": "Current teams-training behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "GAP-TEAM-002",
+      "requirement": "Team archive hides operational health without deleting history",
+      "feature_ids": [
+        "TEAM-002"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-002--TEAM-002"
+      ],
+      "work_packages": [
+        "WP-016"
+      ],
+      "status": "future-not-run",
+      "group": "gap-team",
+      "description": "Hospitality live with roles/members/training; prior membership history",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Review correction, archive then restore"
+          ],
+          "request_key": "GAP-TEAM-002-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "prior_history_rewritten": false,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Archived team omitted from ordinary list/aggregate health; history retained; restored team re-enters operational views",
+          "Other-team leader cannot alter archive/restore; foreign team unavailable",
+          "Stale revision cannot overwrite corrected team or partial archive"
+        ]
+      }
+    },
+    {
+      "id": "GAP-TEAM-010",
+      "requirement": "Person assignment/training links count distinct assignments",
+      "feature_ids": [
+        "TEAM-010"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-010--TEAM-010"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "gap-team",
+      "description": "Alex serves Worship and Hospitality; program-A complete and program-B assigned incomplete",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "Worship": {
+          "fixture_type": "team",
+          "id": "Worship",
+          "plant": "P",
+          "members": [
+            "Alex-Rivera",
+            "Casey"
+          ],
+          "leader": "A",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Read Person teams/training and candidate overload warning"
+          ],
+          "request_key": "GAP-TEAM-010-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Both memberships linked; warning uses actual concurrent assignments; training completion not inferred from membership",
+          "No background-check display/export/model fields; organization raw Person tab denied",
+          "Missing program returns explicit unavailable evidence without inventing completion"
+        ]
+      }
+    },
+    {
+      "id": "GAP-TEAM-013",
+      "requirement": "Own-team scheduling copies a roster, not a dynamic grant",
+      "feature_ids": [
+        "TEAM-013"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-013--TEAM-013"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "gap-team",
+      "description": "Alex leader of team-A with current same-plant seat; team-B foreign; roster Casey+Jamie",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "Worship": {
+          "fixture_type": "team",
+          "id": "Worship",
+          "plant": "P",
+          "members": [
+            "Alex-Rivera",
+            "Casey"
+          ],
+          "leader": "A",
+          "revision": 4
+        },
+        "M": {
+          "fixture_type": "meeting",
+          "id": "M",
+          "plant": "P",
+          "type": "vision",
+          "starts_at": "2026-10-10T15:00:00Z",
+          "revision": 4,
+          "guests": [
+            "Alex-Rivera",
+            "Casey"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Review team-A training meeting and roster snapshot"
+          ],
+          "request_key": "GAP-TEAM-013-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "automatic_extra_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Meeting type/subtype/team/date/location stored; two roster invite rows; later roster membership adds no automatic guest",
+          "Leader cannot general-schedule/card/RSVP/delete or team-B; revoked seat denied",
+          "Roster revision change requires fresh reviewed roster; no partial meeting+guest insertion"
+        ]
+      }
+    },
+    {
+      "id": "GAP-TEAM-014",
+      "requirement": "Deferred safety/background ideas stay absent everywhere",
+      "feature_ids": [
+        "TEAM-006"
+      ],
+      "acceptance_ids": [],
+      "work_packages": [],
+      "status": "future-not-run",
+      "group": "gap-team",
+      "description": "Childrens team renamed Hospitality; source templateKey mentions child-care; Person has a source-only background field",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "Worship": {
+          "fixture_type": "team",
+          "id": "Worship",
+          "plant": "P",
+          "members": [
+            "Alex-Rivera",
+            "Casey"
+          ],
+          "leader": "A",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Read roster, import/export, query assistant and inspect native projections"
+          ],
+          "request_key": "GAP-TEAM-014-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Ordinary roster/skills retained; all background-check data/filters/requirements omitted; no specialized facility/worship feature created",
+          "Forged background filter/field rejected, no existence inference",
+          "Source-only unavailable data cannot become readiness penalty or certification claim"
+        ]
+      }
+    },
+    {
+      "id": "GAP-TEAM-015",
+      "requirement": "Assignment consequences use same shared domain transaction",
+      "feature_ids": [
+        "TEAM-015"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-015--TEAM-015"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "gap-team",
+      "description": "Core Group Alex unassigned; Casey already Leader; first live team membership",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        },
+        "Worship": {
+          "fixture_type": "team",
+          "id": "Worship",
+          "plant": "P",
+          "members": [
+            "Alex-Rivera",
+            "Casey"
+          ],
+          "leader": "A",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Review assignment and leader appointment"
+          ],
+          "request_key": "GAP-TEAM-015-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "replay_additional_effects": 0,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Approved stage forward consequences happen once; advanced stage preserved; material revision synchronously advances; no grant from title",
+          "No account-seat privilege derived from ministry assignment",
+          "Failure in required stage consequence/history rolls back membership and receipt"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT",
+      "requirement": "One active role arbiter and recorded leadership scope remain valid; title never grants account access; conflict refuses whole merge.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-016",
+        "WP-017",
+        "WP-018",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-team-role-leader",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "plant": "P",
+          "revision": 3
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "team-role-leader",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2",
+            "revision": 3
+          }
+        },
+        "result": {
+          "error_code": "revision_conflict",
+          "changed_references": 0,
+          "external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TEAM-ROLE-LEADER-MERGE",
+      "requirement": "One active role arbiter and recorded leadership scope remain valid; title never grants account access; conflict refuses whole merge.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-016",
+        "WP-017",
+        "WP-018",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-team-role-leader",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "team-role-leader",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TEAM-ROLE-LEADER-MERGE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "reference-1": {
+            "person": "P1"
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "current_reference_person": "P1",
+          "historical_person": "P2",
+          "receipts": 1,
+          "dangling_references": 0
+        },
+        "event": null,
+        "checks": [
+          "moveAndDeduplicate preserves registered chronology/identity; single shared receipt; no dangling reference",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
+      "requirement": "One active role arbiter and recorded leadership scope remain valid; title never grants account access; conflict refuses whole merge.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-016",
+        "WP-017",
+        "WP-018",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-team-role-leader",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.deletePerson",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "team-role-leader",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TEAM-ROLE-LEADER-RETIRE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "operational_selector_contains_P2": false,
+          "historical_person": "P2",
+          "new_external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE",
+      "requirement": "One active role arbiter and recorded leadership scope remain valid; title never grants account access; conflict refuses whole merge.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-016",
+        "WP-017",
+        "WP-018",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-team-role-leader",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "team-role-leader",
+          "person": "P1",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "team-role-leader",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "merge-receipt": {
+          "fixture_type": "merge_receipt",
+          "id": "merge-1",
+          "survivor": "P1",
+          "retired": "P2",
+          "moved_rows": [
+            {
+              "row": "reference-1",
+              "before_person": "P2",
+              "after_person": "P1",
+              "after_revision": 2
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.unmergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "team-role-leader",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE-1",
+          "repeat": 2,
+          "receipt": "merge-1"
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2"
+          },
+          "P2": {
+            "retired": false
+          }
+        },
+        "result": {
+          "restored_person": "P2",
+          "inverse_receipts": 1,
+          "external_resends": 0
+        },
+        "event": null,
+        "checks": [
+          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT",
+      "requirement": "Deduplicate person/program applicability and completion separately; retain dates/revocations/versioned assignments; no roster recompute.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-training-applicability-completion",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "plant": "P",
+          "revision": 3
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "training-applicability-completion",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2",
+            "revision": 3
+          }
+        },
+        "result": {
+          "error_code": "revision_conflict",
+          "changed_references": 0,
+          "external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE",
+      "requirement": "Deduplicate person/program applicability and completion separately; retain dates/revocations/versioned assignments; no roster recompute.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-training-applicability-completion",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "training-applicability-completion",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "reference-1": {
+            "person": "P1"
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "current_reference_person": "P1",
+          "historical_person": "P2",
+          "receipts": 1,
+          "dangling_references": 0
+        },
+        "event": null,
+        "checks": [
+          "moveAndDeduplicate preserves registered chronology/identity; single shared receipt; no dangling reference",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE",
+      "requirement": "Deduplicate person/program applicability and completion separately; retain dates/revocations/versioned assignments; no roster recompute.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-training-applicability-completion",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.deletePerson",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "training-applicability-completion",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "operational_selector_contains_P2": false,
+          "historical_person": "P2",
+          "new_external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE",
+      "requirement": "Deduplicate person/program applicability and completion separately; retain dates/revocations/versioned assignments; no roster recompute.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-training-applicability-completion",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "training-applicability-completion",
+          "person": "P1",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "training-applicability-completion",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "merge-receipt": {
+          "fixture_type": "merge_receipt",
+          "id": "merge-1",
+          "survivor": "P1",
+          "retired": "P2",
+          "moved_rows": [
+            {
+              "row": "reference-1",
+              "before_person": "P2",
+              "after_person": "P1",
+              "after_revision": 2
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.unmergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "training-applicability-completion",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE-1",
+          "repeat": 2,
+          "receipt": "merge-1"
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2"
+          },
+          "P2": {
+            "retired": false
+          }
+        },
+        "result": {
+          "restored_person": "P2",
+          "inverse_receipts": 1,
+          "external_resends": 0
+        },
+        "event": null,
+        "checks": [
+          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "SME53-001",
+      "requirement": "Persist an explicit required participant roster for each required program. Preview exact bulk-expanded team/leader People; deduplicate repeated teams/roles and require current tenant/person/program authority. No automatic all-committed/adult roster or silent roster change after team/lead changes.",
+      "requirement_ids": [
+        "REQ-TEAM-016"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-231--EVR-231",
+        "AC-EVR-EFFECT--EVR-231",
+        "AC-TEAM-008--TEAM-008"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-019",
+        "WP-053",
+        "WP-055",
+        "WP-070"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "P in 2 roles/two selectedteams, Q member, R leader; preview program T saved exact P/Q/R roster, then membership changes.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "team_1": [
+            "Alex",
+            "Casey"
+          ],
+          "team_2": [
+            "Alex",
+            "Jordan"
+          ],
+          "new_joiner": "Mara"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "team_1": [
+            "Alex",
+            "Casey"
+          ],
+          "team_2": [
+            "Alex",
+            "Jordan"
+          ],
+          "new_joiner": "Mara"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "saved_roster": [
+            "Alex",
+            "Casey",
+            "Jordan"
+          ],
+          "Mara_added": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-002",
+      "requirement": "Coverage counts distinct current assigned person/program pairs with valid nonrevoked completion evidence. Unassigned completions cannot increase the numerator; multiple roles cannot inflate numerator/denominator. 100% is complete; missing applicability or empty required evidence is Unknown, with no perfect-health default.",
+      "requirement_ids": [
+        "REQ-TEAM-016"
+      ],
+      "feature_ids": [
+        "PI-008",
+        "PI-027",
+        "PI-028",
+        "TEAM-008",
+        "TEAM-011"
+      ],
+      "acceptance_ids": [
+        "AC-PI-008--PI-008",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "work_packages": [
+        "WP-019",
+        "WP-038",
+        "WP-040",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Required assignments P/T, Q/T with only P compatible nonrevoked completion; unrelated earned R/T and repeated roles; empty/missing roster.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "assignments": [
+            "Alex",
+            "Casey"
+          ],
+          "valid_completed": [
+            "Alex"
+          ],
+          "unassigned_completed": [
+            "Jordan"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "assignments": [
+            "Alex",
+            "Casey"
+          ],
+          "valid_completed": [
+            "Alex"
+          ],
+          "unassigned_completed": [
+            "Jordan"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "numerator": 1,
+          "denominator": 2,
+          "rate": 0.5,
+          "empty_applicability": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-003",
+      "requirement": "Versioned assignment add/remove/correction changes current obligations while preserving prior rosters and completion/revoke/redo history. Stale mutation/retry/partial bulk failure cannot produce duplicate pairs or partial metric evidence; historical assessments retain the original evidence version.",
+      "requirement_ids": [
+        "REQ-TEAM-016"
+      ],
+      "feature_ids": [
+        "PI-008",
+        "TEAM-008",
+        "TEAM-009"
+      ],
+      "acceptance_ids": [
+        "AC-PI-008--PI-008",
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-019",
+        "WP-040",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Add/remove/correct assignment episode, revoke/redo completion, stale bulk preview, fail mid-roster transaction and repeat.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "roster_revision": 2,
+          "roster": [
+            "Alex",
+            "Casey"
+          ],
+          "remove": "Casey",
+          "repeat": 2,
+          "fault": "roster_write"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "roster_revision": 2,
+          "roster": [
+            "Alex",
+            "Casey"
+          ],
+          "remove": "Casey",
+          "repeat": 2,
+          "fault": "roster_write"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "success_roster": [
+            "Alex"
+          ],
+          "fault_roster": [
+            "Alex",
+            "Casey"
+          ],
+          "history_preserved": true
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-004",
+      "requirement": "People training tabs, team matrices/health, plant training lens and phase guidance use the same current assignment/evidence projection. Retain former-earned completions with labels; assignment removal does not erase completion history. Keep accepted 40/35/25 weights and thresholds.",
+      "requirement_ids": [
+        "REQ-TEAM-016"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "PI-008",
+        "PI-027",
+        "PI-028",
+        "PPL-021",
+        "TEAM-008",
+        "TEAM-010",
+        "TEAM-011"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-218--EVR-218",
+        "AC-EVR-220--EVR-220",
+        "AC-EVR-412--EVR-412",
+        "AC-EVR-READ--EVR-218",
+        "AC-EVR-READ--EVR-220",
+        "AC-EVR-READ--EVR-412",
+        "AC-PI-008--PI-008",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PPL-021--PPL-021",
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-010--TEAM-010",
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "work_packages": [
+        "WP-019",
+        "WP-029",
+        "WP-038",
+        "WP-040",
+        "WP-044",
+        "WP-052",
+        "WP-055",
+        "WP-069"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Compare same asOf/revision Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "assigned": [
+            "Alex",
+            "Casey"
+          ],
+          "completed": [
+            "Alex"
+          ],
+          "Casey_team_exit": true,
+          "weights": [
+            40,
+            35,
+            25
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "assigned": [
+            "Alex",
+            "Casey"
+          ],
+          "completed": [
+            "Alex"
+          ],
+          "Casey_team_exit": true,
+          "weights": [
+            40,
+            35,
+            25
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "coverage_rate": 0.5,
+          "earned_history_retained": true,
+          "weights": [
+            40,
+            35,
+            25
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-005",
+      "requirement": "A typed person-scoped dated planter attestation may supply the unobserved 60-day attendance-and-volunteering evidence. Capture actual person, exact question/reference version, both behaviors, sustained start/end or as-of dates, actor and correction lineage. Label attested evidence; do not add a hidden eighth legacy manual key or private check-in field.",
+      "requirement_ids": [
+        "REQ-TEAM-017"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "PI-007",
+        "PI-014"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-265--EVR-265",
+        "AC-EVR-266--EVR-266",
+        "AC-EVR-EFFECT--EVR-266",
+        "AC-EVR-READ--EVR-265",
+        "AC-PI-007--PI-007",
+        "AC-PI-014--PI-014"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-039",
+        "WP-040",
+        "WP-052",
+        "WP-053",
+        "WP-055",
+        "WP-073",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Person P dated human attestation covers 60 days of both attendance and volunteering with exact question/source/actor.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "person": "Alex",
+          "attested_start": "2026-08-14",
+          "attested_end": "2026-10-13",
+          "attendance": true,
+          "volunteering": true,
+          "actor": "A",
+          "question_version": 1
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "person": "Alex",
+          "attested_start": "2026-08-14",
+          "attested_end": "2026-10-13",
+          "attendance": true,
+          "volunteering": true,
+          "actor": "A",
+          "question_version": 1
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "candidate_pattern": "met",
+          "evidence_kind": "dated_human_attestation",
+          "private_signal_added": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-006",
+      "requirement": "Native dated occurrence evidence may support the same sustained period where available. CRM-createdAt tenure, lifetime attendance count and active membership alone cannot satisfy it. Absence of complete records does not disprove a dated planter attestation; conflicting/corrected evidence is visible rather than silently resolved by a model.",
+      "requirement_ids": [
+        "REQ-TEAM-017"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "PI-007",
+        "PI-014"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-273--EVR-273",
+        "AC-EVR-READ--EVR-273",
+        "AC-PI-007--PI-007",
+        "AC-PI-014--PI-014"
+      ],
+      "work_packages": [
+        "WP-039",
+        "WP-040",
+        "WP-052",
+        "WP-055",
+        "WP-073"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "P has 90 day tenure/lifetime attendance/active role only; Q has dated observations plus unobserved attestation and corrected contradiction.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "person": "Alex",
+          "created_at": "2026-07-01T16:00:00Z",
+          "active_role": "Worship",
+          "attendance_count": 40,
+          "dated_attestation": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "person": "Alex",
+          "created_at": "2026-07-01T16:00:00Z",
+          "active_role": "Worship",
+          "attendance_count": 40,
+          "dated_attestation": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "candidate_pattern": "unknown",
+          "model_judgment": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-007",
+      "requirement": "Under 60 days, one behavior alone or insufficient dated evidence cannot establish the candidate pattern. No invented rolling-window percentage, event quota, absence waiver or freshness expiry. Preserve the exact 60-day conjunction in rubric retrieval and historical source interpretation.",
+      "requirement_ids": [
+        "REQ-TEAM-017"
+      ],
+      "feature_ids": [
+        "PI-007",
+        "PI-014",
+        "PI-016",
+        "PI-017",
+        "REF-001"
+      ],
+      "acceptance_ids": [
+        "AC-PI-007--PI-007",
+        "AC-PI-014--PI-014",
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-REF-001--REF-001"
+      ],
+      "work_packages": [
+        "WP-032",
+        "WP-039",
+        "WP-040",
+        "WP-041"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "59 vs 60 day period, attendance only, volunteering only and incomplete/contradictory evidence.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "controls": [
+            {
+              "days": 59,
+              "attendance": true,
+              "volunteering": true
+            },
+            {
+              "days": 60,
+              "attendance": true,
+              "volunteering": true
+            },
+            {
+              "days": 60,
+              "attendance": true,
+              "volunteering": false
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "controls": [
+            {
+              "days": 59,
+              "attendance": true,
+              "volunteering": true
+            },
+            {
+              "days": 60,
+              "attendance": true,
+              "volunteering": true
+            },
+            {
+              "days": 60,
+              "attendance": true,
+              "volunteering": false
+            }
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "established": [
+            false,
+            true,
+            false
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-008",
+      "requirement": "A valid candidate pattern is described only as worth a leadership conversation. Interview/4 Cs conclusions remain dated human judgments, missing records are next steps rather than adverse judgments, and no automatic readiness/promotion/role/phase effect occurs.",
+      "requirement_ids": [
+        "REQ-TEAM-017"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "PI-007",
+        "PI-027",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-273--EVR-273",
+        "AC-EVR-READ--EVR-273",
+        "AC-PI-007--PI-007",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-041",
+        "WP-044",
+        "WP-052",
+        "WP-055",
+        "WP-073"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Established 60 day participation with missing interview/4 Cs; ask for promotion/readiness/phase update.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "sustained_days": 60,
+          "attendance": true,
+          "volunteering": true,
+          "interview": null,
+          "four_cs": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "sustained_days": 60,
+          "attendance": true,
+          "volunteering": true,
+          "interview": null,
+          "four_cs": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guidance": "worth a leadership conversation",
+          "automatic_promotion": false,
+          "phase": "Phase1"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "SME53-009",
+      "requirement": "Native and Evry program/assignment/attestation mutations use shared domain operations with current authority, exact reviewed payload and revision/history. Evry cannot attest unobserved facts itself. Candidate identity evidence remains planter-audience only; organizations receive only their authorized aggregate/shared projection, and private check-ins never enter any evidence/model/tool/context/log/evaluation path.",
+      "requirement_ids": [
+        "REQ-TEAM-017"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "PI-007",
+        "PI-014",
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-231--EVR-231",
+        "AC-EVR-265--EVR-265",
+        "AC-EVR-266--EVR-266",
+        "AC-EVR-273--EVR-273",
+        "AC-EVR-EFFECT--EVR-231",
+        "AC-EVR-EFFECT--EVR-266",
+        "AC-EVR-READ--EVR-265",
+        "AC-EVR-READ--EVR-273",
+        "AC-PI-007--PI-007",
+        "AC-PI-014--PI-014",
+        "AC-TEAM-008--TEAM-008"
+      ],
+      "work_packages": [
+        "WP-019",
+        "WP-039",
+        "WP-040",
+        "WP-044",
+        "WP-052",
+        "WP-053",
+        "WP-055",
+        "WP-070",
+        "WP-073",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "sme53",
+      "description": "Native and exact-reviewed Evry roster/attestation commands, stale authority/version, model-generated testimony and org/care access.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "inputs": {
+          "fixture_type": "training_fixture",
+          "adapters": [
+            "native",
+            "Evry"
+          ],
+          "attested_person": "Alex",
+          "unobserved_model_testimony": true,
+          "private_note": "CARE-CANARY"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.trainingMatrix",
+        "arguments": {
+          "adapters": [
+            "native",
+            "Evry"
+          ],
+          "attested_person": "Alex",
+          "unobserved_model_testimony": true,
+          "private_note": "CARE-CANARY"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "model_attestation_allowed": false,
+          "organization_person_evidence": null,
+          "private_care": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "TARGET-TEAM-001",
+      "requirement": "REQ-TEAM-001",
+      "feature_ids": [
+        "TEAM-001"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-001--TEAM-001"
+      ],
+      "work_packages": [
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Rename a predefined team, create a custom same-display-name team, forming/active/paused lists, multi-role staffing and foreign IDs.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "template_key": "worship",
+          "renamed": "Gathering music",
+          "custom_team": "Worship"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.list",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          },
+          "template_key": "worship",
+          "renamed": "Gathering music",
+          "custom_team": "Worship"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "stable_key": "worship",
+          "name_merge": false
+        },
+        "event": null,
+        "checks": [
+          "Template identity stays stable, custom records stay distinct, correct current staffing/state and tenant controls appear."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-002",
+      "requirement": "REQ-TEAM-002",
+      "feature_ids": [
+        "TEAM-002"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-002--TEAM-002"
+      ],
+      "work_packages": [
+        "WP-016"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Archive a staffed team with program, meeting and current duty; include archived list/chart; stale edit; restore and retry.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.archive",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3,
+          "request_key": "TARGET-TEAM-002-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Operational exclusion is consistent, history/duty survives, program scope stays team-bound and stale writes create neither change nor history."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-003",
+      "requirement": "REQ-TEAM-003",
+      "feature_ids": [
+        "TEAM-003"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-003--TEAM-003"
+      ],
+      "work_packages": [
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Partial/custom setup, renamed predefined team, independent roles selected, no selection/cancel, stale version, two concurrent imports and selected occupied pastor role.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.previewTemplateImport",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Only exact reviewed rows are created once, later import remains available, custom/occupied data survives and invalid selection refuses rather than silently dropping rows."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-004",
+      "requirement": "REQ-TEAM-004",
+      "feature_ids": [
+        "TEAM-004"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-004--TEAM-004"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Explicit leader plus another leadership role; remove role; linked seat revoked racing appointment; unlinked contact; candidate 101.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "leader_account": "A",
+          "leader_person": "Alex",
+          "seat_revoked": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.appointLeader",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "leader_account": "A",
+          "leader_person": "Alex",
+          "seat_revoked": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "team_action_allowed": false,
+          "Person_appointment_creates_seat": false
+        },
+        "event": null,
+        "checks": [
+          "Explicit precedence holds, revoked account gains no team action, contact appointment grants no seat, search and provenance are complete."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-005",
+      "requirement": "REQ-TEAM-005",
+      "feature_ids": [
+        "TEAM-005"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-005--TEAM-005"
+      ],
+      "work_packages": [
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Retire occupied role, explicit versus derived leader, nullable clear, foreign role references and two active occupants.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.createRole",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Current slot disappears with history retained, staffing derives actual occupants and no hierarchy or account grant is invented."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-006",
+      "requirement": "REQ-TEAM-006",
+      "feature_ids": [
+        "TEAM-006"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-006--TEAM-006"
+      ],
+      "work_packages": [
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "P in 2 roles/3 teams, competing Q for one slot, repeat P assignment, remove/reactivate, cross-team role and advanced Person.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.assignRole",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "One active slot winner, warning is advisory, episodes and advanced stage survive and tenant/reference mismatches refuse."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-007",
+      "requirement": "REQ-TEAM-007",
+      "feature_ids": [
+        "TEAM-007"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-007--TEAM-007"
+      ],
+      "work_packages": [
+        "WP-018"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Read/preview before acceptance, select 2 lines then crash/retry, delete/edit, declined offer and later reference revision.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.listResponsibilities",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "request_key": "TARGET-TEAM-007-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Reads create zero rows, chosen lines commit once, changed/deleted/declined work never resurrects and ticks remain reversible."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-008",
+      "requirement": "REQ-TEAM-008",
+      "feature_ids": [
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Multi-role current member, required explicit roster, churchwide program, former earned completion, team archive and foreign completion.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.listTraining",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Unique genuine earned evidence and saved applicability agree across matrix/tabs; own-team leader cannot broaden scope and scheduling is not completion."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-009",
+      "requirement": "REQ-TEAM-009",
+      "feature_ids": [
+        "TEAM-009"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-009--TEAM-009"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Complete→revoke→redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.correctProgram",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Current evidence changes once, original earned/revoked chain remains and every consumer uses the same compatible nonrevoked result."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-010",
+      "requirement": "REQ-TEAM-010",
+      "feature_ids": [
+        "TEAM-010"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-010--TEAM-010"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Person 101 with 2 roles, archived former team, active required assignment and former earned/revoked completion.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.personAssignments",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Search/select works, counts use distinct current teams and history/application/earned records remain clearly separate."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-011",
+      "requirement": "REQ-TEAM-011",
+      "feature_ids": [
+        "TEAM-011"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "P fills 2 slots, two distinct members attended plus guest; 0 roles, missing training applicability, archived team and measured 0 attendance.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.staffingFacts",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false
+        },
+        "event": null,
+        "checks": [
+          "Slots and people denominators stay distinct, guests do not inflate, missing input yields Unknown and no phase advancement or new job occurs."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-012",
+      "requirement": "REQ-TEAM-012",
+      "feature_ids": [
+        "TEAM-012"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-012--TEAM-012"
+      ],
+      "work_packages": [
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "All/single team, renamed Leadership template, no Leadership/custom teams, archived option and 200 character unbroken names in both exports.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "plant": "P",
+          "foreign_team": "Q-Team",
+          "format": "PDF"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.orgChart",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "plant": "P",
+          "foreign_team": "Q-Team",
+          "format": "PDF"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "foreign_team_visible": false,
+          "raw_storage_key": null,
+          "format": "PDF"
+        },
+        "event": null,
+        "checks": [
+          "Faithful legible shared drawing and correct tenant projection; no hidden reporting editor or raw identity/storage keys appear."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-013",
+      "requirement": "REQ-TEAM-013",
+      "feature_ids": [
+        "TEAM-013"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-013--TEAM-013"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Schedule by own vs other leader, P in 2 roles, membership change after create, global/team views and training subtype.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.scheduleMeeting",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "One meeting/unique roster, bounded controls and stable snapshot; session exists without fabricated calendar/task/completion effect."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-014",
+      "requirement": "REQ-TEAM-014",
+      "feature_ids": [
+        "TEAM-006"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-006--TEAM-006"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-017"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Request children’s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "background_text": "PRIVATE-BACKGROUND",
+          "skill": "guitar"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.personAssignments",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "background_text": "PRIVATE-BACKGROUND",
+          "skill": "guitar"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "background_fields": null,
+          "generic_skill": "guitar",
+          "new_safety_system": false
+        },
+        "event": null,
+        "checks": [
+          "Excluded data/tools are absent; retained generic role skills/overload work without a new safety or specialized subsystem."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-015",
+      "requirement": "REQ-TEAM-015",
+      "feature_ids": [
+        "TEAM-015"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-015--TEAM-015"
+      ],
+      "work_packages": [
+        "WP-019"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Assignment/leadership from exact vs advanced stages, retry, source revision transaction failure, training scheduling without subscriber.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.assignmentEffects",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "request_key": "TARGET-TEAM-015-request-1",
+          "repeat": 2,
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Only approved conditional progression and facts occur once; source watermark cannot lag commit and no phantom integration is reported."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-016",
+      "requirement": "REQ-TEAM-016",
+      "feature_ids": [
+        "PPL-021",
+        "TEAM-008",
+        "TEAM-009",
+        "TEAM-010",
+        "TEAM-011"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-021--PPL-021",
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009",
+        "AC-TEAM-010--TEAM-010",
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-019",
+        "WP-040",
+        "WP-069",
+        "WP-070"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "Team T contains P in 2 roles and Q; another team also contains P. Select both plus leaders for required program R, confirm P/Q exact roster, then Q leaves and Z joins; explicit remove/add, stale preview, revoke and redo P completion.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.previewRequiredTrainingParticipants",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Initial roster has distinct P/Q. Later team changes leave it unchanged; only explicit versioned commands alter applicability. Compatible completion governs numerator, history survives and empty/missing applicability stays Unknown."
+        ]
+      }
+    },
+    {
+      "id": "TARGET-TEAM-017",
+      "requirement": "REQ-TEAM-017",
+      "feature_ids": [
+        "TEAM-008"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008"
+      ],
+      "work_packages": [
+        "WP-019",
+        "WP-039",
+        "WP-040",
+        "WP-044",
+        "WP-073",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "target-team",
+      "description": "P has 90 days CRM tenure and membership but no period evidence; Q has 59 days attendance+serving; R has 60 dated days of both, including human-attested unobserved behavior; S has one behavior or a corrected conflicting record.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "controls": [
+            {
+              "attendance_days": 60,
+              "volunteer_days": 60
+            },
+            {
+              "attendance_days": 60,
+              "volunteer_days": 59
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "teams.attestCompletion",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "controls": [
+            {
+              "attendance_days": 60,
+              "volunteer_days": 60
+            },
+            {
+              "attendance_days": 60,
+              "volunteer_days": 59
+            }
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "candidate_pattern": [
+            true,
+            false
+          ],
+          "automatic_role_changes": 0
+        },
+        "event": null,
+        "checks": [
+          "Only established 60 day conjunction supports conversation wording; tenure/one behavior/insufficient evidence do not qualify, contradiction is disclosed, and no role/account/phase change occurs."
+        ]
+      }
+    }
+  ]
+}

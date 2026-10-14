@@ -1,0 +1,827 @@
+{
+  "scope": "Current reference-release behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "REFREL-001",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Initial manifest installs twice then sameID/hash mismatch attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "release": "R1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "release": "R1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "activation_changes": 1,
+          "equal_replay_changes": 0,
+          "changed_hash_allowed": false
+        },
+        "event": null,
+        "checks": [
+          "Second equal no-op, mismatch stops without active mutation."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-002",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing customorgversion/hide and completed reader.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "new_global_version": 2,
+          "org_fork": "S1-v1",
+          "org_hide": true,
+          "completed_read_version": 1
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "new_global_version": 2,
+          "org_fork": "S1-v1",
+          "org_hide": true,
+          "completed_read_version": 1
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "org_fork": "S1-v1",
+          "org_hide": true,
+          "read_credit_retained": true,
+          "upstream_cue": "in_app"
+        },
+        "event": null,
+        "checks": [
+          "Single coherent pointer switches all eligible derivatives; edits/hide/credit preserved; both customorg upstream inapp cues, meaningful reader label only."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-003",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Candidate missing chunk/hash/dimension or embedding request timeout.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "candidate": "R2",
+          "missing_chunk": "C2"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "candidate": "R2",
+          "missing_chunk": "C2"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "active_release": "R1",
+          "R2_activated": false
+        },
+        "event": null,
+        "checks": [
+          "Old active remains complete, candidate failed/incomplete and no partial new serving."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-004",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Two reviewed complete candidates promote same expectedactivation; stale build worker resumes.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "expected_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Only one CAS activation; stale generation refuses; loser requires fresh review."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-005",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "New generation active then reviewed rollback to old complete compatible generation.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0,
+          "prior_history_rewritten": false,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Append new activation/reason/attribution; no history erase/org adoption or stale effect replay."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-006",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Rollback with previously departed organization cited in old cached/export/Evry context.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Current entitlement denies former body despite activation/citation history."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-007",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Candidate carries wrong rubric/playbook/template hash or tenant/token/executableMDX canary.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "candidate": "R2",
+          "source_hash_matches": false,
+          "body": "SECRET-CANARY"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P",
+          "candidate": "R2",
+          "source_hash_matches": false,
+          "body": "SECRET-CANARY"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "activated": false,
+          "secret_in_output": null
+        },
+        "event": null,
+        "checks": [
+          "Validation rejects before activation; no overwritten authoritative source or content leakage."
+        ]
+      }
+    },
+    {
+      "id": "REFREL-008",
+      "requirement": "REQ-REFREL-001",
+      "feature_ids": [
+        "COM-008",
+        "DOC-001",
+        "WIKI-010"
+      ],
+      "acceptance_ids": [
+        "AC-COM-008--COM-008",
+        "AC-DOC-001--DOC-001",
+        "AC-WIKI-010--WIKI-010"
+      ],
+      "work_packages": [
+        "WP-027",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "group": "refrel",
+      "description": "Assessment pins oldreference; activation changes before publication.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "reference.validateBundle",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Freshness CAS rejects current publication; original historical prior result survives."
+        ]
+      }
+    }
+  ]
+}

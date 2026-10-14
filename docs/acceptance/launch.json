@@ -1,0 +1,7278 @@
+{
+  "scope": "Current launch behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "B02-001",
+      "requirement": "REQ-KNOW-034",
+      "feature_ids": [
+        "LCH-008",
+        "PI-009",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-008--LCH-008",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-044",
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Target dates0,28,29church-localdays away and missingtarget.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "target_dates": [
+            "2026-10-13",
+            "2026-11-10",
+            "2026-11-11",
+            null
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "target_dates": [
+            "2026-10-13",
+            "2026-11-10",
+            "2026-11-11",
+            null
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "within_28_days": [
+            true,
+            true,
+            false,
+            null
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-002",
+      "requirement": "REQ-KNOW-035",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-002--LCH-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Past uncompleted target then reviewedmove/postpone and retry.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "target": "2026-10-12",
+          "move_to": "2026-11-10",
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.move",
+        "arguments": {
+          "target": "2026-10-12",
+          "move_to": "2026-11-10",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "old_status": "overdue",
+          "target": "2026-11-10",
+          "phase": "Phase1",
+          "move_history_count": 1
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-003",
+      "requirement": "REQ-KNOW-036",
+      "feature_ids": [
+        "PI-009",
+        "PI-032"
+      ],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-PI-032--PI-032"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "DSTcalendar launch-window versus elapsed72hour release and48hour contact.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "launch_target": "2026-11-10",
+          "assessment_available": "2026-10-10T16:00:00Z",
+          "contact_origin": "2026-10-11T16:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch_target": "2026-11-10",
+          "assessment_available": "2026-10-10T16:00:00Z",
+          "contact_origin": "2026-10-11T16:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "launch_days": 28,
+          "assessment_release_hours": 72,
+          "contact_hours": 48
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-004",
+      "requirement": "REQ-KNOW-037",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004"
+      ],
+      "work_packages": [
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Nine fixed milestones and23 actual source tasks seeded; aggregatecount updated.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "milestones": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9"
+          ],
+          "tasks": [
+            "T1",
+            "T2",
+            "T3",
+            "T4",
+            "T5",
+            "T6",
+            "T7",
+            "T8",
+            "T9",
+            "T10",
+            "T11",
+            "T12",
+            "T13",
+            "T14",
+            "T15",
+            "T16",
+            "T17",
+            "T18",
+            "T19",
+            "T20",
+            "T21",
+            "T22",
+            "T23"
+          ],
+          "count_update": 30
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "milestones": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9"
+          ],
+          "tasks": [
+            "T1",
+            "T2",
+            "T3",
+            "T4",
+            "T5",
+            "T6",
+            "T7",
+            "T8",
+            "T9",
+            "T10",
+            "T11",
+            "T12",
+            "T13",
+            "T14",
+            "T15",
+            "T16",
+            "T17",
+            "T18",
+            "T19",
+            "T20",
+            "T21",
+            "T22",
+            "T23"
+          ],
+          "count_update": 30
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "milestone_count": 9,
+          "task_count": 23,
+          "automatic_completions": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-005",
+      "requirement": "REQ-KNOW-038",
+      "feature_ids": [
+        "LCH-004",
+        "LCH-005",
+        "LCH-010"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-004--LCH-004",
+        "AC-LCH-005--LCH-005",
+        "AC-LCH-010--LCH-010"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Previously completed milestone with requiredTask reopened/corrected.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "milestone": "M1",
+          "completed_at": "2026-10-01T16:00:00Z",
+          "linked_task": "T1",
+          "reopen": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "milestone": "M1",
+          "completed_at": "2026-10-01T16:00:00Z",
+          "linked_task": "T1",
+          "reopen": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "current_evidence": "needs_review",
+          "completion_history": [
+            "2026-10-01T16:00:00Z"
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-006",
+      "requirement": "REQ-KNOW-039",
+      "feature_ids": [
+        "EVR-020",
+        "LCH-004"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-254--EVR-254",
+        "AC-EVR-255--EVR-255",
+        "AC-EVR-262--EVR-262",
+        "AC-EVR-EFFECT--EVR-254",
+        "AC-EVR-EFFECT--EVR-255",
+        "AC-EVR-EFFECT--EVR-262",
+        "AC-LCH-004--LCH-004"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-076"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Current valid milestone re-confirmation with liveguard and staleEvryreview.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "M1": {
+          "fixture_type": "milestone",
+          "id": "M1",
+          "plant": "P",
+          "status": "open",
+          "revision": 4,
+          "history": [
+            {
+              "completed_at": "2026-10-01T16:00:00Z",
+              "actor": "A"
+            }
+          ]
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "status": "pending",
+          "revision": 3
+        },
+        "review": {
+          "fixture_type": "linked_task_view",
+          "tasks": [
+            {
+              "id": "T1",
+              "status": "pending",
+              "revision": 3
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.completeMilestone",
+        "arguments": {
+          "milestone": "M1",
+          "expected_revision": 4,
+          "reviewed_task_rows": [
+            {
+              "id": "T1",
+              "status": "pending",
+              "revision": 3
+            }
+          ],
+          "request_key": "B02-006-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "M1": {
+            "status": "completed"
+          },
+          "T1": {
+            "status": "pending"
+          }
+        },
+        "result": {
+          "completed": true,
+          "linked_task_status": "pending",
+          "completion_count": 2,
+          "replay_new_completion_count": 0
+        },
+        "event": {
+          "kind": "milestone_completed",
+          "subject": "M1",
+          "count": 1
+        }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M1": {
+              "fixture_type": "milestone",
+              "id": "M1",
+              "plant": "P",
+              "status": "open",
+              "revision": 4,
+              "history": [
+                {
+                  "completed_at": "2026-10-01T16:00:00Z",
+                  "actor": "A"
+                }
+              ]
+            },
+            "T1": {
+              "fixture_type": "task",
+              "id": "T1",
+              "plant": "P",
+              "status": "completed",
+              "revision": 4
+            },
+            "review": {
+              "fixture_type": "linked_task_view",
+              "tasks": [
+                {
+                  "id": "T1",
+                  "status": "pending",
+                  "revision": 3
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "launch.completeMilestone",
+            "arguments": {
+              "milestone": "M1",
+              "expected_revision": 4,
+              "reviewed_task_rows": [
+                {
+                  "id": "T1",
+                  "status": "pending",
+                  "revision": 3
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {
+              "M1": {
+                "status": "open"
+              }
+            },
+            "result": {
+              "error_code": "stale_linked_task_view"
+            },
+            "event": null
+          },
+          "name": "variant-1"
+        }
+      ]
+    },
+    {
+      "id": "B02-007",
+      "requirement": "REQ-KNOW-040",
+      "feature_ids": [
+        "EVR-020",
+        "MTG-001",
+        "MTG-002"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-MTG-001--MTG-001",
+        "AC-MTG-002--MTG-002"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-022",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Create/filter/detail prelaunch_practice versus teamrehearsal/Vision.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "types": [
+            "prelaunch_practice",
+            "team_rehearsal",
+            "vision"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "types": [
+            "prelaunch_practice",
+            "team_rehearsal",
+            "vision"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "practice_filter": [
+            "prelaunch_practice"
+          ],
+          "other_types_changed": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-008",
+      "requirement": "REQ-KNOW-041",
+      "feature_ids": [
+        "EVR-020",
+        "LCH-003",
+        "MTG-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-LCH-003--LCH-003",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Three distinct completedactualpractice IDs,fourth and duplicate receipt.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "practice_ids": [
+            "PR1",
+            "PR2",
+            "PR3",
+            "PR4",
+            "PR3"
+          ],
+          "actual_dates": [
+            "2026-10-01",
+            "2026-10-04",
+            "2026-10-08",
+            "2026-10-12",
+            "2026-10-08"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "practice_ids": [
+            "PR1",
+            "PR2",
+            "PR3",
+            "PR4",
+            "PR3"
+          ],
+          "actual_dates": [
+            "2026-10-01",
+            "2026-10-04",
+            "2026-10-08",
+            "2026-10-12",
+            "2026-10-08"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "distinct_completed_practices": 4,
+          "criterion": "met"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-009",
+      "requirement": "REQ-KNOW-042",
+      "feature_ids": [
+        "MTG-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Scheduledfuture/cancelled/nothheld practice and actualnonfuture correction.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "states": [
+            "scheduled",
+            "cancelled",
+            "not_held",
+            "completed_future",
+            "completed_past"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "states": [
+            "scheduled",
+            "cancelled",
+            "not_held",
+            "completed_future",
+            "completed_past"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "counts_as_evidence": [
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-010",
+      "requirement": "REQ-KNOW-043",
+      "feature_ids": [
+        "MTG-010",
+        "MTG-012",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-010--MTG-010",
+        "AC-MTG-012--MTG-012",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-022",
+        "WP-038",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Attendance finalization/guest edits/tasks tick on scheduled practice.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "practice_status": "scheduled",
+          "attendance_finalized": true,
+          "guest_count": 4,
+          "tasks_complete": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "practice_status": "scheduled",
+          "attendance_finalized": true,
+          "guest_count": 4,
+          "tasks_complete": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "completed_practices": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-011",
+      "requirement": "REQ-KNOW-044",
+      "feature_ids": [
+        "EVR-020",
+        "LCH-004",
+        "MTG-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-170--EVR-170",
+        "AC-EVR-172--EVR-172",
+        "AC-EVR-EFFECT--EVR-170",
+        "AC-EVR-EFFECT--EVR-172",
+        "AC-LCH-004--LCH-004",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Practice date/type corrected,voidduplicate,reopen and prior PI snapshot.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "practice_ids": [
+            "PR1",
+            "PR2",
+            "PR3"
+          ],
+          "void": "PR3",
+          "snapshot_count": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "practice_ids": [
+            "PR1",
+            "PR2",
+            "PR3"
+          ],
+          "void": "PR3",
+          "snapshot_count": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "current_count": 2,
+          "snapshot_count": 3,
+          "criterion": "not_met"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-012",
+      "requirement": "REQ-KNOW-045",
+      "feature_ids": [
+        "MTG-002"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002"
+      ],
+      "work_packages": [
+        "WP-020"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Genuine completed practice archived versus invalid occurrence voided.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "PR1": {
+            "completed": true,
+            "archived": true
+          },
+          "PR2": {
+            "completed": true,
+            "voided": true
+          }
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "PR1": {
+            "completed": true,
+            "archived": true
+          },
+          "PR2": {
+            "completed": true,
+            "voided": true
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "counted_ids": [
+            "PR1"
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-013",
+      "requirement": "REQ-KNOW-046",
+      "feature_ids": [
+        "MTG-002",
+        "MTG-005"
+      ],
+      "acceptance_ids": [
+        "AC-MTG-002--MTG-002",
+        "AC-MTG-005--MTG-005"
+      ],
+      "work_packages": [
+        "WP-020"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Practice agenda/venue/guest workflow with Visionkit/number/eval attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "type": "prelaunch_practice",
+          "agenda": [
+            "Welcome",
+            "Practice service"
+          ],
+          "venue": "V1",
+          "guests": [
+            "Alex"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "type": "prelaunch_practice",
+          "agenda": [
+            "Welcome",
+            "Practice service"
+          ],
+          "venue": "V1",
+          "guests": [
+            "Alex"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "vision_number": null,
+          "vision_kit": null,
+          "evaluations": 0,
+          "training_credit": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-014",
+      "requirement": "REQ-KNOW-047",
+      "feature_ids": [
+        "LCH-003",
+        "MTG-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Third practice completed and milestone/task/phase/authority still independent.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "complete_practices": [
+            "PR1",
+            "PR2",
+            "PR3"
+          ],
+          "phase": "Phase4",
+          "open_tasks": [
+            "T1"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "complete_practices": [
+            "PR1",
+            "PR2",
+            "PR3"
+          ],
+          "phase": "Phase4",
+          "open_tasks": [
+            "T1"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "criterion": "met",
+          "phase": "Phase4",
+          "task_status": "pending",
+          "milestone_completion_count": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-015",
+      "requirement": "REQ-KNOW-048",
+      "feature_ids": [
+        "EVR-020",
+        "MTG-002"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-MTG-002--MTG-002"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Current Owner/Admin and foreign/member/teamleader practicewrite.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "roles": [
+            "Owner",
+            "Admin",
+            "Member",
+            "team_leader",
+            "foreign_Admin"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "roles": [
+            "Owner",
+            "Admin",
+            "Member",
+            "team_leader",
+            "foreign_Admin"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "practice_write_allowed": [
+            true,
+            true,
+            false,
+            false,
+            false
+          ]
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-016",
+      "requirement": "REQ-KNOW-049",
+      "feature_ids": [
+        "EVR-020"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-165--EVR-165",
+        "AC-EVR-171--EVR-171",
+        "AC-EVR-172--EVR-172",
+        "AC-EVR-EFFECT--EVR-165",
+        "AC-EVR-EFFECT--EVR-171",
+        "AC-EVR-EFFECT--EVR-172"
+      ],
+      "work_packages": [
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Reviewed Evry practice create/complete/correct then stale/replay execution.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "practice": "PR1",
+          "review_revision": 4,
+          "current_revision": 4,
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "meetings.list",
+        "arguments": {
+          "practice": "PR1",
+          "review_revision": 4,
+          "current_revision": 4,
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "completion_rows": 1,
+          "receipts": 1,
+          "stale_control_error": "revision_conflict"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-017",
+      "requirement": "REQ-KNOW-050",
+      "feature_ids": [
+        "EVR-020",
+        "PI-015",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-266--EVR-266",
+        "AC-EVR-EFFECT--EVR-266",
+        "AC-PI-015--PI-015",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-039",
+        "WP-040",
+        "WP-044",
+        "WP-053",
+        "WP-055",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Chosen promotion plan actualexecution attestation with optional references.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "chosen_plan": "Community invitations",
+          "executed": true,
+          "reference_ids": []
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "chosen_plan": "Community invitations",
+          "executed": true,
+          "reference_ids": []
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "promotion_criterion": "met",
+          "required_channels": []
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-018",
+      "requirement": "REQ-KNOW-051",
+      "feature_ids": [
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "One promotional email sent and prepTask complete but no whole-plan execution evidence.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "chosen_plan": "Community invitations",
+          "email_sent": 1,
+          "prep_task_complete": true,
+          "execution_attestation": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "chosen_plan": "Community invitations",
+          "email_sent": 1,
+          "prep_task_complete": true,
+          "execution_attestation": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "promotion_criterion": "unknown"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-019",
+      "requirement": "REQ-KNOW-052",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Native actualLaunch/debriefquestionnaire and separately editable counts/outcome notes.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "actual_date": "2026-10-11",
+          "headcount": 40,
+          "notes": "Service held",
+          "debrief_answers": {
+            "missing_names": false
+          }
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readDebrief",
+        "arguments": {
+          "actual_date": "2026-10-11",
+          "headcount": 40,
+          "notes": "Service held",
+          "debrief_answers": {
+            "missing_names": false
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "actual_date": "2026-10-11",
+          "headcount": 40,
+          "raw_debrief_is_attestation": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-020",
+      "requirement": "REQ-KNOW-053",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Debrief Yes3 validsubmit then No correction; incomplete draft and guestcriterion.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "submitted_answers": [
+            {
+              "missing_names": false
+            },
+            {
+              "missing_names": true,
+              "missing_count": 3
+            }
+          ],
+          "draft_answer": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readDebrief",
+        "arguments": {
+          "submitted_answers": [
+            {
+              "missing_names": false
+            },
+            {
+              "missing_names": true,
+              "missing_count": 3
+            }
+          ],
+          "draft_answer": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_criterion": [
+            "met",
+            "not_met"
+          ],
+          "debrief_criterion": [
+            "met",
+            "met"
+          ],
+          "draft_criterion": "unknown"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-021",
+      "requirement": "REQ-KNOW-054",
+      "feature_ids": [
+        "LCH-007",
+        "PI-009",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-007--LCH-007",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-044",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Correct submittedquestionnaire without altering phase/task and preserved original version.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "old": {
+            "missing_names": true,
+            "missing_count": 3
+          },
+          "corrected": {
+            "missing_names": false
+          },
+          "phase": "Phase5"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readDebrief",
+        "arguments": {
+          "old": {
+            "missing_names": true,
+            "missing_count": 3
+          },
+          "corrected": {
+            "missing_names": false
+          },
+          "phase": "Phase5"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_criterion": "met",
+          "phase": "Phase5",
+          "new_tasks": 0,
+          "history_versions": 2
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-022",
+      "requirement": "REQ-KNOW-055",
+      "feature_ids": [
+        "EVR-020"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "work_packages": [
+        "WP-052",
+        "WP-053",
+        "WP-055",
+        "WP-075",
+        "WP-076"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Evry debrief/outcome/guest read and reviewedwrite with stale target.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "missing_names": true,
+          "missing_count": 3,
+          "current_revision": 4,
+          "stale_revision": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readDebrief",
+        "arguments": {
+          "missing_names": true,
+          "missing_count": 3,
+          "current_revision": 4,
+          "stale_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "native_remaining": 3,
+          "Evry_remaining": 3,
+          "stale_error": "revision_conflict",
+          "private_care": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-023",
+      "requirement": "REQ-KNOW-056",
+      "feature_ids": [
+        "EVR-020",
+        "MTG-011",
+        "PPL-002"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-158--EVR-158",
+        "AC-EVR-159--EVR-159",
+        "AC-EVR-167--EVR-167",
+        "AC-EVR-EFFECT--EVR-158",
+        "AC-EVR-EFFECT--EVR-159",
+        "AC-EVR-EFFECT--EVR-167",
+        "AC-MTG-011--MTG-011",
+        "AC-PPL-002--PPL-002"
+      ],
+      "work_packages": [
+        "WP-011",
+        "WP-012",
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Single suppliedname guest with no phone/email/age/account.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "name": "Mara",
+          "phone": null,
+          "email": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.addGuestAttendance",
+        "arguments": {
+          "name": "Mara",
+          "phone": null,
+          "email": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "person_name": "Mara",
+          "phone": null,
+          "email": null,
+          "created_accounts": 0,
+          "commitments": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-024",
+      "requirement": "REQ-KNOW-057",
+      "feature_ids": [
+        "EVR-020",
+        "MTG-011",
+        "PPL-002"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-167--EVR-167",
+        "AC-EVR-EFFECT--EVR-167",
+        "AC-MTG-011--MTG-011",
+        "AC-PPL-002--PPL-002"
+      ],
+      "work_packages": [
+        "WP-011",
+        "WP-012",
+        "WP-020",
+        "WP-053",
+        "WP-055",
+        "WP-066"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Same-name duplicate candidate selected existingID and replay namedcreate.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "name": "Mara",
+          "existing_person": "Alex",
+          "request_key": "guest-1",
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.addGuestAttendance",
+        "arguments": {
+          "name": "Mara",
+          "existing_person": "Alex",
+          "request_key": "guest-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_person": "Alex",
+          "new_people": 0,
+          "guest_links": 1
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-025",
+      "requirement": "REQ-KNOW-058",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Launch guest roster/headcount differ; submitted missingYes2 vs No criterion.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "headcount": 40,
+          "named_guests": 10,
+          "missing_names": true,
+          "missing_count": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readDebrief",
+        "arguments": {
+          "headcount": 40,
+          "named_guests": 10,
+          "missing_names": true,
+          "missing_count": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "remaining": 2,
+          "guest_criterion": "not_met",
+          "fabricated_people": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-026",
+      "requirement": "REQ-KNOW-059",
+      "feature_ids": [
+        "EVR-020",
+        "PI-024",
+        "PI-032"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-263--EVR-263",
+        "AC-EVR-EFFECT--EVR-263",
+        "AC-PI-024--PI-024",
+        "AC-PI-032--PI-032"
+      ],
+      "work_packages": [
+        "WP-044",
+        "WP-053",
+        "WP-055",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Owner/Admin opens availablemodelresult versus72elapsedhours with no open.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "available_at": "2026-10-10T16:00:00Z",
+          "open_at": "2026-10-12T16:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.readAssessment",
+        "arguments": {
+          "available_at": "2026-10-10T16:00:00Z",
+          "open_at": "2026-10-12T16:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "release_on_open": "2026-10-12T16:00:00Z",
+          "release_without_open": "2026-10-13T16:00:00Z"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-027",
+      "requirement": "REQ-KNOW-060",
+      "feature_ids": [
+        "EVR-020",
+        "PI-024",
+        "PI-032"
+      ],
+      "acceptance_ids": [
+        "AC-EVR-264--EVR-264",
+        "AC-EVR-READ--EVR-264",
+        "AC-PI-024--PI-024",
+        "AC-PI-032--PI-032"
+      ],
+      "work_packages": [
+        "WP-044",
+        "WP-052",
+        "WP-055",
+        "WP-073"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Email/model/otherMember reads result before eligiblehuman opportunity.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "available_at": "2026-10-10T17:00:00Z",
+          "reads": [
+            "email",
+            "model",
+            "Member"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.readAssessment",
+        "arguments": {
+          "available_at": "2026-10-10T17:00:00Z",
+          "reads": [
+            "email",
+            "model",
+            "Member"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "released": false,
+          "eligible_open_at": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-028",
+      "requirement": "REQ-KNOW-061",
+      "feature_ids": [
+        "IDN-023",
+        "PI-031",
+        "PI-032"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-PI-031--PI-031",
+        "AC-PI-032--PI-032"
+      ],
+      "work_packages": [
+        "WP-044",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Previous released concern during new unpublished result under current revokedcategory.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "prior": "R0",
+          "new": "R1",
+          "R1_released": false,
+          "shared_findings": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.readAssessment",
+        "arguments": {
+          "prior": "R0",
+          "new": "R1",
+          "R1_released": false,
+          "shared_findings": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "oversight_result": null,
+          "planter_prior": "R0"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-029",
+      "requirement": "REQ-KNOW-062",
+      "feature_ids": [
+        "PI-032",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-032--PI-032",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-002",
+        "WP-004",
+        "WP-007",
+        "WP-010",
+        "WP-032",
+        "WP-041",
+        "WP-042",
+        "WP-043",
+        "WP-044",
+        "WP-047",
+        "WP-056",
+        "WP-057",
+        "WP-058",
+        "WP-073",
+        "WP-074"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "NI/Location consumes latestresult still embargoed; source grants differ.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "result": "R1",
+          "released": false,
+          "consumers": [
+            "NI",
+            "Location"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.readAssessment",
+        "arguments": {
+          "result": "R1",
+          "released": false,
+          "consumers": [
+            "NI",
+            "Location"
+          ]
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "NI_inputs": [],
+          "Location_inputs": []
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-030",
+      "requirement": "REQ-KNOW-063",
+      "feature_ids": [
+        "IDN-023",
+        "LCH-006"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Separately reviewed publicoperationalsummary versus rawquestionnaire and resultembargo.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "human_summary": "Service held. Next review is Tuesday.",
+          "publish": true,
+          "shared_findings": true,
+          "model_result_released": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.publishDebriefSummary",
+        "arguments": {
+          "human_summary": "Service held. Next review is Tuesday.",
+          "publish": true,
+          "shared_findings": true,
+          "model_result_released": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "summary": "Service held. Next review is Tuesday.",
+          "model_result": null,
+          "raw_answers": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-031",
+      "requirement": "REQ-KNOW-064",
+      "feature_ids": [
+        "LCH-006",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Launchsupport/reflection attempts privatecare answer/history/calendar import.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "private_note": "CARE-CANARY",
+          "attempt_import_to": "launch_debrief"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "private_note": "CARE-CANARY",
+          "attempt_import_to": "launch_debrief"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "private_values_in_model": 0,
+          "private_values_in_summary": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "B02-032",
+      "requirement": "REQ-KNOW-065",
+      "feature_ids": [
+        "LCH-006",
+        "MTG-002",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-MTG-002--MTG-002",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "b02",
+      "description": "Current generated operation catalog includes nativepractice/debrief while source facts unchanged.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "launch-inputs": {
+          "fixture_type": "launch_fixture",
+          "type": "prelaunch_practice",
+          "debrief_submitted": true,
+          "missing_names": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "type": "prelaunch_practice",
+          "debrief_submitted": true,
+          "missing_names": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "operation_ids": [
+            "meetings.create",
+            "launch.submitDebrief"
+          ],
+          "guest_key": "guest_data_entered",
+          "debrief_key": "debrief_done"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-LCH-001",
+      "requirement": "REQ-LCH-001",
+      "feature_ids": [
+        "LCH-001"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001"
+      ],
+      "work_packages": [
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Schedule/move/postpone/recommit with repeated receipt and stale revision; prep task user date already edited.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.schedule",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 3,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "One attributed canonical history, no stale mutation/task date rewrite/phase side effect."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-002",
+      "requirement": "REQ-LCH-002",
+      "feature_ids": [
+        "LCH-002"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-002--LCH-002"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Planned date changes twice then actor account deleted; foreign tenant reads journal.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readJournal",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Original event order/occurrence and minimal actor attribution preserved; foreign denied."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-003",
+      "requirement": "REQ-LCH-003",
+      "feature_ids": [
+        "LCH-003"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "First scheduling seeds partial nine/23 actual source tasks; same key repeat, user edits one Task, three actual practices versus task ticks.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.ensureReadiness",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Fixed identity seeding exactly once; every actual source task preserved and edits survive; task completion not actual practice occurrence."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-004",
+      "requirement": "REQ-LCH-004",
+      "feature_ids": [
+        "LCH-004"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-004--LCH-004"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Milestone complete races task reopen; previous completion exists; guest/debrief manual override requested.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "M1": {
+          "fixture_type": "milestone",
+          "id": "M1",
+          "plant": "P",
+          "status": "open",
+          "revision": 4,
+          "history": [
+            {
+              "completed_at": "2026-10-01T16:00:00Z",
+              "actor": "A"
+            }
+          ]
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "status": "pending",
+          "revision": 3
+        },
+        "review": {
+          "fixture_type": "linked_task_view",
+          "tasks": [
+            {
+              "id": "T1",
+              "status": "pending",
+              "revision": 3
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.completeMilestone",
+        "arguments": {
+          "milestone": "M1",
+          "expected_revision": 4,
+          "reviewed_task_rows": [
+            {
+              "id": "T1",
+              "status": "pending",
+              "revision": 3
+            }
+          ],
+          "request_key": "CASE-LCH-004-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "M1": {
+            "status": "completed"
+          },
+          "T1": {
+            "status": "pending"
+          }
+        },
+        "result": {
+          "completed": true,
+          "linked_task_status": "pending",
+          "completion_count": 2,
+          "replay_new_completion_count": 0
+        },
+        "event": {
+          "kind": "milestone_completed",
+          "subject": "M1",
+          "count": 1
+        }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "M1": {
+              "fixture_type": "milestone",
+              "id": "M1",
+              "plant": "P",
+              "status": "open",
+              "revision": 4,
+              "history": [
+                {
+                  "completed_at": "2026-10-01T16:00:00Z",
+                  "actor": "A"
+                }
+              ]
+            },
+            "T1": {
+              "fixture_type": "task",
+              "id": "T1",
+              "plant": "P",
+              "status": "completed",
+              "revision": 4
+            },
+            "review": {
+              "fixture_type": "linked_task_view",
+              "tasks": [
+                {
+                  "id": "T1",
+                  "status": "pending",
+                  "revision": 3
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "launch.completeMilestone",
+            "arguments": {
+              "milestone": "M1",
+              "expected_revision": 4,
+              "reviewed_task_rows": [
+                {
+                  "id": "T1",
+                  "status": "pending",
+                  "revision": 3
+                }
+              ]
+            }
+          },
+          "expected": {
+            "state": {
+              "M1": {
+                "status": "open"
+              }
+            },
+            "result": {
+              "error_code": "stale_linked_task_view"
+            },
+            "event": null
+          },
+          "name": "variant-1"
+        }
+      ]
+    },
+    {
+      "id": "CASE-LCH-005",
+      "requirement": "REQ-LCH-005",
+      "feature_ids": [
+        "LCH-005"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-005--LCH-005"
+      ],
+      "work_packages": [
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Member assigned Task and foreign/other-assignee linked Task; reopened/deleted Task changes progress.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "tasks.complete",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L",
+          "foreign_control": {
+            "actor": "B",
+            "context": "Q",
+            "subject": "P"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Ordinary Task authority only; live derived progress changes without history erasure or Launch bypass."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-006",
+      "requirement": "REQ-LCH-006",
+      "feature_ids": [
+        "LCH-006"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Actual occurrence before/after planned date, single-name new guest, Yes3 debrief and separate summary publish.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.recordOutcome",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "partial_commit_on_required_failure": false,
+          "automatic_extra_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Real nonfuture actual date independent; atomic Person/link; guest Notmet but debrief Met; no automatic publication/tasks/send."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-007",
+      "requirement": "REQ-LCH-007",
+      "feature_ids": [
+        "LCH-007"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-007--LCH-007"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Submitted No changes Yes2; later incomplete draft; aggregate headcount unchanged; corrected prior actual outcome.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.correctOutcome",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_history_rewritten": false
+        },
+        "event": null,
+        "checks": [
+          "Current evidence updates with revisions/history; incomplete draft leaves last valid; no phase demotion/roster subtraction."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-008",
+      "requirement": "REQ-LCH-008",
+      "feature_ids": [
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "0day,28day,29day, overdue postponed/no target/completed launch; actual zero count and absent count.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false
+        },
+        "event": null,
+        "checks": [
+          "One local countdown, correct window and unknown/zero distinction; no48/72hour clock substitution."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-009",
+      "requirement": "REQ-LCH-009",
+      "feature_ids": [
+        "LCH-009"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-009--LCH-009"
+      ],
+      "work_packages": [
+        "WP-045"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Repeated seed repair after upload/transaction failure with existing completed milestone/edited Tasks.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.ensureReadiness",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L",
+          "fault": "required_write_before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Only missing stable identities create; no duplicate/reset/auto-complete."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-010",
+      "requirement": "REQ-LCH-010",
+      "feature_ids": [
+        "LCH-010"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-010--LCH-010"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Completion/reopen/reconfirm with old history and scrubbed actor, current evidence changed.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "completed_at": "2026-10-01T16:00:00Z",
+          "linked_task_reopened": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readMilestoneHistory",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L",
+          "completed_at": "2026-10-01T16:00:00Z",
+          "linked_task_reopened": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "current": "Needs review",
+          "prior_completed_at": "2026-10-01T16:00:00Z"
+        },
+        "event": null,
+        "checks": [
+          "Distinct attributed events retain prior actual completion and current Needs review without retroactive relabel."
+        ]
+      }
+    },
+    {
+      "id": "CASE-LCH-011",
+      "requirement": "REQ-LCH-011",
+      "feature_ids": [
+        "LCH-011"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-011--LCH-011"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "case-lch",
+      "description": "Phase6 has named launch guests and successful prelaunch Vision followups but no postlaunch obligation source.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "phase": 6,
+          "unknown_is_zero": false
+        },
+        "event": null,
+        "checks": [
+          "48hour postlaunch followup Unknown/unmeasured; excluded recurring service operation absent and no phase6 exit criterion."
+        ]
+      }
+    },
+    {
+      "id": "GAP-LCH-011",
+      "requirement": "Phase-six unmeasured contact signal cannot borrow Vision/service facts",
+      "feature_ids": [
+        "LCH-011"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-011--LCH-011"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "gap-lch",
+      "description": "Phase6 plant with Sunday headcounts, prelaunch Vision48h follow-up and no approved postlaunch service-contact capture",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Alex-Rivera": {
+          "fixture_type": "person",
+          "id": "Alex-Rivera",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "city": "Chicago",
+          "revision": 4
+        },
+        "Alex-Chen": {
+          "fixture_type": "person",
+          "id": "Alex-Chen",
+          "plant": "P",
+          "name": "Alex Chen",
+          "city": "Evanston",
+          "revision": 4
+        },
+        "Casey": {
+          "fixture_type": "person",
+          "id": "Casey",
+          "plant": "P",
+          "name": "Casey Reed",
+          "stage": "Leader",
+          "revision": 4
+        },
+        "C": {
+          "fixture_type": "conversation",
+          "id": "C",
+          "account": "A",
+          "context": "P",
+          "sequence": 4,
+          "draft_revision": 2
+        },
+        "R": {
+          "fixture_type": "review",
+          "id": "R",
+          "account": "A",
+          "context": "P",
+          "revision": 1,
+          "approved": false,
+          "expires_at": "2026-10-13T16:15:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "evry.submitTurn",
+        "arguments": {
+          "conversation": "C",
+          "utterances": [
+            "Read phase-six criterion and request service scheduling"
+          ],
+          "request_key": "GAP-LCH-011-turn-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false
+        },
+        "event": null,
+        "checks": [
+          "Relevant criterion Unknown/unmeasured with capture limitation; no relabeled Vision/Sunday metric or forced phase exit",
+          "No invented recurring worship/volunteer/facility module",
+          "Missing evidence does not fabricate negative readiness or auto-transition"
+        ]
+      }
+    },
+    {
+      "id": "LAUNCH-SEED-001",
+      "requirement": "REQ-LCH-003",
+      "feature_ids": [
+        "LCH-003"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-003--LCH-003"
+      ],
+      "work_packages": [
+        "WP-045",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch-seed",
+      "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts3,3,2,2,3,3,2,3,2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "Contact",
+          "revision": 4
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "planned_date": "2026-11-10",
+          "actual_date": null,
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.ensureReadiness",
+        "arguments": {
+          "subject": "P",
+          "person": "Alex",
+          "expected_revision": 4,
+          "launch": "L"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "All nine milestone and23 actual canonical task identities retained; hash/inventory agrees, repeated import creates zero duplicates and repair preserves edits/deletions instead of forcing an incorrect count."
+        ]
+      }
+    },
+    {
+      "id": "LAUNCH46-001",
+      "requirement": "REQ-KNOW-097",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-006",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "ActualLaunch occurs on a date differing plannedtarget; Meetingtype public_launch/Vision attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "actual_date": "2026-10-11",
+          "planned_date": "2026-10-10"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "actual_date": "2026-10-11",
+          "planned_date": "2026-10-10"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "actual_date": "2026-10-11",
+          "planned_date": "2026-10-10",
+          "meeting_rows_created": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-002",
+      "requirement": "REQ-KNOW-098",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PPL-002",
+        "PPL-004"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002",
+        "AC-PPL-004--PPL-004",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-011",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "New real namedguest versus explicitly selected sameplant existingPerson; DB failure betweencreate/link.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "name": "Mara",
+          "existing_person": null,
+          "fault_control": "guest_link_insert"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.addGuestAttendance",
+        "arguments": {
+          "launch": "L",
+          "name": "Mara",
+          "existing_person": null,
+          "fault_control": "guest_link_insert"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "created_people": 1,
+          "created_links": 1,
+          "fault_created_people": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-003",
+      "requirement": "REQ-KNOW-099",
+      "feature_ids": [
+        "LCH-006",
+        "PPL-002"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-011",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Guest has one meaningful suppliedname only, no email/phone/surname/age/account.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "name": "Mara",
+          "email": null,
+          "phone": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.addGuestAttendance",
+        "arguments": {
+          "launch": "L",
+          "name": "Mara",
+          "email": null,
+          "phone": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "name": "Mara",
+          "last_name": null,
+          "account": null,
+          "commitments": []
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-004",
+      "requirement": "REQ-KNOW-100",
+      "feature_ids": [
+        "LCH-006",
+        "PPL-016",
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-016--PPL-016",
+        "AC-PPL-017--PPL-017",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-015",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Same-name duplicate candidates,repeatedcreate/link receipt and concurrentattendance insert.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "name": "Alex",
+          "selected_existing": "Alex-2",
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.addGuestAttendance",
+        "arguments": {
+          "launch": "L",
+          "name": "Alex",
+          "selected_existing": "Alex-2",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "person": "Alex-2",
+          "new_people": 0,
+          "links": 1
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-005",
+      "requirement": "REQ-KNOW-101",
+      "feature_ids": [
+        "LCH-006",
+        "PI-009"
+      ],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Aggregateheadcount100, namedroster20 and reportedmissingguestcount3.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "headcount": 100,
+          "named_people": [
+            "guest-0",
+            "guest-1",
+            "guest-2",
+            "guest-3",
+            "guest-4",
+            "guest-5",
+            "guest-6",
+            "guest-7",
+            "guest-8",
+            "guest-9",
+            "guest-10",
+            "guest-11",
+            "guest-12",
+            "guest-13",
+            "guest-14",
+            "guest-15",
+            "guest-16",
+            "guest-17",
+            "guest-18",
+            "guest-19"
+          ],
+          "reported_missing": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "headcount": 100,
+          "named_people": [
+            "guest-0",
+            "guest-1",
+            "guest-2",
+            "guest-3",
+            "guest-4",
+            "guest-5",
+            "guest-6",
+            "guest-7",
+            "guest-8",
+            "guest-9",
+            "guest-10",
+            "guest-11",
+            "guest-12",
+            "guest-13",
+            "guest-14",
+            "guest-15",
+            "guest-16",
+            "guest-17",
+            "guest-18",
+            "guest-19"
+          ],
+          "reported_missing": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "headcount": 100,
+          "named_count": 20,
+          "reported_missing": 3,
+          "placeholder_people": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-006",
+      "requirement": "REQ-KNOW-102",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-038",
+        "WP-040"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Debrief missingnameanswer No then Yes withcount input; extra finish/attestation control attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "missing_names": true,
+          "missing_count": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "missing_names": true,
+          "missing_count": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "missing_name_questions": 1,
+          "count_field_visible": true,
+          "finish_guest_button": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-007",
+      "requirement": "REQ-KNOW-103",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004",
+        "PI-001",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Submitted No with datedactor while headcount unknown/zero or rostercounts mismatch.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "submitted": true,
+          "missing_names": false,
+          "headcount": 0,
+          "named_count": 0
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.submitDebrief",
+        "arguments": {
+          "launch": "L",
+          "submitted": true,
+          "missing_names": false,
+          "headcount": 0,
+          "named_count": 0
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_data_entered": "met",
+          "provenance": "submitted_debrief"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-008",
+      "requirement": "REQ-KNOW-104",
+      "feature_ids": [
+        "LCH-004",
+        "PI-001",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-004--LCH-004"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Submitted Yes3 and rosterlateradds2 namedguests without correctedanswer.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "submitted": true,
+          "missing_names": true,
+          "missing_count": 3,
+          "named_count": 20
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.submitDebrief",
+        "arguments": {
+          "launch": "L",
+          "submitted": true,
+          "missing_names": true,
+          "missing_count": 3,
+          "named_count": 20
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_data_entered": "not_met",
+          "remaining": 3
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-009",
+      "requirement": "REQ-KNOW-105",
+      "feature_ids": [
+        "LCH-006",
+        "PI-001",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Previous validNo submission followed unansweredincomplete draft.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "valid_prior": {
+            "missing_names": false
+          },
+          "new_draft": {
+            "missing_names": null
+          }
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "valid_prior": {
+            "missing_names": false
+          },
+          "new_draft": {
+            "missing_names": null
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "current_criterion": "met",
+          "draft_criterion": "unknown"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-010",
+      "requirement": "REQ-KNOW-106",
+      "feature_ids": [
+        "LCH-006",
+        "PI-001",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-LCH-006--LCH-006"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Valid sixarea submission with Yes3 unnamedguests.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "submitted": true,
+          "missing_names": true,
+          "missing_count": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.submitDebrief",
+        "arguments": {
+          "launch": "L",
+          "submitted": true,
+          "missing_names": true,
+          "missing_count": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "debrief_done": "met",
+          "guest_data_entered": "not_met"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-011",
+      "requirement": "REQ-KNOW-107",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Partial sixarea form,draftsave,validsubmit,correction and emptyoptional prose.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "areas": [
+            "actual date/attendance",
+            "what went well",
+            "what to change",
+            "welcoming/children/worship/logistics",
+            "guest follow-up plan",
+            "operational support needed"
+          ],
+          "submitted": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.saveDebriefDraft",
+        "arguments": {
+          "launch": "L",
+          "areas": [
+            "actual date/attendance",
+            "what went well",
+            "what to change",
+            "welcoming/children/worship/logistics",
+            "guest follow-up plan",
+            "operational support needed"
+          ],
+          "submitted": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "status": "draft",
+          "debrief_done": "unknown",
+          "area_count": 6
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-012",
+      "requirement": "REQ-KNOW-108",
+      "feature_ids": [
+        "LCH-001",
+        "LCH-002",
+        "LCH-006",
+        "LCH-007",
+        "PI-009"
+      ],
+      "acceptance_ids": [
+        "AC-PI-009--PI-009",
+        "AC-LCH-001--LCH-001",
+        "AC-LCH-002--LCH-002",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-040"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Debrief actualcount/date edit,plannedtarget unaffected and narrative claims firstservice.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "planned_date": "2026-10-10",
+          "actual_date": null,
+          "narrative": "Our first service happened yesterday"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "planned_date": "2026-10-10",
+          "actual_date": null,
+          "narrative": "Our first service happened yesterday"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "actual_date": null,
+          "planned_date": "2026-10-10",
+          "first_service_complete": "unknown"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-013",
+      "requirement": "REQ-KNOW-109",
+      "feature_ids": [
+        "LCH-007",
+        "LCH-010",
+        "PI-028",
+        "PI-030"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-PI-030--PI-030",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-010--LCH-010"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-040",
+        "WP-044"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Correction No→Yes2,no-op repeat,stale revision,previousPI snapshot/advancedphase.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "old_missing": 3,
+          "new_missing": 0,
+          "new_answer": false,
+          "phase": "Phase5",
+          "repeat": 2
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.correctDebrief",
+        "arguments": {
+          "launch": "L",
+          "revision": 4,
+          "old_missing": 3,
+          "new_missing": 0,
+          "new_answer": false,
+          "phase": "Phase5",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_data_entered": "met",
+          "history_versions": 2,
+          "phase": "Phase5",
+          "replay_additional_history": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-014",
+      "requirement": "REQ-KNOW-110",
+      "feature_ids": [
+        "LCH-003",
+        "LCH-004",
+        "LCH-010",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-028--PI-028",
+        "AC-LCH-003--LCH-003",
+        "AC-LCH-004--LCH-004",
+        "AC-LCH-010--LCH-010"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-040"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Derived guest/debrief milestones alongside manually editableotherreadiness; override checkbox attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "guest_data_entered": "not_met",
+          "debrief_done": "met",
+          "manual_guest_checkbox": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "guest_data_entered": "not_met",
+          "debrief_done": "met",
+          "manual_guest_checkbox": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_milestone": "not_met",
+          "debrief_milestone": "met",
+          "manual_override_error": "derived_evidence_only"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-015",
+      "requirement": "REQ-KNOW-111",
+      "feature_ids": [
+        "IDN-023",
+        "LCH-006",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-023--IDN-023",
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Questionnairesubmitted with rawreflection, summarydraftsaved, separatepublish previewreview.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "submitted": true,
+          "summary": "We held a service and will review team coverage.",
+          "explicit_publish": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.saveDebriefSummaryDraft",
+        "arguments": {
+          "launch": "L",
+          "submitted": true,
+          "summary": "We held a service and will review team coverage.",
+          "explicit_publish": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "published_summary": null,
+          "raw_answer_publication": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-016",
+      "requirement": "REQ-KNOW-112",
+      "feature_ids": [
+        "IDN-022",
+        "IDN-023",
+        "PI-031",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-022--IDN-022",
+        "AC-IDN-023--IDN-023",
+        "AC-PI-031--PI-031",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Publishedsummary sourceunion Meetings+People versus orgsharedfindingsON/PeopleOFF; secondaffiliatevalid.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "S1_shared_findings": true,
+          "N1_shared_findings": false,
+          "summary": "Service held."
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "organizations": [
+            "S1",
+            "N1"
+          ],
+          "S1_shared_findings": true,
+          "N1_shared_findings": false,
+          "summary": "Service held."
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "S1_summary": "Service held.",
+          "N1_summary": null,
+          "foreign_summary": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-017",
+      "requirement": "REQ-KNOW-113",
+      "feature_ids": [
+        "LCH-006",
+        "LCH-008",
+        "PI-043"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-008--LCH-008",
+        "AC-PI-043--PI-043"
+      ],
+      "work_packages": [
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Summary draft contains individualguest details/private support reflection; no automaticmodelredaction.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "human_summary": "Service held. Team review Tuesday.",
+          "private_note": "CARE-CANARY",
+          "guest": "Alex Rivera"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.publishDebriefSummary",
+        "arguments": {
+          "launch": "L",
+          "human_summary": "Service held. Team review Tuesday.",
+          "private_note": "CARE-CANARY",
+          "guest": "Alex Rivera"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "published": "Service held. Team review Tuesday.",
+          "private_care": null,
+          "guest_rows": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-018",
+      "requirement": "REQ-KNOW-114",
+      "feature_ids": [
+        "LCH-008",
+        "PI-032",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-032--PI-032",
+        "AC-LCH-008--LCH-008",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-044",
+        "WP-046",
+        "WP-047"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Direct reviewedsummarypublication while newmodelassessment still72hourembargoed.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "publish_at": "2026-10-13T15:00:00Z",
+          "assessment_available_at": "2026-10-13T14:00:00Z",
+          "eligible_open_at": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.publishDebriefSummary",
+        "arguments": {
+          "launch": "L",
+          "publish_at": "2026-10-13T15:00:00Z",
+          "assessment_available_at": "2026-10-13T14:00:00Z",
+          "eligible_open_at": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "summary_available": true,
+          "assessment_released": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-019",
+      "requirement": "REQ-KNOW-115",
+      "feature_ids": [
+        "EVR-020",
+        "LCH-006",
+        "TSK-002"
+      ],
+      "acceptance_ids": [
+        "AC-TSK-002--TSK-002",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-185--EVR-185",
+        "AC-EVR-EFFECT--EVR-185",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257"
+      ],
+      "work_packages": [
+        "WP-025",
+        "WP-053",
+        "WP-055",
+        "WP-068",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Questionnairesubmission and summarypublish with optional nextsteptask proposed separately.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "summary": "Next step: call Alex",
+          "debrief_submitted": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.publishDebriefSummary",
+        "arguments": {
+          "launch": "L",
+          "summary": "Next step: call Alex",
+          "debrief_submitted": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_tasks": 0,
+          "contacts": 0,
+          "emails": 0,
+          "phase": "Phase1"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-020",
+      "requirement": "REQ-KNOW-116",
+      "feature_ids": [
+        "EVR-020",
+        "IDN-005",
+        "LCH-006"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "work_packages": [
+        "WP-006",
+        "WP-052",
+        "WP-053",
+        "WP-075",
+        "WP-076",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Current plantOwner/Admin,Member,foreignactor,expiredreview and revokedgrant write guest/debrief.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "actors": [
+            "Owner",
+            "Admin",
+            "Member",
+            "foreign_Admin",
+            "revoked_Admin"
+          ],
+          "review_revision": 3,
+          "current_revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "actors": [
+            "Owner",
+            "Admin",
+            "Member",
+            "foreign_Admin",
+            "revoked_Admin"
+          ],
+          "review_revision": 3,
+          "current_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "fresh_write_allowed": [
+            true,
+            true,
+            false,
+            false,
+            false
+          ],
+          "stale_error": "revision_conflict"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-021",
+      "requirement": "REQ-KNOW-117",
+      "feature_ids": [
+        "PI-001",
+        "PI-009",
+        "PI-028"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-009--PI-009",
+        "AC-PI-028--PI-028"
+      ],
+      "work_packages": [
+        "WP-038",
+        "WP-040",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "Headcount/outcomeRecorded set but no submittedquestionnaire; arbitrarymanualsignal attempted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "headcount": 40,
+          "outcome_recorded": true,
+          "missing_names": null,
+          "debrief_submitted": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.buildFactSnapshot",
+        "arguments": {
+          "launch": "L",
+          "headcount": 40,
+          "outcome_recorded": true,
+          "missing_names": null,
+          "debrief_submitted": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "guest_data_entered": "unknown",
+          "debrief_done": "unknown"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-022",
+      "requirement": "REQ-KNOW-118",
+      "feature_ids": [
+        "LCH-007",
+        "LCH-010",
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-010--LCH-010"
+      ],
+      "work_packages": [
+        "WP-015",
+        "WP-046"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "GuestPerson merge into existing attendee, link correction and unchanged reportedmissingcount.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "people": [
+            "Alex-1",
+            "Alex-2"
+          ],
+          "links": [
+            "Alex-1",
+            "Alex-2"
+          ],
+          "merge_survivor": "Alex-1",
+          "headcount": 40,
+          "missing_count": 3
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "launch.readWorkspace",
+        "arguments": {
+          "launch": "L",
+          "people": [
+            "Alex-1",
+            "Alex-2"
+          ],
+          "links": [
+            "Alex-1",
+            "Alex-2"
+          ],
+          "merge_survivor": "Alex-1",
+          "headcount": 40,
+          "missing_count": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "active_links": [
+            "Alex-1"
+          ],
+          "headcount": 40,
+          "missing_count": 3
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "LAUNCH46-023",
+      "requirement": "REQ-KNOW-119",
+      "feature_ids": [
+        "PI-001",
+        "PI-028",
+        "PI-038",
+        "PI-040",
+        "PI-043",
+        "PI-044"
+      ],
+      "acceptance_ids": [
+        "AC-PI-001--PI-001",
+        "AC-PI-028--PI-028",
+        "AC-EVR-267--EVR-267",
+        "AC-EVR-READ--EVR-267",
+        "AC-EVR-268--EVR-268",
+        "AC-EVR-EFFECT--EVR-268",
+        "AC-PI-043--PI-043",
+        "AC-PI-044--PI-044"
+      ],
+      "work_packages": [
+        "WP-040",
+        "WP-042",
+        "WP-043",
+        "WP-046",
+        "WP-055"
+      ],
+      "status": "future-not-run",
+      "group": "launch46",
+      "description": "PI evidenceDTO includes boundedsubmission/counts with privatecare/reflection canaries.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "L": {
+          "fixture_type": "launch",
+          "id": "L",
+          "plant": "P",
+          "revision": 4,
+          "submitted": true,
+          "submitted_at": "2026-10-12T16:00:00Z",
+          "missing_names": true,
+          "missing_count": 3,
+          "raw_reflection": "PRIVATE-REFLECTION",
+          "private_note": "CARE-CANARY"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "intelligence.buildFactSnapshot",
+        "arguments": {
+          "launch": "L",
+          "submitted": true,
+          "submitted_at": "2026-10-12T16:00:00Z",
+          "missing_names": true,
+          "missing_count": 3,
+          "raw_reflection": "PRIVATE-REFLECTION",
+          "private_note": "CARE-CANARY"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "fact": {
+            "submitted": true,
+            "submitted_at": "2026-10-12T16:00:00Z",
+            "missing_names": true,
+            "missing_count": 3
+          },
+          "raw_reflection": null,
+          "private_care": null
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+      "requirement": "Actual attendance/one named guest count per occurrence; headcount/unnamed count never becomes Person; debrief independently submitted.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-046",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-launch-named-guest",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "plant": "P",
+          "revision": 3
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "launch-named-guest",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2",
+            "revision": 3
+          }
+        },
+        "result": {
+          "error_code": "revision_conflict",
+          "changed_references": 0,
+          "external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Named conflict refusal; zero Person/reference/history/effect mutation; existing current state preserved",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+      "requirement": "Actual attendance/one named guest count per occurrence; headcount/unnamed count never becomes Person; debrief independently submitted.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-046",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-launch-named-guest",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.mergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "launch-named-guest",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-LAUNCH-NAMED-GUEST-MERGE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "reference-1": {
+            "person": "P1"
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "current_reference_person": "P1",
+          "historical_person": "P2",
+          "receipts": 1,
+          "dangling_references": 0
+        },
+        "event": null,
+        "checks": [
+          "moveAndDeduplicate preserves registered chronology/identity; single shared receipt; no dangling reference",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+      "requirement": "Actual attendance/one named guest count per occurrence; headcount/unnamed count never becomes Person; debrief independently submitted.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-046",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-launch-named-guest",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.deletePerson",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "launch-named-guest",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "P2": {
+            "retired": true
+          },
+          "original-history": {
+            "person": "P2"
+          }
+        },
+        "result": {
+          "operational_selector_contains_P2": false,
+          "historical_person": "P2",
+          "new_external_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Archived Person remains historical referenced record; current operational filters exclude retired where defined; no dangling/deleted private lookup or inherited grant.",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    },
+    {
+      "id": "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE",
+      "requirement": "Actual attendance/one named guest count per occurrence; headcount/unnamed count never becomes Person; debrief independently submitted.",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-017--PPL-017"
+      ],
+      "work_packages": [
+        "WP-004",
+        "WP-046",
+        "WP-015",
+        "WP-056"
+      ],
+      "status": "future-not-run",
+      "group": "personref-launch-named-guest",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P1": {
+          "fixture_type": "person",
+          "id": "P1",
+          "plant": "P",
+          "name": "Alex Rivera",
+          "revision": 4
+        },
+        "P2": {
+          "fixture_type": "person",
+          "id": "P2",
+          "plant": "P",
+          "name": "Alex Chen",
+          "revision": 3
+        },
+        "Q1": {
+          "fixture_type": "person",
+          "id": "Q1",
+          "plant": "Q",
+          "name": "Foreign canary"
+        },
+        "reference-1": {
+          "fixture_type": "person_reference",
+          "consumer": "launch-named-guest",
+          "person": "P1",
+          "plant": "P",
+          "revision": 2
+        },
+        "original-history": {
+          "fixture_type": "history",
+          "consumer": "launch-named-guest",
+          "person": "P2",
+          "occurred_at": "2026-10-01T12:00:00Z"
+        },
+        "merge-receipt": {
+          "fixture_type": "merge_receipt",
+          "id": "merge-1",
+          "survivor": "P1",
+          "retired": "P2",
+          "moved_rows": [
+            {
+              "row": "reference-1",
+              "before_person": "P2",
+              "after_person": "P1",
+              "after_revision": 2
+            }
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.unmergePeople",
+        "arguments": {
+          "survivor": "P1",
+          "retiring": "P2",
+          "consumer": "launch-named-guest",
+          "expected_revisions": {
+            "P1": 4,
+            "P2": 3,
+            "reference-1": 2
+          },
+          "request_key": "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE-1",
+          "repeat": 2,
+          "receipt": "merge-1"
+        }
+      },
+      "expected": {
+        "state": {
+          "reference-1": {
+            "person": "P2"
+          },
+          "P2": {
+            "retired": false
+          }
+        },
+        "result": {
+          "restored_person": "P2",
+          "inverse_receipts": 1,
+          "external_resends": 0
+        },
+        "event": null,
+        "checks": [
+          "Only unchanged safe receipt inverse restores exact P1/P2 refs once; prior merge/inverse history retained",
+          "Foreign Person/receipt and Member mutation refuse without forbidden existence; title grants none",
+          "Fault before tx commit rolls back Person/ref/history/revision/receipt/audit; postcommit lost response replays saved receipt, no duplicate inverse"
+        ]
+      }
+    }
+  ]
+}

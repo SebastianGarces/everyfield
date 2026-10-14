@@ -1,0 +1,1241 @@
+{
+  "scope": "Current execution behavior examples. Fixture names are stable labels, not prescribed internal API types. One group may be proven by one table-driven test. Named subcases share the parent case ID; all their effects must be checked.",
+  "status": "future-not-run",
+  "case_schema": "docs/acceptance/case.schema.json",
+  "cases": [
+    {
+      "id": "EXEC-001",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Unauthenticated/missing-secret tick and valid fixed registered schedule request with forged job arguments.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "Missing/invalid auth fails; scheduler cannot select arbitrary subjects/business operation."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-002",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Two connections claim same due job concurrently then one expired generation resumes.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null
+        },
+        "event": null,
+        "checks": [
+          "One current claim; old checkpoint/finalization/publication CAS refuses."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-003",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "One tenant perpetual mail backlog with other tenant digest/deletion/reference owed work.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "backlogged_tenant": "P",
+          "owed_tenant": "Q",
+          "owed_job": "digest-Q"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "backlogged_tenant": "P",
+          "owed_tenant": "Q",
+          "owed_job": "digest-Q"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "Q_job_retained": true,
+          "tail_starved": false,
+          "cancellation_slot_reserved": true
+        },
+        "event": null,
+        "checks": [
+          "Rotating type/tenant cursor, reserved cancellation slot and quotas prevent tail starvation; all owed work retained."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-004",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "270second route budget reached mid page with unstarted claims and slow provider call.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false
+        },
+        "event": null,
+        "checks": [
+          "No new work after240seconds; settle/release safely, external unknown reconciles, durable due cursor never dropped."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-005",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Three confirmed retryable refusals and a permanent policy denial with RetryAfter.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "request_key": "EXEC-005-request-1",
+          "repeat": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Bounded safe backoff/fail/manual recovery, permanent no retry and no blind replay of unknown outcome."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-006",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Digest catchup has more100lines across several missed periods and sharing revoked after compile.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "missed_dates": [
+            "2026-10-10",
+            "2026-10-11",
+            "2026-10-12"
+          ],
+          "compiled_Q_permission": true,
+          "live_Q_permission": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "missed_dates": [
+            "2026-10-10",
+            "2026-10-11",
+            "2026-10-12"
+          ],
+          "compiled_Q_permission": true,
+          "live_Q_permission": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "digests": 1,
+          "Q_body": null,
+          "stale_day_mails": 0
+        },
+        "event": null,
+        "checks": [
+          "One dated bounded current summary/link, coverage stable and revoked contribution removed before dispatch."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-007",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Time-only assessment demand at unchanged source; provider call reaches45second timeout, source changes during inference, and stale claimant resumes after its120second assessment lease.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "expected_revision": 3
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unauthorized_effects": 0,
+          "unauthorized_body": null,
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Assessment handler uses120second job/attempt lease rather than default5minutes and provider call≤45seconds within unchanged270second tick budget; domain demand/run identity separate, source/reference/claim CAS refuses stale publication and prior result survives."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-008",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Reference job completes subset chunks then provider timeout and manifest replaced.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "active_release": "R1",
+          "candidate": "R2",
+          "missing_chunk": "C2"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "active_release": "R1",
+          "candidate": "R2",
+          "missing_chunk": "C2"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "active_release": "R1",
+          "R2_promoted": false
+        },
+        "event": null,
+        "checks": [
+          "Only current candidate checkpoint; old active complete generation continues, no mixed promotion."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-009",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Import/render timeout with existing ready file; object cleanup races DBfinalization.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "ready_file": "D1",
+          "new_render": "timeout",
+          "ready_reference": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "ready_file": "D1",
+          "new_render": "timeout",
+          "ready_reference": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "current_file": "D1",
+          "ready_file_deleted": false,
+          "new_status": "failed"
+        },
+        "event": null,
+        "checks": [
+          "Failure truthful/current file survives; scoped hash/reference fence prevents removing ready replacement."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-010",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Feedback external create timeout with exact frozen repository and duplicate candidate marker.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "unknown_is_zero": false,
+          "replay_additional_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "Reconcile exact marker/actual locator; ambiguous held unknown/no raw fallback or duplicate creation."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-011",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Deletion deadline claim collides cancellation before/at boundary; new request after old cancel receipt.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "stale_effects": 0
+        },
+        "event": null,
+        "checks": [
+          "DBclock/current request fence and resumable hidden purge; stale cancellation never affects later request."
+        ]
+      }
+    },
+    {
+      "id": "EXEC-012",
+      "requirement": "REQ-OPS-012",
+      "feature_ids": [
+        "NTF-002",
+        "NTF-007",
+        "NTF-008",
+        "OPS-001"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002",
+        "AC-NTF-007--NTF-007",
+        "AC-NTF-008--NTF-008",
+        "AC-OPS-001--OPS-001"
+      ],
+      "work_packages": [
+        "WP-007",
+        "WP-030",
+        "WP-031",
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "group": "exec",
+      "description": "Production expected/high burst and actual deployment schedule,maxDuration,handler registration measured; paid config unavailable.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "revision": 3
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "schedule_configured": false,
+          "paid_tier_approved": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "jobs.manualRun",
+        "arguments": {
+          "subject": "P",
+          "schedule_configured": false,
+          "paid_tier_approved": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "readiness": "blocked",
+          "measured_latency_claim": null,
+          "paid_commitment": false
+        },
+        "event": null,
+        "checks": [
+          "Report actual p95due lag and capacity; unproven schedule/tier remains readiness blocker, no implied paid approval."
+        ]
+      }
+    }
+  ]
+}
