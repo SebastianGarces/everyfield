@@ -63,7 +63,7 @@ Read these files before your first action. They are not in your skill list. The 
 
 ## Scope, gates and progress
 
-Use the current bounded packet and every selected page. Reviewed proof plans are installed in the root before task creation/rebase; task branches cannot mint their own proof authority. Separate current producer/native/contract portions from named later adapter portions for both cases and package gates. G-RUNTIME/G-RECOVERY are closure evidence, not prerequisites that prevent their producers starting; paid usage still requires its concrete G-SPEND approval.
+Use the current short package brief and follow its detail links on demand. Reviewed proof plans are installed in the root before task creation/rebase; task branches cannot mint their own proof authority. Separate current producer/native/contract portions from named later adapter portions for both cases and package gates. G-RUNTIME/G-RECOVERY are closure evidence, not prerequisites that prevent their producers starting; paid usage still requires its concrete G-SPEND approval.
 
 Only evf writes canonical progress. Package owners keep task notes current. Read
 `docs/build-agent-workflow.md` for milestone acknowledgement and integration closure. Merge authority

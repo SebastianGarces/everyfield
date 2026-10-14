@@ -14,7 +14,7 @@ Intent owns task execution, delegation, conflicts, model sessions, owner discuss
 
 ## Current context, planning and gates
 
-Current clauses/cases/operations come from `docs/catalog/index.json`; missing inputs fail instead of falling back to an empty old registry. Briefs validate `docs/plan/context-manifest.json`, name every selected case and require every bounded detail page. Deleted PD/V2 material is not a prerequisite or recreated decision store.
+Current clauses/cases/operations come from `docs/catalog/index.json`; missing inputs fail instead of falling back to an empty old registry. Briefs validate `docs/plan/context-manifest.json` and name the selected cases. Start with the short package brief and read linked details on demand; the reviewed proof plan still accounts for every selected obligation. Deleted PD/V2 material is not a prerequisite or recreated decision store.
 
 Planning precomputes all selected package endpoints before wiring dependencies, preserving the 26 forward references. Selection follows the canonical topological order. UI paths are presentation/features/components and browser tests; Next server adapters and API routes stay with the implementor. Split contract prerequisites need retained merged-part evidence included in current main.
 

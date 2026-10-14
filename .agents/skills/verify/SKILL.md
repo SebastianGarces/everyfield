@@ -5,7 +5,7 @@ description: "Apply before claiming a task works. Distinguish local tooling proo
 
 # Verify
 
-Read the task's current bounded packet and every selected detail page. A reviewed proof plan accounts for every selected case and package gate: own-scope portions must pass, and later native/assistant/integration portions name actual downstream owners. Whole-target gates permit no deferral. Producer/part proof never establishes full package completion.
+Read the task's current short brief, then follow chapter/schema/detail links on demand to resolve the selected obligations. A reviewed proof plan accounts for every selected case and package gate: own-scope portions must pass, and later native/assistant/integration portions name actual downstream owners. Whole-target gates permit no deferral. Producer/part proof never establishes full package completion.
 
 The author and independent verifier use distinct trusted provider identities/model families through the operator's signed runner. CLI `--role` selects requested work and grants no identity. The runner must reproduce real checks, applicable database/browser/tool layers and scoped evidence; it signs task/stage/head/base/policy/portion/check-digest bindings. Root proof plans and runner keys must be reviewed before task creation. No application runner is configured in this scaffold.
 
