@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import raw from "../../../../design/marketing-copy.json";
+import { LIVE_PAGES } from "@/site";
 
 // design/marketing-copy.json is the copy authority (task E2 owns it). It is parsed here, at build time,
 // so a shape change fails the build instead of rendering a broken page. Only the fields the live pages read are listed.
@@ -81,7 +82,7 @@ const legalPage = z.object({
 
 const schema = z.object({
   shared: z.object({
-    nav: z.array(z.object({ label: text })),
+    nav: z.array(z.object({ label: text, href: z.enum(LIVE_PAGES) })),
     nav_cta: text,
     footer: z.object({
       headline: text,

@@ -17,20 +17,12 @@
     "brand": "EveryField",
     "nav": [
       {
-        "label": "Product",
-        "href": "#features"
+        "label": "Planters",
+        "href": "/"
       },
       {
-        "label": "For planters",
-        "href": "#planters"
-      },
-      {
-        "label": "For sending churches and networks",
-        "href": "#oversight"
-      },
-      {
-        "label": "Privacy",
-        "href": "#trust"
+        "label": "Sending churches and networks",
+        "href": "/oversight"
       }
     ],
     "nav_cta": "Request early access",

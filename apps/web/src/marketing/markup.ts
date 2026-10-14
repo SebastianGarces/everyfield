@@ -10,20 +10,17 @@ import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_SIGNS, CX_TEAMS, CX_TYPES, HA_NAME,
 // Product visuals use a demo church (Harvest Point); that sample data is part of the approved design.
 
 /* ---------- Routes ---------- */
-export const PLANTER_FORM = "/access#planter-form";
-export const NETWORK_FORM = "/access#network-form";
+// Every link to the request page goes to the top of /access, where the visitor picks a form. No form anchors.
+export const ACCESS = "/access";
 const ROUTE: Record<string, string> = {
-  "Request early access": PLANTER_FORM,
-  "Request early access as a planter": PLANTER_FORM,
-  "Talk to us about your network": NETWORK_FORM,
-  // The planters page is not live yet; its buttons go to the planter form.
-  "See the seven phases": PLANTER_FORM,
-  "I am a planter": PLANTER_FORM,
-  "See the planter's week": PLANTER_FORM,
+  // The planters page is not live yet; its buttons go to the request page.
+  "See the seven phases": ACCESS,
+  "I am a planter": ACCESS,
+  "See the planter's week": ACCESS,
   "See how it works": "/#week",
   "See what sending churches and networks see": "/oversight",
 };
-const routeHref = (label: string) => ROUTE[label] ?? "/access";
+const routeHref = (label: string) => ROUTE[label] ?? ACCESS;
 
 /* ---------- Helpers ---------- */
 const ICON = {
@@ -557,7 +554,7 @@ function ovFaq(f: Copy["shared"]["oversight_page"]["faq"]) {
   return '<section class="sec sec-ov-faq" id="faq"><div class="wrap"><div class="faq-grid"><h2 class="display h2 faq-title">' + t(f.headline) + '</h2><div class="faq-list">' + f.items.map((x) => {
     const id = "faq-" + x.id;
     let a = t(x.a);
-    if (x.link) a = a.replace(t(x.link), '<a href="' + NETWORK_FORM + '">' + t(x.link) + "</a>");
+    if (x.link) a = a.replace(t(x.link), '<a href="' + ACCESS + '">' + t(x.link) + "</a>");
     return '<div class="faq-i" id="' + id + '"><h3 class="faq-h"><button type="button" class="faq-q" id="' + id + '-q" aria-expanded="false" aria-controls="' + id + '-a"><span>' + t(x.q) + '</span><span class="faq-pm" aria-hidden="true"></span></button></h3>' +
       '<div class="faq-a" id="' + id + '-a"><div class="faq-in"><p>' + a + "</p></div></div></div>";
   }).join("") + "</div></div></div></section>";
@@ -571,7 +568,7 @@ export function homeHTML() {
 }
 export function oversightHTML() {
   const P = COPY.shared.oversight_page;
-  return hero(P.hero, { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [NETWORK_FORM, "#every-plant"] }) +
+  return hero(P.hero, { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [ACCESS, "#every-plant"] }) +
     problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
     phSection(P.plants, { id: "plants", vig: ovVig, tones: OV_PH_TONES }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
 }

@@ -218,18 +218,21 @@ export function AccessForm({ kind, id, fields, text }: Props) {
         <label htmlFor={`${uid}-${HONEYPOT}`}>Leave this field empty</label>
         <input id={`${uid}-${HONEYPOT}`} name={HONEYPOT} type="text" tabIndex={-1} autoComplete="off" />
       </div>
-      <button
-        className="mk-btn primary"
-        type="submit"
-        aria-disabled={sending || undefined}
-        onPointerDown={() => { pressing.current = true; }}
-        onPointerUp={() => setTimeout(() => { pressing.current = false; }, 0)}
-        onPointerCancel={() => { pressing.current = false; }}
-      >
-        {sending ? text.submitting : text.submit}
-        {sending ? <span className="mk-spin" aria-hidden="true" /> : ARROW}
-      </button>
-      <p className="form-note">{withLink(text.privacyNote.text, text.privacyNote.link, "/privacy")}</p>
+      {/* The button and privacy note sit at the card bottom, so both cards line up side by side. */}
+      <div className="form-actions">
+        <button
+          className="mk-btn primary"
+          type="submit"
+          aria-disabled={sending || undefined}
+          onPointerDown={() => { pressing.current = true; }}
+          onPointerUp={() => setTimeout(() => { pressing.current = false; }, 0)}
+          onPointerCancel={() => { pressing.current = false; }}
+        >
+          {sending ? text.submitting : text.submit}
+          {sending ? <span className="mk-spin" aria-hidden="true" /> : ARROW}
+        </button>
+        <p className="form-note">{withLink(text.privacyNote.text, text.privacyNote.link, "/privacy")}</p>
+      </div>
       {notice ? (
         <div className="form-msg show form-fail" role="alert" tabIndex={-1} ref={msgRef}>
           <p className="form-msg-title">{notice.title}</p>

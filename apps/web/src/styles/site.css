@@ -86,3 +86,9 @@ a:focus-visible, button:focus-visible, .mk-btn:focus-visible, summary:focus-visi
 .field input::placeholder, .field textarea::placeholder { color: var(--mk-text-3); opacity: 1; }
 /* The page hero centres its text; long legal text reads left-aligned, in a column centred under the title. */
 .page-hero .legal-body { text-align: left; margin-inline: auto; }
+
+/* Access forms: the cards share a grid row and stretch to the same height. The submit button and privacy note
+   sit at the card bottom, so both buttons line up when the forms have different field counts. */
+.form-actions { margin-top: auto; display: flex; flex-direction: column; gap: 16px; }
+/* The request button keeps its colours on /access, where it carries aria-current. */
+.nav-links a.mk-btn[aria-current="page"] { color: var(--mk-cta-text); }

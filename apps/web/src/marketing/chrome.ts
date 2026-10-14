@@ -1,36 +1,31 @@
 import "server-only";
 import { COPY } from "./copy";
-import { NETWORK_FORM, PLANTER_FORM, btn, icon, logo, mark, t } from "./markup";
+import { ACCESS, btn, icon, logo, mark, t } from "./markup";
 
-// Nav and footer markup from the prototype (navHTML, renderFooter). Only live pages get links: the planters page,
-// the trust page and sign in are not live, so their nav items and footer links are left out, and so are the
-// footer items the prototype marks "Later". A column with no live links is left out too.
-
-const NAV: Record<string, string> = {
-  Product: "/#features",
-  "For sending churches and networks": "/oversight",
-};
+// Nav and footer markup from the prototype (navHTML, renderFooter). The nav items and their routes come from
+// shared.nav in design/marketing-copy.json. Only live pages get footer links: the planters page, the trust page and
+// sign in are not live, so their footer links are left out, and so are the footer items the prototype marks "Later".
+// A column with no live links is left out too.
 const FOOTER: Record<string, string> = {
   Overview: "/",
   "Plant Intelligence": "/#intelligence",
   "Sending churches and networks": "/oversight",
-  Contact: NETWORK_FORM,
+  Contact: ACCESS,
   "Privacy policy": "/privacy",
   Terms: "/terms",
 };
 
+/** A link to the page being shown carries aria-current="page", in the nav and on the request button. */
+const link = (href: string, path: string, label: string, cls?: string) =>
+  "<a" + (cls ? ' class="' + cls + '"' : "") + ' href="' + href + '"' + (href === path ? ' aria-current="page"' : "") + ">" + label + "</a>";
+
 export function navHTML(path: string) {
   const S = COPY.shared;
-  const links = S.nav
-    .filter((n) => NAV[n.label])
-    .map((n) => {
-      const href = NAV[n.label]!;
-      return '<a href="' + href + '"' + (href === path ? ' aria-current="page"' : "") + ">" + t(n.label) + "</a>";
-    })
-    .join("");
+  const links = S.nav.map((n) => link(n.href, path, t(n.label))).join("");
+  const cta = (cls: string, arrow: string) => link(ACCESS, path, t(S.nav_cta) + arrow, cls);
   return '<div class="wrap"><a href="/" aria-label="EveryField home" class="nav-home">' + logo("nav-logo") + "</a>" +
-    '<nav class="nav-links" aria-label="Main">' + links + '<a class="mk-btn primary nav-cta-m" href="' + PLANTER_FORM + '">' + t(S.nav_cta) + "</a></nav>" +
-    '<div class="nav-end">' + btn(S.nav_cta) +
+    '<nav class="nav-links" aria-label="Main">' + links + cta("mk-btn primary nav-cta-m", "") + "</nav>" +
+    '<div class="nav-end">' + cta("mk-btn primary", icon("arrow")) +
     '<button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false">' + icon("menu") + "</button></div></div>";
 }
 
