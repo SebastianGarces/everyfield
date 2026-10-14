@@ -69,7 +69,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-001.** Preserve upcoming/past/all windows, closed type filter, stable paging and one derived display title across detail/bread crumb. Browse defaults all; analytics defaults Vision and labels that scope. Unknown/repeated type query gets the documented all default. Cancelled future records remain distinguishable from scheduled; an empty current filter does not claim no historical meetings. Team tab and global list reuse the same records with current tenant projection.
 
-**Target operations:** `meetings.listMeetings`, `meetings.getMeeting`, `meetings.hasHistory`.
+**Target operations:** `meetings.list`, `meetings.get`, `meetings.hasHistory`.
 
 **Acceptance:** AC-MTG-001--MTG-001. **Named cases:** TARGET-MTG-001.
 
@@ -82,7 +82,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-002.** Retain vision_meeting/orientation/team_meeting and subtypes regular/training/planning/special/rehearsal; add approved distinct prelaunch_practice type. States planning/ready/in_progress/completed/cancelled; expected-revision transitions are explicit. Type/team linkage cannot change through ordinary edit. Atomically create selected active venue/snapshot, meeting, fresh agenda/kit and reviewed unique roster; lock tenant counter for distinct Vision numbers. Record resolved Instant/zone/offset for entered times. Delete from current list through attributable retirement; void an invalid occurrence separately, preserving history and actual held evidence. Completed practice requires actual nonfuture occurrence; three distinct valid held completed IDs meet practice count, four still meet. Scheduled/future/cancelled/not-held/duplicate/voided records do not count. Practice supports ordinary venue/agenda/guest/notes, but no Vision number/kit/card/evaluation/first-timer work or training credit. Correction/reopen/void changes current facts with history, never auto phase or milestones.
 
-**Target operations:** `meetings.createMeeting`, `meetings.updateMeeting`, `meetings.setStatus`, `meetings.retireMeeting`, `meetings.completePractice`, `meetings.correctOccurrence`.
+**Target operations:** `meetings.schedule`, `meetings.edit`, `meetings.changeStatus`, `meetings.delete`, `meetings.completePractice`, `meetings.correctOccurrence`.
 
 **Acceptance:** AC-MTG-002--MTG-002. **Named cases:** TARGET-MTG-002.
 
@@ -95,7 +95,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-003.** Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when sup plied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.
 
-**Target operations:** `locations.list`, `locations.get`, `locations.create`, `locations.update`, `locations.archive`.
+**Target operations:** `venues.list`, `venues.get`, `venues.create`, `venues.edit`, `venues.archive`.
 
 **Acceptance:** AC-MTG-003--MTG-003. **Named cases:** TARGET-MTG-003.
 
@@ -108,7 +108,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-004.** Discover archived venues, restore deliberately and retain all linked meeting records. Expected revision correction/archive/restore writes current state and old/new/corrector/time/reason atomically. Stale edit writes neither row nor history; no-op active-state request converges. Existing unchanged archived selection may remain on a meeting; new/reselected archived location is refused. Restore does not rewrite historical copied venue facts.
 
-**Target operations:** `locations.correct`, `locations.restore`, `locations.listCorrections`.
+**Target operations:** `venues.correct`, `venues.restore`, `venues.history`.
 
 **Acceptance:** AC-MTG-004--MTG-004. **Named cases:** TARGET-MTG-004.
 
@@ -121,7 +121,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-005.** Agenda sections have stable ID, trimmed title 1–120 and integer duration 0–600 minutes; at most 40 sections, empty valid. Save validates entire payload with named errors, never silently drops/truncates invalid API sections. Vision default is Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15 minutes (90 total), fresh IDs and immutable source version. Non Vision starts empty. Add/remove/reorder/retime roundtrip and derived total; later reference revision never overwrites a user's agenda.
 
-**Target operations:** `meetings.getAgenda`, `meetings.setAgenda`.
+**Target operations:** `meetings.readAgenda`, `meetings.replaceAgenda`.
 
 **Acceptance:** AC-MTG-005--MTG-005. **Named cases:** TARGET-MTG-005.
 
@@ -134,7 +134,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-006.** Retain canonical versioned kit categories essential/materials/setup/av/organization with item text, assigned Person, check state and bounded notes. Seed exact reviewed kit once with meeting create or explicit accepted offer; repeated population converges. Assignee must be live same plant, all FK/current revision checked; uncheck reverses check and summary counts actual checked rows. Non Vision including practice cannot request kit. Read never seeds missing rows silently.
 
-**Target operations:** `meetings.getKit`, `meetings.populateKit`, `meetings.updateKitItem`.
+**Target operations:** `meetings.listKit`, `meetings.populateKit`, `meetings.updateKitItem`.
 
 **Acceptance:** AC-MTG-006--MTG-006. **Named cases:** TARGET-MTG-006.
 
@@ -147,7 +147,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-007.** One meeting/Person guest row, invited initially absent and optional valid same plant inviter distinct from Person. Team roster expands current active memberships to unique live Persons, snapshots at creation/import and does not dynamically follow later joins/leaves. Explicit roster reconciliation previews additions/removals and current revisions. Guest remove cancels pending linked reminders/tokens and removes current card with history, preserving unrelated Person/contact/outcome evidence; performed work cannot be undone by removal. Read joins email tracking without turning engagement into presence.
 
-**Target operations:** `meetings.listGuests`, `meetings.addGuest`, `meetings.removeGuest`, `meetings.previewRosterImport`, `meetings.importRoster`.
+**Target operations:** `meetings.listGuests`, `meetings.inviteGuest`, `meetings.removeGuest`, `meetings.previewRosterImport`, `meetings.copyTeamRoster`.
 
 **Acceptance:** AC-MTG-007--MTG-007. **Named cases:** TARGET-MTG-007.
 
@@ -160,7 +160,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-008.** Owner/Admin may set confirmed/declined or reset null=Pending for exact guest/Person/meeting/tenant under current revision. Use one authoritative guest RSVP projection: admin change appends provenance, synchronizes recognized linked invitation response and supersedes pending bearer tokens so an old token cannot overwrite the correction. Reset returns Pending and invalidates old tokens; a new outgoing invitation explicitly mints a fresh token. It never changes attendance/card/contact/mail delivery. This resolves the source attendance-only inconsistency rather than retaining 2 current truths.
 
-**Target operations:** `meetings.setRsvp`.
+**Target operations:** `meetings.correctRsvp`.
 
 **Acceptance:** AC-MTG-008--MTG-008. **Named cases:** TARGET-MTG-008.
 
@@ -173,7 +173,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-009.** Authenticated own reply binds current account→live Person→existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.
 
-**Target operations:** `meetings.getOwnRsvp`, `meetings.replyOwnRsvp`, `meetings.replyTokenRsvp`.
+**Target operations:** `meetings.getOwnRsvp`, `meetings.saveOwnRsvp`, `meeting.answerRsvpToken`.
 
 **Acceptance:** AC-MTG-009--MTG-009. **Named cases:** TARGET-MTG-009.
 
@@ -186,7 +186,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-010.** Retain attended/absent/excused and first_time/returning/core_group categories with one guest row. For Vision first-time use prior chronologically earlier actually attended Vision only; team/orientation/practice/RSVP never substitutes. Core-group category remains distinct from first/returning and captures committed-stage evidence basis at recording/finalized snapshot, not later automatic stage edit. Finalized historical classification changes only reviewed correction; late prior Vision correction recomputes affected current eligibility/obligation delta with history. Whole batch validates/locks all Persons and commits all or none; own team leader only its attendance. Leader clear changes presence only, retaining guest/RSVP/card. Unknown row refuses instead of false success; summary counts attended Persons, including actual planter attendance.
 
-**Target operations:** `meetings.recordAttendance`, `meetings.recordAttendanceBatch`, `meetings.addWalkIn`, `meetings.clearAttendance`.
+**Target operations:** `meetings.setAttendance`, `meetings.captureAttendanceBatch`, `meetings.setAttendance`, `meetings.clearAttendance`.
 
 **Acceptance:** AC-MTG-010--MTG-010. **Named cases:** TARGET-MTG-010.
 
@@ -199,7 +199,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-011.** Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named con tactuses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.
 
-**Target operations:** `meetings.quickAddGuest`, `meetings.quickAddWalkIn`.
+**Target operations:** `meetings.createGuestContact`, `meetings.createWalkInContact`.
 
 **Acceptance:** AC-MTG-011--MTG-011. **Named cases:** TARGET-MTG-011.
 
@@ -225,7 +225,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-013.** Owner/Admin record/correct/clear one card per existing guest/meeting/Person: ready_commit/interested/prayer_request/stay_informed/not_interested, bounded prayer/question notes and recorder/occurred/recorded time. Clear returns no-card with correction tombstone; no-card is Unknown not negative. Report attended card population separately from absent guest cards and denominator, including zero/missing Unknown; do not infer attendance, email consent or commitment. Sensitive prayer/question notes require purpose-specific authorized projection and no automatic summary or AI counsel; public RSVP never reads or writes them. Non Vision/practice card denied.
 
-**Target operations:** `meetings.recordResponseCard`, `meetings.clearResponseCard`, `meetings.listResponses`, `meetings.readResponseBreakdown`.
+**Target operations:** `meetings.recordCard`, `meetings.clearCard`, `meetings.listCards`, `meetings.cardBreakdown`.
 
 **Acceptance:** AC-MTG-013--MTG-013. **Named cases:** TARGET-MTG-013.
 
@@ -238,7 +238,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-014.** Only Vision allows one human evaluation with integer 1–5 for 8 factor keys: attendanceScore (Great Attendance: Core Group actively inviting); locationScore (Acceptable Location: easy to find/welcoming/distraction-free); logisticsScore (Great Logistics: room/AV/materials ready); agendaScore (Clear Agenda: detailed and on time); vibeScore (Great Vibe: warm/inviting/enthusiastic); messageScore (Compelling Message: clear vision); closeScore (Strong Close: nonmanipulative call); nextStepsScore (Clear Next Steps: dates/details). Server computes arithmetic average rounded 1 decimal and records reference version/actor/date. Evaluation insert and managed-evaluation task completion/history/revision commit together, uniqueness handles concurrent submission. No model scores factors.
 
-**Target operations:** `meetings.recordEvaluation`, `meetings.getEvaluation`, `meetings.readEvaluationTrend`.
+**Target operations:** `meetings.recordEvaluation`, `meetings.getEvaluation`, `meetings.evaluationTrend`.
 
 **Acceptance:** AC-MTG-014--MTG-014. **Named cases:** TARGET-MTG-014.
 
@@ -251,7 +251,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-015.** Correct allowed factor/notes under Owner/Admin, current meeting and expected row revision. Append old/new/actor/time/reason atomically, recompute average and source revision; stale edit creates no history. Current comparisons/PI use corrected effective evidence, while old receipts/snapshots remain interpretable. Correction never re-emits first evaluation completion or completes managed task again; task reopen requires separate explicit command.
 
-**Target operations:** `meetings.correctEvaluation`, `meetings.listEvaluationCorrections`.
+**Target operations:** `meetings.correctEvaluation`, `meetings.evaluationHistory`.
 
 **Acceptance:** AC-MTG-015--MTG-015. **Named cases:** TARGET-MTG-015.
 
@@ -290,7 +290,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-018.** Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guest sus ing expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.
 
-**Target operations:** `meetings.planNotifications`, `communication.composeMeeting`.
+**Target operations:** `meetings.planNotifications`, `communication.preview`.
 
 **Acceptance:** AC-MTG-018--MTG-018. **Named cases:** TARGET-MTG-018.
 
@@ -303,7 +303,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-MTG-019.** Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is notan approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.
 
-**Target operations:** `meetings.readInvitationAttribution`, `meetings.setInviter`.
+**Target operations:** `meetings.invitationAttribution`, `meetings.setInviter`.
 
 **Acceptance:** AC-MTG-019--MTG-019. **Named cases:** TARGET-MTG-019.
 
@@ -316,7 +316,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **REQ-COM-011.** Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt get sit sown label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.
 
-**Target operations:** `followups.recordOutcome`, `followups.correctOutcome`, `communication.listContactHistory`.
+**Target operations:** `followups.recordOutcome`, `followups.correctOutcome`, `followups.listContactHistory`.
 
 **Acceptance:** AC-COM-011--COM-011. **Named cases:** TARGET-COM-011.
 

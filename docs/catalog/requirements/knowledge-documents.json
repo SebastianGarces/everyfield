@@ -22,6 +22,12 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-036"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "documents.templates.contextual",
+          "rule": "Pure contextual/catalog lookup, no preview generation/persistence/review; explicit account profile may browse without phantom plant. Actual generation requires approved real-plant context."
+        }
       ]
     },
     {
@@ -29,7 +35,7 @@
       "feature_ids": [
         "DOC-002"
       ],
-      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field\u22642000 characters and combined\u226416KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact\u22648MiB/XML\u22642millionchars/1000blocks/XLSX20sheets500rows50cols. Render failure is truthful; no mutating GET.",
+      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field≤2000 characters and combined≤16KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact≤8MiB/XML≤2millionchars/1000blocks/XLSX20sheets500rows50cols. Render failure is truthful; no mutating GET.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.resolveContext",
@@ -53,7 +59,7 @@
       "feature_ids": [
         "DOC-003"
       ],
-      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending→ready only after coherent upload/finalization. Latest100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.history.list",
@@ -78,10 +84,10 @@
       "feature_ids": [
         "DOC-004"
       ],
-      "text": "Core Group Commitment Card \u2014 PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
+      "text": "Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.commitment-card"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-004--DOC-004"
@@ -99,10 +105,10 @@
       "feature_ids": [
         "DOC-005"
       ],
-      "text": "Response Card \u2014 PDF; quarter-page Vision guest contact/involvement, church.",
+      "text": "Response Card — PDF; quarter-page Vision guest contact/involvement, church.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.response-card"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-005--DOC-005"
@@ -120,10 +126,10 @@
       "feature_ids": [
         "DOC-006"
       ],
-      "text": "Guest Sign-in Sheet \u2014 PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
+      "text": "Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.guest-sign-in-sheet"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-006--DOC-006"
@@ -141,10 +147,10 @@
       "feature_ids": [
         "DOC-007"
       ],
-      "text": "Vision Meeting Agenda \u2014 PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+      "text": "Vision Meeting Agenda — PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.vision-meeting-agenda"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-007--DOC-007"
@@ -162,10 +168,10 @@
       "feature_ids": [
         "DOC-008"
       ],
-      "text": "Expectations of a Core Group Member \u2014 DOCX; presence/GROW-PRAY-GIVE/team participation.",
+      "text": "Expectations of a Core Group Member — DOCX; presence/GROW-PRAY-GIVE/team participation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.member-expectations"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-008--DOC-008"
@@ -183,10 +189,10 @@
       "feature_ids": [
         "DOC-009"
       ],
-      "text": "Launch Team Commitment \u2014 DOCX; member commitment approaching Launch Sunday.",
+      "text": "Launch Team Commitment — DOCX; member commitment approaching Launch Sunday.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.launch-team-commitment"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-009--DOC-009"
@@ -204,10 +210,10 @@
       "feature_ids": [
         "DOC-010"
       ],
-      "text": "Vision Meeting Follow-up Letter \u2014 DOCX; guest thank-you/next-step invitation.",
+      "text": "Vision Meeting Follow-up Letter — DOCX; guest thank-you/next-step invitation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.follow-up-letter"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-010--DOC-010"
@@ -225,10 +231,10 @@
       "feature_ids": [
         "DOC-011"
       ],
-      "text": "Board/Elder Meeting Agenda \u2014 DOCX; prayer/minutes/financial/ministry/action items.",
+      "text": "Board/Elder Meeting Agenda — DOCX; prayer/minutes/financial/ministry/action items.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.board-meeting-agenda"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-011--DOC-011"
@@ -246,10 +252,10 @@
       "feature_ids": [
         "DOC-012"
       ],
-      "text": "First-Year Budget \u2014 XLSX; 12-month income/expense with live formulas/totals.",
+      "text": "First-Year Budget — XLSX; 12-month income/expense with live formulas/totals.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.first-year-budget"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-012--DOC-012"
@@ -267,10 +273,10 @@
       "feature_ids": [
         "DOC-013"
       ],
-      "text": "Budget Worksheet \u2014 XLSX; monthly/annual planner with live formulas/totals.",
+      "text": "Budget Worksheet — XLSX; monthly/annual planner with live formulas/totals.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.budget-worksheet"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-013--DOC-013"
@@ -288,10 +294,10 @@
       "feature_ids": [
         "DOC-014"
       ],
-      "text": "Launch Sunday Checklists \u2014 PDF; authoritative checklist content/layout.",
+      "text": "Launch Sunday Checklists — PDF; authoritative checklist content/layout.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.render.launch-sunday-checklists"
+        "documents.preview"
       ],
       "acceptance_ids": [
         "AC-DOC-014--DOC-014"
@@ -309,7 +315,7 @@
       "feature_ids": [
         "DOC-015"
       ],
-      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG\u226410MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for5minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for5minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "storage.putPrivateObject",
@@ -379,6 +385,52 @@
       "work_packages": [
         "WP-034",
         "WP-035"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.articles.get",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, title, body, canonicalCredit, meaningfulLocalEditLabel, sourceReferences, completeness."
+        },
+        {
+          "operation": "wiki.articles.get",
+          "rule": "Single canonical article read; exact source view/version is entitled now, including eligible preplant reader; never creates human-read credit."
+        },
+        {
+          "operation": "wiki.articles.list",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: items, nextCursor, sourceView, completeness, asOf."
+        },
+        {
+          "operation": "wiki.articles.list",
+          "rule": "Closed source-view selector identifies the actual typed organization/global/current winner; current entitlement limits both results and counts."
+        },
+        {
+          "operation": "wiki.organizationArticles.add",
+          "rule": "Create own typed organization customization or unique article with server-minted identity; no nullable caller-selected new ID or plant-admin editor grant."
+        },
+        {
+          "operation": "wiki.organizationArticles.edit",
+          "rule": "Edit own article with expected draft revision; canonical/source/owner IDs immutable; safe native editor and no third Wiki CMS."
+        },
+        {
+          "operation": "wiki.organizationArticles.hide",
+          "rule": "Record explicit own-source hide with revision/history; default winner suppressed but authorized alternate browse remains."
+        },
+        {
+          "operation": "wiki.organizationArticles.publish",
+          "rule": "Freeze reviewed valid own draft as published version. Meaningful edit flag changes reader label only; publish does not reset reading credit or conceal canonical source."
+        },
+        {
+          "operation": "wiki.reading.recordView",
+          "rule": "Trusted native human view/progress evidence is server adapter context, never a model-supplied proof. Layout/restore/model fetch cannot mint completion; strict >0.80 credit retained across updates; all six Discovery articles must be completed by one eligible actual reader."
+        },
+        {
+          "operation": "wiki.reading.recordView",
+          "rule": "Native human view/progress observation bound to actual authenticated reader, article/source/published revision and reading policy. Evry may read state but cannot fabricate this observation."
+        },
+        {
+          "operation": "wiki.setSourceOrder",
+          "rule": "One explicit sequence per kind; setting preference moves entry to head preserving rest. Reject duplicate/foreign/wrong-kind/inactive entries and stale revision; no grant/affiliation primacy change."
+        }
       ]
     },
     {
@@ -450,6 +502,116 @@
         "WP-038",
         "WP-044",
         "WP-019"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Human earned completion and attributable verifier/version/date history in one transaction; current program team leader may attest eligible own-team member, churchwide Owner/Admin only. Completion never creates applicability from a dynamic roster."
+        },
+        {
+          "operation": "teams.correctProgram",
+          "rule": "teamId/kind changes rejected; never convert archived team program into churchwide"
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Required team, must null churchwide."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_owner: deduplicatedPersonIds, sourceRevisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_admin: deduplicatedPersonIds, sourceRevisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: deduplicatedPersonIds, sourceRevisions, excluded, digest."
+        },
+        {
+          "operation": "teams.readRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: personProgramPairs, effectiveDate, assignmentVersion, sourceReferences."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Redo only; omitted revoke."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Revoke/redo appends earned/revoked/corrected history, no original date/verifier overwrite; current nonrevoked compatible projection changes."
+        },
+        {
+          "operation": "teams.setRequiredTrainingParticipants",
+          "rule": "One versioned roster change, unique active person/program, historical assignment episodes/events retained, no later dynamic roster mutation."
+        },
+        {
+          "operation": "teams.trainingMatrix",
+          "rule": "Visible information for plant_member: rows, applicablePairCount, validCompletedPairCount, coverageStatus, sourceRevision, nextCursor, completeness."
+        },
+        {
+          "operation": "shared",
+          "rule": "private care: false."
+        },
+        {
+          "operation": "shared",
+          "rule": "signalKey: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested."
+        },
+        {
+          "operation": "shared",
+          "rule": "Only three prayer/giving legacy keys have source30day reaffirmation. Funding/values/systems/PrayerLeader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them."
+        },
+        {
+          "operation": "shared",
+          "rule": "Database constrained root plus trusted current same-org context; no plant FK or unchecked kind/id."
+        },
+        {
+          "operation": "shared",
+          "rule": "forbidden: rawContributorManifest, rawPlantAssessment, individualPerson, privateCare, streetAddress, perPlantMetricTable, ranking."
+        },
+        {
+          "operation": "shared",
+          "rule": "Integer>=2 exact distinct eligible contributors for this pattern at this geographic level"
+        },
+        {
+          "operation": "shared",
+          "rule": "Integer>=supportCount or explicit Unknown; no unsupported denominator/proportion"
+        },
+        {
+          "operation": "shared",
+          "rule": "no zero substitution: true."
+        },
+        {
+          "operation": "shared",
+          "rule": "current permission rechecked: true."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.correctProgram",
+          "rule": "program correction receipt, no silent roster recompute"
+        }
       ]
     },
     {
@@ -539,6 +701,68 @@
         "WP-052",
         "WP-053",
         "WP-055"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "documents.generate",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: documentId, plantId, templateVersion, format, status, byteHash, byteLength, downloadAvailable, correlationId."
+        },
+        {
+          "operation": "documents.generate",
+          "rule": "Approved read-capable current plant user can generate selected library artifact; freeze reviewed inputs/template/render engine, pending→ready only after exact bytes finalized; failed/pending never claim download ready."
+        },
+        {
+          "operation": "documents.generate",
+          "rule": "Supported format values: pdf, docx, xlsx."
+        },
+        {
+          "operation": "documents.generate",
+          "rule": "Same-parent subject IDs declared by template, no foreign Person/meeting/team"
+        },
+        {
+          "operation": "documents.generate",
+          "rule": "pending|ready|failed persisted artifact outcome; ordinary accepted reader is not excluded merely for Member seat."
+        },
+        {
+          "operation": "documents.preview",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: templateId, templateVersion, plantId, mergeFields, missingFields, sourceReferences, completeness, format, previewArtifact, previewDigest, renderEngineVersion."
+        },
+        {
+          "operation": "documents.preview",
+          "rule": "Current approved format/template/merge context; context lookup returns provenance/missing fields, preview renders exact bounded safe bytes without durable artifact or mutation."
+        },
+        {
+          "operation": "documents.resolveContext",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: templateId, templateVersion, plantId, mergeFields, missingFields, sourceReferences, completeness."
+        },
+        {
+          "operation": "evry.stageAttachment",
+          "rule": "Supported fileKind values: people_csv, person_photo, commitment, text, docx."
+        },
+        {
+          "operation": "people.getCommitments",
+          "rule": "Visible information for plant_owner: items, latest, completeness, nextCursor, evidence."
+        },
+        {
+          "operation": "people.getCommitments",
+          "rule": "Visible information for plant_admin: items, latest, completeness, nextCursor, evidence."
+        },
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_owner: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath."
+        },
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_admin: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath."
+        },
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_member: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath."
+        },
+        {
+          "operation": "people.getCommitmentDownload",
+          "rule": "authorized private delivery reference; no raw storage key"
+        }
       ]
     },
     {
@@ -640,6 +864,28 @@
       "work_packages": [
         "WP-032",
         "WP-033"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "reference.activateGeneration",
+          "rule": "Global advisory lock+expected-current CAS, append activation of complete validated generation. Current=max committed activation_number; no mutable isActive. Increment activation number before commit; after-commit wake-up only. Old assessment workers fail reference CAS; no giant all-plant transaction."
+        },
+        {
+          "operation": "reference.installApprovedWiki",
+          "rule": "Guarded fresh/global-only transaction;96published articles/21sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import."
+        },
+        {
+          "operation": "reference.installMessageTemplates",
+          "rule": "Install seven approved global originals by stable identity; never overwrite tenant fork or create recipients/sends. No customer migration."
+        },
+        {
+          "operation": "reference.rollbackActivation",
+          "rule": "Append a new activation pointing to old validated immutable release; no historical rewrite. New activation number fences prior workers even if reference bytes repeat; current source/body entitlements still apply."
+        },
+        {
+          "operation": "reference.validateBundle",
+          "rule": "Pure report query; does not mark a release active or silently approve failed semantic/model gates. Exact full-generation, links, identity, hashes and configured fixture expectations required."
+        }
       ]
     },
     {
@@ -1168,6 +1414,36 @@
       "work_packages": [
         "WP-034",
         "WP-035"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.article.exportPdf",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, renderedContent, pdfBytesOrPrintView, sourceReferences, canonicalCredit, meaningfulLocalEditLabel."
+        },
+        {
+          "operation": "wiki.article.exportPdf",
+          "rule": "Export/print exact currently entitled published body with canonical credit and meaningful edit label; no derivative grants or persisted reading completion."
+        },
+        {
+          "operation": "wiki.contextGuide",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: guideKey, authorizedSections, sourceReferences, completeness."
+        },
+        {
+          "operation": "wiki.contextGuide",
+          "rule": "Resolve only registered route/context guide to currently entitled Wiki passages; not a generic bulk article body signature."
+        },
+        {
+          "operation": "wiki.organizationArticles.getDraft",
+          "rule": "Current own organization Owner/Admin draft reader for approved native editor; published reader queries never disclose hidden/draft body. No plant editor authority or third CMS."
+        },
+        {
+          "operation": "wiki.referenceExcerpt",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, section, bodyExcerpt, canonicalCredit, meaningfulLocalEditLabel, sourceReferences, completeness."
+        },
+        {
+          "operation": "wiki.referenceExcerpt",
+          "rule": "Bounded entitled section excerpt, with source/version and completeness; excerpt/model fetch is not human reading."
+        }
       ]
     },
     {
@@ -2266,7 +2542,7 @@
       "operations": [
         "wiki.articles.list",
         "wiki.articles.get",
-        "wiki.articles.resolveVisibleCorpus"
+        "wiki.articles.list"
       ],
       "acceptance_ids": [
         "AC-WIKI-001--WIKI-001"
@@ -2285,7 +2561,7 @@
       "feature_ids": [
         "WIKI-002"
       ],
-      "text": "Phase/sidebar Getting-started, Journey 0\u20136, frameworks/reference/resources; deterministic order/title/slug; H2/H3 TOC, breadcrumbs, accessible mobile drawer, same-parent siblings and eligible related IDs. Missing/duplicate references skip safely; non-ASCII/spaces/path delimiters have one encoding contract.",
+      "text": "Phase/sidebar Getting-started, Journey 0–6, frameworks/reference/resources; deterministic order/title/slug; H2/H3 TOC, breadcrumbs, accessible mobile drawer, same-parent siblings and eligible related IDs. Missing/duplicate references skip safely; non-ASCII/spaces/path delimiters have one encoding contract.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.navigation",
@@ -2301,6 +2577,24 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.articleNeighbors",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: previousCanonicalId, nextCanonicalId, sourceView."
+        },
+        {
+          "operation": "wiki.articleNeighbors",
+          "rule": "Purpose-specific current authorized navigation; exact article/phase required for article/phase operation; no plant-title-only authority."
+        },
+        {
+          "operation": "wiki.navigation",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: sections, authorizedLinks, sourceView, asOf."
+        },
+        {
+          "operation": "wiki.tableOfContents",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, headings."
+        }
       ]
     },
     {
@@ -2308,7 +2602,7 @@
       "feature_ids": [
         "WIKI-003"
       ],
-      "text": "English weighted Postgres full-text title/excerpt/content, bounded web-search query \u2264200 characters, phase filter and 20/page. Safe highlight snippets; results/empty/unavailable distinct. Authenticated search actions never use crawler allowance. Source view uses the exact same resolver.",
+      "text": "English weighted Postgres full-text title/excerpt/content, bounded web-search query ≤200 characters, phase filter and 20/page. Safe highlight snippets; results/empty/unavailable distinct. Authenticated search actions never use crawler allowance. Source view uses the exact same resolver.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.search"
@@ -2370,6 +2664,16 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.bookmarks.list",
+          "rule": "Only trusted self personal Wiki state, purpose-specific projection. Current-source availability may be false; no past-entitlement body or another account reading data."
+        },
+        {
+          "operation": "wiki.bookmarks.set",
+          "rule": "Set only own bookmark after current canonical identity/entitlement validation; never other account state."
+        }
       ]
     },
     {
@@ -2392,6 +2696,20 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-035"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.feedback.setMine",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: canonicalArticleId, sourceId, publishedVersion, rating, revision, changed."
+        },
+        {
+          "operation": "wiki.feedback.setMine",
+          "rule": "Feedback requires the approved actual current plant context and exact currently entitled source/version; no phantom plant for preplant account."
+        },
+        {
+          "operation": "wiki.feedback.setMine",
+          "rule": "Supported rating values: helpful, unhelpful."
+        }
       ]
     },
     {
@@ -2509,6 +2827,12 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-034"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "wiki.publicPreviewMetadata",
+          "rule": "Anonymous exact public global Wiki preview is distinct from private/org reader; metadata has no private body and crawler route has no private shell."
+        }
       ]
     },
     {
@@ -2546,7 +2870,7 @@
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.setSourceOrder",
-        "wiki.articles.resolveVisibleCorpus"
+        "wiki.articles.list"
       ],
       "acceptance_ids": [
         "AC-WIKI-001--WIKI-001",

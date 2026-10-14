@@ -41,7 +41,7 @@ Native private weekly care requires a current same plant Owner/Admin and immutab
 
 ### REQ-IDN-032 — Finite deletion with restricted cancellation
 
-Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requestedAt and cancelUntil = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancelUntil using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.
+Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requestedAt and deadlineAt = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before deadlineAt using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.
 
 **Named cases:** TARGET-IDN-032.
 
@@ -110,7 +110,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-002.** Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8–1024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-sup plied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.
 
-**Target operations:** `identity.register`, `identity.resumeRegistration`, `identity.getRegistrationStatus`.
+**Target operations:** `accounts.register`, `accounts.resumeRegistration`, `accounts.getRegistrationStatus`.
 
 **Acceptance:** AC-IDN-002--IDN-002. **Named cases:** TARGET-IDN-002.
 
@@ -123,7 +123,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-003.** Retain an optional deployment-controlled beta gate, disabled by default for the fresh target unless explicitly enabled in that environment. An enabled gate accepts a valid configured code or an addressed live pending eligible invitation; forged, unrelated, expired or revoked invitations never bypass it. Account type choices follow the validated invitation subject. Show sufficient inviter/organization identity for informed acceptance, with no gate secret or sender-facing account-existence disclosure. Revalidate token and gate at submission.
 
-**Target operations:** `identity.getRegistrationOptions`, `invitations.describeOrigin`.
+**Target operations:** `accounts.getRegistrationOptions`, `invitations.describeRegistrationContext`.
 
 **Acceptance:** AC-IDN-003--IDN-003. **Named cases:** TARGET-IDN-003.
 
@@ -136,7 +136,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-004.** Retain reproducible development/managed-preview persona switching only for fresh synthetic allow listed fixture accounts. The server checks explicit environment enablement, supported fixture ID and intended environment before issuing a fixture session. Production defaults disable and exclude the action/surface; flags or client role strings cannot create production privilege. Never clone real/customer accounts into fixtures.
 
-**Target operations:** `development.switchFixtureAccount`.
+**Target operations:** `dev.switchFixtureIdentity`.
 
 **Acceptance:** AC-IDN-004--IDN-004. **Named cases:** TARGET-IDN-004.
 
@@ -149,7 +149,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-005.** Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allow list are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTO s; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.
 
-**Target operations:** `identity.getActor`, `identity.requireScope`, `identity.readMembership`.
+**Target operations:** `access.currentActor`, `access.checkOperation`, `seats.readCurrentMembership`.
 
 **Acceptance:** AC-IDN-005--IDN-005. **Named cases:** TARGET-IDN-005, ROLE43-001, ROLE43-002, ROLE43-006, ROLE43-009, ORG55-001.
 
@@ -162,7 +162,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-006.** Native self avatar upload accepts nonempty JPG/JPEG/PNG/WebP up to 3 MiB with generated private keys and verified type. Authenticate delivery through an account/version route; no arbitrary raw key or bearer storage URL is returned. Upload new bytes, atomically save version/reference/audit, then cleanup old unreferenced bytes. A failed row update retains old avatar and schedules orphan cleanup; failed old-byte cleanup leaves new avatar usable. Removal clears reference before cleanup. Account deletion follows REQ-IDN-032.
 
-**Target operations:** `account.uploadAvatar`, `account.removeAvatar`, `account.getAvatar`.
+**Target operations:** `account.finalizeAvatar`, `account.removeAvatar`, `account.getAvatar`.
 
 **Acceptance:** AC-IDN-006--IDN-006. **Named cases:** TARGET-IDN-006, ORG55-006.
 
@@ -201,7 +201,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-009.** Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Each consumes the request budget 3/normalized email and 10/trusted IP per hour before lookup. One live hashed purpose-bound token/account expires after 1 elapsed hour; request rotates prior. Redemption binds account from token, checks live/unconsumed token and captured email/credential revision, validates confirmed 8–1024 character new secret, and atomically replaces credentials, consumes all reset/email requests and revokes every session. Do not auto-sign-in. Success remains success if security-notice dispatch later fails; provider/database request failures are bounded and observable internally without enumeration.
 
-**Target operations:** `account.requestPasswordReset`, `account.resetPassword`.
+**Target operations:** `auth.requestPasswordRecovery`, `auth.recoverPassword`.
 
 **Acceptance:** AC-IDN-009--IDN-009. **Named cases:** TARGET-IDN-009.
 
@@ -227,7 +227,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-011.** Owner/Admin edit plant name and independent nullable street/city/region/country/profile fields; validate trimmed nonempty name and bounded fields, IANA timezone, weekday 0–6/hour 0–23, inactivity warning/alert 1–365 with warning<alert. Fresh defaults are America/Chicago and weekly digest Sunday 16:00. Street is excluded from organization directory/oversight; configured locality uses the shared geography contract. Timezone changes preview future schedules/reminders; past instants, LocalDate deadlines and one-time appointments remain. Inactivity/overdue computations use church-local dates. Missing optional locality is not an inferred population/area.
 
-**Target operations:** `churches.getSettings`, `churches.updateSettings`.
+**Target operations:** `settings.getSection`, `settings.saveSection`.
 
 **Acceptance:** AC-IDN-011--IDN-011. **Named cases:** TARGET-IDN-011.
 
@@ -240,7 +240,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-012.** Expose current audience's closed category/channel/daily-weekly cadence preference matrix and truthful suppression state. Save only the authenticated account's allowed preferences, with rollback/visible error on refusal. Self suppression-clear applies only its current proven mailbox and does not grant unrelated consent; enabled org push preference cannot override plant consent. Notification-owned scheduling/digest contracts provide actual delivery, including Sunday 16:00 default weekly digest. No private-care preference/nudge metadata reaches email or assistant.
 
-**Target operations:** `notifications.getPreferences`, `notifications.updatePreferences`, `notifications.clearOwnSuppression`.
+**Target operations:** `notifications.preferences.get`, `notifications.preferences.set`, `mail.suppression.restoreReviewed`.
 
 **Acceptance:** AC-IDN-012--IDN-012. **Named cases:** TARGET-IDN-012.
 
@@ -292,7 +292,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-016.** Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner locks account/profile, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one domain transaction, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account lock and one-active-seat arbiter.
 
-**Target operations:** `discovery.getProfile`, `discovery.convertToPlant`, `discovery.leaveRelationship`.
+**Target operations:** `discovery.getProfile`, `discovery.convertToPlant`, `associations.end`.
 
 **Acceptance:** AC-IDN-016--IDN-016. **Named cases:** TARGET-IDN-016.
 
@@ -305,7 +305,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-017.** Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending→accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.
 
-**Target operations:** `seats.createInvitation`, `seats.listInvitations`, `seats.resendInvitation`, `seats.revokeInvitation`, `seats.acceptInvitation`.
+**Target operations:** `seats.invite`, `seats.listInvitations`, `seats.resendInvitation`, `seats.revokeInvitation`, `seats.acceptInvitation`.
 
 **Acceptance:** AC-IDN-017--IDN-017. **Named cases:** TARGET-IDN-017, ROLE43-006, ROLE43-007, ROLE43-009.
 
@@ -329,7 +329,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-019.** Owner/Admin manage ordinary same-workspace Admin/Member seats under expected current role/revision. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.
 
-**Target operations:** `seats.listSeats`, `seats.setRole`, `seats.removeSeat`.
+**Target operations:** `seats.list`, `seats.changeOrdinaryRole`, `seats.remove`.
 
 **Acceptance:** AC-IDN-019--IDN-019. **Named cases:** TARGET-IDN-019, ROLE43-001, ROLE43-006, ROLE43-007, ROLE43-008, ROLE43-009, ROLE43-017.
 
@@ -342,7 +342,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-020.** Support five scoped subjects: plant→sending church, plant→network, sending church→network, Discovery→sending church and Discovery→network. A plant Owner/Admin initiates its link; one exact receiving organization's Owner/Admin approves that organization, with no delegation or all-affiliate veto. Each link has independent state/consent and typed matching subject IDs. Keep normalized mailable recipient, 30 day expiry, at most 3 new invites/address in the rolling configured 30 day invitation window, no duplicate pending intent and exact readable inviter description. Creation/response/resend/revoke validates current actor/subject/revision. Multiple independent valid affiliations may coexist; competing acceptance cannot silently replace existing links or consent. Accepted receipt queues notice to plant, retries converge and mail failure does not undo a committed relationship.
 
-**Target operations:** `relationships.createInvitation`, `relationships.respondInvitation`, `relationships.resendInvitation`, `relationships.revokeInvitation`.
+**Target operations:** `associations.invite`, `associations.respondInvitation`, `associations.resendInvitation`, `associations.revokeInvitation`.
 
 **Acceptance:** AC-IDN-020--IDN-020. **Named cases:** TARGET-IDN-020, ROLE43-016, ORG55-002, AF-001, AF-002, AF-003, AF-004, AF-005, AF-006, AF-007, AF-008, AF-009, AF-010, AF-011, AF-012, AF-013, AF-014, AF-015, AF-016, AF-017, AF-018, AF-019, AF-020, AF-021, AF-022, AF-023, AF-024, AF-025, AF-026.
 
@@ -355,7 +355,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-021.** An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.
 
-**Target operations:** `relationships.leave`, `relationships.endOwnAffiliation`, `relationships.readHistory`.
+**Target operations:** `associations.end`, `associations.end`, `associations.getHistory`.
 
 **Acceptance:** AC-IDN-021--IDN-021. **Named cases:** TARGET-IDN-021, ROLE43-016, ROLE43-017, ORG55-002, ORG55-003, AF-001, AF-002, AF-003, AF-004, AF-005, AF-006, AF-007, AF-008, AF-009, AF-010, AF-011, AF-012, AF-013, AF-014, AF-015, AF-016, AF-017, AF-018, AF-019, AF-020, AF-021, AF-022, AF-023, AF-024, AF-025, AF-026.
 
@@ -368,7 +368,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-022.** Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people→share_people, meetings→share_meetings, tasks→share_tasks, ministry_teams→share_ministry_teams, wiki→share_wiki, activity→share_activity, shared_findings→shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.
 
-**Target operations:** `relationships.getSharing`, `relationships.setSharing`.
+**Target operations:** `privacy.getSharing`, `privacy.setSharing`.
 
 **Acceptance:** AC-IDN-022--IDN-022. **Named cases:** TARGET-IDN-022, ROLE43-016, AF-027, AF-028, AF-029, AF-030, AF-031, AF-032, AF-033, AF-034, AF-035, AF-037, AF-038, AF-039, AF-040, AF-041.
 
@@ -381,7 +381,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-023.** List only current own-org related plants. Basic directory gives plant name/partial locality excluding street, attested phase/launch context, provenance and ordinary lead ministry-role Person display name (not assumed Owner); no contacts/private CRM. Aggregate sections distinguish withheld, shared-empty, shared-populated and unavailable: distinct People/status totals, recent 12 meeting cadence/attended totals, top-level actionable task counts/overdue, operational team/staffing/training coverage and Wiki reading counts. Each section uses its current consent and domain denominator; checklist/waived/cancelled tasks cannot inflate open counts. Organization intelligence/health uses its separate exact-org consent/release lineage and published-summary producer; same native/Evry bounded read. Sharing OFF/revoked affiliation removes cached/current/history body access that depends on it; unknown/foreign target is indistinguishable.
 
-**Target operations:** `oversight.listPlants`, `oversight.getPlantOverview`, `oversight.getHealth`.
+**Target operations:** `oversight.listPlants`, `oversight.getPlant`, `oversight.getHealth`.
 
 **Acceptance:** AC-IDN-023--IDN-023. **Named cases:** TARGET-IDN-023, ORG55-003, ORG55-004, ORG55-005, AF-027, AF-028, AF-029, AF-030, AF-031, AF-032, AF-033, AF-034, AF-035, AF-037, AF-038, AF-039, AF-040, AF-041.
 
@@ -431,7 +431,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-027.** Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.
 
-**Target operations:** `relationships.leave`, `relationships.endOwnAffiliation`.
+**Target operations:** `associations.end`, `associations.end`.
 
 **Acceptance:** AC-IDN-027--IDN-027. **Named cases:** TARGET-IDN-027, ROLE43-016, ORG55-002.
 
@@ -444,7 +444,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **REQ-IDN-028.** Cookie presence may optimize GET routing but never proves authentication. Login/session recovery remains reachable; every private route/API/action validates current session and subject. Overwrite any internal routed-URL stamp with the real URL; crawler scope is derived from real allow listed public Wiki path plus UA and returns only approved public metadata, never trusted client crawler/stamp headers. Mutating browser requests require configured canonical scheme/host/port Origin, with trusted deployment Host validation; reject missing/malformed/cross origin and HEAD/OPTIONS mutation attempts under the declared allow list. Exact independently authenticated exception routes are Resend raw-body signature webhook and sealed disable-only unsubscribe POST; GET unsubscribe is read only confirmation, wrong/expired/purpose tokens uniformly fail without mutating. Undo uses separate enable-only short proof and normal native origin. Jobs have a distinct bounded signed job end point admission, never a broad origin less prefix bypass. Safe return rejects external/protocol relative/backslash/control chars. Each admitted request still executes authoritative domain policy.
 
-**Target operations:** `identity.validateRequestBoundary`, `identity.safeReturn`.
+**Target operations:** `security.checkRequestOrigin`, `security.safeReturn`.
 
 **Acceptance:** AC-IDN-028--IDN-028. **Named cases:** TARGET-IDN-028.
 

@@ -34,12 +34,12 @@
       "feature_ids": [
         "IDN-002"
       ],
-      "text": "Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8\u20131024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-sup plied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.",
+      "text": "Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8–1024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-sup plied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.",
       "spec": "docs/product/identity-access.md#req-idn-002",
       "operations": [
-        "identity.register",
-        "identity.resumeRegistration",
-        "identity.getRegistrationStatus"
+        "accounts.register",
+        "accounts.resumeRegistration",
+        "accounts.getRegistrationStatus"
       ],
       "acceptance_ids": [
         "AC-IDN-002--IDN-002"
@@ -64,8 +64,8 @@
       "text": "Retain an optional deployment-controlled beta gate, disabled by default for the fresh target unless explicitly enabled in that environment. An enabled gate accepts a valid configured code or an addressed live pending eligible invitation; forged, unrelated, expired or revoked invitations never bypass it. Account type choices follow the validated invitation subject. Show sufficient inviter/organization identity for informed acceptance, with no gate secret or sender-facing account-existence disclosure. Revalidate token and gate at submission.",
       "spec": "docs/product/identity-access.md#req-idn-003",
       "operations": [
-        "identity.getRegistrationOptions",
-        "invitations.describeOrigin"
+        "accounts.getRegistrationOptions",
+        "invitations.describeRegistrationContext"
       ],
       "acceptance_ids": [
         "AC-IDN-003--IDN-003"
@@ -90,7 +90,7 @@
       "text": "Retain reproducible development/managed-preview persona switching only for fresh synthetic allow listed fixture accounts. The server checks explicit environment enablement, supported fixture ID and intended environment before issuing a fixture session. Production defaults disable and exclude the action/surface; flags or client role strings cannot create production privilege. Never clone real/customer accounts into fixtures.",
       "spec": "docs/product/identity-access.md#req-idn-004",
       "operations": [
-        "development.switchFixtureAccount"
+        "dev.switchFixtureIdentity"
       ],
       "acceptance_ids": [
         "AC-IDN-004--IDN-004"
@@ -103,6 +103,12 @@
       ],
       "work_packages": [
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "dev.switchFixtureIdentity",
+          "rule": "Same operative behavior, authority, review/effects; adaptation does not widen scope or synthesize facts."
+        }
       ]
     },
     {
@@ -113,9 +119,9 @@
       "text": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allow list are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTO s; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
       "spec": "docs/product/identity-access.md#req-idn-005",
       "operations": [
-        "identity.getActor",
-        "identity.requireScope",
-        "identity.readMembership"
+        "access.currentActor",
+        "access.checkOperation",
+        "seats.readCurrentMembership"
       ],
       "acceptance_ids": [
         "AC-IDN-005--IDN-005"
@@ -144,7 +150,7 @@
       "text": "Native self avatar upload accepts nonempty JPG/JPEG/PNG/WebP up to 3 MiB with generated private keys and verified type. Authenticate delivery through an account/version route; no arbitrary raw key or bearer storage URL is returned. Upload new bytes, atomically save version/reference/audit, then cleanup old unreferenced bytes. A failed row update retains old avatar and schedules orphan cleanup; failed old-byte cleanup leaves new avatar usable. Removal clears reference before cleanup. Account deletion follows REQ-IDN-032.",
       "spec": "docs/product/identity-access.md#req-idn-006",
       "operations": [
-        "account.uploadAvatar",
+        "account.finalizeAvatar",
         "account.removeAvatar",
         "account.getAvatar"
       ],
@@ -195,7 +201,7 @@
       "feature_ids": [
         "IDN-008"
       ],
-      "text": "Require native current-secret proof for authenticated self, new 8\u20131024 character secret different from current, and immutable actor/current-session IDs from server. Lock account and compare credential/email revision; write new credentials, invalidate pending reset/email tokens, revoke all other sessions and append audit/security-mail intent atomically. Preserve only actual current session if still valid, report the other-session count. Independent password-change failure budget 5/own identifier and 20/trusted IP per 15 minutes; short/unchanged malformed requests validate without probing the new secret against the old before current-secret proof.",
+      "text": "Require native current-secret proof for authenticated self, new 8–1024 character secret different from current, and immutable actor/current-session IDs from server. Lock account and compare credential/email revision; write new credentials, invalidate pending reset/email tokens, revoke all other sessions and append audit/security-mail intent atomically. Preserve only actual current session if still valid, report the other-session count. Independent password-change failure budget 5/own identifier and 20/trusted IP per 15 minutes; short/unchanged malformed requests validate without probing the new secret against the old before current-secret proof.",
       "spec": "docs/product/identity-access.md#req-idn-008",
       "operations": [
         "account.changePassword"
@@ -213,6 +219,16 @@
       "work_packages": [
         "WP-005",
         "WP-010"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "account.changePassword",
+          "rule": "self service; content references still current-authorized"
+        },
+        {
+          "operation": "account.changePassword",
+          "rule": "exact own account/current permitted context"
+        }
       ]
     },
     {
@@ -220,11 +236,11 @@
       "feature_ids": [
         "IDN-009"
       ],
-      "text": "Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Each consumes the request budget 3/normalized email and 10/trusted IP per hour before lookup. One live hashed purpose-bound token/account expires after 1 elapsed hour; request rotates prior. Redemption binds account from token, checks live/unconsumed token and captured email/credential revision, validates confirmed 8\u20131024 character new secret, and atomically replaces credentials, consumes all reset/email requests and revokes every session. Do not auto-sign-in. Success remains success if security-notice dispatch later fails; provider/database request failures are bounded and observable internally without enumeration.",
+      "text": "Return the same bounded response/latency class for syntactically valid existing/nonexisting addresses and mail failure. Each consumes the request budget 3/normalized email and 10/trusted IP per hour before lookup. One live hashed purpose-bound token/account expires after 1 elapsed hour; request rotates prior. Redemption binds account from token, checks live/unconsumed token and captured email/credential revision, validates confirmed 8–1024 character new secret, and atomically replaces credentials, consumes all reset/email requests and revokes every session. Do not auto-sign-in. Success remains success if security-notice dispatch later fails; provider/database request failures are bounded and observable internally without enumeration.",
       "spec": "docs/product/identity-access.md#req-idn-009",
       "operations": [
-        "account.requestPasswordReset",
-        "account.resetPassword"
+        "auth.requestPasswordRecovery",
+        "auth.recoverPassword"
       ],
       "acceptance_ids": [
         "AC-IDN-009--IDN-009"
@@ -237,6 +253,20 @@
       ],
       "work_packages": [
         "WP-005"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "auth.requestPasswordRecovery",
+          "rule": "generic no-enumeration request outcome"
+        },
+        {
+          "operation": "auth.requestPasswordRecovery",
+          "rule": "non-enumerating public/auth flow; token bound to one addressed subject"
+        },
+        {
+          "operation": "auth.recoverPassword",
+          "rule": "no automatic sign-in; all sessions revoked"
+        }
       ]
     },
     {
@@ -274,11 +304,11 @@
       "feature_ids": [
         "IDN-011"
       ],
-      "text": "Owner/Admin edit plant name and independent nullable street/city/region/country/profile fields; validate trimmed nonempty name and bounded fields, IANA timezone, weekday 0\u20136/hour 0\u201323, inactivity warning/alert 1\u2013365 with warning<alert. Fresh defaults are America/Chicago and weekly digest Sunday 16:00. Street is excluded from organization directory/oversight; configured locality uses the shared geography contract. Timezone changes preview future schedules/reminders; past instants, LocalDate deadlines and one-time appointments remain. Inactivity/overdue computations use church-local dates. Missing optional locality is not an inferred population/area.",
+      "text": "Owner/Admin edit plant name and independent nullable street/city/region/country/profile fields; validate trimmed nonempty name and bounded fields, IANA timezone, weekday 0–6/hour 0–23, inactivity warning/alert 1–365 with warning<alert. Fresh defaults are America/Chicago and weekly digest Sunday 16:00. Street is excluded from organization directory/oversight; configured locality uses the shared geography contract. Timezone changes preview future schedules/reminders; past instants, LocalDate deadlines and one-time appointments remain. Inactivity/overdue computations use church-local dates. Missing optional locality is not an inferred population/area.",
       "spec": "docs/product/identity-access.md#req-idn-011",
       "operations": [
-        "churches.getSettings",
-        "churches.updateSettings"
+        "settings.getSection",
+        "settings.saveSection"
       ],
       "acceptance_ids": [
         "AC-IDN-011--IDN-011"
@@ -304,9 +334,9 @@
       "text": "Expose current audience's closed category/channel/daily-weekly cadence preference matrix and truthful suppression state. Save only the authenticated account's allowed preferences, with rollback/visible error on refusal. Self suppression-clear applies only its current proven mailbox and does not grant unrelated consent; enabled org push preference cannot override plant consent. Notification-owned scheduling/digest contracts provide actual delivery, including Sunday 16:00 default weekly digest. No private-care preference/nudge metadata reaches email or assistant.",
       "spec": "docs/product/identity-access.md#req-idn-012",
       "operations": [
-        "notifications.getPreferences",
-        "notifications.updatePreferences",
-        "notifications.clearOwnSuppression"
+        "notifications.preferences.get",
+        "notifications.preferences.set",
+        "mail.suppression.restoreReviewed"
       ],
       "acceptance_ids": [
         "AC-IDN-012--IDN-012"
@@ -320,6 +350,12 @@
       "work_packages": [
         "WP-010",
         "WP-030"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "emailSuppression.requestRestore",
+          "rule": "Fresh native self-address identity proof is trusted context and exact reviewed reason; cannot grant foreign address/resurrect canceled sends."
+        }
       ]
     },
     {
@@ -352,6 +388,12 @@
       "work_packages": [
         "WP-009",
         "WP-011"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "identity.ensureOwnerPerson",
+          "rule": "Already disclosed and selected owning native registration/provisioning consequence; not separate model command"
+        }
       ]
     },
     {
@@ -383,6 +425,24 @@
       "work_packages": [
         "WP-009",
         "WP-017"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "identity.answerLeadOnboarding",
+          "rule": "Supported answer values: yes, no, skip."
+        },
+        {
+          "operation": "identity.answerLeadOnboarding",
+          "rule": "Ordinary separate lead only; no authority activation."
+        },
+        {
+          "operation": "identity.answerLeadOnboarding",
+          "rule": "Actual created same-plant Owner/account-linked Person; preserve own setup history. Precreation scope is not required after plant exists, other actors cannot answer another Owner."
+        },
+        {
+          "operation": "teams.assignRole",
+          "rule": "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        }
       ]
     },
     {
@@ -410,6 +470,12 @@
         "WP-009",
         "WP-038",
         "WP-045"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "onboarding.declareJourney",
+          "rule": "Own current created-plant Owner; once-only explicit journey attestation separate from creation Phase1; unsure/skip does not map0, launch+phase reviewed resumable intent never clears existing schedule."
+        }
       ]
     },
     {
@@ -422,7 +488,7 @@
       "operations": [
         "discovery.getProfile",
         "discovery.convertToPlant",
-        "discovery.leaveRelationship"
+        "associations.end"
       ],
       "acceptance_ids": [
         "AC-IDN-016--IDN-016"
@@ -437,6 +503,20 @@
       "work_packages": [
         "WP-007",
         "WP-009"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "discovery.convertToPlant",
+          "rule": "independent church creation or Discovery conversion"
+        },
+        {
+          "operation": "discovery.convertToPlant",
+          "rule": "own identity; creation has no preexisting phase/PlantId; ordinary-role bootstrap only"
+        },
+        {
+          "operation": "discovery.getProfile",
+          "rule": "Explicit current own Discovery profile, no account seat inferred from absence; foreign profile unavailable."
+        }
       ]
     },
     {
@@ -444,10 +524,10 @@
       "feature_ids": [
         "IDN-017"
       ],
-      "text": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending\u2192accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.",
+      "text": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending→accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.",
       "spec": "docs/product/identity-access.md#req-idn-017",
       "operations": [
-        "seats.createInvitation",
+        "seats.invite",
         "seats.listInvitations",
         "seats.resendInvitation",
         "seats.revokeInvitation",
@@ -485,7 +565,13 @@
         "TARGET-IDN-018"
       ],
       "shared_contract_ids": [],
-      "work_packages": []
+      "work_packages": [],
+      "behavior_rules": [
+        {
+          "operation": "seats.readCurrentMembership",
+          "rule": "Read actual current account active membership only; not selectable caller membership or special rejoin restore."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-019",
@@ -495,9 +581,9 @@
       "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under expected current role/revision. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
       "spec": "docs/product/identity-access.md#req-idn-019",
       "operations": [
-        "seats.listSeats",
-        "seats.setRole",
-        "seats.removeSeat"
+        "seats.list",
+        "seats.changeOrdinaryRole",
+        "seats.remove"
       ],
       "acceptance_ids": [
         "AC-IDN-019--IDN-019"
@@ -519,6 +605,32 @@
         "WP-008",
         "WP-017",
         "WP-024"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "seats.changeOrdinaryRole",
+          "rule": "Supported expectedPriorRole values: admin, member."
+        },
+        {
+          "operation": "seats.changeOrdinaryRole",
+          "rule": "Supported toRole values: admin, member."
+        },
+        {
+          "operation": "seats.list",
+          "rule": "Visible information for plant_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions."
+        },
+        {
+          "operation": "seats.list",
+          "rule": "Visible information for organization_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions."
+        },
+        {
+          "operation": "seats.changeOrdinaryRole",
+          "rule": "role change receipt including live grant/duty consequences"
+        },
+        {
+          "operation": "seats.changeOrdinaryRole",
+          "rule": "Exact own current tenant Owner/Admin; protect actual Owner, no Member self-promotion or generic Owner removal; duplicate expected-role no-op, active grant/session/duty consequences reviewed."
+        }
       ]
     },
     {
@@ -526,13 +638,13 @@
       "feature_ids": [
         "IDN-020"
       ],
-      "text": "Support five scoped subjects: plant\u2192sending church, plant\u2192network, sending church\u2192network, Discovery\u2192sending church and Discovery\u2192network. A plant Owner/Admin initiates its link; one exact receiving organization's Owner/Admin approves that organization, with no delegation or all-affiliate veto. Each link has independent state/consent and typed matching subject IDs. Keep normalized mailable recipient, 30 day expiry, at most 3 new invites/address in the rolling configured 30 day invitation window, no duplicate pending intent and exact readable inviter description. Creation/response/resend/revoke validates current actor/subject/revision. Multiple independent valid affiliations may coexist; competing acceptance cannot silently replace existing links or consent. Accepted receipt queues notice to plant, retries converge and mail failure does not undo a committed relationship.",
+      "text": "Support five scoped subjects: plant→sending church, plant→network, sending church→network, Discovery→sending church and Discovery→network. A plant Owner/Admin initiates its link; one exact receiving organization's Owner/Admin approves that organization, with no delegation or all-affiliate veto. Each link has independent state/consent and typed matching subject IDs. Keep normalized mailable recipient, 30 day expiry, at most 3 new invites/address in the rolling configured 30 day invitation window, no duplicate pending intent and exact readable inviter description. Creation/response/resend/revoke validates current actor/subject/revision. Multiple independent valid affiliations may coexist; competing acceptance cannot silently replace existing links or consent. Accepted receipt queues notice to plant, retries converge and mail failure does not undo a committed relationship.",
       "spec": "docs/product/identity-access.md#req-idn-020",
       "operations": [
-        "relationships.createInvitation",
-        "relationships.respondInvitation",
-        "relationships.resendInvitation",
-        "relationships.revokeInvitation"
+        "associations.invite",
+        "associations.respondInvitation",
+        "associations.resendInvitation",
+        "associations.revokeInvitation"
       ],
       "acceptance_ids": [
         "AC-IDN-020--IDN-020"
@@ -575,6 +687,32 @@
       "work_packages": [
         "WP-007",
         "WP-008"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "associations.acceptInvitation",
+          "rule": "Supported explicitDecision values: accept, decline."
+        },
+        {
+          "operation": "associations.invite",
+          "rule": "Supported organizationKind values: sending_church, sending_network."
+        },
+        {
+          "operation": "associations.respondInvitation",
+          "rule": "Supported decision values: accept, decline."
+        },
+        {
+          "operation": "associations.resendInvitation",
+          "rule": "Exact current invitation initiator/subject administration; only this typed relationship, no foreign invitation or other link modification; resend rotates token+durable notice with cooldown and revocation race."
+        },
+        {
+          "operation": "associations.respondInvitation",
+          "rule": "one atomic relationship receipt"
+        },
+        {
+          "operation": "associations.respondInvitation",
+          "rule": "Validate exact initiator/receiving-org or explicit Discovery subject owner; independent typed link and consent, no parent grant/delegation/all-affiliate vote; authenticated original addressed decision."
+        }
       ]
     },
     {
@@ -585,9 +723,9 @@
       "text": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
       "spec": "docs/product/identity-access.md#req-idn-021",
       "operations": [
-        "relationships.leave",
-        "relationships.endOwnAffiliation",
-        "relationships.readHistory"
+        "associations.end",
+        "associations.end",
+        "associations.getHistory"
       ],
       "acceptance_ids": [
         "AC-IDN-021--IDN-021"
@@ -637,11 +775,11 @@
       "feature_ids": [
         "IDN-022"
       ],
-      "text": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people\u2192share_people, meetings\u2192share_meetings, tasks\u2192share_tasks, ministry_teams\u2192share_ministry_teams, wiki\u2192share_wiki, activity\u2192share_activity, shared_findings\u2192shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
+      "text": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people→share_people, meetings→share_meetings, tasks→share_tasks, ministry_teams→share_ministry_teams, wiki→share_wiki, activity→share_activity, shared_findings→shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
       "spec": "docs/product/identity-access.md#req-idn-022",
       "operations": [
-        "relationships.getSharing",
-        "relationships.setSharing"
+        "privacy.getSharing",
+        "privacy.setSharing"
       ],
       "acceptance_ids": [
         "AC-IDN-022--IDN-022"
@@ -681,7 +819,7 @@
       "spec": "docs/product/identity-access.md#req-idn-023",
       "operations": [
         "oversight.listPlants",
-        "oversight.getPlantOverview",
+        "oversight.getPlant",
         "oversight.getHealth"
       ],
       "acceptance_ids": [
@@ -736,6 +874,12 @@
       ],
       "work_packages": [
         "WP-047"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "oversight.getSendingChurch",
+          "rule": "Visible information for organization_member: organizationDisplayName, directRelationshipState, approvedOrganizationMetadata, nextCursor."
+        }
       ]
     },
     {
@@ -798,8 +942,8 @@
       "text": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.",
       "spec": "docs/product/identity-access.md#req-idn-027",
       "operations": [
-        "relationships.leave",
-        "relationships.endOwnAffiliation"
+        "associations.end",
+        "associations.end"
       ],
       "acceptance_ids": [
         "AC-IDN-027--IDN-027"
@@ -824,8 +968,8 @@
       "text": "Cookie presence may optimize GET routing but never proves authentication. Login/session recovery remains reachable; every private route/API/action validates current session and subject. Overwrite any internal routed-URL stamp with the real URL; crawler scope is derived from real allow listed public Wiki path plus UA and returns only approved public metadata, never trusted client crawler/stamp headers. Mutating browser requests require configured canonical scheme/host/port Origin, with trusted deployment Host validation; reject missing/malformed/cross origin and HEAD/OPTIONS mutation attempts under the declared allow list. Exact independently authenticated exception routes are Resend raw-body signature webhook and sealed disable-only unsubscribe POST; GET unsubscribe is read only confirmation, wrong/expired/purpose tokens uniformly fail without mutating. Undo uses separate enable-only short proof and normal native origin. Jobs have a distinct bounded signed job end point admission, never a broad origin less prefix bypass. Safe return rejects external/protocol relative/backslash/control chars. Each admitted request still executes authoritative domain policy.",
       "spec": "docs/product/identity-access.md#req-idn-028",
       "operations": [
-        "identity.validateRequestBoundary",
-        "identity.safeReturn"
+        "security.checkRequestOrigin",
+        "security.safeReturn"
       ],
       "acceptance_ids": [
         "AC-IDN-028--IDN-028"
@@ -840,6 +984,20 @@
         "WP-005",
         "WP-006",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "security.checkRequestOrigin",
+          "rule": "Supported mutationKind values: ambient_cookie, sealed_token, verified_provider."
+        },
+        {
+          "operation": "security.safeReturn",
+          "rule": "Pure allowlist local path/query parser; rejects external/protocol-relative/backslash/control characters, no mutation or auth grant."
+        },
+        {
+          "operation": "security.checkRequestOrigin",
+          "rule": "named operation scope only; no interactive/model executor grant"
+        }
       ]
     },
     {
@@ -884,6 +1042,36 @@
         "WP-002",
         "WP-004",
         "WP-006"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "access.checkOperation",
+          "rule": "Evaluate the principal current account/seat/proof/job capability, exact resource predicate, purpose, consent, lifecycle and projection for the named operation. A refusal is a permission decision, not an invocation grant or foreign-existence confirmation."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Trusted application authorization query evaluates the fresh principal and typed operation subject; no domain mutation or grant is created."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Fresh server-created ActorContext with verified account/session + exact current seat OR registered scoped job/proof principal. Unprivileged/revoked principals produce safe denial; internal invocation does not replace their domain authority."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Owning operation predicate and current stored grants/consent; no model hints, submitted actor IDs or inferred affiliations."
+        },
+        {
+          "operation": "access.projectRead",
+          "rule": "New expected revisions and exact effect review; historical external disclosures remain truthful; no universal undo."
+        },
+        {
+          "operation": "access.currentActor",
+          "rule": "Derive principal from validated native/assistant server session, not caller role/IDs; no model tool exposes actor internals."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Only server-side native adapter, assistant adapter or registered job adapter may invoke the primitive; evaluated principal remains the supplied trusted fresh ActorContext, never the caller identity or a model-selected actor."
+        }
       ]
     },
     {
@@ -916,6 +1104,44 @@
         "WP-005",
         "WP-006",
         "WP-008"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "accounts.register",
+          "rule": "Supported accountKind values: plant_precreation, discovery, sending_church, sending_network."
+        },
+        {
+          "operation": "accounts.register",
+          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one domain transaction claims token+exact domain/seat/relationship+Person+receipt/audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
+        },
+        {
+          "operation": "accounts.resumeRegistration",
+          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+receipt/audit/mail intent commit under original account/intent. Retry returns saved receipt; expired/revoked token yields no grant."
+        },
+        {
+          "operation": "seats.invite",
+          "rule": "Supported tenancyKind values: plant, sending_church, sending_network."
+        },
+        {
+          "operation": "seats.invite",
+          "rule": "Supported ordinaryRole values: admin, member."
+        },
+        {
+          "operation": "accounts.getRegistrationOptions",
+          "rule": "Only deployment gate state and current exact validated invitation context; no secret gate code/account-existence lookup."
+        },
+        {
+          "operation": "accounts.getRegistrationStatus",
+          "rule": "Authenticated native self identity only; no invitation account enumeration or ordinary pending-domain content."
+        },
+        {
+          "operation": "seats.acceptInvitation",
+          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current revision atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
+        },
+        {
+          "operation": "seats.listInvitations",
+          "rule": "Current own exact typed workspace Owner/Admin; pending invite administrative list is not ordinary Member self/People read; no sensitive account-resolution details."
+        }
       ]
     },
     {
@@ -950,6 +1176,116 @@
         "WP-052",
         "WP-053",
         "WP-056"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "bounded cancellation/status during30day hold"
+        },
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "Lock exact subject/request; strict now<cancelUntil CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects."
+        },
+        {
+          "operation": "account.requestDeletion",
+          "rule": "Strictly before request +30 days; access remains restricted to cancellation; purge/restored copies never reopen expired deletion."
+        },
+        {
+          "operation": "account.setPersonalTimezone",
+          "rule": "Native self preference/calendar transaction; pending transition first strictly future Monday in requested zone, open stable week unchanged, one next ordinal; no historical rekeys, shared private metadata, or PI material revision."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Coherent eligible owned DB/byte/cache/derived-copy purge after exact 30-day hold, respecting ownership detach/minimal attribution and current witness."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "No post-deadline user cancellation or deleted-subject resurrection; restore always current-witness fenced."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Current recovery/core/execution contract and root selected internal callback encoding; no invented source symbol."
+        },
+        {
+          "operation": "maintenance.restoreWithCurrentManifest",
+          "rule": "Restore consistent DB+matching bytes with authoritative current deletion/access barrier, immutable copy expiry and actual non-replayed external facts."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: section, subject, authorizedValues, revision, changed, completeness."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Visible information for organization_owner|organization_admin|organization_member: section, subject, authorizedValues, revision, changed, completeness."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "boolean|optional; omitted preserves stored value"
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "exact current organization_sharing_settings.revision"
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Omitted fields preserve each exact stored category, including shared_findings; never default/reset ON, copy another organization policy or add a second NI/health toggle."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Lock/recheck actual relationship expectedRevision and exact sharing expectedConsentRevision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "WP007 owns applySharingPatchInTransaction in packages/domain/src/organizations/relationships.ts. privacy.setSharing and the WP010 settings adapter use this one registered helper inside the caller DomainTransaction, not a loop of separately committing public commands. One receipt/audit and exact history/intents plus conditional MW022 material revision commit atomically. Changed policy immediately gates saved/current/cache/assistant access; exact replay/no-op does not bump."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "SettingsSectionReceipt projects only current authorized same-plant saved values/current relationship and consent revisions; organizations receive no stored consent through this mutation branch."
+        },
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "own personal subject OR recorded original Owner of requested workspace; narrowly status/cancel only; strict now<deadline for cancel; no normal revoked-session/content access"
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Supported actor values: plant_owner, plant_admin."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Current exact plant Owner/Admin; section=plant only, no org/Discovery/self-account/private-calendar branch"
+        },
+        {
+          "operation": "churches.requestWorkspaceDeletion",
+          "rule": "own current plant seat"
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "exact domain receipt, no credential/private-calendar payload"
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "account/notifications only; trusted self active account including Member/Discovery/org account. Native credential and private-care controls delegated to exact native owner operations."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Supported actor values: plant_owner, plant_admin, plant_member."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "plant/teams exact current plant and actual team parent; routine write Owner/Admin or separately approved exact team capability, never broad account section denial. warning<alert; zone change reviewed future schedule preview, past instants/LocalDates preserved."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "organization exact own typed organization seat; protected kind/id. Affiliation read exact current side; sharing write only plant Owner/Admin owning exact pair; org preference never grants data."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "plant/teams/affiliations exact current plant and actual team or approved direct relationship; routine write only current same-plant Owner/Admin. Affiliation category sharing is plant-side authority only. warning<alert; timezone change binds reviewed future schedule preview and preserves past instants/LocalDates."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "organization profile branch only in own exact typed organization seat; protected kind/id. Organization authority cannot execute affiliations sharing or any plant/account branch."
+        }
       ]
     },
     {
@@ -962,7 +1298,7 @@
         "IDN-013",
         "IDN-026"
       ],
-      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active\u2192pending_deletion with subject/request ID/revision, requestedAt and cancelUntil = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancelUntil using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.",
+      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requestedAt and cancelUntil = requestedAt +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancelUntil using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set livePurgedAt only after coherent completion, then recoveryExpiresAt = livePurgedAt +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised.",
       "spec": "docs/product/identity-access.md#req-idn-032",
       "operations": [
         "account.requestDeletion",
@@ -970,7 +1306,7 @@
         "account.cancelDeletion",
         "churches.requestWorkspaceDeletion",
         "churches.getDeletionStatus",
-        "churches.cancelDeletion"
+        "churches.cancelWorkspaceDeletion"
       ],
       "acceptance_ids": [
         "AC-IDN-001--IDN-001",
@@ -994,6 +1330,12 @@
         "WP-056",
         "WP-057",
         "WP-058"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "Explicit native restricted cancellation, no Evry approval or normal session/seat required"
+        }
       ]
     },
     {
@@ -1002,7 +1344,7 @@
         "IDN-010",
         "IDN-011"
       ],
-      "text": "Native private care uses confirmed personal IANA timezone, distinct from church timezone, and Monday week boundaries. Missing personal-zone preference asks for confirmation, never silently adopts UTC/church/device zone. Each author has a stable week ID/ordinal with frozen start/end Instants, zone and Monday date. Serialize answer/save/correction/roll over/zone-edit against the author calendar revision. A zone edit records a pending transition at the first strictly future Monday boundary in the requested zone; keep the open stable week until that boundary and create exactly one next ordinal when roll over executes. Historical IDs/author/zone/revisions are never rekeyed; multiple date-line edits, retries and concurrent answer saves cannot create a second answer or extra week/streak credit. Current UI previews exact boundary before the native edit, with no private metadata in ordinary audit/log/Evry. Answer up sert requires the exact author/week/revision and unchanged save is no-op. History/trend remain available to the author; twelve recent weeks is the engineering initial view port with paged older history, never a retention limit.\n\nThree truly adjacent answered weeks of Strained or Struggling in the same author/dimension raise a neutral native support question, for example \u201cWould it help to talk with someone you trust?\u201d Mixed Strained/Struggling qualifies; two weeks, cross-author/dimension, missing week or Steady does not. Correction recomputes display from effective records while retaining prior revisions. Date an older streak by its ending week and never label it current distress. No model counsel/pastoral judgment, email/org notice, task, PI invalidation or broad retention/former-author right follows from the question. REQ-IDN-031 governs every private path.",
+      "text": "Native private care uses confirmed personal IANA timezone, distinct from church timezone, and Monday week boundaries. Missing personal-zone preference asks for confirmation, never silently adopts UTC/church/device zone. Each author has a stable week ID/ordinal with frozen start/end Instants, zone and Monday date. Serialize answer/save/correction/roll over/zone-edit against the author calendar revision. A zone edit records a pending transition at the first strictly future Monday boundary in the requested zone; keep the open stable week until that boundary and create exactly one next ordinal when roll over executes. Historical IDs/author/zone/revisions are never rekeyed; multiple date-line edits, retries and concurrent answer saves cannot create a second answer or extra week/streak credit. Current UI previews exact boundary before the native edit, with no private metadata in ordinary audit/log/Evry. Answer up sert requires the exact author/week/revision and unchanged save is no-op. History/trend remain available to the author; twelve recent weeks is the engineering initial view port with paged older history, never a retention limit.\n\nThree truly adjacent answered weeks of Strained or Struggling in the same author/dimension raise a neutral native support question, for example “Would it help to talk with someone you trust?” Mixed Strained/Struggling qualifies; two weeks, cross-author/dimension, missing week or Steady does not. Correction recomputes display from effective records while retaining prior revisions. Date an older streak by its ending week and never label it current distress. No model counsel/pastoral judgment, email/org notice, task, PI invalidation or broad retention/former-author right follows from the question. REQ-IDN-031 governs every private path.",
       "spec": "docs/product/identity-access.md#req-idn-033",
       "operations": [],
       "acceptance_ids": [
@@ -1033,6 +1375,16 @@
       "work_packages": [
         "WP-010",
         "WP-039"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "plant.previewTimezoneChange",
+          "rule": "Visible information for plant_member: oldTimezone, newTimezone, affectedMeetingInstants, affectedTaskLocalDates, affectedDigestInstants, warnings, digest."
+        },
+        {
+          "operation": "plant.setDigestSchedule",
+          "rule": "Supported cadence values: daily, weekly, off."
+        }
       ]
     }
   ]

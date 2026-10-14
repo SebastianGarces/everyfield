@@ -32,4 +32,14 @@ Global reference versions and activation history are immutable. Organization Wik
 
 Every read/list/count/search/export/render/stream/download/model context applies current authority and a purpose-specific projection. Raw rows and protected contributor manifests never become transport output. Shared persistent private response caches are disabled initially. [Security](security.md), [audit](audit.md), [assessment](assessment.md) and [recovery](recovery.md) define the remaining boundaries.
 
+## Operation inventory and shared boundary rules
+
+The [operation inventory](../catalog/operations.json) names capabilities for native/Evry parity, their producers, callers, affected records, side effects and cases. It does not define function signatures. Requirements and cases retain operation-specific behavioral restrictions. Parameter names, internal types, result layouts, error-code names, adapter symbols and locking mechanics belong to builders. Closed validated inputs must reject unsupported or forbidden choices, keep explicit clears distinct from omission where behavior requires it, and never accept caller-provided authority or model-minted proofs. Incomplete drafts may remain incomplete until review.
+
+The shared error envelope provides a safe outcome code and details, a correlation identifier and truthful retry eligibility. Denials reveal no forbidden record existence. Unknown external acceptance, publication or delivery is a durable outcome requiring reconciliation, never an asserted failure or permission to retry blindly. Concrete transport fields and error variants are builder choices.
+
+The transaction and Evry review rules above apply once to all durable domain operations. Review binds the initiating account and acting context, exact targets and changes, current revisions and grants, exclusions, induced consequences, outbound bytes and audience, file contents and format, dates and confirmed timezone choices, and expiry. A changed review-sensitive fact supersedes approval. A conversational yes is draft intent; only trusted UI approval authorizes execution. Native passive viewing does not require fabricated approval.
+
+Authorized pure reads have no durable domain effects and do not initiate model generation. Actor-private Evry conversation, attachment, draft, proposal, run and receipt protocols grant no domain authority and never advance intelligence inputs. Domain effects require a separately approved owning-domain operation. Trusted internal producers and jobs remain unavailable as model or arbitrary HTTP executors. Model tools expose bounded authorized reads and candidate preparation, with no approval, command executor, arbitrary code, SQL, network or filesystem capability. Tool grouping and dispatch implementation belong to builders.
+
 These are design contracts. Documentation checks do not establish application, SQL, trigger, auth, provider or restore acceptance.

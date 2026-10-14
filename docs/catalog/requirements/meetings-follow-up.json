@@ -11,7 +11,7 @@
       "operations": [
         "followups.recordOutcome",
         "followups.correctOutcome",
-        "communication.listContactHistory"
+        "followups.listContactHistory"
       ],
       "acceptance_ids": [
         "AC-COM-011--COM-011"
@@ -27,6 +27,32 @@
       "work_packages": [
         "WP-023",
         "WP-029"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "communication.correctContactLog",
+          "rule": "Visible information for plant_member_current_task_assignee: executionId, status, affected, excluded, results, correction, correlationId."
+        },
+        {
+          "operation": "communication.correctContactLog",
+          "rule": "Supported outcome values: contacted, attempted_no_contact, administrative_completion, no_longer_needed."
+        },
+        {
+          "operation": "communication.correctContactLog",
+          "rule": "Required contacted only."
+        },
+        {
+          "operation": "communication.correctContactLog",
+          "rule": "Same followups.correctOutcome semantics: effective contact recomputed from valid occurredAt, old history preserved, no resend or administrative-contact inference."
+        },
+        {
+          "operation": "communication.recordContactFromTask",
+          "rule": "Visible information for registered_internal_producer_or_exact_operator: contactProjectionRevision, receiptId, safeOutcome."
+        },
+        {
+          "operation": "communication.recordContactFromTask",
+          "rule": "Same typed human-contact transaction; derive occurredAt from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer."
+        }
       ]
     },
     {
@@ -37,8 +63,8 @@
       "text": "Preserve upcoming/past/all windows, closed type filter, stable paging and one derived display title across detail/bread crumb. Browse defaults all; analytics defaults Vision and labels that scope. Unknown/repeated type query gets the documented all default. Cancelled future records remain distinguishable from scheduled; an empty current filter does not claim no historical meetings. Team tab and global list reuse the same records with current tenant projection.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-001",
       "operations": [
-        "meetings.listMeetings",
-        "meetings.getMeeting",
+        "meetings.list",
+        "meetings.get",
         "meetings.hasHistory"
       ],
       "acceptance_ids": [
@@ -63,10 +89,10 @@
       "text": "Retain vision_meeting/orientation/team_meeting and subtypes regular/training/planning/special/rehearsal; add approved distinct prelaunch_practice type. States planning/ready/in_progress/completed/cancelled; expected-revision transitions are explicit. Type/team linkage cannot change through ordinary edit. Atomically create selected active venue/snapshot, meeting, fresh agenda/kit and reviewed unique roster; lock tenant counter for distinct Vision numbers. Record resolved Instant/zone/offset for entered times. Delete from current list through attributable retirement; void an invalid occurrence separately, preserving history and actual held evidence. Completed practice requires actual nonfuture occurrence; three distinct valid held completed IDs meet practice count, four still meet. Scheduled/future/cancelled/not-held/duplicate/voided records do not count. Practice supports ordinary venue/agenda/guest/notes, but no Vision number/kit/card/evaluation/first-timer work or training credit. Correction/reopen/void changes current facts with history, never auto phase or milestones.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-002",
       "operations": [
-        "meetings.createMeeting",
-        "meetings.updateMeeting",
-        "meetings.setStatus",
-        "meetings.retireMeeting",
+        "meetings.schedule",
+        "meetings.edit",
+        "meetings.changeStatus",
+        "meetings.delete",
         "meetings.completePractice",
         "meetings.correctOccurrence"
       ],
@@ -89,14 +115,14 @@
       "feature_ids": [
         "MTG-003"
       ],
-      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity\u22651 when sup plied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
+      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when sup plied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-003",
       "operations": [
-        "locations.list",
-        "locations.get",
-        "locations.create",
-        "locations.update",
-        "locations.archive"
+        "venues.list",
+        "venues.get",
+        "venues.create",
+        "venues.edit",
+        "venues.archive"
       ],
       "acceptance_ids": [
         "AC-MTG-003--MTG-003"
@@ -110,6 +136,16 @@
       ],
       "work_packages": [
         "WP-020"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "venues.get",
+          "rule": "Visible information for plant_member: items, venueId, name, address, contact, cost, capacity, notes, active, history, revision."
+        },
+        {
+          "operation": "venues.list",
+          "rule": "Visible information for plant_member: items, matched, returned, completeness, nextCursor."
+        }
       ]
     },
     {
@@ -120,9 +156,9 @@
       "text": "Discover archived venues, restore deliberately and retain all linked meeting records. Expected revision correction/archive/restore writes current state and old/new/corrector/time/reason atomically. Stale edit writes neither row nor history; no-op active-state request converges. Existing unchanged archived selection may remain on a meeting; new/reselected archived location is refused. Restore does not rewrite historical copied venue facts.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-004",
       "operations": [
-        "locations.correct",
-        "locations.restore",
-        "locations.listCorrections"
+        "venues.correct",
+        "venues.restore",
+        "venues.history"
       ],
       "acceptance_ids": [
         "AC-MTG-004--MTG-004"
@@ -143,11 +179,11 @@
       "feature_ids": [
         "MTG-005"
       ],
-      "text": "Agenda sections have stable ID, trimmed title 1\u2013120 and integer duration 0\u2013600 minutes; at most 40 sections, empty valid. Save validates entire payload with named errors, never silently drops/truncates invalid API sections. Vision default is Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15 minutes (90 total), fresh IDs and immutable source version. Non Vision starts empty. Add/remove/reorder/retime roundtrip and derived total; later reference revision never overwrites a user's agenda.",
+      "text": "Agenda sections have stable ID, trimmed title 1–120 and integer duration 0–600 minutes; at most 40 sections, empty valid. Save validates entire payload with named errors, never silently drops/truncates invalid API sections. Vision default is Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15 minutes (90 total), fresh IDs and immutable source version. Non Vision starts empty. Add/remove/reorder/retime roundtrip and derived total; later reference revision never overwrites a user's agenda.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-005",
       "operations": [
-        "meetings.getAgenda",
-        "meetings.setAgenda"
+        "meetings.readAgenda",
+        "meetings.replaceAgenda"
       ],
       "acceptance_ids": [
         "AC-MTG-005--MTG-005"
@@ -171,7 +207,7 @@
       "text": "Retain canonical versioned kit categories essential/materials/setup/av/organization with item text, assigned Person, check state and bounded notes. Seed exact reviewed kit once with meeting create or explicit accepted offer; repeated population converges. Assignee must be live same plant, all FK/current revision checked; uncheck reverses check and summary counts actual checked rows. Non Vision including practice cannot request kit. Read never seeds missing rows silently.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-006",
       "operations": [
-        "meetings.getKit",
+        "meetings.listKit",
         "meetings.populateKit",
         "meetings.updateKitItem"
       ],
@@ -187,6 +223,20 @@
       ],
       "work_packages": [
         "WP-020"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.listKit",
+          "rule": "Visible information for plant_member: meetingId, items, checkedCount, totalCount, kitVersion."
+        },
+        {
+          "operation": "meetings.populateKit",
+          "rule": "Exact canonical approved kit once with receipt; reads never seed, nonVision denied."
+        },
+        {
+          "operation": "meetings.updateKitItem",
+          "rule": "Non-Vision denied; preserve canonical text/version unless explicit supported custom-item edit."
+        }
       ]
     },
     {
@@ -198,10 +248,10 @@
       "spec": "docs/product/meetings-follow-up.md#req-mtg-007",
       "operations": [
         "meetings.listGuests",
-        "meetings.addGuest",
+        "meetings.inviteGuest",
         "meetings.removeGuest",
         "meetings.previewRosterImport",
-        "meetings.importRoster"
+        "meetings.copyTeamRoster"
       ],
       "acceptance_ids": [
         "AC-MTG-007--MTG-007"
@@ -225,7 +275,7 @@
       "text": "Owner/Admin may set confirmed/declined or reset null=Pending for exact guest/Person/meeting/tenant under current revision. Use one authoritative guest RSVP projection: admin change appends provenance, synchronizes recognized linked invitation response and supersedes pending bearer tokens so an old token cannot overwrite the correction. Reset returns Pending and invalidates old tokens; a new outgoing invitation explicitly mints a fresh token. It never changes attendance/card/contact/mail delivery. This resolves the source attendance-only inconsistency rather than retaining 2 current truths.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-008",
       "operations": [
-        "meetings.setRsvp"
+        "meetings.correctRsvp"
       ],
       "acceptance_ids": [
         "AC-MTG-008--MTG-008"
@@ -239,6 +289,16 @@
       ],
       "work_packages": [
         "WP-021"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.correctRsvp",
+          "rule": "Administrative change/reset synchronizes canonical RSVP and artifact and invalidates/supersedes old token; null means Pending, never reopens token."
+        },
+        {
+          "operation": "meetings.correctRsvp",
+          "rule": "canonical administrative correction receipt"
+        }
       ]
     },
     {
@@ -246,12 +306,12 @@
       "feature_ids": [
         "MTG-009"
       ],
-      "text": "Authenticated own reply binds current account\u2192live Person\u2192existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
+      "text": "Authenticated own reply binds current account→live Person→existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-009",
       "operations": [
         "meetings.getOwnRsvp",
-        "meetings.replyOwnRsvp",
-        "meetings.replyTokenRsvp"
+        "meetings.saveOwnRsvp",
+        "meeting.answerRsvpToken"
       ],
       "acceptance_ids": [
         "AC-MTG-009--MTG-009"
@@ -265,6 +325,48 @@
       ],
       "work_packages": [
         "WP-021"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meeting.answerRsvpToken",
+          "rule": "Supported rsvp values: confirmed, declined."
+        },
+        {
+          "operation": "meeting.answerRsvpToken",
+          "rule": "Command-specific operation only; stable managed obligation IDs; no re-emission of completion; past sent invitations retained."
+        },
+        {
+          "operation": "meetings.getOwnRsvp",
+          "rule": "Visible information for plant_member: meetingId, ownRsvp, responseAllowed, revision."
+        },
+        {
+          "operation": "meetings.resolveTokenRsvp",
+          "rule": "Lock token+exact guest; verify pending/unexpired/unrevoked/purpose and atomically consume reply, update canonical guest RSVP and recognized invitation artifact, supersede old tokens; no attendance/card/contact effects."
+        },
+        {
+          "operation": "meetings.saveOwnRsvp",
+          "rule": "Visible information for plant_member: executionId, status, affected, excluded, results, correction, correlationId."
+        },
+        {
+          "operation": "meetings.getOwnRsvp",
+          "rule": "Current same-plant seat AND actual account-linked live Person is on this exact guest list; no caller account/Person selection."
+        },
+        {
+          "operation": "meetings.saveOwnRsvp",
+          "rule": "Current same-plant seat AND actual account links to this exact live Person/guest within write; never accept caller personId/accountId. Native/Evry shared reply preserves attendance/cards/notes/delivery."
+        },
+        {
+          "operation": "meeting.answerRsvpToken",
+          "rule": "canonical own RSVP response; no general account/seat/model grant"
+        },
+        {
+          "operation": "meeting.answerRsvpToken",
+          "rule": "one exact tenant+meeting+person; pending token atomically consumed on response; no ambient session authority"
+        },
+        {
+          "operation": "meetings.resolveTokenRsvp",
+          "rule": "Native explicitly submitted narrow bearer response; never an assistant mutation"
+        }
       ]
     },
     {
@@ -275,9 +377,9 @@
       "text": "Retain attended/absent/excused and first_time/returning/core_group categories with one guest row. For Vision first-time use prior chronologically earlier actually attended Vision only; team/orientation/practice/RSVP never substitutes. Core-group category remains distinct from first/returning and captures committed-stage evidence basis at recording/finalized snapshot, not later automatic stage edit. Finalized historical classification changes only reviewed correction; late prior Vision correction recomputes affected current eligibility/obligation delta with history. Whole batch validates/locks all Persons and commits all or none; own team leader only its attendance. Leader clear changes presence only, retaining guest/RSVP/card. Unknown row refuses instead of false success; summary counts attended Persons, including actual planter attendance.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-010",
       "operations": [
-        "meetings.recordAttendance",
-        "meetings.recordAttendanceBatch",
-        "meetings.addWalkIn",
+        "meetings.setAttendance",
+        "meetings.captureAttendanceBatch",
+        "meetings.setAttendance",
         "meetings.clearAttendance"
       ],
       "acceptance_ids": [
@@ -304,8 +406,8 @@
       "text": "Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named con tactuses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-011",
       "operations": [
-        "meetings.quickAddGuest",
-        "meetings.quickAddWalkIn"
+        "meetings.createGuestContact",
+        "meetings.createWalkInContact"
       ],
       "acceptance_ids": [
         "AC-MTG-011--MTG-011"
@@ -358,10 +460,10 @@
       "text": "Owner/Admin record/correct/clear one card per existing guest/meeting/Person: ready_commit/interested/prayer_request/stay_informed/not_interested, bounded prayer/question notes and recorder/occurred/recorded time. Clear returns no-card with correction tombstone; no-card is Unknown not negative. Report attended card population separately from absent guest cards and denominator, including zero/missing Unknown; do not infer attendance, email consent or commitment. Sensitive prayer/question notes require purpose-specific authorized projection and no automatic summary or AI counsel; public RSVP never reads or writes them. Non Vision/practice card denied.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-013",
       "operations": [
-        "meetings.recordResponseCard",
-        "meetings.clearResponseCard",
-        "meetings.listResponses",
-        "meetings.readResponseBreakdown"
+        "meetings.recordCard",
+        "meetings.clearCard",
+        "meetings.listCards",
+        "meetings.cardBreakdown"
       ],
       "acceptance_ids": [
         "AC-MTG-013--MTG-013"
@@ -382,12 +484,12 @@
       "feature_ids": [
         "MTG-014"
       ],
-      "text": "Only Vision allows one human evaluation with integer 1\u20135 for 8 factor keys: attendanceScore (Great Attendance: Core Group actively inviting); locationScore (Acceptable Location: easy to find/welcoming/distraction-free); logisticsScore (Great Logistics: room/AV/materials ready); agendaScore (Clear Agenda: detailed and on time); vibeScore (Great Vibe: warm/inviting/enthusiastic); messageScore (Compelling Message: clear vision); closeScore (Strong Close: nonmanipulative call); nextStepsScore (Clear Next Steps: dates/details). Server computes arithmetic average rounded 1 decimal and records reference version/actor/date. Evaluation insert and managed-evaluation task completion/history/revision commit together, uniqueness handles concurrent submission. No model scores factors.",
+      "text": "Only Vision allows one human evaluation with integer 1–5 for 8 factor keys: attendanceScore (Great Attendance: Core Group actively inviting); locationScore (Acceptable Location: easy to find/welcoming/distraction-free); logisticsScore (Great Logistics: room/AV/materials ready); agendaScore (Clear Agenda: detailed and on time); vibeScore (Great Vibe: warm/inviting/enthusiastic); messageScore (Compelling Message: clear vision); closeScore (Strong Close: nonmanipulative call); nextStepsScore (Clear Next Steps: dates/details). Server computes arithmetic average rounded 1 decimal and records reference version/actor/date. Evaluation insert and managed-evaluation task completion/history/revision commit together, uniqueness handles concurrent submission. No model scores factors.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-014",
       "operations": [
         "meetings.recordEvaluation",
         "meetings.getEvaluation",
-        "meetings.readEvaluationTrend"
+        "meetings.evaluationTrend"
       ],
       "acceptance_ids": [
         "AC-MTG-014--MTG-014"
@@ -414,7 +516,7 @@
       "spec": "docs/product/meetings-follow-up.md#req-mtg-015",
       "operations": [
         "meetings.correctEvaluation",
-        "meetings.listEvaluationCorrections"
+        "meetings.evaluationHistory"
       ],
       "acceptance_ids": [
         "AC-MTG-015--MTG-015"
@@ -460,7 +562,7 @@
       "feature_ids": [
         "MTG-017"
       ],
-      "text": "Validate current meeting/Person/guest-attendance relation within plant before bounded trimmed 1\u20135000 character note. Derive meeting type/ID from server and append authored Person activity with actual performer, meeting provenance and recorded instant atomically. Own note edit/delete follows People history contract; client metadata cannot forge unrelated meeting or Person link. No privileged broad note edit or private care classification is created.",
+      "text": "Validate current meeting/Person/guest-attendance relation within plant before bounded trimmed 1–5000 character note. Derive meeting type/ID from server and append authored Person activity with actual performer, meeting provenance and recorded instant atomically. Own note edit/delete follows People history contract; client metadata cannot forge unrelated meeting or Person link. No privileged broad note edit or private care classification is created.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-017",
       "operations": [
         "meetings.addAttendeeNote"
@@ -488,7 +590,7 @@
       "spec": "docs/product/meetings-follow-up.md#req-mtg-018",
       "operations": [
         "meetings.planNotifications",
-        "communication.composeMeeting"
+        "communication.preview"
       ],
       "acceptance_ids": [
         "AC-MTG-018--MTG-018"
@@ -512,7 +614,7 @@
       "text": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is notan approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-019",
       "operations": [
-        "meetings.readInvitationAttribution",
+        "meetings.invitationAttribution",
         "meetings.setInviter"
       ],
       "acceptance_ids": [
@@ -527,6 +629,20 @@
       ],
       "work_packages": [
         "WP-021"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.reconcileInvitationResponse",
+          "rule": "Visible information for registered_internal_producer_or_exact_operator: guestId, canonicalRsvp, supersededTokenIds, revision."
+        },
+        {
+          "operation": "meetings.reconcileInvitationResponse",
+          "rule": "Same reply transaction, never independent after-commit reconciliation."
+        },
+        {
+          "operation": "meetings.setInviter",
+          "rule": "Preserve inviter Person provenance, no self/referral cycle/account-as-witness inference; no invitation-tree subsystem."
+        }
       ]
     },
     {
@@ -562,6 +678,44 @@
         "WP-022",
         "WP-023",
         "WP-056"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.getEvaluation",
+          "rule": "Visible information for plant_member: evaluationId, factorVersion, eightScores, computedAverage, humanActor, eventDate, recordedAt, revision, correctionSummary."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Manual create is legitimately undated."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Server-derived from stored Person, or explicit reviewed custom title; no caller name authority"
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Existing obligation origin protected; no client-provided originMeetingId can fabricate48h lineage."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "A child Task cannot enter due/recurrence/source obligation/follow-up/contact branches or generic completion hooks. Eligible child tick/reopen delegates exact child-assignee guarded setSubtaskCompletion; Owner/Admin ordinary child title/assignment/removal uses the closed child contract. Parent duty never substitutes for child completion authority."
+        },
+        {
+          "operation": "tasks.listFollowUpOwners",
+          "rule": "Visible information for plant_member: items, obligationId, taskId, assigneeAccountId, outcome, unassignedCount, matched, completeness."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "exact assignment receipt/current Needs owner"
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "one active exact plant seat; row plantId matches trusted context"
+        },
+        {
+          "operation": "tasks.createFollowUp",
+          "rule": "distinct manual task receipt, excluded generated48h metric"
+        }
       ]
     },
     {
@@ -595,6 +749,56 @@
         "WP-023",
         "WP-029",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "own task outcome/checklist only"
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Supported toStatus values: not_started, in_progress, blocked, complete, no_longer_needed."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Required complete; null other status."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Same status writer effects as complete/reopen/waive: no_longer_needed never creates successful completion/contact credit, ordinary complete needs no contact declaration."
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "reject contact/outcome/occurredAt fields; ordinary complete never creates a contact record"
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "Explicit actual occurredAt required contacted; non-contact may use server completion Instant."
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "Exactly one branch selected by kind; no caller-created origin/obligation; no_longer_needed writes waiver without success credit"
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "no_longer_needed branch writes waiver state without completedAt/success/contact credit and persistent regeneration suppression; contacted alone updates effective actual-contact evidence; other complete outcomes may fulfill task only. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects."
+        },
+        {
+          "operation": "tasks.reopen",
+          "rule": "Retain actual completion/contact history; restore current actionable state only. Reopen older recurrence refuses existing open-successor conflict; task reopening never erases a genuine prior contacted occurrence."
+        },
+        {
+          "operation": "tasks.waive",
+          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion."
+        },
+        {
+          "operation": "tasks.waive",
+          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "current assigneeAccountId=self on exact live task; no assignment/handoff/roster privilege"
+        }
       ]
     },
     {
@@ -611,7 +815,7 @@
       "operations": [
         "followups.recordOutcome",
         "followups.correctOutcome",
-        "communication.listContactHistory"
+        "followups.listContactHistory"
       ],
       "acceptance_ids": [
         "AC-COM-011--COM-011",

@@ -37,6 +37,12 @@
         "WP-033",
         "WP-034",
         "WP-036"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "reference.rebuildEmbeddings",
+          "rule": "Build isolated candidate complete global corpus outside DB locks; checkpoint current claim, bound provider budget. Never import unknown old vectors/leave removed trailing chunks or activate partial generation."
+        }
       ]
     }
   ]

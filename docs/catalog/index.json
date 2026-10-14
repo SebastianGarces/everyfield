@@ -33,6 +33,5 @@
     "requirements": 715,
     "future_cases": 1086
   },
-  "implementation_tests_run": 0,
-  "current_alias_source": "docs/catalog/current-operation-aliases.json"
+  "implementation_tests_run": 0
 }

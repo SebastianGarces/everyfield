@@ -25,6 +25,28 @@
         "WP-040",
         "WP-044",
         "WP-045"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "null=current deterministic consistent snapshot at server clock"
+        },
+        {
+          "operation": "launch.readCountdown",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: launchId, plannedLocalDate, countdownDays, state, asOf."
+        },
+        {
+          "operation": "launch.readCountdown",
+          "rule": "Purpose-specific Launch query uses required real parent IDs and trusted server asOf; countdown/history never require or disclose raw questionnaire/guest DTO."
+        },
+        {
+          "operation": "launch.readWorkspace",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: launchId, plannedLocalDate, actualFacts, state, milestones, debriefComplete, publishedSummary, completeness."
+        },
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "The exact current section alias returns the complete cited FactSectionResult envelope with only its named data branch. It does not perform additional live reads or accept client asOf."
+        }
       ]
     },
     {
@@ -51,6 +73,24 @@
         "WP-044",
         "WP-045",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "launch.move",
+          "rule": "Move planned target with history; readiness Task dates stay under Tasks explicit commands, no hidden reviewedMilestoneDates side effects."
+        },
+        {
+          "operation": "launch.postpone",
+          "rule": "Revisioned postponement changes target/current state and retains prior target history, not actual facts or readiness records."
+        },
+        {
+          "operation": "launch.readJournal",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: launchId, items, nextCursor, asOf."
+        },
+        {
+          "operation": "launch.schedule",
+          "rule": "First schedule atomically creates real Launch and canonical nine milestones/23 undated Tasks; requires actual parent plant, no invented preexisting launchId or automatic Task due-date rewrite."
+        }
       ]
     },
     {
@@ -94,6 +134,16 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-045"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "launch.completeMilestone",
+          "rule": "Commit against current live linked ordinary Tasks and source evidence; race/reopen correction preserves history and Needs-review truth, no new Task status engine."
+        },
+        {
+          "operation": "launch.ensureReadiness",
+          "rule": "Owning transaction internal exact canonical nine/23 identities; repair only incomplete initialization, retained Task/link tombstones never resurrect deliberate deletion. Domain UnitOfWork is trusted caller context, not a serialized input."
+        }
       ]
     },
     {
@@ -118,6 +168,12 @@
       "work_packages": [
         "WP-045",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "launch.readMilestoneHistory",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: milestoneId, items, nextCursor, asOf."
+        }
       ]
     },
     {
@@ -177,6 +233,72 @@
         "WP-053",
         "WP-055",
         "WP-066"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.changeStatus",
+          "rule": "Supported toStatus values: planning, ready, in_progress, completed, cancelled."
+        },
+        {
+          "operation": "meetings.completePractice",
+          "rule": "Canonical pre_launch_practice actually held completed occurrence, once per distinct ID; no Vision/kit/card/evaluation/training/followup/phase effects."
+        },
+        {
+          "operation": "meetings.correctOccurrence",
+          "rule": "ApprovedMeetingType? (explicit erroneous-fact correction only)"
+        },
+        {
+          "operation": "meetings.correctOccurrence",
+          "rule": "Preserve genuine archive versus invalid void; reviewed correction updates current fact lineage and obligation applicability without erasing performed history or changing immutable48h origin silently."
+        },
+        {
+          "operation": "meetings.correctPracticeOccurrence",
+          "rule": "Supported actualOccurrenceState values: completed, not_completed."
+        },
+        {
+          "operation": "meetings.delete",
+          "rule": "Retire from current list with history; genuine practice evidence is retained. Void invalid held occurrence is separately reviewed."
+        },
+        {
+          "operation": "meetings.edit",
+          "rule": "earlier|later|null? (entered gap must return valid-time choice and refuse)"
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "Visible information for plant_member: items, sections, revision, evidence, completeness."
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "Supported sections values: profile, agenda, kit, evaluation, guests, attendance, cards[]."
+        },
+        {
+          "operation": "meetings.hasHistory",
+          "rule": "Visible information for plant_member: hasAuthorizedHistory, typeScope, sourceRevision."
+        },
+        {
+          "operation": "meetings.list",
+          "rule": "Visible information for plant_member: mode, items, matched, returned, groups, completeness, nextCursor, evidence, exclusions."
+        },
+        {
+          "operation": "meetings.listCompletedPreLaunchPractices",
+          "rule": "Visible information for plant_member: actualCompletedMeetingIds, distinctOccurrenceCount, sourceReferences."
+        },
+        {
+          "operation": "meetings.schedule",
+          "rule": "earlier|later|null (entered fold requires choice, entered gap refuses)"
+        },
+        {
+          "operation": "meetings.schedule",
+          "rule": "Lock plant Vision counter, create selected active venue/snapshot+meeting+agenda/default kit+unique roster coherently. Ordinary type/team immutable after create."
+        },
+        {
+          "operation": "meetings.completePractice",
+          "rule": "one distinct actual practice occurrence receipt, no Vision effects"
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "exact one current MeetingDetails or unavailable; never page mistaken as scalar"
+        }
       ]
     },
     {
@@ -257,6 +379,36 @@
         "WP-022",
         "WP-038",
         "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.captureAttendanceBatch",
+          "rule": "Visible information for plant_member_current_team_leader: executionId, status, affected, excluded, results, correction, correlationId."
+        },
+        {
+          "operation": "meetings.captureAttendanceBatch",
+          "rule": "own team operational floor"
+        },
+        {
+          "operation": "meetings.checkIn",
+          "rule": "withDomainTransaction: fresh attendance authority + attendance mutation + history + synchronous material revision + command_receipt + safe audit + required effect intent; provider/model outside transaction."
+        },
+        {
+          "operation": "meetings.checkIn",
+          "rule": "Existing stable meeting/person participation and obligation identities; expected revision; no duplicate first-Vision consequences."
+        },
+        {
+          "operation": "meetings.listAttendance",
+          "rule": "Visible information for plant_member: items, matched, returned, completeness, nextCursor, evidence."
+        },
+        {
+          "operation": "meetings.setAttendance",
+          "rule": "Supported state values: attended, excused, absent."
+        },
+        {
+          "operation": "meetings.setAttendance",
+          "rule": "live same-plant seat linked to recorded leader Person; own team only; team_meeting attendance only; no generic meeting/card/RSVP/delete/admin authority"
+        }
       ]
     },
     {
@@ -332,6 +484,20 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-020"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.readAgenda",
+          "rule": "Visible information for plant_member: meetingId, sections, totalMinutes, copiedDefaultVersion, revision."
+        },
+        {
+          "operation": "meetings.readAgenda",
+          "rule": "ordered sections/id/title/minutes,total/default-version and revision"
+        },
+        {
+          "operation": "meetings.replaceAgenda",
+          "rule": "current agenda revision receipt"
+        }
       ]
     },
     {
@@ -444,6 +610,28 @@
         "WP-053",
         "WP-055",
         "WP-074"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "signals.correct",
+          "rule": "Supported action values: correct, retract."
+        },
+        {
+          "operation": "signals.correct",
+          "rule": "required iff correct"
+        },
+        {
+          "operation": "signals.getHistory",
+          "rule": "LegacySignalKey|TypedEvidenceSelector|null; null=permitted plant human-evidence history"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "boolean; must equal the exactly reviewed existing answer"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "Explicit human reaffirmation of one existing eligible prayer/giving answer; no inferred testimony, arbitrary new expiry or automatic other-signal refresh. Model cannot supply confirmation; exact review required."
+        }
       ]
     },
     {
@@ -488,6 +676,80 @@
       "work_packages": [
         "WP-045",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "launch.addGuestAttendance",
+          "rule": "Actual named Launch guest linkage creates valid Person+relation atomically; single display name permitted. No missing-name questionnaire/count requirement, placeholder, automatic merge, Vision credit/contact/send."
+        },
+        {
+          "operation": "launch.addGuestAttendance",
+          "rule": "Debrief, actual occurrence, named guests and reviewed published summary remain independent; correction invalidates affected evidence/projection."
+        },
+        {
+          "operation": "launch.correctDebrief",
+          "rule": "Versioned six-area draft/submitted correction; actual date/counts refer to canonical Launch evidence. Valid No asks no count; Yes requires positive count. Later incomplete draft preserves prior valid submission; no quota/attestation/roster subtraction."
+        },
+        {
+          "operation": "launch.correctGuestAttendance",
+          "rule": "Attributed revisioned relink or void of actual guest relation; does not change aggregate attendance/debrief answer or erase history."
+        },
+        {
+          "operation": "launch.correctOutcome",
+          "rule": "Actual outcome counts nullable unknown, independent planned date; nonfuture actual fact/correction/history. Zero differs from unknown, never fabricate counts or Vision follow-up evidence."
+        },
+        {
+          "operation": "launch.correctOutcome",
+          "rule": "Closed patch: absent retains old fact, explicit null means unknown; at least one field present; date correction nonfuture and attributed."
+        },
+        {
+          "operation": "launch.publishDebriefSummary",
+          "rule": "Explicit exact reviewed human publication/correction; frozen provenance category union includes baseline Meetings plus actual contributors, unknown mapping fails closed; organization receives only whole published revision under all current required sharing categories."
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Visible information for plant_owner|plant_admin: launchId, actualFacts, debriefDraft, submittedRevision, sixAreaAnswers, summaryDraft, publishedSummary, history, completeness."
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Native owning human questionnaire/draft/history read"
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Visible information for plant_member: launchId, actualFacts, submittedRevision, debriefComplete, missingNameAnswer, unenteredGuestCount, publishedSummary, completeness."
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Approved bounded submission/current actual evidence and published summary only"
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: launchId, actualFacts, submittedRevision, debriefComplete, missingNameAnswer, unenteredGuestCount, publishedSummary, completeness."
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Bounded evidence only; no raw questionnaire/support/guest/private care input"
+        },
+        {
+          "operation": "launch.readDebrief",
+          "rule": "Native raw editable draft/questionnaire/support text restricted to current plant Owner/Admin; Member and Evry projections contain approved bounded evidence/published summary only."
+        },
+        {
+          "operation": "launch.recordActualOccurrence",
+          "rule": "Record one actual nonfuture Launch occurrence; record does not accept false/void pseudo-occurrence. Corrections/void history use owning correction operation, no target-date actualization."
+        },
+        {
+          "operation": "launch.saveDebriefDraft",
+          "rule": "All questionnaire responses may be absent in draft; null missing-name answer allowed until submission. No arbitrary prose minimum."
+        },
+        {
+          "operation": "launch.saveDebriefSummaryDraft",
+          "rule": "Separate human editable summary draft with explicit domain source provenance; never copy raw questionnaire/guest/private support narratives automatically."
+        },
+        {
+          "operation": "launch.submitDebrief",
+          "rule": "Submit exact deliberately reviewed valid draft; completion independent of entering all guest names. No auto-publication, phase Task, contact, recurring services or raw-model input."
+        }
       ]
     },
     {
@@ -602,6 +864,40 @@
         "WP-053",
         "WP-055",
         "WP-066"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.createGuestContact",
+          "rule": "Supported attendanceState values: attended, not_recorded."
+        },
+        {
+          "operation": "people.createPerson",
+          "rule": "adult|child|unknown (default unknown; never inferred)"
+        },
+        {
+          "operation": "people.updatePerson",
+          "rule": "reject (stage uses explicit changeStatus; account link/creator/storage/private author/revision cannot be patched)"
+        },
+        {
+          "operation": "shared",
+          "rule": "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task48 actual typed originating task completion differs from actual contacted occurredAt; raw checkbox/provider acceptance no typed contact proof."
+        },
+        {
+          "operation": "shared",
+          "rule": "Before DB query/count/group, reject hidden assessment/interview/full-signature/document/witness existence/date/rating filters and sorts. Visible stage/current Person-level commitment lifecycle remains allowed summary. Never silently drop forbidden predicates."
+        },
+        {
+          "operation": "shared",
+          "rule": "Member hints expose only same-plant authorized ordinary identity summaries and normalized match reason; getMergeReview/previewUnmerge and manifest/revisions/reference conflict choices remain Owner/Admin."
+        },
+        {
+          "operation": "meetings.createGuestContact",
+          "rule": "coherent new Person+guest receipt, no fabricated surname/grant"
+        },
+        {
+          "operation": "people.createPerson",
+          "rule": "real Person creation receipt, no account/commitment/consent"
+        }
       ]
     },
     {
@@ -681,6 +977,12 @@
         "WP-053",
         "WP-055",
         "WP-074"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.markAssessmentSeen",
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility and affected exact-org material revision commit transactionally; replay no duplicate."
+        }
       ]
     },
     {
@@ -732,6 +1034,32 @@
       "work_packages": [
         "WP-044",
         "WP-047"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Visible information for organization_member: plantIdentity, releasedAssessmentRef, classification, sharedStructuredConcerns, allowedAggregateEvidence, asOf, sharingStatus, authorizedCanonicalPlantLink, nextCursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "null=bounded own portfolio"
+        },
+        {
+          "operation": "oversight.getPlant",
+          "rule": "Visible information for organization_member: plantDirectoryName, ordinaryLeadMinistryRolePersonDisplayName, approvedSharingFields, fourValuedHealth, datedEvidence, consentRevision, sourceReferences, nextCursor."
+        },
+        {
+          "operation": "oversight.readLaunchReadiness",
+          "rule": "Visible information for organization_member: plantIdentity, sharedLaunchState, nearDatePlusKnownGapReading, allowedCoverageTrainingAggregates, limitedVisibility, asOf, authorizedLink, nextCursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Current exact constrained organization(id,kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content."
+        },
+        {
+          "operation": "oversight.getPlant",
+          "rule": "exact organization seat; direct active plant affiliation AND currently enabled per-org category; no inherited parent/network affiliation"
+        }
       ]
     },
     {
@@ -769,6 +1097,76 @@
         "WP-058",
         "WP-073",
         "WP-074"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "current plant launch-progress evidence"
+        },
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "Read official pinned county/place relationships only; no street/coordinates/geocoding, first-county or nearest-city guess. This plant-settings read supplies no organization plant-editor grant."
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Supported releaseCause values: eligible_human_opened, elapsed_72_hours."
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Verified actual eligible open OR72elapsed hours from durable availability; same concern/evidence and current permissions. Affected org material input revision bumps atomically. No plant-source self-invalidation."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Visible information for organization_member: organization, assessmentId, runId, status, asOf, materialRevision, referenceActivationNumber, rubric, groupScope, availableEvidenceCoverage, supportedFindings, boundedPlantLensRows, ownFeedbackOnly, safeFailureCode, nextCursor."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "null=latest valid complete"
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Network Intelligence purpose strips all individual Person/profile/interview/lead-directory content from current reads AND older retained messages/citations before model input. An allowed ordinary directory lead display-name read remains a separate operation/purpose; it never feeds NI."
+        },
+        {
+          "operation": "organizationIntelligence.readHistory",
+          "rule": "Visible information for organization_member: organization, historicalAssessmentsWithCurrentGrantProjection, asOfAndOriginalGroupingReference, withheldPatterns, nextCursor."
+        },
+        {
+          "operation": "organizationIntelligence.readLocationHistory",
+          "rule": "Visible information for organization_member: organization, historicalGroupedSlices, originalReferenceAndAssociationRevisions, separatelyLabeledCurrentPlacement, withheldPatterns, nextCursor."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "Visible information for organization_member: organization, assessmentId, asOf, geographyReferenceVersion, regionSlices, stateProvinceSlices, countrySlices, wholePortfolioSlice, unknownGeographyCoverage, boundedNamedLensRows, safeStatus."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "region|state_province|country|whole_portfolio|null; null=all available grouped slices"
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "presentation context only"
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "Exactly reviewed Owner/Admin request creates one org-wide shared demand. Regional views are slices of the same run; requestedView does not create an independent engine/job/cohort or accept contributor IDs."
+        },
+        {
+          "operation": "organizationIntelligence.submitFeedback",
+          "rule": "Visible information for organization_member: feedbackId, organization, assessmentId, findingId, rubricVersion, rating, comment, revision, recordedAt, replayed, assessmentOrRubricChanged."
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "bounded oversight/shared Network Intelligence"
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "Visible information for organization_member: exactPublishedSummary, publicationDate, sourceVersion, currentConsentStatus, sourceReferences."
+        },
+        {
+          "operation": "organizations.correctReportingLocation",
+          "rule": "One native settings correction of primary association; current plant Owner/Admin only. Validate official reference and ambiguity selection; effective commit instant, immutable old reports. No org editing power, chosen-area attestation or phase effect."
+        }
       ]
     },
     {
@@ -889,6 +1287,20 @@
       "work_packages": [
         "WP-011",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.ensureAccountPerson",
+          "rule": "Same invitation/seat transaction; unique live account/plant Person link and current eligibility check; ambiguous email requires explicit review, no actorless public linkage."
+        },
+        {
+          "operation": "people.getOwnAccountPerson",
+          "rule": "Return only the own-account Person link, never an arbitrary internal account link."
+        },
+        {
+          "operation": "people.getOwnAccountPerson",
+          "rule": "Resolve actual account link only under trusted current plant context; no client account/Person selector, no inferred Discovery or other-account link."
+        }
       ]
     },
     {
@@ -935,6 +1347,24 @@
       "work_packages": [
         "WP-015",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.checkForDuplicates",
+          "rule": "Visible information for plant_member: items, completeness."
+        },
+        {
+          "operation": "people.mergePeople",
+          "rule": "Receipt manifests exact moved references and per-row revisions; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
+        },
+        {
+          "operation": "people.mergedPersonDestination",
+          "rule": "Visible information for plant_member: destinationPersonId, mergeReceiptId, safeStatus."
+        },
+        {
+          "operation": "people.unmergePeople",
+          "rule": "No universal redo. Changed survivor/reference/account/photo/uniqueness manifest or downstream irreversible disclosure/chain merge -> conflict refusal and no mutation; separate typed correction may be reviewed."
+        }
       ]
     },
     {
@@ -1008,6 +1438,68 @@
       "work_packages": [
         "WP-040",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Consistent read-only capture with one fixed asOf; caller persists immutable run inside the same snapshot transaction. Private care structurally absent."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "allow: operational attendance/serving/assignment and exact cited facts, dated human-record presence/count/date."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "remove: rawInterviewCriterionJudgments, rawFourCsScores, humanQualificationResult, humanNotesOrTestimony, privateCareBody, privateCareExistence, privateCareCalendar, privateSupportNudgeMetadata."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "not summarized after removal: true."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Separately authorized native human-record reads remain their own domain purpose; no PI/tool access inheritance."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "actual immutable originating occurrence Instant; not recordedAt or storage-createdAt proxy"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "effective actual successful originating-task completion Instant >=start and <=asOf"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "valid measured completion enters early; unresolved nonwaived enters at age>=48h; late valid completion is measured miss"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "eligible valid completion<=start+48h inclusive"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "excluded reasons: immature_pending, waived, future_actual_origin, future_actual_completion, completion_before_origin, missing_or_invalid_origin, missing_actual_completion."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Retain valid immutable source occurrence history"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Keep occurrence/effective completion separate from recordedAt/database createdAt; later recording does not invalidate valid backdated evidence"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Originating-obligation TASK completion timeliness; never actual-contact success rate"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Actual effective originating-task completion event under its approved branch; attempted_no_contact/administrative_completion can fulfill task; no_longer_needed remains waiver; never infer contacted from checkbox/provider acceptance"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Only explicitly recorded typed contacted outcome and actual occurredAt changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not"
+        }
       ]
     },
     {
@@ -1319,6 +1811,20 @@
         "WP-055",
         "WP-068",
         "WP-046"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "shared",
+          "rule": "Four typed human outcomes; only effective contacted occurredAt freshness; no email or generic completion inference."
+        },
+        {
+          "operation": "shared",
+          "rule": "Native current exact Owner/Admin original-author conjunction, stable week/calendar CAS, private-only receipt/history; no model/audit/log/PI/organization existence path."
+        },
+        {
+          "operation": "shared",
+          "rule": "Canonical pre_launch_practice actual-held occurrence; no Vision artifacts or implicittraining/phase effects."
+        }
       ]
     },
     {
@@ -1445,12 +1951,12 @@
       "feature_ids": [
         "LCH-001"
       ],
-      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note≤2000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "scheduleLaunch",
-        "moveLaunch",
-        "postponeLaunch"
+        "launch.schedule",
+        "launch.move",
+        "launch.postpone"
       ],
       "acceptance_ids": [
         "AC-LCH-001--LCH-001"
@@ -1471,7 +1977,7 @@
       "text": "Launch journal reads scoped before/after planned/actual date/status, event kind, actual actor and occurrence/correction history. Minimal deleted-actor attribution remains without private account payload. Read failure is unavailable, not a fabricated empty journal.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "readLaunchJournal"
+        "launch.readJournal"
       ],
       "acceptance_ids": [
         "AC-LCH-002--LCH-002"
@@ -1492,7 +1998,7 @@
       "text": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history/audit/receipt transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "seedLaunchReadiness"
+        "launch.ensureReadiness"
       ],
       "acceptance_ids": [
         "AC-LCH-003--LCH-003"
@@ -1515,8 +2021,8 @@
       "text": "Complete/reopen readiness milestone under current subject authority, expected revision and live associated-task guard in the same history/audit/receipt transaction. Required task reopening/correction makes current evidence Needs review while prior human completion history stays. Guest/debrief evidence is derived, not overridable by a manual checkbox.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "completeLaunchMilestone",
-        "reopenLaunchMilestone"
+        "launch.completeMilestone",
+        "launch.reopenMilestone"
       ],
       "acceptance_ids": [
         "AC-LCH-004--LCH-004"
@@ -1538,8 +2044,8 @@
       "text": "Complete/reopen linked Launch prep Tasks only through ordinary task subject/assignee/administration rules. Current milestone progress derives from live Tasks; task deletion/reassignment/reopen changes that projection and never erases prior human completion or gains a Launch authorization bypass.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "completeLaunchTask",
-        "reopenLaunchTask"
+        "tasks.complete",
+        "tasks.reopen"
       ],
       "acceptance_ids": [
         "AC-LCH-005--LCH-005"
@@ -1560,7 +2066,7 @@
       "text": "Record actual nonfuture Launch date/count/outcome separately from target, link real named guests with atomic same-plant Person/relation create or explicit existing selection, and save/submit versioned six-area debrief. A valid submitted No-unentered-guests derives guest_data_entered Met; Yes/positive count derives Not met; draft/unanswered Unknown. Valid submission independently derives debrief_done Met. Separately preview/review/publish human summary under current scoped sharing; no automatic task/contact/email/phase/guest placeholder.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [
-        "recordLaunchOutcome",
+        "launch.recordOutcome",
         "launch.saveDebriefDraft",
         "launch.submitDebrief",
         "launch.correctDebrief",
@@ -1590,7 +2096,7 @@
       "text": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under expected revision with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [
-        "correctLaunchOutcome",
+        "launch.correctOutcome",
         "launch.saveDebriefDraft",
         "launch.submitDebrief",
         "launch.correctDebrief",
@@ -1620,8 +2126,8 @@
       "text": "Launch workspace/dashboard uses one church-local countdown and canonical planned/status/actual outcome/readiness facts, explicitly distinguishes zero/unknown/postponed/overdue/completed and exposes named-guest/debrief/summary workflow. Calendar0..28day window is distinct from48hour follow-up and72hour result-release clocks; load error is unavailable.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "readLaunchWorkspace",
-        "readLaunchCountdown",
+        "launch.readWorkspace",
+        "launch.readCountdown",
         "launch.saveDebriefDraft",
         "launch.submitDebrief",
         "launch.correctDebrief",
@@ -1652,7 +2158,7 @@
       "text": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source revision, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "repairLaunchReadiness"
+        "launch.ensureReadiness"
       ],
       "acceptance_ids": [
         "AC-LCH-009--LCH-009"
@@ -1673,7 +2179,7 @@
       "text": "Read milestone completion/reopen/correction history with actual named actor or minimal scrubbed deleted attribution and original event times. Reconfirm after live-task guard keeps prior completion history without relabeling it as a new past fact.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
-        "readMilestoneCompletionHistory"
+        "launch.readMilestoneHistory"
       ],
       "acceptance_ids": [
         "AC-LCH-010--LCH-010"

@@ -59,7 +59,7 @@ export type AcceptanceEntry = {
 };
 export type Catalog = {
   feature_source: string; acceptance_source: string; operation_source: string;
-  requirement_files: string[]; case_files: string[]; current_alias_source: string;
+  requirement_files: string[]; case_files: string[];
 };
 export type Requirement = { id: string; text: string; spec: string };
 export type Case = { id: string; fixture: string; expected: string; work_packages: string[] };
@@ -151,14 +151,16 @@ export function currentCatalog(root: string): { catalog: Catalog; requirements: 
   const catalog = readJson<Catalog>(join(root, "docs/catalog/index.json"));
   const requirements = new Map(catalog.requirement_files.flatMap(path => readJson<{requirements: Requirement[]}>(join(root,path)).requirements).map(r => [r.id,r]));
   const cases = new Map(catalog.case_files.flatMap(path => readJson<{cases: Case[]}>(join(root,path)).cases).map(r => [r.id,r]));
-  const registry = readJson<AcceptanceEntry[]>(join(root,catalog.acceptance_source));
+  const expanded = run("python3", [join(root,"docs/package-context.py"), "--acceptance", "--root", root], {cwd:root});
+  if (expanded.code !== 0) fail(`Invalid acceptance inventory: ${expanded.stderr || expanded.stdout}`);
+  const registry = JSON.parse(expanded.stdout) as AcceptanceEntry[];
   if (!registry.length || !requirements.size || !cases.size) fail("Empty current context is not a valid implementation contract.");
   for (const entry of registry) {
     for (const id of entry.requirement_ids) if (!requirements.has(id)) fail(`Missing clause ${id} in ${entry.id}.`);
     for (const id of entry.case_ids) if (!cases.has(id)) fail(`Missing case ${id} in ${entry.id}.`);
   }
   // These are current source contracts, even when no operation is selected by this task.
-  for (const path of [catalog.feature_source,catalog.operation_source,catalog.current_alias_source,'docs/catalog/shared-contracts.json','docs/schema/target.json','docs/plan/context-manifest.json']) readJson<unknown>(join(root,path));
+  for (const path of [catalog.feature_source,catalog.operation_source,'docs/catalog/shared-contracts.json','docs/schema/target.json','docs/plan/context-manifest.json']) readJson<unknown>(join(root,path));
   return {catalog,requirements,cases,registry};
 }
 export function loadRegistry(root: string): AcceptanceEntry[] { return currentCatalog(root).registry; }

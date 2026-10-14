@@ -18,7 +18,12 @@ test('BUG-workflow: preserve selected producer dependencies across forward refer
  }
 });
 test('INV-context: load current acceptance and fail when its required input is missing', () => {
- assert.equal(loadRegistry(source).length, 720);
+ const registry=loadRegistry(source);
+ assert.equal(registry.length, 720);
+ assert.deepEqual(registry.find(a=>a.id==='AC-EVR-001--EVR-001')?.required_test_layers,
+  ['domain/contract','PostgreSQL integration where writes/concurrency','browser/tool evaluation where surfaced']);
+ assert.deepEqual(registry.find(a=>a.id==='AC-DOC-016--DOC-016')?.required_test_layers,
+  ['unit parse/sanitization and strict scope contracts','integration private storage/document revisions/evidence','browser native editor and safe parsed rendering','Evry exact reviewed effects only if adapter supports a named operation']);
  const root=mkdtempSync(join(tmpdir(),'evf-context-'));
  try {
   cpSync(join(source,'docs'), join(root,'docs'), {recursive:true});

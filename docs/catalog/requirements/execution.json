@@ -28,6 +28,16 @@
         "WP-003",
         "WP-004",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Exact purpose-specific registered diagnostic/owned disposable mutation. Actual environment/checkout/identity/config proof trusted context, sentinel alone insufficient; no production identities/credentials, unrelated worktree, spending/provider effect/board mutation absent actual authorization."
+        },
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Verified immutable-principal operator capability for the exact positively identified environment/target and registered operation. Not a plant/org role, ordinary job grant, model hint or submitted manifest; no unapproved spend/provider/configuration."
+        }
       ]
     },
     {
@@ -70,7 +80,7 @@
         "NTF-008",
         "OPS-001"
       ],
-      "text": "Selected same-app authenticated Next/Postgres executor uses unique durable occurrence job, SKIPLOCKED claim generation/default5min lease/30s heartbeat/checkpoint CAS. assessment.refresh explicitly overrides the default with120second job/attempt lease and individual provider call\u226445seconds. Tick budget remains270seconds,4concurrent,2pertenant,10pertenantpage with rotating type+tenant fairness and durable owed cursors. External uncertainty has handler-specific reconciliation; pure failures\u22643backoffs; safe operator reason/current scope recovery. No per-feature queue or workflow platform.",
+      "text": "Selected same-app authenticated Next/Postgres executor uses unique durable occurrence job, SKIPLOCKED claim generation/default5min lease/30s heartbeat/checkpoint CAS. assessment.refresh explicitly overrides the default with120second job/attempt lease and individual provider call≤45seconds. Tick budget remains270seconds,4concurrent,2pertenant,10pertenantpage with rotating type+tenant fairness and durable owed cursors. External uncertainty has handler-specific reconciliation; pure failures≤3backoffs; safe operator reason/current scope recovery. No per-feature queue or workflow platform.",
       "spec": "docs/architecture/execution.md#claim-and-transaction-protocol",
       "operations": [
         "jobs.manualRun",
@@ -131,6 +141,28 @@
         "WP-031",
         "WP-049",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "jobs.inspectLag",
+          "rule": "Read-only DB-clock observed content-free bounded lag by registered job family; no tenant/body/calendar private-care metadata."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Scoped actual existing registered job/manual recovery only; recheck current fence/expiry and domain retry rules, unknown external reconcile cannot become new-key resend or generic arbitrary executor."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Supported expectedState values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Persisted canonical job_state; pending→ready, completed→succeeded, blocked_unknown→reconcile are UI projections only."
+        },
+        {
+          "operation": "jobs.tickAssessments",
+          "rule": "Bounded same-app/Postgres tick with fairness/lease/fence/checkpoint"
+        }
       ]
     }
   ]

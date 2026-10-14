@@ -27,6 +27,12 @@
       ],
       "work_packages": [
         "WP-038"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.declare",
+          "rule": "One existing-journey declaration under locked plant/unique slot. Caller cannot choose church_creation kind. Unsure/discerning/skip is no declaration; initial declaration emits no reached-new-phase consequence."
+        }
       ]
     },
     {
@@ -53,6 +59,16 @@
       ],
       "work_packages": [
         "WP-038"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.transition",
+          "rule": "String trimmed length1..2000; exact reserved initial-declaration reason rejected after trim"
+        },
+        {
+          "operation": "phases.transition",
+          "rule": "Derive fromPhase from locked current state, never caller-authoritative fromPhase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+        }
       ]
     },
     {
@@ -80,6 +96,16 @@
       ],
       "work_packages": [
         "WP-038"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.classifyChange",
+          "rule": "JSON number, integer, 0<=value<=6; strings/null/fractions/out-of-range rejected; no coercion"
+        },
+        {
+          "operation": "phases.classifyChange",
+          "rule": "Stored typed kind is authoritative; reason sentence is display copy and reserved, never a substituted kind test."
+        }
       ]
     },
     {
@@ -132,6 +158,20 @@
       "work_packages": [
         "WP-026",
         "WP-038"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.appendAssessmentConsequences",
+          "rule": "bounded registered internal protocol"
+        },
+        {
+          "operation": "intelligence.appendAssessmentConsequences",
+          "rule": "Append typed bounded required intent inside publication transaction; no bus callback decides durability or broad private/raw output."
+        },
+        {
+          "operation": "phases.appendConsequences",
+          "rule": "Local phase offer coordination and required bounded notice intents share mutation transaction. Initial declaration/creation does not fake advancement. No model/client invocation or after-commit integrity dependency."
+        }
       ]
     },
     {
@@ -159,6 +199,16 @@
       "work_packages": [
         "WP-026",
         "WP-038"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.readPhaseOffer",
+          "rule": "Visible information for plant_member: transitionId, actualTransitionLocalDate, currentPhase, answerState, availableVersionedTemplateRows, offerRevision, previousAnswerReceipt."
+        },
+        {
+          "operation": "wiki.recommendForPhase",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phaseId, authorizedRecommendations, sourceReferences."
+        }
       ]
     },
     {
@@ -445,7 +495,7 @@
       "feature_ids": [
         "PI-009"
       ],
-      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0\u201328 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
+      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0–28 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -672,6 +722,12 @@
       ],
       "work_packages": [
         "WP-041"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.readRubric",
+          "rule": "v0|v1|null; null=active pinned plant version"
+        }
       ]
     },
     {
@@ -700,6 +756,16 @@
       ],
       "work_packages": [
         "WP-041"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.retrieveMethodology",
+          "rule": "Worker-only retrieval of complete activated global corpus; dense phase/null restriction and sparse FTS phase boost/RRF. Provider embedding lookup shares authorized run budget; no interactive generation on read."
+        },
+        {
+          "operation": "reference.embedQuery",
+          "rule": "Bounded worker provider read derived from allowed operational reference query only; no Person/private-care/raw payload; exact activated embedding model/dimensions."
+        }
       ]
     },
     {
@@ -727,6 +793,12 @@
       ],
       "work_packages": [
         "WP-042"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.validateDraft",
+          "rule": "Pure validation; no provider call, publish, raw body trace or durable write."
+        }
       ]
     },
     {
@@ -754,6 +826,12 @@
       "work_packages": [
         "WP-042",
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.evaluateAssessment",
+          "rule": "Provider work outside DB locks; at most3output drafts/4provider attempts per draft under one deadline/token reservation. Run/attempt metadata checkpointed by current claim; no publish from evaluation alone."
+        }
       ]
     },
     {
@@ -781,6 +859,16 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.callProvider",
+          "rule": "Only registered adapter loads pinned allowed prompt; maxRetries0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
+        },
+        {
+          "operation": "intelligence.callProvider",
+          "rule": "Single cumulative reservation and invocation deadline; charge/reconcile every actual dispatch including429/5xx; no hidden SDK ladder"
+        }
       ]
     },
     {
@@ -809,6 +897,28 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.requestRefresh",
+          "rule": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one DomainTransaction; exact replay no duplicate."
+        },
+        {
+          "operation": "intelligence.runAssessmentBatch",
+          "rule": "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferredUnattempted. No independent worker deployment."
+        },
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Supported demandKind values: material, reference, time_refresh."
+        },
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Create idempotent demand only; no asOf forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source."
+        },
+        {
+          "operation": "intelligence.selectAssessmentCandidates",
+          "rule": "SQL latest-complete-per-subject selection; no domain mutation, all inactive/deletion roots excluded. Never-assessed active newly created plant has no reading/readiness gate."
+        }
       ]
     },
     {
@@ -882,6 +992,32 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "derive constrained root kind/id from protected run"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "One CAS transaction persists supported insights/overall summary/completion/current pointer/required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision."
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "Plant: publish complete paired assessment and plant pointer/projection; increment only affected organization material inputs. Organization: publish aggregate-safe finding/slices and exact-org pointer; do not recursively invalidate own material source."
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "reserved; never emitted by ordinary mapping"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "stable priority only within one result; original label semantics preserved in historical rows"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/currentclaim/currentgrant CAS and pointer publication are indivisible; never a raw insight insert."
+        }
       ]
     },
     {
@@ -963,6 +1099,16 @@
       "work_packages": [
         "WP-041",
         "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.formatCitedFact",
+          "rule": "Format an already authorized resolved fact without changing its observation or quality"
+        },
+        {
+          "operation": "intelligence.formatCitedFact",
+          "rule": "Pure deterministic validation/formatting of trusted bound inputs; no storage, provider call or extra authorization."
+        }
       ]
     },
     {
@@ -1177,6 +1323,12 @@
       ],
       "work_packages": [
         "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.validateConcernPairing",
+          "rule": "Verify matching concern identity and evidence across planter and oversight versions"
+        }
       ]
     },
     {
@@ -1203,6 +1355,12 @@
       ],
       "work_packages": [
         "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.submitFeedback",
+          "rule": "Supported rating values: useful, not_useful."
+        }
       ]
     },
     {
@@ -1256,6 +1414,12 @@
       "work_packages": [
         "WP-042",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.recordAttemptTelemetry",
+          "rule": "Optional metadata/usage sink only; no raw prompt/output/private care/protected manifest. Sink failure cannot fail or demote the assessment."
+        }
       ]
     },
     {
@@ -1284,6 +1448,16 @@
       "work_packages": [
         "WP-042",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.requestOperatorRefresh",
+          "rule": "Operator creates one shared demand under explicit grant/purpose, not user-role inference; no autonomous direct publish or model call."
+        },
+        {
+          "operation": "intelligence.runEvaluation",
+          "rule": "Explicit scoped operator evaluation only in isolated synthetic environment and bounded reserved model budget; no customer/private care input or shared-source destructive seed. Actual results, never file-presence pass."
+        }
       ]
     },
     {
@@ -1348,6 +1522,12 @@
       "work_packages": [
         "WP-040",
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.markMaterialRevision",
+          "rule": "Required mutation consequence inside caller transaction; no separate endpoint/post-commit repair. Once per affected root per command; preview/noop/exact replay/private care excluded."
+        }
       ]
     },
     {
@@ -1451,6 +1631,12 @@
       ],
       "work_packages": [
         "WP-039"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "privateCare.correct",
+          "rule": "Native author save/correction; no Evry proposal"
+        }
       ]
     },
     {
@@ -1477,6 +1663,20 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.executeDemand",
+          "rule": "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/asOf creates a new immutable run/demand where needed; old worker fenced."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior current pointer is unchanged. No hidden generic retry/publication grant."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. Only safe deferred/failed/superseded attempt status; a complete prior assessment is never demoted or replaced."
+        }
       ]
     },
     {
@@ -1731,6 +1931,48 @@
         "WP-018",
         "WP-019",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.addResponsibility",
+          "rule": "Membership/role/training history retained; no implicit roster-based training applicability recompute."
+        },
+        {
+          "operation": "teams.aggregateHealth",
+          "rule": "Visible information for plant_member: measuredTeamCount, unknownTeamCount, operationalTeamCount, measuredScores, summary, sourceRevision."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Unique(worship|childrens|assimilation|small_groups|admin_finance|facilities|promotion|technology)[] (explicit saved custom responsibility mapping; [] clears; never guessed from name; Prayer remains separate and is not ninth area)?"
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Required whenever ministryAreaKeys changes."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministryAreaKeys. Original mapping revision/history retained."
+        },
+        {
+          "operation": "teams.health",
+          "rule": "Visible information for plant_member: filledRoles, roleDenominator, distinctPeople, distinctTeams, requiredTrainingCompletedPairs, requiredTrainingApplicablePairs, Unknown, sourceReferences."
+        },
+        {
+          "operation": "teams.offerResponsibilities",
+          "rule": "Explicit offer answer+only reviewed selected structured lines once; preview/read zero writes, changed/deleted/declined never resurrect."
+        },
+        {
+          "operation": "teams.previewResponsibilities",
+          "rule": "Visible information for plant_member: exactStructuredLines, currentCustomizations, acceptedOrDeclinedOfferState, templateVersion, previewDigest, proposedCreatedCount."
+        },
+        {
+          "operation": "teams.reactivateMembership",
+          "rule": "Append new tenure episode with one active occupant; prior dates/history retained, no automatic People demotion or earned-training reset."
+        },
+        {
+          "operation": "teams.health",
+          "rule": "Authenticated server ActorContext/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant."
+        }
       ]
     },
     {

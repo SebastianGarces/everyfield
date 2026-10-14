@@ -6,7 +6,7 @@
       "feature_ids": [
         "PPL-001"
       ],
-      "text": "Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1\u2013100 with 24 row default UI pages; changing filter/search/view resets cursor while preserving sibling filters. Use deterministic createdAt +ID keyset and tenant-scoped validated cursors; invalid/foreign cursor cannot disclose rows. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.",
+      "text": "Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1–100 with 24 row default UI pages; changing filter/search/view resets cursor while preserving sibling filters. Use deterministic createdAt +ID keyset and tenant-scoped validated cursors; invalid/foreign cursor cannot disclose rows. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.",
       "spec": "docs/product/people.md#req-ppl-001",
       "operations": [
         "people.listPeople",
@@ -25,6 +25,24 @@
       ],
       "work_packages": [
         "WP-011"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.getPerson",
+          "rule": "Visible information for plant_member: items, returned, completeness, nextCursor, evidence, exclusions."
+        },
+        {
+          "operation": "people.getPerson",
+          "rule": "Supported projection values: profile, contact, household, tags, skills."
+        },
+        {
+          "operation": "people.listPeople",
+          "rule": "Authorize each filter/sort/group/history-exists predicate before database execution; Member cannot probe hidden assessment/interview/full commitment body/existence/date through matches, counts, groups, errors or metadata. Refuse unsupported/forbidden predicate instead of silently widening or revealing a zero."
+        },
+        {
+          "operation": "people.getPerson",
+          "rule": "single current Person DTO or unavailable; no raw account/storage keys"
+        }
       ]
     },
     {
@@ -32,11 +50,11 @@
       "feature_ids": [
         "PPL-002"
       ],
-      "text": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/edit able. Explicit null clears nullable fields rather than blank\u2192undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
+      "text": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/edit able. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
       "spec": "docs/product/people.md#req-ppl-002",
       "operations": [
         "people.createPerson",
-        "people.quickAddPerson",
+        "people.createPerson",
         "people.updatePerson"
       ],
       "acceptance_ids": [
@@ -62,7 +80,7 @@
       "text": "Use attributable soft retirement, preserving authorized CRM relations/history and private file references; remove from active queries/selectors and prevent new current references. Review actionable assigned duties and household/leadership/assignment effects before committing; unresolved work remains explicitly Needs owner rather than disappears. Native/reviewed restore rechecks tenant/revision, restores only an ordinary retired Person and recomputes current eligibility; it does not restore account seats or transfer private care. Merged sources are denied ordinary restore and routed to reviewed Unmerge. Retired history remains discoverable under current permission.",
       "spec": "docs/product/people.md#req-ppl-003",
       "operations": [
-        "people.retirePerson",
+        "people.deletePerson",
         "people.restorePerson"
       ],
       "acceptance_ids": [
@@ -89,7 +107,7 @@
       "spec": "docs/product/people.md#req-ppl-004",
       "operations": [
         "people.ensureAccountPerson",
-        "people.getAccountPerson"
+        "people.getOwnAccountPerson"
       ],
       "acceptance_ids": [
         "AC-PPL-004--PPL-004"
@@ -105,6 +123,12 @@
       ],
       "work_packages": [
         "WP-011"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.ensureAccountPerson",
+          "rule": "Already disclosed and selected owning native invitation/seat consequence; not separate model command"
+        }
       ]
     },
     {
@@ -115,9 +139,9 @@
       "text": "Apply 3 MiB verified JPG/JPEG/PNG/WebP private image policy and same plant live Person authority. Save generated key/reference/version atomically before old unreferenced cleanup; return authenticated Person/version image route without raw key or signed bearer URL. Foreign/retired photo access returns unavailable. Merge may choose only stored source/survivor photo and keeps referenced bytes until manifest/inverse retention no longer needs them. Failure cleanup cannot delete another currently referenced blob; failed write keeps old reference.",
       "spec": "docs/product/people.md#req-ppl-005",
       "operations": [
-        "people.uploadPhoto",
-        "people.removePhoto",
-        "people.getPhoto"
+        "people.setPersonPhoto",
+        "people.removePersonPhoto",
+        "people.getPersonPhoto"
       ],
       "acceptance_ids": [
         "AC-PPL-005--PPL-005"
@@ -142,8 +166,8 @@
       "text": "Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and expected revision. Same-stage is a no-op receipt. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.",
       "spec": "docs/product/people.md#req-ppl-006",
       "operations": [
-        "people.changeStage",
-        "people.previewStageHandoff"
+        "people.changeStatus",
+        "tasks.planHandoff"
       ],
       "acceptance_ids": [
         "AC-PPL-006--PPL-006"
@@ -159,6 +183,12 @@
       "work_packages": [
         "WP-011",
         "WP-014"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.getStatusWarnings",
+          "rule": "Visible information for plant_member: warnings, recordedEvidence, allowedStages, hardGate."
+        }
       ]
     },
     {
@@ -169,7 +199,7 @@
       "text": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs under column/version lock; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
       "spec": "docs/product/people.md#req-ppl-007",
       "operations": [
-        "people.readPipeline",
+        "people.getPipelineData",
         "people.reorderPipeline"
       ],
       "acceptance_ids": [
@@ -186,6 +216,12 @@
       "work_packages": [
         "WP-011",
         "WP-023"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.getPipelineData",
+          "rule": "Visible information for plant_member: groups, personIds, ordinaryProfileFields, counts, inactivityWarnings, completeness."
+        }
       ]
     },
     {
@@ -196,7 +232,7 @@
       "text": "Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-edit able notes. Meeting-linked note must validate actual meeting/attendance relation server-side.",
       "spec": "docs/product/people.md#req-ppl-008",
       "operations": [
-        "people.listActivities",
+        "people.getActivities",
         "people.addNote",
         "people.editNote",
         "people.deleteNote"
@@ -213,6 +249,32 @@
       ],
       "work_packages": [
         "WP-011"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.getActivities",
+          "rule": "Visible information for plant_member: items(ordinaryNote,stageEvent,permittedOperationalActivity), recordCursor, completeness."
+        },
+        {
+          "operation": "people.getActivities",
+          "rule": "Supported recordTypes values: note, activity, interview, assessment, commitment, follow_up[]."
+        },
+        {
+          "operation": "people.getActivities",
+          "rule": "allowedHistoryRecordTypes: ordinary_note, ordinary_activity, own_allowed_follow_up."
+        },
+        {
+          "operation": "people.getActivities",
+          "rule": "A cohort/count/existence predicate is a read; it may use only fields/purposes currently allowed for that actor. A permitted profile/operational aggregate never grants full intake."
+        },
+        {
+          "operation": "people.deleteNote",
+          "rule": "Current same-plant Owner/Admin AND note.personId matches request Person AND note.kind=authored_note AND note.originalAuthorAccountId==actual account; cannot edit another author/system event."
+        },
+        {
+          "operation": "people.getActivities",
+          "rule": "Current same-plant Member read projection; reject requested qualification/private-document body kinds; no underlying private existence/body leakage from filters."
+        }
       ]
     },
     {
@@ -223,13 +285,13 @@
       "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current revisions and deliberately overwrites them in one bounded transaction, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Lock Person/household consistently against retire/join/delete to avoid orphan records.",
       "spec": "docs/product/people.md#req-ppl-009",
       "operations": [
-        "households.create",
-        "households.update",
-        "households.addMember",
-        "households.removeMember",
-        "households.setRole",
-        "households.propagateAddress",
-        "households.deleteEmpty"
+        "people.createHouseholdWithHead",
+        "people.updateHousehold",
+        "people.addToHousehold",
+        "people.removeFromHousehold",
+        "people.setHouseholdRole",
+        "people.propagateAddress",
+        "people.deleteHousehold"
       ],
       "acceptance_ids": [
         "AC-PPL-009--PPL-009"
@@ -243,6 +305,44 @@
       ],
       "work_packages": [
         "WP-012"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.addToHousehold",
+          "rule": "Supported memberRole values: head, spouse, child, other."
+        },
+        {
+          "operation": "people.addToHousehold",
+          "rule": "Join copies household address only if Person lacks meaningful address; overwrite propagation is separate exact reviewed command."
+        },
+        {
+          "operation": "people.getHousehold",
+          "rule": "Visible information for plant_member: householdId, name, address, members, memberRoles, revision."
+        },
+        {
+          "operation": "people.removeFromHousehold",
+          "rule": "Leaving preserves Person address; role/address propagation cannot be supplied as removal effect."
+        },
+        {
+          "operation": "people.setHouseholdRole",
+          "rule": "Supported role values: head, spouse, child, other."
+        },
+        {
+          "operation": "people.setHouseholdRole",
+          "rule": "Only role changes; household position never supplies adult classification or address propagation."
+        },
+        {
+          "operation": "people.addToHousehold",
+          "rule": "membership receipt/history, no overwrite of existing meaningful address"
+        },
+        {
+          "operation": "people.createHouseholdWithHead",
+          "rule": "household+head receipt, no orphan"
+        },
+        {
+          "operation": "people.removeFromHousehold",
+          "rule": "ended current household membership/history"
+        }
       ]
     },
     {
@@ -250,15 +350,15 @@
       "feature_ids": [
         "PPL-010"
       ],
-      "text": "Keep church-defined labels with trimmed name 1\u2013100, optional supported named/hex color, explicit nullable clear and unique current tenant normalized name. Assignment validates live Person+tag same tenant and unique pair. Retry assign/remove writes one semantic activity or original no-op receipt, never fictitious tag event. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable audit without becoming global taxonomy.",
+      "text": "Keep church-defined labels with trimmed name 1–100, optional supported named/hex color, explicit nullable clear and unique current tenant normalized name. Assignment validates live Person+tag same tenant and unique pair. Retry assign/remove writes one semantic activity or original no-op receipt, never fictitious tag event. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable audit without becoming global taxonomy.",
       "spec": "docs/product/people.md#req-ppl-010",
       "operations": [
-        "tags.list",
-        "tags.create",
-        "tags.update",
-        "tags.delete",
-        "tags.assign",
-        "tags.remove"
+        "people.listTags",
+        "people.createTag",
+        "people.updateTag",
+        "people.deleteTag",
+        "people.assignTag",
+        "people.removeTag"
       ],
       "acceptance_ids": [
         "AC-PPL-010--PPL-010"
@@ -279,11 +379,11 @@
       "feature_ids": [
         "PPL-011"
       ],
-      "text": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1\u2013100 and bounded 5000 character notes. Add/edit/remove have expected revision and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
+      "text": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1–100 and bounded 5000 character notes. Add/edit/remove have expected revision and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
       "spec": "docs/product/people.md#req-ppl-011",
       "operations": [
-        "people.listSkills",
-        "people.recordSkill",
+        "people.getPersonSkills",
+        "people.addSkill",
         "people.updateSkill",
         "people.removeSkill"
       ],
@@ -299,6 +399,20 @@
       ],
       "work_packages": [
         "WP-012"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.addSkill",
+          "rule": "Supported category values: worship, tech, admin, teaching, hospitality, leadership, other."
+        },
+        {
+          "operation": "people.updateSkill",
+          "rule": "Supported category values: worship, tech, admin, teaching, hospitality, leadership, other?."
+        },
+        {
+          "operation": "people.getPersonSkills",
+          "rule": "actual skills/category/proficiency/null notes, not role suitability"
+        }
       ]
     },
     {
@@ -306,12 +420,12 @@
       "feature_ids": [
         "PPL-012"
       ],
-      "text": "Record dated human Committed/Compelled/Contagious/Courageous assessment, each integer 1\u20135 and optional bounded 5000 character lens notes. Compute total 4\u201320 server-side and enforce score/total integrity. Preserve all records, actor/occurrence date/recorded instant and latest ordering by assessment LocalDate, recordedAt, ID; late historical entry cannot become latest merely by recording time. Advisory early-stage warning is not a hard gate. Recording does not change stage. Correction is REQ-PPL-015 and never supplies model person judgment.",
+      "text": "Record dated human Committed/Compelled/Contagious/Courageous assessment, each integer 1–5 and optional bounded 5000 character lens notes. Compute total 4–20 server-side and enforce score/total integrity. Preserve all records, actor/occurrence date/recorded instant and latest ordering by assessment LocalDate, recordedAt, ID; late historical entry cannot become latest merely by recording time. Advisory early-stage warning is not a hard gate. Recording does not change stage. Correction is REQ-PPL-015 and never supplies model person judgment.",
       "spec": "docs/product/people.md#req-ppl-012",
       "operations": [
-        "people.recordAssessment",
-        "people.listAssessments",
-        "people.getLatestAssessment"
+        "people.createAssessment",
+        "people.getAssessments",
+        "people.getAssessments"
       ],
       "acceptance_ids": [
         "AC-PPL-012--PPL-012"
@@ -325,6 +439,24 @@
       ],
       "work_packages": [
         "WP-014"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.createAssessment",
+          "rule": "Human ratings only; total4..20 computed from exact four1..5 scores. Assessment does not change stage. Preserve original actor/date/recorded instant and deterministic chronological latest."
+        },
+        {
+          "operation": "people.getAssessments",
+          "rule": "single latest human assessment or Unknown/none"
+        },
+        {
+          "operation": "people.getAssessments",
+          "rule": "Current same-plant Owner/Admin exact Person record scope only; chronological latest by eventLocalDate then recordedAt then ID; Member/org/Discovery never receives full human qualification fields."
+        },
+        {
+          "operation": "people.createAssessment",
+          "rule": "Assessment ID/computed total/revision inside CommandReceipt; stage unchanged"
+        }
       ]
     },
     {
@@ -335,9 +467,9 @@
       "text": "Keep all five criteria Maturity/Gifted/Chemistry/Right Reasons/Season as pass/fail/concern with dated human notes, next steps and result qualified/qualified_with_notes/not_qualified/follow_up. ANY result means interview occurred; on lower earlier stage record interviewed progression atomically, while an already core_group/launch_team/leader remains advanced. Only explicit stage command demotes. Chronological latest and attributable history match assessments. Next steps remain recorded text; intended-but-undelivered automatic task prompts are not registered as automation. A user can explicitly draft/create named task through ordinary Task command.",
       "spec": "docs/product/people.md#req-ppl-013",
       "operations": [
-        "people.recordInterview",
-        "people.listInterviews",
-        "people.getLatestInterview"
+        "people.createInterview",
+        "people.getInterviews",
+        "people.getInterviews"
       ],
       "acceptance_ids": [
         "AC-PPL-013--PPL-013"
@@ -351,6 +483,28 @@
       ],
       "work_packages": [
         "WP-014"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.createInterview",
+          "rule": "Supported result values: qualified, qualified_with_notes, not_qualified, follow_up."
+        },
+        {
+          "operation": "people.createInterview",
+          "rule": "reject supplied original actor/provenance"
+        },
+        {
+          "operation": "people.createInterview",
+          "rule": "Dated human interview+history+conditional interviewed progression on earlier stage commit together; any result means occurred, advanced stage never regresses. Text next steps create no task automatically."
+        },
+        {
+          "operation": "people.getInterviews",
+          "rule": "single latest human interview or Unknown/none"
+        },
+        {
+          "operation": "people.createInterview",
+          "rule": "Interview ID/revision and actual conditional earlier-stage progression receipt; no automatic task"
+        }
       ]
     },
     {
@@ -358,12 +512,12 @@
       "feature_ids": [
         "PPL-014"
       ],
-      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG\u226410 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without foreign Person FK. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/source revision/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
+      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without foreign Person FK. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/source revision/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
       "spec": "docs/product/people.md#req-ppl-014",
       "operations": [
-        "people.recordCommitment",
-        "people.listCommitments",
-        "people.getCommitmentDocument",
+        "people.createCommitment",
+        "people.getCommitments",
+        "people.getCommitmentDownload",
         "people.withdrawCommitment",
         "people.reactivateCommitment"
       ],
@@ -390,12 +544,12 @@
       "text": "Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
       "spec": "docs/product/people.md#req-ppl-015",
       "operations": [
-        "people.correctAssessment",
-        "people.correctInterview",
-        "people.correctCommitment",
+        "people.correctPersonRecord",
+        "people.correctPersonRecord",
+        "people.correctPersonRecord",
         "people.correctAdultClassification",
         "people.correctCommitmentLifecycle",
-        "people.listCorrections"
+        "people.listRecordCorrections"
       ],
       "acceptance_ids": [
         "AC-PPL-015--PPL-015"
@@ -421,7 +575,7 @@
       "text": "Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current revisions and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.",
       "spec": "docs/product/people.md#req-ppl-016",
       "operations": [
-        "people.findDuplicates",
+        "people.checkForDuplicates",
         "people.listDuplicatePairs"
       ],
       "acceptance_ids": [
@@ -475,9 +629,9 @@
       "text": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; per-row short transactions record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
       "spec": "docs/product/people.md#req-ppl-018",
       "operations": [
-        "people.getImportTemplate",
+        "people.generateCsvTemplate",
         "people.previewImport",
-        "people.executeImport",
+        "people.executeBulkImport",
         "people.getImportReceipt"
       ],
       "acceptance_ids": [
@@ -492,6 +646,12 @@
       ],
       "work_packages": [
         "WP-013"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.generateCsvTemplate",
+          "rule": "Visible information for plant_member: approvedColumnNames, utf8CsvBytes, mimeType, safeFilename."
+        }
       ]
     },
     {
@@ -516,6 +676,12 @@
       ],
       "work_packages": [
         "WP-013"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.exportPeople",
+          "rule": "Visible information for plant_member: utf8CsvBytes, safeFilename, mimeType, matched, returned, completeness."
+        }
       ]
     },
     {
@@ -523,10 +689,10 @@
       "feature_ids": [
         "PPL-020"
       ],
-      "text": "Preserve only conditional source transitions: attended Vision prospect\u2192at ten dee, active ministry membership core_group\u2192launch_team, ordinary ministry leadership launch_team\u2192leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; asyncwake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
+      "text": "Preserve only conditional source transitions: attended Vision prospect→at ten dee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; asyncwake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
       "spec": "docs/product/people.md#req-ppl-020",
       "operations": [
-        "people.applyRecordedProgression"
+        "people.applyRecordedRecruitmentEvent"
       ],
       "acceptance_ids": [
         "AC-PPL-020--PPL-020"
@@ -555,7 +721,7 @@
       "operations": [
         "people.getPersonTeams",
         "people.getPersonTraining",
-        "people.getPersonCommunication"
+        "people.getPersonCommunications"
       ],
       "acceptance_ids": [
         "AC-PPL-021--PPL-021"
@@ -582,8 +748,8 @@
       "text": "The uncalled deferred follow-up-initiation warning and undelivered interview next-step automatic task prompt are not executable target capabilities. Consolidate useful intent into explicit ordinary follow-up create/assign or reviewed task creation, retaining manualfollowing_up stage. No no-op tool, hidden subscriber, automatic qualification or autonomous stage/task side effect is registered. Show recorded next steps as text with option to explicitly open a task draft.",
       "spec": "docs/product/people.md#req-ppl-022",
       "operations": [
-        "followups.createAndAssign",
-        "tasks.createTask"
+        "tasks.createFollowUp",
+        "tasks.create"
       ],
       "acceptance_ids": [
         "AC-PPL-022--PPL-022"
@@ -622,6 +788,16 @@
       "work_packages": [
         "WP-011",
         "WP-048"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.readPipelineMetrics",
+          "rule": "internal recorded pipeline measurements, no new widget/tool"
+        },
+        {
+          "operation": "people.readPipelineMetrics",
+          "rule": "fresh exact plant seat + named operational read capability; no org/model raw-person grant"
+        }
       ]
     },
     {
@@ -668,6 +844,84 @@
         "WP-053",
         "WP-056",
         "WP-057"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Supported outcome values: contacted, attempted_no_contact, administrative_completion, no_longer_needed?."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Effective contacted max recomputes after correction/void; prior evidence/history retained, old receipt/assessment interpretable, no resend or invented contact."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Stable occurrence/obligation identity; existing recurrence successor not duplicated; only contacted updates contact freshness."
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "Visible information for plant_member: items, effectiveLastConfirmedContactAt, nextCursor, completeness."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Outcome recordedAt/original actor immutable; task completion independently chosen, only effective contacted updates freshness, waiver no success credit or regeneration; no email-delivered inference."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Supported recordType values: assessment, interview, commitment."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Supported result values: qualified, qualified_with_notes, not_qualified, follow_up?."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "reject original actor/time, witness/document replacement, full record deletion or universal undo"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/FourCs record deletion/retraction command is authorized."
+        },
+        {
+          "operation": "people.getPersonCommunications",
+          "rule": "Visible information for plant_member: items, personId, matched, returned, completeness, nextCursor, evidence."
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "TypedContactHistoryPage and effective confirmed contact freshness"
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "correction receipt no stage replay"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "correction receipt with effective lifecycle/acquisition source revision"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "human correction receipt no advanced-stage demotion"
+        }
       ]
     },
     {
@@ -718,13 +972,13 @@
         "PPL-017",
         "PPL-020"
       ],
-      "text": "Record explicit adult_classification=adult|child|unknown with dated attributable correction history; DOB is optional and never required. Maintain authoritative per-person/plant commitment lifecycle active|withdrawn|unknown, separate from signature rows and stage. At frozen asOf/source revision, count each live same plant classified adult with currently active supported core-group or launch-team commitment once, regardless of repeated cards, ministry roles or account link. Two eligible household adults count two; role/stage/account alone supplies no evidence. Known children, current withdrawal, retired/merged-away sources and foreign records are excluded with lineage. Unknown classification/state is visible. Exact count is available only with complete evidence; 30 established adults meet\u226530 even with a partial cohort, 29 plus a consequential unknown yields Unknown, reliably bounded below 30 may fail while exact count stays unknown; unavailable read is never zero. No blanket classify-every-contact or renewal gate.\n\nHistorical genuine acquisition is independent from current size. Use each canonical person's earliest valid actual eligible commitment occurrence, not recorded/corrected/classified/rejoined time. A real withdrawal decreases current size but preserves its genuine acquisition and the latest-first acquisition clock; later genuine reactivation restores current size without a new person or clock reset. Correcting an invalid historical event/date may remove/move that acquisition and recompute current windows/clock with old/new/actor/reason history. The 2026-10-13 15:32 semantic ruling expressly settles this difference. Deduplicate through explicit merge lineage, never similar name/email. Preserve trailing 28 day versus prior 28 day first-acquisition counts: net current headcount and growthDelta do not define the flat clock. 20 days permits neither slowed nor stalled, 21\u201327 permits slowed only,\u226528 permits stalled and fails the established growth-trajectory test. Missing/invalid/future consequential occurrence evidence leaves timing Unknown, independently of known size. All date/window boundaries use frozen church-local LocalDate, with windows [ asOf -27, asOf ] and [ asOf -55, asOf -28]; no UTC-midnight reinterpretation. Old assessments retain their formula/asOf/source lineage.",
+      "text": "Record explicit adult_classification=adult|child|unknown with dated attributable correction history; DOB is optional and never required. Maintain authoritative per-person/plant commitment lifecycle active|withdrawn|unknown, separate from signature rows and stage. At frozen asOf/source revision, count each live same plant classified adult with currently active supported core-group or launch-team commitment once, regardless of repeated cards, ministry roles or account link. Two eligible household adults count two; role/stage/account alone supplies no evidence. Known children, current withdrawal, retired/merged-away sources and foreign records are excluded with lineage. Unknown classification/state is visible. Exact count is available only with complete evidence; 30 established adults meet≥30 even with a partial cohort, 29 plus a consequential unknown yields Unknown, reliably bounded below 30 may fail while exact count stays unknown; unavailable read is never zero. No blanket classify-every-contact or renewal gate.\n\nHistorical genuine acquisition is independent from current size. Use each canonical person's earliest valid actual eligible commitment occurrence, not recorded/corrected/classified/rejoined time. A real withdrawal decreases current size but preserves its genuine acquisition and the latest-first acquisition clock; later genuine reactivation restores current size without a new person or clock reset. Correcting an invalid historical event/date may remove/move that acquisition and recompute current windows/clock with old/new/actor/reason history. The 2026-10-13 15:32 semantic ruling expressly settles this difference. Deduplicate through explicit merge lineage, never similar name/email. Preserve trailing 28 day versus prior 28 day first-acquisition counts: net current headcount and growthDelta do not define the flat clock. 20 days permits neither slowed nor stalled, 21–27 permits slowed only,≥28 permits stalled and fails the established growth-trajectory test. Missing/invalid/future consequential occurrence evidence leaves timing Unknown, independently of known size. All date/window boundaries use frozen church-local LocalDate, with windows [ asOf -27, asOf ] and [ asOf -55, asOf -28]; no UTC-midnight reinterpretation. Old assessments retain their formula/asOf/source lineage.",
       "spec": "docs/product/people.md#req-ppl-026",
       "operations": [
         "people.recordAdultClassification",
         "people.withdrawCommitment",
         "people.reactivateCommitment",
-        "people.readCommitmentHistory"
+        "people.getCommitments"
       ],
       "acceptance_ids": [
         "AC-PPL-001--PPL-001",
@@ -769,6 +1023,40 @@
         "WP-015",
         "WP-040",
         "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "Supported cause values: first_actual_vision_attendance, team_assignment, leader_appointment."
+        },
+        {
+          "operation": "people.correctAdultClassification",
+          "rule": "Supported classification values: adult, child, unknown."
+        },
+        {
+          "operation": "people.correctAdultClassification",
+          "rule": "Correct old/new/classification occurrence lineage; do not invent acquisition at correction date or require DOB."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Supported state values: active, withdrawn, unknown?."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Correct valid ordered person lifecycle/acquisition, retain history, genuine withdrawal does not erase real acquisition; rejoin not new, stage unchanged."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Expected revision, reason, before/after history, derived facts reconciled; later event never demotes advanced stage; growth history preserves genuine first acquisition after withdrawal."
+        },
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "no model/client call"
+        },
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "named resource + current claim/revision + caller domain tx; no model/client executor"
+        }
       ]
     }
   ]

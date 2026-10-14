@@ -15,6 +15,18 @@ def encode(value):
     return json.dumps(value, indent=2) + '\n'
 
 
+ACCEPTANCE_DEFAULTS = {
+    'required_test_layers': ['domain/contract', 'PostgreSQL integration where writes/concurrency',
+                             'browser/tool evaluation where surfaced'],
+    'evidence_status': 'future-not-run',
+    'test_protocol': 'Run the selected fixtures through the named domain/native/assistant adapters and applicable real PostgreSQL/browser layers; assert every stated expected result and denial, current state/history/audit/intent coherence, replay and recovery. A failure blocks owning slice closure; no source suite or count establishes a pass.',
+}
+
+
+def load_acceptance(root, path='docs/catalog/acceptance.json'):
+    return [dict(ACCEPTANCE_DEFAULTS, **bundle) for bundle in read(root, path)]
+
+
 def load_schema(root):
     schema = read(root, 'docs/schema/target.json')['tables']
     packages = {p['id'] for p in read(root, 'docs/plan/dag.json')['packages']}
@@ -45,15 +57,13 @@ def compile_manifest(root):
     dag = read(root, 'docs/plan/dag.json')
     catalog = read(root, 'docs/catalog/index.json')
     features = read(root, catalog['feature_source'])
-    acceptance = read(root, catalog['acceptance_source'])
+    acceptance = load_acceptance(root, catalog['acceptance_source'])
     operations = read(root, catalog['operation_source'])['operations']
     schema = load_schema(root)
     reqs = {x['id']: {'path': path, 'record': x}
             for path in catalog['requirement_files'] for x in read(root, path)['requirements']}
     cases = {x['id']: {'path': path, 'record': x}
              for path in catalog['case_files'] for x in read(root, path)['cases']}
-    alias_source = catalog.get('current_alias_source')
-    aliases = {a['alias']: a for a in read(root, alias_source)['aliases']} if alias_source else {}
     op_by = {o['id']: o for o in operations}
     shared_registry = read(root, 'docs/catalog/shared-contracts.json')['contracts']
     result = []
@@ -64,10 +74,10 @@ def compile_manifest(root):
         if op_mode == 'explicit':
             own_ops = set(scope['operation_ids'])
         elif op_mode == 'evry_owned':
-            own_ops = {o['id'] for o in operations if pid in o['ownership'].get('evry_work_packages', [])}
+            own_ops = {o['id'] for o in operations if pid in o['evry_packages']}
         elif op_mode in ['features', 'owned_and_features']:
             own_ops = {o['id'] for o in operations if fs & set(o['feature_ids']) or
-                       (op_mode == 'owned_and_features' and pid in o['ownership'].get('domain_work_packages', []))}
+                       (op_mode == 'owned_and_features' and pid == o['owning_package'])}
         else:
             raise ValueError('Unknown operation selection ' + op_mode)
         if not own_ops <= op_by.keys():
@@ -108,11 +118,10 @@ def compile_manifest(root):
         unresolved = []
         for rid in rs:
             for operation in reqs[rid]['record'].get('operations', []):
-                canonical = operation if operation in op_by else aliases.get(operation, {}).get('canonical_operation')
-                if canonical is None:
+                if operation not in op_by:
                     unresolved.append({'requirement': rid, 'operation': operation})
                 else:
-                    ops.add(canonical)
+                    ops.add(operation)
         # Consuming a clause never grants ownership or model exposure to its referenced operations.
         shared_ops = ops - own_ops
         case_mode = scope['cases']
@@ -132,13 +141,12 @@ def compile_manifest(root):
         if case_mode != 'explicit':
             cs |= {cid for rid in rs - own_rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
         tables = {t['name'] for t in schema if scope['schema'] == 'all' or pid in t['producer_work_packages']}
-        alias_ids = sorted({name for rid in rs for name in reqs[rid]['record'].get('operations', []) if name in aliases})
         result.append(dict(
             id=pid, feature_ids=sorted(fs), own_requirement_ids=sorted(own_rs), own_case_ids=sorted(own_cs),
             own_operation_ids=sorted(own_ops), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
             consumed_acceptance_requirement_ids=sorted(consumed_ac_rs), consumed_acceptance_operation_ids=sorted(consumed_ac_ops),
             acceptance_ids=sorted(acs), case_ids=sorted(cs), operation_ids=sorted(ops), shared_operation_ids=sorted(shared_ops),
-            current_alias_ids=alias_ids, shared_contract_ids=sorted(shared_symbols),
+            shared_contract_ids=sorted(shared_symbols),
             unresolved_current_operation_references=unresolved, direct_prerequisites=p['depends_on'],
             producer_table_names=sorted(tables), consumer_table_names=sorted(
                 t['name'] for t in schema if fs & set(t['feature_ids']) and t['name'] not in tables),
@@ -146,7 +154,7 @@ def compile_manifest(root):
             contract_consumption_rule='Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership.'))
     return dict(
         version=3, scope='Short package briefs and exact on-demand selectors; package scope policy lives in the DAG.',
-        catalog_source='docs/catalog/index.json', current_alias_source=alias_source, package_source='docs/plan/dag.json',
+        catalog_source='docs/catalog/index.json', package_source='docs/plan/dag.json',
         requirement_locations={k: v['path'] for k, v in sorted(reqs.items())},
         case_locations={k: v['path'] for k, v in sorted(cases.items())},
         shared_read_paths=['AGENTS.md', 'docs/START-HERE.md', 'docs/architecture/core.md',
@@ -238,9 +246,7 @@ def check_plan(root, manifest):
     for adapter in adapters:
         pid = adapter['work_package']
         selected = [o for o in operations if o['id'] in contexts[pid]['own_operation_ids']]
-        producers = set(adapter['domain_producers']) | {
-            d for o in selected for d in o['ownership']['domain_work_packages']} | {
-            o['ownership']['producer_work_package'] for o in selected}
+        producers = set(adapter['domain_producers']) | {o['owning_package'] for o in selected}
         missing = producers - ancestors(pid)
         if missing:
             raise ValueError(pid + ' lacks producer ancestors ' + str(sorted(missing)))
@@ -351,14 +357,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('package', nargs='?')
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parent.parent)
-    parser.add_argument('--part', choices=['overview', 'requirements', 'operations', 'aliases', 'cases', 'schema'], default='overview')
+    parser.add_argument('--part', choices=['overview', 'requirements', 'operations', 'cases', 'schema'], default='overview')
     parser.add_argument('--page', type=int, default=1)
     parser.add_argument('--output', type=Path)
     actions = parser.add_mutually_exclusive_group()
-    for action in ['refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes']:
+    for action in ['refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes', 'acceptance']:
         actions.add_argument('--' + action, action='store_true')
     args = parser.parse_args()
     root = args.root.resolve()
+    if args.acceptance:
+        sys.stdout.write(encode(load_acceptance(root)))
+        return
     manifest = compile_manifest(root)
     if args.refresh_manifest:
         (root / 'docs/plan/context-manifest.json').write_text(encode(manifest))
@@ -405,8 +414,6 @@ def main():
                     records.append(cache[path][record_id])
             elif args.part == 'operations':
                 records = [x for x in read(root, catalog['operation_source'])['operations'] if x['id'] in package['operation_ids']]
-            elif args.part == 'aliases':
-                records = [x for x in read(root, manifest['current_alias_source'])['aliases'] if x['alias'] in package['current_alias_ids']] if manifest['current_alias_source'] else []
             else:
                 records = [x for x in load_schema(root) if x['name'] in package['producer_table_names']]
             pages = detail_pages(args.package, args.part, records, manifest)

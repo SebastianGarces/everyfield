@@ -75,6 +75,12 @@
       ],
       "work_packages": [
         "WP-036"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "reference.packageDocumentTemplates",
+          "rule": "Pure extraction/validation of registered immutable global source component, no seed, active pointer, tenant copy or model call."
+        }
       ]
     },
     {
@@ -207,6 +213,20 @@
       ],
       "work_packages": [
         "WP-032"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "reference.auditLanguage",
+          "rule": "Offline content-language audit only; no source edits, model call, DB fixture seed or automatic release activation."
+        },
+        {
+          "operation": "reference.readRubricManifest",
+          "rule": "Supported rubricKind values: plant, network."
+        },
+        {
+          "operation": "reference.readRubricManifest",
+          "rule": "Return the active plant rubric manifest and original/adapter hashes; does not mutate or substitute the NI rubric."
+        }
       ]
     }
   ]
