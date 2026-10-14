@@ -7,7 +7,7 @@
     "qa_engineers": 1,
     "sme_product_fraction": 0.25,
     "tech_ops_fraction": 0.25,
-    "estimates": "Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Integration estimates cover checking existing producers, not rebuilding their features.",
+    "estimates": "Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Whole-target gates count all selected cases. Integration estimates cover checking existing producers, not rebuilding their features.",
     "external_waits": "Actual spend/account/configuration authorization and externally merged owner development workflow excluded. Re-estimate after C0/runtime and first vertical slice."
   },
   "packages": [
@@ -3148,7 +3148,7 @@
         "correction/history",
         "no auto phase",
         "undeveloped postlaunch features explicit",
-        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045\u2192WP046 dependency.",
+        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045→WP046 dependency.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -3959,7 +3959,7 @@
         "WP-092",
         "WP-093"
       ],
-      "estimate_engineer_days": 1.5,
+      "estimate_engineer_days": 14.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-056; linked details on demand.",
         "WP-015 reviewed producer/interface milestone",
@@ -4021,7 +4021,7 @@
         "base_days": 1,
         "requirement_days": 0.002,
         "operation_days": 0.001,
-        "case_days": 0.001,
+        "case_days": 0.0115,
         "table_days": 0,
         "gate_days": 0.04
       }
@@ -4038,7 +4038,7 @@
         "WP-095",
         "WP-096"
       ],
-      "estimate_engineer_days": 1.5,
+      "estimate_engineer_days": 14.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-057; linked details on demand.",
         "WP-048 reviewed producer/interface milestone",
@@ -4087,7 +4087,7 @@
         "base_days": 1,
         "requirement_days": 0.002,
         "operation_days": 0.001,
-        "case_days": 0.001,
+        "case_days": 0.0115,
         "table_days": 0,
         "gate_days": 0.04
       }
@@ -7275,8 +7275,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 71.0,
-  "total_engineer_days": 234.5,
+  "critical_path_unconstrained_days": 96.0,
+  "total_engineer_days": 259.5,
   "contract_milestones": {
     "C0": [
       "WP-002"

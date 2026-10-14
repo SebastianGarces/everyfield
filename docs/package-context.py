@@ -13,7 +13,7 @@ def read(root, path):
 
 
 def encode(value):
-    return json.dumps(value, indent=2) + '\n'
+    return json.dumps(value, indent=2, ensure_ascii=False) + '\n'
 
 
 ACCEPTANCE_DEFAULTS = {
@@ -348,6 +348,73 @@ def check_plan(root, manifest):
     return len(adapters)
 
 
+def check_case_actions(root, package=None):
+    """An owned case can call only operations its package can already provide."""
+    dag = read(root, 'docs/plan/dag.json')
+    graph_order(dag)
+    by = {p['id']: p for p in dag['packages']}
+    catalog = read(root, 'docs/catalog/index.json')
+    operations = {o['id']: o for o in read(root, catalog['operation_source'])['operations']}
+    baseline_policy = read(root, 'docs/plan/case-action-ordering-baseline.json')
+    ledger = baseline_policy['entries']
+    s0_policy = baseline_policy['s0_policy']
+    if s0_policy not in ['warn', 'fail']:
+        raise ValueError('Unknown S0 case-action baseline policy')
+    baseline = {(e['owner'], e['case_id'], e['action_operation'], e['action_owner']) for e in ledger}
+    if len(baseline) != len(ledger):
+        raise ValueError('Duplicate case-action baseline entry')
+    slices = {pid: s['id'] for s in dag['vertical_slices'] for pid in s['required_packages']}
+    counts = {s['id']: 0 for s in dag['vertical_slices']}
+    if package and package not in by:
+        raise ValueError('Unknown package for case-action ordering: ' + package)
+    ancestry = {}
+
+    def ancestors(pid):
+        if pid not in ancestry:
+            ancestry[pid] = {pid}
+            for dep in by[pid]['depends_on'] + by[pid].get('ui_depends_on', []):
+                ancestry[pid] |= ancestors(dep)
+        return ancestry[pid]
+
+    def action_operations(value):
+        if isinstance(value, dict):
+            if isinstance(value.get('operation'), str):
+                yield value['operation']
+            for child in value.values():
+                yield from action_operations(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from action_operations(child)
+
+    failures, checked = [], 0
+    for path in catalog['case_files']:
+        for case in read(root, path)['cases']:
+            actions = set(action_operations(case.get('action'))) | set(action_operations(case.get('subcases')))
+            for pid in case.get('work_packages', []):
+                if package and pid != package:
+                    continue
+                for oid in sorted(actions):
+                    # SQL/build/configuration proof actions have no domain package owner;
+                    # acceptance/check.py validates those named inspection actions.
+                    if oid not in operations:
+                        continue
+                    checked += 1
+                    owner = operations[oid]['owning_package']
+                    if owner not in ancestors(pid):
+                        entry = (pid, case['id'], oid, owner)
+                        if entry in baseline:
+                            counts[slices[pid]] += 1
+                        if entry not in baseline or (slices[pid] == 'S0' and s0_policy == 'fail') or package:
+                            failures.append(f'{pid}/{case["id"]}: {oid} belongs to later or unordered {owner}')
+    print('Open case-action baseline by owning slice: ' + ', '.join(f'{sid}={count}' for sid, count in counts.items()))
+    if counts['S0'] and s0_policy == 'warn':
+        print(f'WARN: {counts["S0"]} open S0 baseline entries await Round 2-4, which must clear them and set s0_policy to fail.')
+    print('Packages must clear their entries at package start and cannot close with open entries; check a package with WP-NNN --check-case-actions.')
+    if failures:
+        raise ValueError(f'Owned case action ordering fails: {len(failures)} pairs; ' + '; '.join(failures[:20]))
+    return checked
+
+
 def plan_projection(root, manifest):
     dag = read(root, 'docs/plan/dag.json')
     by = {p['id']: p for p in dag['packages']}
@@ -357,8 +424,9 @@ def plan_projection(root, manifest):
     for pid in order:
         p, c = by[pid], contexts[pid]
         f = p['estimate_factors']
+        case_count = len(c['case_ids'] if c['proof_stage'].startswith('whole-target') else c['own_case_ids'])
         amount = (f['base_days'] + f['requirement_days'] * len(c['own_requirement_ids']) +
-                  f['operation_days'] * len(c['own_operation_ids']) + f['case_days'] * len(c['own_case_ids']) +
+                  f['operation_days'] * len(c['own_operation_ids']) + f['case_days'] * case_count +
                   f['table_days'] * len(c['producer_table_names']) + f['gate_days'] * len(p['acceptance_gates']))
         p['estimate_engineer_days'] = math.ceil(amount * 2) / 2
         dependencies = p['depends_on'] + p.get('ui_depends_on', [])
@@ -371,7 +439,7 @@ def plan_projection(root, manifest):
     dag['critical_path'] = chains[last]
     dag['critical_path_unconstrained_days'] = costs[last]
     dag['total_engineer_days'] = sum(p['estimate_engineer_days'] for p in dag['packages'])
-    dag['resource_assumptions']['estimates'] = 'Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Integration estimates cover checking existing producers, not rebuilding their features.'
+    dag['resource_assumptions']['estimates'] = 'Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Whole-target gates count all selected cases. Integration estimates cover checking existing producers, not rebuilding their features.'
     dag['dependency_amendment'] = {'reason': 'Catalog owners precede operation consumers; design prerequisites apply only to presentation tasks; scoped integration producers precede whole-target gates.',
                                    'retired': [p['id'] for p in dag.get('retired_packages', [])], 'ownership_source': 'docs/catalog/index.json'}
     retired = '; '.join(p['id'] + ' is retired into ' + p['scope_moved_to'] for p in dag.get('retired_packages', []))
@@ -389,11 +457,12 @@ def plan_projection(root, manifest):
     for s in dag['vertical_slices']:
         lines.append(f"| {s['id']} | {s['meaning']} | {', '.join(s['required_packages'])} |")
     lines += ['', '## Scope estimates', '',
-              'Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.', '',
+              'Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size; whole-target gates use all selected cases. WP-056/057 each reproduce 1,086 cases with no deferrals, estimated at 0.0115 engineer-days per case plus base and gate allowances, rounded to 14 days. The lower total compared with the earlier 287.5 days mainly removes repeated counting of consumed cases across packages. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.', '',
               '| Package | Task | Clauses | Operations | Cases | Tables | Days |', '|---|---|---:|---:|---:|---:|---:|']
     for pid in order:
         p, c = by[pid], contexts[pid]
-        lines.append(f"| {pid} | {p['title']} | {len(c['own_requirement_ids'])} | {len(c['own_operation_ids'])} | {len(c['own_case_ids'])} | {len(c['producer_table_names'])} | {p['estimate_engineer_days']:g} |")
+        case_count = len(c['case_ids'] if c['proof_stage'].startswith('whole-target') else c['own_case_ids'])
+        lines.append(f"| {pid} | {p['title']} | {len(c['own_requirement_ids'])} | {len(c['own_operation_ids'])} | {case_count} | {len(c['producer_table_names'])} | {p['estimate_engineer_days']:g} |")
     lines += ['', '## Package splits', '', 'The retained target gates reproduce complete evidence after the scoped producers. A split never waives an obligation.', '']
     for split in dag.get('package_splits', []):
         lines += [split['source'] + ': ' + ', '.join(split['packages']) + '. ' + split['seam'] + ' ' + split['closure'], '']
@@ -444,10 +513,14 @@ def main():
     parser.add_argument('--page', type=int, default=1)
     parser.add_argument('--output', type=Path)
     actions = parser.add_mutually_exclusive_group()
-    for action in ['check-ownership', 'refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes', 'acceptance']:
+    for action in ['check-ownership', 'check-case-actions', 'refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes', 'acceptance']:
         actions.add_argument('--' + action, action='store_true')
     args = parser.parse_args()
     root = args.root.resolve()
+    if args.check_case_actions:
+        checked = check_case_actions(root, args.package)
+        print(f'Checked {checked} owned case actions; no new unordered pairs or blocking baseline entries.')
+        return
     if args.acceptance:
         sys.stdout.write(encode(load_acceptance(root)))
         return

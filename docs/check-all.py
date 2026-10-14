@@ -17,6 +17,7 @@ CHECKS = [
     ('person references', ['docs/schema/check-person-references.py']),
     ('package manifest', ['docs/package-context.py', '--check-manifest']),
     ('package plan', ['docs/package-context.py', '--check-plan']),
+    ('owned case action ordering', ['docs/package-context.py', '--check-case-actions']),
     ('operation rules', ['docs/catalog/check-operation-rules.py']),
     ('rule placement', ['docs/catalog/check-rule-placement.py']),
     ('operation references', ['docs/catalog/check-operation-references.py']),

@@ -3948,7 +3948,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Owner reads articles 1\u20133 and other eligible reader 4\u20136; each 0.9; one article at exactly 0.80.",
+      "description": "Owner reads articles 1–3 and other eligible reader 4–6; each 0.9; one article at exactly 0.80.",
       "given": {
         "P": {
           "fixture_type": "plant",

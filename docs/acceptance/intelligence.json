@@ -49097,7 +49097,7 @@
         },
         "reservedInitialReason": {
           "fixture_type": "fixture",
-          "value": "Declared at setup \u2014 where this plant already was when it joined EveryField."
+          "value": "Declared at setup — where this plant already was when it joined EveryField."
         }
       },
       "actor": {
@@ -49118,7 +49118,7 @@
           "currentPlantRevision": 11,
           "declarationSlot": "unused",
           "actor": "current same-plant Admin",
-          "reservedInitialReason": "Declared at setup \u2014 where this plant already was when it joined EveryField."
+          "reservedInitialReason": "Declared at setup — where this plant already was when it joined EveryField."
         }
       },
       "expected": {

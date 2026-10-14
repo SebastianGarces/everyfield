@@ -5153,7 +5153,7 @@
         "WP-020"
       ],
       "status": "future-not-run",
-      "description": "Vision create+retry kit, foreign/retired assignee, checked\u2192unchecked summary, orientation/practice request.",
+      "description": "Vision create+retry kit, foreign/retired assignee, checked→unchecked summary, orientation/practice request.",
       "given": {
         "P": {
           "fixture_type": "plant",

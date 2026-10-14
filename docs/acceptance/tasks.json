@@ -2517,7 +2517,7 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "description": "A\u2192B\u2192C\u2192A, concurrent A\u2192B/B\u2192A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
+      "description": "A→B→C→A, concurrent A→B/B→A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -20,9 +20,12 @@ python3 docs/package-context.py --refresh-manifest
 python3 docs/package-context.py --check-plan
 python3 docs/package-context.py --check-manifest
 python3 docs/package-context.py --check-ownership
+python3 docs/package-context.py --check-case-actions
 python3 docs/package-context.py --brief-sizes --output /tmp/package-brief-sizes.json
 ```
 
-`--check-plan` checks nonempty goals/outputs/gates/directories, the 65,536-byte default brief budget, retired IDs, ordered overlaps across all owning directories, catalog owner parity, query/command ownership, every operation consumer's producer ancestors, dependency-closed slices and generated estimates/critical path. `--brief-sizes` measures default JSON UTF-8 bytes only; linked files and on-demand pages are not included. Planning estimates use each package's owned scope counts and stored factors. They are rough engineer-days, not a delivery date or measured agent throughput.
+`--check-plan` checks nonempty goals/outputs/gates/directories, the 65,536-byte default brief budget, retired IDs, ordered overlaps across all owning directories, catalog owner parity, query/command ownership, owned operations and assistant adapter producer ancestors, dependency-closed slices and generated estimates/critical path. `--brief-sizes` measures default JSON UTF-8 bytes only; linked files and on-demand pages are not included. Planning estimates use each package's owned scope counts and stored factors; whole-target gates use all selected cases. They are rough engineer-days, not a delivery date or measured agent throughput.
+
+The case-action ordering check requires each action operation's domain owner to be the case-owning package or an ancestor. The baseline ledger records the 1,191 existing pairs found before this correction. It permits no new pair; open S0 entries warn until Round 2-4 clears them and changes `s0_policy` from `warn` to `fail`. Later packages must clear their entries at package start and cannot close while entries remain. Run `python3 docs/package-context.py WP-019 --check-case-actions` to check one package without allowing its baseline entries. SQL/build/configuration inspection actions have no domain owner and are validated by the acceptance checker.
 
 Keep generated briefs, measurements, screenshots and proof outside the repository. These checks establish documentation/tooling consistency. Application acceptance still needs the reviewed proof plan, real applicable layers and independent verification.

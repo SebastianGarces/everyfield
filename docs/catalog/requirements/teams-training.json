@@ -560,7 +560,7 @@
       "feature_ids": [
         "TEAM-006"
       ],
-      "text": "Background-check tracking and children\u2019s roster status display are excluded, including renamed-template lookup, imports/exports and assistant fields. Unimplemented child ratios/curriculum/rooms/acknowledgments, worship songs/rotations, inventory and apprenticeship remain outside current build. Generic desired-skills and advisory overload stay under TEAM-005/006; no software safety-clearance inference is introduced.",
+      "text": "Background-check tracking and children’s roster status display are excluded, including renamed-template lookup, imports/exports and assistant fields. Unimplemented child ratios/curriculum/rooms/acknowledgments, worship songs/rotations, inventory and apprenticeship remain outside current build. Generic desired-skills and advisory overload stay under TEAM-005/006; no software safety-clearance inference is introduced.",
       "spec": "docs/product/teams-training.md#req-team-014",
       "operations": [],
       "acceptance_ids": [
@@ -577,7 +577,7 @@
       "feature_ids": [
         "TEAM-015"
       ],
-      "text": "Active role assignment advances only core_group\u2192launch_team; qualifying ordinary ministry leadership advances only launch_team\u2192leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
+      "text": "Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
       "spec": "docs/product/teams-training.md#req-team-015",
       "operations": [
         "teams.assignmentEffects"

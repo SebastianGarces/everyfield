@@ -6796,10 +6796,6 @@
         "AC-EVR-028--EVR-028"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "operation_ids": [
@@ -7108,12 +7104,7 @@
         "AC-EVR-READ--EVR-425"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055",
-        "WP-085"
+        "WP-055"
       ],
       "operation_ids": [
         "calendar.getContext",
@@ -7229,7 +7220,7 @@
             "person",
             "team"
           ],
-          "Unicode_text": "Alex \u2713 Casey"
+          "Unicode_text": "Alex ✓ Casey"
         }
       },
       "actor": {
@@ -7275,7 +7266,7 @@
           "sequence": 4,
           "draft_revision": 2,
           "recent_messages_max": 24,
-          "Unicode_text": "Alex \u2713 Casey",
+          "Unicode_text": "Alex ✓ Casey",
           "team_row_selected_as_person": false,
           "stale_edit_applied": false,
           "revoked_reference_in_context": null,
@@ -7433,10 +7424,6 @@
         "AC-EVR-030--EVR-030"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "operation_ids": [
@@ -7720,10 +7707,6 @@
         "AC-EVR-READ--EVR-429"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "operation_ids": [
@@ -9719,7 +9702,6 @@
         "AC-EVR-016--EVR-016"
       ],
       "work_packages": [
-        "WP-051",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -22979,7 +22961,7 @@
         "AC-EVR-016--EVR-016"
       ],
       "work_packages": [
-        "WP-051"
+        "WP-052"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -24592,7 +24574,7 @@
         "AC-EVR-016--EVR-016"
       ],
       "work_packages": [
-        "WP-051"
+        "WP-053"
       ],
       "status": "future-not-run",
       "operation_ids": [],

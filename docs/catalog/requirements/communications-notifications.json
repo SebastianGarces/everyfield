@@ -6,7 +6,7 @@
       "feature_ids": [
         "COM-001"
       ],
-      "text": "Hub/history filters subject and safe body substring, linked context, lifecycle and reachable email channel; bounded page/limit \u2264100 and safe fallback for invalid read filters. Available filters reflect all authorized history. Totals distinguish selected, reachable, attempted, accepted, delivered, engaged, failed and unknown; zero denominator is safe. Load failure shows unavailable.",
+      "text": "Hub/history filters subject and safe body substring, linked context, lifecycle and reachable email channel; bounded page/limit ≤100 and safe fallback for invalid read filters. Available filters reflect all authorized history. Totals distinguish selected, reachable, attempted, accepted, delivered, engaged, failed and unknown; zero denominator is safe. Load failure shows unavailable.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.list",
@@ -112,7 +112,7 @@
       "feature_ids": [
         "COM-003"
       ],
-      "text": "Compose/preview subject 1\u2013500 characters, nonempty safe rendered body and at least one reachable reviewed recipient for sending. Sanitize stored HTML and derive plain text from it; merge Person/plant/meeting fields using the same renderer for preview and dispatch. Reject malformed JSON and foreign template/meeting IDs before persistence. No SMS/both dispatch.",
+      "text": "Compose/preview subject 1–500 characters, nonempty safe rendered body and at least one reachable reviewed recipient for sending. Sanitize stored HTML and derive plain text from it; merge Person/plant/meeting fields using the same renderer for preview and dispatch. Reject malformed JSON and foreign template/meeting IDs before persistence. No SMS/both dispatch.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.preview",
@@ -133,7 +133,7 @@
       "behavior_rules": [
         {
           "operation": "communication.preview",
-          "rule": "Preview resolves current approved per-recipient merge fields and ready owned attachments; no intents/provider effects. Server freezes whole exact audience; batching\u2264100 per HTTP request, not total recipient truncation."
+          "rule": "Preview resolves current approved per-recipient merge fields and ready owned attachments; no intents/provider effects. Server freezes whole exact audience; batching≤100 per HTTP request, not total recipient truncation."
         },
         {
           "operation": "communication.preview",
@@ -224,7 +224,7 @@
         },
         {
           "operation": "communication.dispatchAttempt",
-          "rule": "Whole immutable exact-scope request manifest\u2264100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
+          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
         },
         {
           "operation": "communication.dispatchAttempt",
@@ -267,7 +267,7 @@
       "feature_ids": [
         "COM-007"
       ],
-      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1\u2013255, description \u22641000, subject \u2264500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
+      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1–255, description ≤1000, subject ≤500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.templates.list",
@@ -342,7 +342,7 @@
       "feature_ids": [
         "COM-009"
       ],
-      "text": "Resend proposal requires sent original, \u226524 elapsed hours, \u22651 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
+      "text": "Resend proposal requires sent original, ≥24 elapsed hours, ≥1 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.resendCandidates",
@@ -362,11 +362,11 @@
       "behavior_rules": [
         {
           "operation": "communication.executeResend",
-          "rule": "Reviewed distinct deliberate resend/recovery operation rechecks source, ownership, confirmed delivery\u226524h/nonopener or authoritative failure as applicable; never invent negative acceptance evidence or retry unknown with new key."
+          "rule": "Reviewed distinct deliberate resend/recovery operation rechecks source, ownership, confirmed delivery≥24h/nonopener or authoritative failure as applicable; never invent negative acceptance evidence or retry unknown with new key."
         },
         {
           "operation": "communication.resendCandidates",
-          "rule": "Delivered-nonopener resend requires \u226524h after sent original, \u22651 confirmed delivery, no open/click and current deliverability. Proven failed recovery distinct; unknown not candidate."
+          "rule": "Delivered-nonopener resend requires ≥24h after sent original, ≥1 confirmed delivery, no open/click and current deliverability. Proven failed recovery distinct; unknown not candidate."
         },
         {
           "operation": "communication.resendCandidates",
@@ -468,7 +468,7 @@
         },
         {
           "operation": "communication.scheduleReviewed",
-          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window\u226430 days, partial/unknown truthful."
+          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30 days, partial/unknown truthful."
         }
       ]
     },
@@ -1096,7 +1096,7 @@
         "NTF-010",
         "NTF-013"
       ],
-      "text": "One mail/mail_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch\u2264100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "text": "One mail/mail_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#mail-contract",
       "operations": [
         "communication.dispatchAttempt",
@@ -1441,7 +1441,7 @@
       "behavior_rules": [
         {
           "operation": "notifications.generateOwedOversightDigests",
-          "rule": "Actual exact recipient/context owed period computed server-side; consolidate uncovered periods into\u2264100 lines/current actionable authorized facts, coverage advances only matching committed intent/receipt; empty no send."
+          "rule": "Actual exact recipient/context owed period computed server-side; consolidate uncovered periods into≤100 lines/current actionable authorized facts, coverage advances only matching committed intent/receipt; empty no send."
         },
         {
           "operation": "notifications.oversightDigestCadence.set",

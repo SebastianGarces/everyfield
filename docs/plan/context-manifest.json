@@ -1761,7 +1761,10 @@
         "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-UNMERGE",
         "TARGET-TSK-018"
       ],
-      "own_operation_ids": [],
+      "own_operation_ids": [
+        "calendar.getContext",
+        "calendar.resolve"
+      ],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-OPS-004",
@@ -1784,6 +1787,8 @@
         "TARGET-TSK-018"
       ],
       "operation_ids": [
+        "calendar.getContext",
+        "calendar.resolve",
         "domain.executeAtomicConsequences",
         "events.appendRequiredOutbox",
         "events.deliverIdempotentConsumer",
@@ -18350,11 +18355,6 @@
       "own_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
         "EVRY-CONTEXT-BOUNDS",
-        "EVRY-FAMILY-RUNTIME-CATALOG",
-        "EVRY-FAMILY-RUNTIME-CONVERSATION",
-        "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
-        "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
-        "EVRY-LEASE-FENCE",
         "EVRY-ORG-CONTEXT",
         "EVRY-RETRY-CANCEL",
         "INH-CROSS-05",
@@ -18362,9 +18362,7 @@
         "INH-CROSS-07",
         "INH-CROSS-08",
         "INH-REGRESSION-BUDGET",
-        "INH-REGRESSION-CAPABILITIES",
         "INH-REGRESSION-CONTEXT-RETENTION",
-        "INH-REGRESSION-RETRY",
         "INH-REGRESSION-SESSION-NAVIGATION",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -18677,10 +18675,6 @@
         "B03-033",
         "B03-036",
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
-        "EVRY-FAMILY-RUNTIME-CATALOG",
-        "EVRY-FAMILY-RUNTIME-CONVERSATION",
-        "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
-        "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
         "GAP-EVR-400",
         "GAP-EVR-405",
         "GAP-EVR-407",
@@ -18717,9 +18711,9 @@
         "INH-LAUNCH-03",
         "INH-LAUNCH-04",
         "INH-LAUNCH-05",
-        "INH-MEETINGS-08",
         "INH-NOTES-05",
         "INH-NOTIFICATIONS-03",
+        "INH-REGRESSION-CAPABILITIES",
         "INH-REGRESSION-CLARIFICATION-NAME",
         "INH-REGRESSION-DST-FOLD",
         "INH-REGRESSION-DST-GAP",
@@ -19622,10 +19616,6 @@
         "B03-033",
         "B03-036",
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
-        "EVRY-FAMILY-RUNTIME-CATALOG",
-        "EVRY-FAMILY-RUNTIME-CONVERSATION",
-        "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
-        "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
         "EVRY-LEASE-FENCE",
         "EVRY-REAL-CHILD-TASK-PARITY",
         "EVRY-RETRY-CANCEL",
@@ -19653,6 +19643,7 @@
         "INH-REGRESSION-CONFIRM-REPLAY",
         "INH-REGRESSION-EXPIRED-APPROVAL",
         "INH-REGRESSION-FOREIGN-SESSION",
+        "INH-REGRESSION-RETRY",
         "INH-REGRESSION-REVISED-APPROVAL",
         "INH-REGRESSION-REVOKED-SEAT",
         "INH-REGRESSION-SANDBOX-ESCAPE",
@@ -20659,10 +20650,6 @@
       "own_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
         "EVRY-CONTEXT-BOUNDS",
-        "EVRY-FAMILY-RUNTIME-CATALOG",
-        "EVRY-FAMILY-RUNTIME-CONVERSATION",
-        "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
-        "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
         "INH-DOCUMENTS-07",
         "INH-EDGES-14",
         "INH-REGRESSION-EVIDENCE-CITATION",
@@ -41781,7 +41768,6 @@
         "REQ-EVR-017"
       ],
       "own_case_ids": [
-        "EVRY-FAMILY-RUNTIME-CONVERSATION",
         "GAP-EVR-400",
         "GAP-EVR-422",
         "GAP-EVR-424",

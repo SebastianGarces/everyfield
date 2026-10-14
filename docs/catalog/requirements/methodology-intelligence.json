@@ -583,7 +583,7 @@
       "feature_ids": [
         "PI-009"
       ],
-      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0\u201328 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
+      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0–28 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"

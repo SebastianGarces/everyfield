@@ -6,7 +6,7 @@
       "feature_ids": [
         "ADM-001"
       ],
-      "text": "The authenticated feedback dialog collects category, description, page, address, church, role, browser, screen size, theme, app version and time, with no screenshot or attachment. Category is bug, suggestion, question or other; trim description to 1\u20135,000 characters. Page is the displayed page label; address is its internal path with query, fragment and tokens removed, not a postal address or arbitrary external URL. Bind church and role to trusted current account context; keep unavailable details null rather than inventing values. Store the private original, immutable original author, trusted submission time and occurrence/idempotency key before outward work. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text. Native own list/status uses the original authenticated active account and a bounded 25-row cursor projection, without private originals, admin joins or another author. Stored success is distinct from publication, triage or implementation; suspended/deleted authors are denied.",
+      "text": "The authenticated feedback dialog collects category, description, page, address, church, role, browser, screen size, theme, app version and time, with no screenshot or attachment. Category is bug, suggestion, question or other; trim description to 1–5,000 characters. Page is the displayed page label; address is its internal path with query, fragment and tokens removed, not a postal address or arbitrary external URL. Bind church and role to trusted current account context; keep unavailable details null rather than inventing values. Store the private original, immutable original author, trusted submission time and occurrence/idempotency key before outward work. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text. Native own list/status uses the original authenticated active account and a bounded 25-row cursor projection, without private originals, admin joins or another author. Stored success is distinct from publication, triage or implementation; suspended/deleted authors are denied.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.submit",
@@ -240,7 +240,7 @@
       "feature_ids": [
         "ADM-007"
       ],
-      "text": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names actual selected vendors, model purpose/terms, immediate normal-access suspension, 30-day private cancellation hold, eligible live purge, \u22647 further days of recovery copies from completed live purge, minimal retained shared attribution and asynchronous/external-copy limits. Disclose shared Tigris provider/account backup risk and no customer recovery SLA. Avoid exact day-37 physical erasure or recalled public/mail/download claims.",
+      "text": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names actual selected vendors, model purpose/terms, immediate normal-access suspension, 30-day private cancellation hold, eligible live purge, ≤7 further days of recovery copies from completed live purge, minimal retained shared attribution and asynchronous/external-copy limits. Disclose shared Tigris provider/account backup risk and no customer recovery SLA. Avoid exact day-37 physical erasure or recalled public/mail/download claims.",
       "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
       "operations": [
         "marketing.privacyPolicy",
@@ -601,7 +601,7 @@
         },
         {
           "operation": "jobs.manualRun",
-          "rule": "Persisted canonical job_state; pending\u2192ready, completed\u2192succeeded, blocked_unknown\u2192reconcile are UI projections only."
+          "rule": "Persisted canonical job_state; pending→ready, completed→succeeded, blocked_unknown→reconcile are UI projections only."
         },
         {
           "operation": "jobs.tickAssessments",

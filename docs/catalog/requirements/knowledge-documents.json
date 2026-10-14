@@ -36,7 +36,7 @@
       "feature_ids": [
         "DOC-002"
       ],
-      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field\u22642000 characters and combined\u226416KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact\u22648MiB/XML\u22642 million chars/1000 blocks/XLSX 20 sheets 500 rows 50 cols. Render failure is truthful; no mutating GET.",
+      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field≤2000 characters and combined≤16KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact≤8MiB/XML≤2 million chars/1000 blocks/XLSX 20 sheets 500 rows 50 cols. Render failure is truthful; no mutating GET.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.resolveContext",
@@ -62,7 +62,7 @@
         },
         {
           "operation": "documents.generate",
-          "rule": "Approved read-capable current plant user can generate selected library artifact; freeze reviewed inputs/template/render engine, pending\u2192ready only after exact bytes finalized; failed/pending never claim download ready."
+          "rule": "Approved read-capable current plant user can generate selected library artifact; freeze reviewed inputs/template/render engine, pending→ready only after exact bytes finalized; failed/pending never claim download ready."
         },
         {
           "operation": "documents.generate",
@@ -95,7 +95,7 @@
       "feature_ids": [
         "DOC-003"
       ],
-      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending→ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.history.list",
@@ -143,7 +143,7 @@
       "feature_ids": [
         "DOC-004"
       ],
-      "text": "Core Group Commitment Card \u2014 PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
+      "text": "Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -165,7 +165,7 @@
       "feature_ids": [
         "DOC-005"
       ],
-      "text": "Response Card \u2014 PDF; quarter-page Vision guest contact/involvement, church.",
+      "text": "Response Card — PDF; quarter-page Vision guest contact/involvement, church.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -187,7 +187,7 @@
       "feature_ids": [
         "DOC-006"
       ],
-      "text": "Guest Sign-in Sheet \u2014 PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
+      "text": "Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -209,7 +209,7 @@
       "feature_ids": [
         "DOC-007"
       ],
-      "text": "Vision Meeting Agenda \u2014 PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+      "text": "Vision Meeting Agenda — PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -231,7 +231,7 @@
       "feature_ids": [
         "DOC-008"
       ],
-      "text": "Expectations of a Core Group Member \u2014 DOCX; presence/GROW-PRAY-GIVE/team participation.",
+      "text": "Expectations of a Core Group Member — DOCX; presence/GROW-PRAY-GIVE/team participation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -253,7 +253,7 @@
       "feature_ids": [
         "DOC-009"
       ],
-      "text": "Launch Team Commitment \u2014 DOCX; member commitment approaching Launch Sunday.",
+      "text": "Launch Team Commitment — DOCX; member commitment approaching Launch Sunday.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -275,7 +275,7 @@
       "feature_ids": [
         "DOC-010"
       ],
-      "text": "Vision Meeting Follow-up Letter \u2014 DOCX; guest thank-you/next-step invitation.",
+      "text": "Vision Meeting Follow-up Letter — DOCX; guest thank-you/next-step invitation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -297,7 +297,7 @@
       "feature_ids": [
         "DOC-011"
       ],
-      "text": "Board/Elder Meeting Agenda \u2014 DOCX; prayer/minutes/financial/ministry/action items.",
+      "text": "Board/Elder Meeting Agenda — DOCX; prayer/minutes/financial/ministry/action items.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -319,7 +319,7 @@
       "feature_ids": [
         "DOC-012"
       ],
-      "text": "First-Year Budget \u2014 XLSX; 12-month income/expense with live formulas/totals.",
+      "text": "First-Year Budget — XLSX; 12-month income/expense with live formulas/totals.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -341,7 +341,7 @@
       "feature_ids": [
         "DOC-013"
       ],
-      "text": "Budget Worksheet \u2014 XLSX; monthly/annual planner with live formulas/totals.",
+      "text": "Budget Worksheet — XLSX; monthly/annual planner with live formulas/totals.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -363,7 +363,7 @@
       "feature_ids": [
         "DOC-014"
       ],
-      "text": "Launch Sunday Checklists \u2014 PDF; authoritative checklist content/layout.",
+      "text": "Launch Sunday Checklists — PDF; authoritative checklist content/layout.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -385,7 +385,7 @@
       "feature_ids": [
         "DOC-015"
       ],
-      "text": "Private file_object fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG\u226410MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+      "text": "Private file_object fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "storage.putPrivateObject",
@@ -467,7 +467,7 @@
         },
         {
           "operation": "documents.importTextOrWord",
-          "rule": "Parse verified \u226410MiB TXT/modern DOCX into native content with 40MiB expanded/2000 entries/2m characters/15 sec bounds; reject unsafe/empty input without replacing prior ready evidence."
+          "rule": "Parse verified ≤10MiB TXT/modern DOCX into native content with 40MiB expanded/2000 entries/2m characters/15 sec bounds; reject unsafe/empty input without replacing prior ready evidence."
         },
         {
           "operation": "documents.importTextOrWord",
@@ -2437,7 +2437,7 @@
       "feature_ids": [
         "WIKI-002"
       ],
-      "text": "Phase/sidebar Getting-started, Journey 0\u20136, frameworks/reference/resources; deterministic order/title/slug; H2/H3 TOC, breadcrumbs, accessible mobile drawer, same-parent siblings and eligible related IDs. Missing/duplicate references skip safely; non-ASCII/spaces/path delimiters have one encoding contract.",
+      "text": "Phase/sidebar Getting-started, Journey 0–6, frameworks/reference/resources; deterministic order/title/slug; H2/H3 TOC, breadcrumbs, accessible mobile drawer, same-parent siblings and eligible related IDs. Missing/duplicate references skip safely; non-ASCII/spaces/path delimiters have one encoding contract.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.navigation",
@@ -2479,7 +2479,7 @@
       "feature_ids": [
         "WIKI-003"
       ],
-      "text": "English weighted Postgres full-text title/excerpt/content, bounded web-search query \u2264200 characters, phase filter and 20/page. Safe highlight snippets; results/empty/unavailable distinct. Authenticated search actions never use crawler allowance. Source view uses the exact same resolver.",
+      "text": "English weighted Postgres full-text title/excerpt/content, bounded web-search query ≤200 characters, phase filter and 20/page. Safe highlight snippets; results/empty/unavailable distinct. Authenticated search actions never use crawler allowance. Source view uses the exact same resolver.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.search"

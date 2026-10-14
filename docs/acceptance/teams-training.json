@@ -5878,7 +5878,7 @@
         "WP-019"
       ],
       "status": "future-not-run",
-      "description": "Complete\u2192revoke\u2192redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
+      "description": "Complete→revoke→redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6484,7 +6484,7 @@
         "WP-017"
       ],
       "status": "future-not-run",
-      "description": "Request children\u2019s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
+      "description": "Request children’s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
       "given": {
         "P": {
           "fixture_type": "plant",

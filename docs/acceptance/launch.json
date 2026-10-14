@@ -6462,7 +6462,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Correction No\u2192Yes 2, no-op repeat, stale revision, previous PI snapshot/advanced phase.",
+      "description": "Correction No→Yes 2, no-op repeat, stale revision, previous PI snapshot/advanced phase.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -4,7 +4,7 @@ The approved target has 95 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 234.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 71 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 259.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 96 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -29,13 +29,13 @@ Each row lists only packages newly reached in that dependency-closed slice.
 
 ## Scope estimates
 
-Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.
+Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size; whole-target gates use all selected cases. WP-056/057 each reproduce 1,086 cases with no deferrals, estimated at 0.0115 engineer-days per case plus base and gate allowances, rounded to 14 days. The lower total compared with the earlier 287.5 days mainly removes repeated counting of consumed cases across packages. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.
 
 | Package | Task | Clauses | Operations | Cases | Tables | Days |
 |---|---|---:|---:|---:|---:|---:|
 | WP-087 | Local workflow and repository bootstrap | 0 | 0 | 0 | 0 | 3 |
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
-| WP-002 | Shared C0 contracts and transaction patterns | 5 | 0 | 8 | 0 | 1.5 |
+| WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 13 | 0 | 29 | 2 | 2.5 |
 | WP-004 | Fresh database/storage baseline | 28 | 4 | 141 | 100 | 5.5 |
 | WP-031 | Outbox jobs and dispatch recovery | 41 | 17 | 71 | 8 | 3.5 |
@@ -87,10 +87,10 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 2 |
 | WP-049 | Feedback admin public waitlist/legal/marketing | 20 | 15 | 21 | 4 | 2.5 |
 | WP-050 | Environment bootstrap/ops/observability | 46 | 35 | 86 | 9 | 4 |
-| WP-051 | Evry conversation/run framework spike | 32 | 18 | 26 | 4 | 3 |
-| WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 72 | 0 | 3 |
-| WP-053 | Evry proposal approval execution C3b | 52 | 13 | 82 | 8 | 4 |
-| WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 19 | 3 | 2.5 |
+| WP-051 | Evry conversation/run framework spike | 32 | 18 | 19 | 4 | 3 |
+| WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 68 | 0 | 3 |
+| WP-053 | Evry proposal approval execution C3b | 52 | 13 | 79 | 8 | 4 |
+| WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 3 | 2.5 |
 | WP-059 | Evry people-core reads/helper adapters | 4 | 21 | 22 | 0 | 2 |
 | WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 2 |
 | WP-061 | Evry people-assessments reads/helper adapters | 2 | 5 | 9 | 0 | 1.5 |
@@ -117,16 +117,16 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 7 | 0 | 2 |
 | WP-083 | Evry platform reads/helper adapters | 1 | 38 | 1 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 2 | 53 | 2 | 0 | 2.5 |
-| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 8 | 0 | 2 |
+| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 7 | 0 | 2 |
 | WP-055 | Evry autonomy policy/evals/human ownership | 53 | 4 | 100 | 0 | 3.5 |
 | WP-091 | Core SQL race/privacy/correction integration | 10 | 0 | 80 | 0 | 2.5 |
 | WP-092 | Knowledge SQL race/privacy/correction integration | 9 | 0 | 11 | 0 | 1.5 |
 | WP-093 | Intelligence SQL race/privacy/correction integration | 6 | 0 | 32 | 0 | 2 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 0 | 0 | 1.5 |
+| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1086 | 0 | 14 |
 | WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 0 | 5 | 1.5 |
+| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1086 | 5 | 14 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 28 | 0 | 2 |
 
 ## Package splits

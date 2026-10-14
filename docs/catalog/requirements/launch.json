@@ -1469,7 +1469,7 @@
       "feature_ids": [
         "LCH-001"
       ],
-      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note≤2000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.schedule",
