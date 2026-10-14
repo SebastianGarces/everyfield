@@ -110,7 +110,7 @@ Rules that apply to every component:
 | Overlays | Settings dialog | `<SettingsDialog section>` | Side nav, Section, Row, Footer (unsaved changes) | deep link per section | Dialog |
 | Overlays | Notification pop-over | `<NotificationPopover>` `<NotificationItem>` | Header, Item (icon, text, time, unread), Footer | unread | Popover |
 | Overlays | User menu | `<UserMenu>` | Identity, View switcher, Links, Sign out | current view | Menu |
-| Domain | Merge review | `<MergeReview>` `<MergeOption>` | Header pair, Field rows, What moves, Blockers | selected · empty | RadioGroup |
+| Domain | Merge review | `<MergeReview>` `<MergeOption>` | Header pair, Field rows, What moves, Blockers, Unmerge preview | selected · empty · unmerged · refused | RadioGroup |
 | Domain | Phase option | `<PhaseOption>` | Number, Name, Description, Check | selected | RadioGroup |
 | Domain | Check-in row and outcome option | `<CheckInRow>` `<OutcomeOption>` | Avatar, Name, Note, Check | here · selected · touch sized (58px) | Toggle, RadioGroup |
 | Domain | Person card | `<PersonCard>` | Avatar, Name, Meta, Footer | selected/dragging | none |

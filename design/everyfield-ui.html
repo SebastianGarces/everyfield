@@ -440,6 +440,7 @@ body:not([data-data="live"]) .page[data-states] .page-actions [data-live-only] {
 body[data-nav-shape="pill"] { --ef-nav-radius: 999px; --ef-nav-item-radius: 999px; }
 body[data-role="member"] [data-edit], body[data-role="member"] [data-org-admin] { display: none !important; }
 body[data-role="member"] .page[data-page="people"] table tr > :first-child { display: none; }
+body:not([data-role="member"]) [data-member-only], body[data-role="member"] [data-owner-view] { display: none !important; }
 .role-banner { display: none; align-items: center; gap: 12px; margin: 0 0 18px; padding: 12px 16px 12px 14px; border-radius: 16px; background: var(--ef-blue-50); box-shadow: 0 0 0 1px var(--ef-blue-100) inset; color: var(--ef-ink-2); font-size: var(--ef-text-md); }
 .role-banner i { font-size: 18px; color: var(--ef-blue-600); }
 body[data-role="member"] .role-banner { display: flex; }
@@ -1730,7 +1731,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   </aside>
 
   <main class="main" id="main">
-    <div class="role-banner" role="status"><i class="hgi-stroke hgi-view"></i><span class="grow">You have <b style="font-weight:600">view-only</b> access to Harvest Point. You can read everything you are allowed to see, but changes need an Owner or Admin.</span><button class="btn" data-variant="secondary" data-size="sm">Ask for access</button></div>
+    <div class="role-banner" role="status"><i class="hgi-stroke hgi-view"></i><span class="grow">You have a <b style="font-weight:600">Member</b> seat at Harvest Point. You can read what your seat allows and work on tasks assigned to you. Other changes need an Owner or Admin.</span><button class="btn" data-variant="secondary" data-size="sm">Ask for access</button></div>
 
 <!-- =================================================================
      PAGE: FOUNDATIONS
@@ -2949,8 +2950,8 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       <p class="page-sub">Follow-ups, checklists and your own to-dos.</p>
     </div>
     <div class="page-actions">
-      <div class="segmented"><button aria-selected="true">Mine <span class="faint">12</span></button><button>Assigned by me</button><button>All</button></div>
-      <button class="btn" data-variant="primary"><i class="hgi-stroke hgi-add-01"></i>New task</button>
+      <div class="segmented"><button aria-selected="true">Mine <span class="faint" data-owner-view>12</span><span class="faint" data-member-only>3</span></button><button data-edit>Assigned by me</button><button>All</button></div>
+      <button class="btn" data-variant="primary" data-edit><i class="hgi-stroke hgi-add-01"></i>New task</button>
     </div>
   </header>
 
@@ -2964,6 +2965,19 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-sort-by-down-01"></i>Due date</button>
       </div>
 
+      <!-- Member view (REQ-IDN-029, REQ-TSK-003, REQ-TSK-005): own assigned tasks only; others' tasks are read without actions. A follow-up still closes with an outcome (REQ-MTG-022), never a single tick. -->
+      <div data-member-only>
+        <div class="task-group-label"><span class="badge" data-status="attention" data-size="sm">Assigned to you</span><span class="faint">3</span></div>
+        <div class="task-row"><span class="check round" data-toggle aria-label="Complete Prepare the welcome table"></span><div class="grow"><div class="t-title">Prepare the welcome table</div><div class="t-meta"><span>Today · 6 pm</span><span><i class="hgi-stroke hgi-calendar-03"></i> Vision meeting #12</span><span><i class="hgi-stroke hgi-check-list"></i> 1 of 2 steps</span></div></div><span class="avatar tone-green" data-size="xs">DR</span></div>
+        <div class="task-row" data-done="true" style="padding-left:46px"><span class="check round" data-checked="true" data-toggle aria-label="Reopen Print name tags"></span><div class="grow"><div class="t-title">Print name tags</div><div class="t-meta"><span>Step · done 9:40 am</span></div></div><span class="avatar tone-green" data-size="xs">DR</span></div>
+        <div class="task-row" style="padding-left:46px"><span class="check round" data-toggle aria-label="Complete Bring the guest sign-in sheet"></span><div class="grow"><div class="t-title">Bring the guest sign-in sheet</div><div class="t-meta"><span>Step</span></div></div><span class="avatar tone-green" data-size="xs">DR</span></div>
+        <div style="padding:6px 12px 6px 46px"><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-add-01"></i>Add a step</button><span class="faint t-xs" style="margin-left:8px">Steps go under your own task and are assigned to you.</span></div>
+        <div class="task-row" data-done="true"><span class="check round" data-checked="true" data-toggle aria-label="Reopen Set out chairs"></span><div class="grow"><div class="t-title">Set out chairs</div><div class="t-meta"><span>Done 9:12 am</span><span><i class="hgi-stroke hgi-calendar-03"></i> Vision meeting #12</span></div></div><button class="btn" data-variant="ghost" data-size="sm">Reopen</button></div>
+        <div class="task-group-label"><span class="badge" data-status="unknown" data-size="sm">Other people's tasks</span><span class="faint">Read only</span></div>
+        <div class="task-row"><span class="check round" aria-hidden="true" style="visibility:hidden"></span><div class="grow"><div class="t-title">Send agenda to hosts</div><div class="t-meta"><span>Today · 5 pm</span><span><i class="hgi-stroke hgi-calendar-03"></i> Vision meeting #12</span></div></div><span class="avatar tone-green" data-size="xs">AL</span></div>
+        <div class="task-row"><span class="check round" aria-hidden="true" style="visibility:hidden"></span><div class="grow"><div class="t-title">Draft first-year budget</div><div class="t-meta"><span>Fri Oct 10</span><span><i class="hgi-stroke hgi-coins-01"></i> Blocked by: get giving estimate</span></div></div><span class="avatar tone-teal" data-size="xs">CP</span></div>
+      </div>
+      <div data-owner-view>
       <div class="task-group-label"><span class="badge" data-status="risk" data-size="sm">Overdue</span><span class="faint">3</span></div>
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Call James Okafor</div><div class="t-meta"><span class="c-magenta">Due Oct 5 · 3 d late</span><span><i class="hgi-stroke hgi-user"></i> Follow-up from meeting #11</span></div></div><span class="avatar tone-green" data-size="xs">DR</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
       <div class="task-row" data-selected="true"><span class="check" data-checked="true"></span><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Call Kim Wu</div><div class="t-meta"><span class="c-magenta">Due Oct 7 · 1 d late</span><span><i class="hgi-stroke hgi-star"></i> First-timer</span></div></div><span class="avatar tone-green" data-size="xs">DR</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
@@ -2979,7 +2993,8 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Interview David Kim</div><div class="t-meta"><span>Thu Oct 9</span><span><i class="hgi-stroke hgi-user-check-01"></i> Interview</span></div></div><span class="avatar tone-green" data-size="xs">DR</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
       <div class="task-row"><span class="check round" data-toggle></span><div class="grow"><div class="t-title">Draft first-year budget</div><div class="t-meta"><span>Fri Oct 10</span><span><i class="hgi-stroke hgi-coins-01"></i> Blocked by: get giving estimate</span></div></div><span class="avatar tone-teal" data-size="xs">CP</span><i class="hgi-stroke hgi-more-horizontal faint"></i></div>
 
-      <div class="bulk-bar mt-4"><span class="check" data-checked="true" style="background:var(--ef-on-ink-soft)"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:var(--ef-on-ink)"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      </div>
+      <div class="bulk-bar mt-4" data-edit><span class="check" data-checked="true" style="background:var(--ef-on-ink-soft)"></span><span class="grow" style="font-weight:500">2 selected</span><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-tick-02"></i>Complete</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-calendar-03"></i>Reschedule</button><button class="btn" data-variant="ghost" data-size="sm"><i class="hgi-stroke hgi-user"></i>Reassign</button><button class="icon-btn" data-size="sm" style="box-shadow:none;color:var(--ef-on-ink)"><i class="hgi-stroke hgi-cancel-01"></i></button></div>
     </div>
 
     <div class="stack" style="gap:20px">
@@ -2987,13 +3002,21 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-clock-01"></i>Follow-up window</span></div>
         <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">3</span><span style="color:var(--on-2);font-size:14px;max-width:200px">follow-ups passed the 48-hour mark this week</span></div>
         <div class="insight-title" style="margin-top:12px">Guests called late come back half as often</div>
-        <div class="insight-footer" style="padding-top:16px"><button class="btn" data-variant="light" data-size="sm">Call now <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm">Hand off</button></div>
+        <div class="insight-footer" style="padding-top:16px"><button class="btn" data-variant="light" data-size="sm">Call now <i class="hgi-stroke hgi-arrow-right-01"></i></button><button class="btn" data-variant="glass" data-size="sm" data-edit>Hand off</button></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="grow"><div class="card-title sm">This week</div></div></div>
         <div class="row gap-4"><span class="ring" style="--p:58;width:84px;height:84px" data-label="7/12"></span><div class="stack gap-2 grow t-sm"><div class="row between"><span class="muted">Follow-ups</span><b>4 of 7</b></div><div class="row between"><span class="muted">Meetings</span><b>2 of 3</b></div><div class="row between"><span class="muted">Ministries</span><b>1 of 2</b></div></div></div>
       </div>
-      <div class="card" data-variant="callout" data-tone="green">
+      <div class="card" data-variant="callout" data-tone="ink" data-member-only>
+        <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-user"></i></span>What your Member seat can do</div>
+        <ul class="list mt-3" style="list-style:none;padding:0;margin-bottom:0">
+          <li class="kv" style="justify-content:flex-start;padding:10px 0"><i class="hgi-stroke hgi-tick-02" style="color:var(--ef-green-700)" aria-hidden="true"></i><span class="t-sm">Complete or reopen a task assigned to you</span></li>
+          <li class="kv" style="justify-content:flex-start;padding:10px 0"><i class="hgi-stroke hgi-tick-02" style="color:var(--ef-green-700)" aria-hidden="true"></i><span class="t-sm">Add steps under your own task, one level deep</span></li>
+          <li class="kv" style="justify-content:flex-start;padding:10px 0"><i class="hgi-stroke hgi-lock-key" style="color:var(--ef-text-3)" aria-hidden="true"></i><span class="t-sm muted">New tasks, assigning, rescheduling and other people's tasks need an Owner or Admin</span></li>
+        </ul>
+      </div>
+      <div class="card" data-variant="callout" data-tone="green" data-edit>
         <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-check-list"></i></span>Phase 1 checklist</div>
         <p class="callout-text">8 Playbook tasks for Core Group Development are not on your list yet.</p>
         <div class="row gap-2 mt-3"><button class="btn" data-variant="secondary" data-size="sm">Preview and add</button><button class="btn" data-variant="ghost" data-size="sm">Not now</button></div>
@@ -3721,7 +3744,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       <div class="merge-row"><span class="mk">Phone</span><label class="merge-opt" data-selected>(512) 555-0188</label><label class="merge-opt" data-empty>None</label></div>
       <div class="merge-row"><span class="mk">Stage</span><label class="merge-opt" data-selected><span class="stage-chip st-following">Following up</span></label><label class="merge-opt"><span class="stage-chip st-prospect">Prospect</span></label></div>
       <div class="merge-row"><span class="mk">Household</span><label class="merge-opt" data-selected>Okafor household</label><label class="merge-opt" data-empty>None</label></div>
-      <div class="card" data-variant="callout" style="margin-top:20px"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-alert-02"></i></span>Cannot be undone</div><p class="callout-text t-sm">After merging, Jim Okafor's record is removed. Links to him redirect to James. You can correct details later, but you cannot split them again.</p></div>
+      <div class="card" data-variant="callout" data-tone="blue" style="margin-top:20px"><div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-information-circle"></i></span>You can unmerge later</div><p class="callout-text t-sm">After merging, links to Jim Okafor go to James. If this was a mistake, Unmerge in James's history brings Jim back. Everyfield shows what goes back first, and stops if a later change depends on the merge.</p></div>
     </div>
     <div class="stack" style="gap:20px">
       <div class="card">
@@ -3735,6 +3758,47 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       </div>
       <div class="card" data-size="sm"><div class="callout-label" style="--c-tone:var(--ef-green-700);--c-tint:var(--ef-green-100)"><span class="ci"><i class="hgi-stroke hgi-tick-02"></i></span>Nothing blocks this merge</div><p class="muted t-sm mt-2">Merges stop if both people sit in the same ministry role or one has a signed commitment card.</p></div>
       <div class="row gap-2"><button class="btn" data-variant="secondary" style="flex:1">Not the same person</button><button class="btn" data-variant="primary" style="flex:1">Merge</button></div>
+    </div>
+  </div>
+
+  <!-- Unmerge (REQ-PPL-025): opens from the survivor's history. Three states: preview, success, refused. -->
+  <div class="row between" style="margin:32px 0 12px"><h2 class="card-title" id="unmerge-title">Unmerge a past merge</h2><span class="faint t-sm">Opens from James's history. Preview, done and refused.</span></div>
+  <div class="grid g-3" style="align-items:start" aria-labelledby="unmerge-title">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon tone-blue"><i class="hgi-stroke hgi-arrow-turn-backward"></i></span>
+        <div class="grow"><div class="card-title sm">Unmerge Jim Okafor</div><div class="card-description">Merged Oct 9 by Daniel Reyes</div></div>
+        <span class="badge" data-size="sm" data-plain="true">Preview</span>
+      </div>
+      <p class="muted t-sm" style="margin:0">Jim comes back as his own person. James gets back the details he had before the merge.</p>
+      <div class="list mt-3">
+        <div class="kv"><span class="k">James's email</span><b class="t-sm">james.okafor@gmail.com</b></div>
+        <div class="kv"><span class="k">Jim Okafor</span><span class="stage-chip st-prospect">Prospect</span></div>
+        <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-calendar-03"></i>Meeting attendance</span><b>1 back to Jim</b></div>
+        <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-task-01"></i>Tasks</span><b>1 back to Jim</b></div>
+        <div class="kv"><span class="k row gap-2"><i class="hgi-stroke hgi-mail-01"></i>Emails received</span><b>2 back to Jim</b></div>
+      </div>
+      <div class="callout-label mt-4" style="--c-tone:var(--ef-green-700);--c-tint:var(--ef-green-100)"><span class="ci"><i class="hgi-stroke hgi-tick-02"></i></span>Nothing changed since the merge</div>
+      <p class="faint t-xs mt-2" style="margin-bottom:0">The merge and the Unmerge both stay in the history.</p>
+      <div class="dialog-footer"><button class="btn" data-variant="secondary">Cancel</button><button class="btn" data-variant="primary" data-edit>Unmerge</button></div>
+    </div>
+    <div class="card" data-variant="callout" data-tone="green" role="status">
+      <div class="callout-label"><span class="ci"><i class="hgi-stroke hgi-tick-02"></i></span>Unmerged</div>
+      <p class="callout-text t-sm">Jim Okafor is his own person again. James has his earlier email. One meeting attendance, one task and two emails moved back to Jim.</p>
+      <div class="list mt-3">
+        <a class="list-row" href="#/people/maria-santos"><span class="avatar tone-amber" data-size="sm">JO</span><div class="grow"><div class="list-title">James Okafor</div><div class="list-sub">Following up</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+        <a class="list-row" href="#/people/maria-santos"><span class="avatar tone-ink" data-size="sm">JO</span><div class="grow"><div class="list-title">Jim Okafor</div><div class="list-sub">Prospect</div></div><i class="hgi-stroke hgi-arrow-right-01 chev"></i></a>
+      </div>
+      <p class="faint t-xs mt-3" style="margin-bottom:0">Both histories show the merge on Oct 9 and the Unmerge today.</p>
+    </div>
+    <div class="card" data-variant="callout" role="alert">
+      <div class="callout-label" style="--c-tone:var(--ef-magenta-600);--c-tint:var(--ef-magenta-100)"><span class="ci"><i class="hgi-stroke hgi-alert-02"></i></span>Cannot unmerge</div>
+      <p class="callout-text t-sm">Grace Kim changed James's phone number on Oct 11, after the merge. An Unmerge would lose that change, so Everyfield changed nothing.</p>
+      <div class="list mt-3">
+        <div class="kv"><span class="k">Changed after the merge</span><b class="t-sm">Phone · Oct 11</b></div>
+      </div>
+      <p class="muted t-sm mt-3" style="margin-bottom:0">Correct James's details by hand, or move a record to a new person yourself. Each change is reviewed and kept in the history.</p>
+      <div class="dialog-footer" style="margin-top:16px"><button class="btn" data-variant="secondary">Close</button><a class="btn" data-variant="primary" href="#/people/maria-santos" data-edit>Correct by hand</a></div>
     </div>
   </div>
 </section>
@@ -3883,7 +3947,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Settings dialog</td><td><code class="k">&lt;SettingsDialog section&gt;</code></td><td class="muted t-sm">Side nav, Section, Row, Footer (unsaved changes)</td><td class="muted t-sm">deep link per section</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Dialog</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">Notification pop-over</td><td><code class="k">&lt;NotificationPopover&gt;</code> <code class=k>&lt;NotificationItem&gt;</code></td><td class="muted t-sm">Header, Item (icon, text, time, unread), Footer</td><td class="muted t-sm">unread</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Popover</span></td></tr>
 <tr><td class="faint t-sm">Overlays</td><td class="cell-title">User menu</td><td><code class="k">&lt;UserMenu&gt;</code></td><td class="muted t-sm">Identity, View switcher, Links, Sign out</td><td class="muted t-sm">current view</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Menu</span></td></tr>
-<tr><td class="faint t-sm">Domain</td><td class="cell-title">Merge review</td><td><code class="k">&lt;MergeReview&gt;</code> <code class=k>&lt;MergeOption&gt;</code></td><td class="muted t-sm">Header pair, Field rows, What moves, Blockers</td><td class="muted t-sm">selected · empty</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
+<tr><td class="faint t-sm">Domain</td><td class="cell-title">Merge review</td><td><code class="k">&lt;MergeReview&gt;</code> <code class=k>&lt;MergeOption&gt;</code></td><td class="muted t-sm">Header pair, Field rows, What moves, Blockers, Unmerge preview</td><td class="muted t-sm">selected · empty · unmerged · refused</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Phase option</td><td><code class="k">&lt;PhaseOption&gt;</code></td><td class="muted t-sm">Number, Name, Description, Check</td><td class="muted t-sm">selected</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Check-in row and outcome option</td><td><code class="k">&lt;CheckInRow&gt;</code> <code class=k>&lt;OutcomeOption&gt;</code></td><td class="muted t-sm">Avatar, Name, Note, Check</td><td class="muted t-sm">here · selected · touch sized (58px)</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Toggle, RadioGroup</span></td></tr>
 <tr><td class="faint t-sm">Domain</td><td class="cell-title">Person card</td><td><code class="k">&lt;PersonCard&gt;</code></td><td class="muted t-sm">Avatar, Name, Meta, Footer</td><td class="muted t-sm">selected/dragging</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
@@ -3949,7 +4013,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
           <details class="faq" open><summary>What is the difference between the Wiki and Help?<i class="hgi-stroke hgi-add-01"></i></summary><p>The Wiki teaches the church-planting method: what to do in each phase and why. Help explains how to use Everyfield: where to click and what each screen does.</p></details>
           <details class="faq"><summary>Can Evry change my records on its own?<i class="hgi-stroke hgi-add-01"></i></summary><p>No. Evry can read and draft. Every change it suggests waits for you to review and approve it.</p></details>
           <details class="faq"><summary>Who can see the people in my church?<i class="hgi-stroke hgi-add-01"></i></summary><p>Only people with a seat in your church. A sending church or network never sees names or personal details.</p></details>
-          <details class="faq"><summary>Can I undo a merge or a sent email?<i class="hgi-stroke hgi-add-01"></i></summary><p>No. Everyfield warns you before these actions. You can correct details later, and the history keeps what changed.</p></details>
+          <details class="faq"><summary>Can I undo a merge or a sent email?<i class="hgi-stroke hgi-add-01"></i></summary><p>You can unmerge two people from the person's history. Everyfield shows what goes back first, and stops if a later change depends on the merge. A sent email cannot be unsent. The history keeps every change.</p></details>
           <details class="faq"><summary>Why does a count show “Not recorded” instead of 0?<i class="hgi-stroke hgi-add-01"></i></summary><p>“Not recorded” means nobody entered a number yet. A 0 is a real result, for example a meeting with no guests.</p></details>
         </div>
       </div>
@@ -4031,7 +4095,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
 
 <!-- =================================================================
-     PAGE: WIKI EDITOR  (#/wiki/edit) · Owners and Admins of a sending church or network (PD-017)
+     PAGE: WIKI EDITOR  (#/wiki/edit) · Owners and Admins of a sending church or network (WIKI-001, knowledge-documents.md "Article resolution and editing")
      ================================================================= -->
 <section class="page" data-page="wiki-edit">
   <header class="page-header">
@@ -4372,7 +4436,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
 
 <!-- =================================================================
-     PAGE: ATTESTATIONS  (#/intelligence/attestations) · PD-040 HumanAttestation, seven v2 keys
+     PAGE: ATTESTATIONS  (#/intelligence/attestations) · PI-014, PI-015 (REQ-PI-015) human attestations, seven v2 keys
      ================================================================= -->
 <section class="page" data-page="attestations">
   <header class="page-header">
@@ -4395,7 +4459,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
 
 <!-- =================================================================
-     PAGE: WEEKLY PRIVATE CHECK-IN  (#/me/check-in) · PI-038/040/041, author-private (PD-002, PD-027)
+     PAGE: WEEKLY PRIVATE CHECK-IN  (#/me/check-in) · PI-038/040/041, author-private (REQ-PI-038)
      ================================================================= -->
 <section class="page" data-page="checkin">
   <header class="page-header">
@@ -4450,12 +4514,12 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 </nav>
 <div class="preview-pop" id="preview-pop" data-open="false" role="dialog" aria-label="Preview states">
   <h4>Role</h4>
-  <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · view only</button></div>
+  <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · own tasks</button></div>
   <h4>Nav corners</h4>
   <div class="pp-opts" data-pp="navShape"><button data-v="square" aria-pressed="true">20px</button><button data-v="pill" aria-pressed="false">Pill (before)</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
-  <p class="pp-note">Data states are drawn for Overview and People. Member view hides edit actions across the app.</p>
+  <p class="pp-note">Data states are drawn for Overview and People. Member view hides administration across the app. Tasks shows what a Member does on their own tasks.</p>
 </div>
 <!-- ================= BELL DROP-DOWN  <NotificationPopover> ================= -->
 <div class="float-pop popover" id="bell-pop" role="dialog" aria-label="Notifications">
@@ -5147,7 +5211,7 @@ function makeKeyboardReachable(root) {
     if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
   });
   root.querySelectorAll('tbody tr[onclick]').forEach(tr => { if (!tr.hasAttribute('tabindex')) { tr.setAttribute('tabindex', '0'); tr.setAttribute('role', 'link'); } });
-  root.querySelectorAll('.check[data-toggle]').forEach(c => { c.setAttribute('tabindex', '0'); c.setAttribute('role', 'checkbox'); c.setAttribute('aria-checked', c.dataset.checked === 'true'); c.setAttribute('aria-label', 'Select row'); });
+  root.querySelectorAll('.check[data-toggle]').forEach(c => { c.setAttribute('tabindex', '0'); c.setAttribute('role', 'checkbox'); c.setAttribute('aria-checked', c.dataset.checked === 'true'); if (!c.hasAttribute('aria-label')) c.setAttribute('aria-label', 'Select row'); });
   root.querySelectorAll('[title]').forEach(el => { if (!el.hasAttribute('aria-label') && !el.textContent.trim()) el.setAttribute('aria-label', el.getAttribute('title')); });
 }
 makeKeyboardReachable(document);
@@ -5181,7 +5245,7 @@ document.getElementById('preview-pop').addEventListener('click', e => {
 document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });
 
 
-/* Wiki source view (PD-025): switching changes only what this reader sees now. */
+/* Wiki source view (WIKI-001, REQ-KNOW-191): switching changes only what this reader sees now. */
 const WIKI_SOURCES = {
   org: { org: 'AS', kind: '', name: 'Austin Sending Network', meta: 'Edited version 3 · published Sep 12 · your preferred source' },
   hill: { org: 'HC', kind: '', name: 'Hill Country Network', meta: 'Edited version 1 · Aug 30 · you are reading another source' },

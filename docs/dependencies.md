@@ -18,6 +18,19 @@ Stable publisher registry versions were checked on **2026-10-13**. No package wa
 | [@ai-sdk/openai](https://registry.npmjs.org/@ai-sdk%2fopenai/latest) | 4.0.92 | Conditional model provider adapter |
 | [resend](https://registry.npmjs.org/resend/latest) | 6.32.1 | Selected shared mail delivery adapter |
 
+### Selected design libraries
+
+The [design handoff](../design/handoff/README.md) selects these. Versions were read from the npm registry on **2026-10-14**. Their registry evidence is not yet in [dependencies.json](dependencies.json); record it when you pin them. No package was installed.
+
+| Package | Stable checked version | Purpose |
+|---|---|---|
+| [@hugeicons/react](https://registry.npmjs.org/@hugeicons%2freact/latest) | 1.1.10 | Icon component; the prototype is drawn with Hugeicons stroke rounded |
+| [@hugeicons/core-free-icons](https://registry.npmjs.org/@hugeicons%2fcore-free-icons/latest) | 4.3.5 | Free Hugeicons set only, tree-shaken per icon |
+| [@react-email/components](https://registry.npmjs.org/@react-email%2fcomponents/latest) | 1.0.12 | Email templates with fixed light colors and a 600px column |
+| [@react-email/render](https://registry.npmjs.org/@react-email%2frender/latest) | 2.1.0 | Renders React Email templates to HTML and plain text; peer of `resend` |
+
+The icon library is Hugeicons. Do not add lucide or a second icon set.
+
 Select Node24 LTS for the Next deployment and operator artifact; it meets the selected engine constraints (AI SDK requires Node22 or later). Vercel currently supports24.x (default) and22.x per its [official runtime documentation](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions), checked2026-10-13. Actual deployment/runtime compatibility remains unproved. WP003 must compile representative RSC/client forms, route/stream transport, schema/MDX and document formats with the actual runtime and selected versions; prove interactive rollback, resumable auth and cookie/origin rules. Record official security advisories/peer constraints and licensed generated components in the lockfile review. If compatibility fails, keep the package blocked with a concrete supported-version proposal; do not quietly downgrade or claim a tested stack.
 
 One modular Next deployment is selected. Server Components call scoped server-only domain reads directly; Server Actions and Route Handlers are thin validated adapters. Better Auth owns identity; a shared domain transaction owns grants and records. No separate Bun/Hono/Elysia backend is part of the build. Their earlier comparison informed the selected topology; no alternative backend must be installed to retain capability.
