@@ -1,0 +1,1841 @@
+{
+  "group": "A",
+  "modules": [
+    "identity",
+    "admin",
+    "people",
+    "teams",
+    "operations"
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-A-001",
+      "name": "Credential identity and sessions",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-008",
+        "IDN-009",
+        "IDN-028"
+      ],
+      "persists": true,
+      "entities": [
+        "credential principal",
+        "credential account",
+        "session"
+      ],
+      "facts": [
+        "Stable credential-principal identity and application-account link; normalized unique login email and display name.",
+        "Better Auth credential records and native secret hashes, never plaintext passwords.",
+        "Session principal, session proof, issuance and expiry Instants; current revocation state and actual current-session identity.",
+        "Thirty-day session lifetime with renewal when remaining life is below fifteen days; account credential/email revision used to invalidate stale proofs."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Login email is unique after normalization; each credential belongs to its actual principal.",
+        "A session cannot confer access after its authoritative revocation or account suspension.",
+        "Credential changes cannot rewrite CRM identity or spare a client-selected session."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "auth_user",
+        "auth_account",
+        "auth_session",
+        "app_account"
+      ],
+      "notes": "Sources: REQ-IDN-001, 008, 009, 028. Keep Better Auth-required adapter storage; do not invent a parallel credential implementation."
+    },
+    {
+      "id": "CAP-A-002",
+      "name": "Atomic admission budgets",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-007",
+        "IDN-008",
+        "IDN-009",
+        "ADM-006"
+      ],
+      "persists": true,
+      "entities": [
+        "attempt budget",
+        "admitted attempt"
+      ],
+      "facts": [
+        "Purpose/kind, normalized identifier or privacy-preserving identifier hash, trustworthy IP or its hash, attempt/reservation time and exact rolling-window occupancy.",
+        "Login and password-change failures each use separate 5/identifier and 20/IP budgets per fifteen minutes; successful login clears only the matching identifier/kind failures.",
+        "Registration counts every submitted attempt at 3/trusted IP/hour, including success and refused or malformed attempts.",
+        "Reset requests and email-change requests use separate 3/identifier/hour and 10/IP/hour budgets; email-change identifier is the existing own login, not proposed target address.",
+        "Public invite-request counts use 5/address/day and 20/trusted IP/hour plus global provider budget."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Concurrent reservations cannot exceed the applicable shared budget.",
+        "Failure of the budget store does not admit authentication or registration.",
+        "Unknown IP may omit only optional IP axes; registration refuses without its required trustworthy IP."
+      ],
+      "retention": "Keep attempt times only as needed to enforce the declared windows and recover live reservations; no permanent identifiable attempt history is required.",
+      "current_tables": [
+        "auth_throttle"
+      ],
+      "notes": "Sources: REQ-IDN-001, 002, 007, 008, 009; ADM-006. Invitation creation/resend limits are separately recorded in CAP-A-006 and CAP-A-009."
+    },
+    {
+      "id": "CAP-A-003",
+      "name": "Purpose-bound credential and cancellation proofs",
+      "feature_ids": [
+        "IDN-007",
+        "IDN-008",
+        "IDN-009",
+        "IDN-026"
+      ],
+      "persists": true,
+      "entities": [
+        "email-change request",
+        "password-reset request",
+        "restricted cancellation proof"
+      ],
+      "facts": [
+        "Actual request-owning account, hashed single-use token, closed purpose, expiry, consumption/supersession and captured credential/email revision.",
+        "Email-change request has normalized proposed mailbox and a twenty-four-hour expiry; reset request expires after one hour.",
+        "Cancellation-only proof binds exact deleting subject, current request ID/revision and original account or requesting Owner.",
+        "Committed mutation receipt and security-mail intent identify successful email/password change without exposing native proofs."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "At most one live reset request per account and one live email-change request per account.",
+        "Token use is purpose-bound, serialized and single-use; credential/email change invalidates outstanding reset/email proofs.",
+        "Email-change target remains globally unique; login-email changes leave independently editable CRM email unchanged.",
+        "Cancellation proof never creates ordinary content access."
+      ],
+      "retention": "Expire or consume secret proofs at their purpose deadlines; cancellation proof cannot outlive its request deadline. Account deletion purges private proofs; shared security receipts retain minimal attribution.",
+      "current_tables": [
+        "auth_verification",
+        "auth_account",
+        "auth_session",
+        "app_account",
+        "command_receipt",
+        "email_intent"
+      ],
+      "notes": "Sources: REQ-IDN-007 through 009, 030, 032. Security-mail failure cannot erase a committed credential result."
+    },
+    {
+      "id": "CAP-A-004",
+      "name": "Resumable account registration and provisioning",
+      "feature_ids": [
+        "IDN-002",
+        "IDN-003",
+        "IDN-013",
+        "IDN-016"
+      ],
+      "persists": true,
+      "entities": [
+        "application account",
+        "registration intent",
+        "provisioning receipt"
+      ],
+      "facts": [
+        "Credential-principal association, explicit registration state pending_domain or active, validated account type planter/sending church/network/Discovery and stable intent identity/digest.",
+        "Exact claimed invitation and subject revisions, created plant or organization identity, accepted seat and account-linked Person where the chosen registration requires them.",
+        "Explicit Discovery identity when registration creates no seat; completed domain receipt and required mail intents.",
+        "Initial plant creation occurrence and once-only Phase 1 creation provenance, independent of reading or existing-journey attestation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One application account per credential principal; normalized mailbox equality alone cannot grant another existing account access.",
+        "pending_domain carries no seat or relationship authority.",
+        "Claim, grant, Person link, domain receipt and required intent succeed together; retries return the original completed result.",
+        "At most one active tenant seat per account, including concurrent registration, conversion and invitation acceptance."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "app_account",
+        "plant",
+        "organization",
+        "tenancy_membership",
+        "account_person_link",
+        "discovery_profile",
+        "command_receipt",
+        "phase_transition",
+        "email_intent"
+      ],
+      "notes": "Sources: REQ-IDN-002, 003, 013, 016, 030. Beta enablement/code is deployment configuration, not a customer-managed gate catalog. Display name is an account fact; current schema may source it from the auth principal."
+    },
+    {
+      "id": "CAP-A-005",
+      "name": "Current seats and independent platform grants",
+      "feature_ids": [
+        "IDN-005",
+        "IDN-019",
+        "ADM-002"
+      ],
+      "persists": true,
+      "entities": [
+        "tenant seat",
+        "platform-principal grant"
+      ],
+      "facts": [
+        "Actual account, exact plant or typed sending-church/network tenant, accepted Owner/Admin/Member role, current accepted/ended state and revision.",
+        "Accepted/joined Instant and originating invitation or explicitly labelled account-creation fallback; dated removal and role-change actor/reason history.",
+        "Explicit platform grant bound to immutable principal identity, independently of email, tenant role, Person title or affiliation.",
+        "Named moved/remaining duty handoff receipt and access-dependent leader removal reference for seat removal."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Each account has at most one active seat across all tenants.",
+        "Role and owner shape are closed; each referenced tenant is the actual matching kind.",
+        "Actual Owner cannot be removed or changed by generic seat administration.",
+        "Person/account link, ministry title and affiliation never constitute platform or seat grants."
+      ],
+      "retention": "Ended seat and qualification/team history remain attributable under their owning lifecycle. Account purge removes live personal access and scrubs retained shared attribution; no ownership-transfer history engine is required.",
+      "current_tables": [
+        "tenancy_membership",
+        "platform_grant",
+        "account_person_link",
+        "audit_event",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-IDN-005, 019, 029; ADM-002. Actionable-duty facts stay with their owning follow-up/task capabilities."
+    },
+    {
+      "id": "CAP-A-006",
+      "name": "Addressed first-seat invitations",
+      "feature_ids": [
+        "IDN-017"
+      ],
+      "persists": true,
+      "entities": [
+        "seat invitation",
+        "invitation attempt",
+        "invitation receipt"
+      ],
+      "facts": [
+        "Exact inviting workspace, actual inviter, normalized recipient mailbox, advertised Admin/Member role and hashed purpose token.",
+        "Pending/accepted/expired/revoked state, revision, creation and thirty-elapsed-day expiry, accepted account and action Instant.",
+        "Last resend Instant/cooldown and token generation/supersession; invitation-attempt times for exact workspace/address rolling-window count.",
+        "Claim receipt, resulting seat/Person link and security/notification mail intent."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One pending invitation intent per exact workspace/address; no more than three new attempts for that pair per thirty elapsed days.",
+        "Persistent sixty-second resend cooldown; acceptance/revoke/resend compete on the same current revision.",
+        "Only proven addressed identity may claim one first seat; already seated or incompatibly associated Discovery cannot silently move tenancy."
+      ],
+      "retention": "Token authority ends at expiry, revocation, replacement or consumption. Keep dated accepted invitation provenance for roster/history; private recipient data follows deletion ownership, and no indefinite token-secret retention is needed.",
+      "current_tables": [
+        "access_invitation",
+        "tenancy_membership",
+        "account_person_link",
+        "command_receipt",
+        "email_intent"
+      ],
+      "notes": "Source: REQ-IDN-017. Sender-visible status does not include account-resolution details."
+    },
+    {
+      "id": "CAP-A-007",
+      "name": "Plant and organization profiles",
+      "feature_ids": [
+        "IDN-011",
+        "IDN-026"
+      ],
+      "persists": true,
+      "entities": [
+        "plant profile",
+        "sending-church or network profile"
+      ],
+      "facts": [
+        "Plant name, independently nullable street/city/region/country/profile description and confirmed church IANA timezone.",
+        "Plant inactivity warning and alert day thresholds; weekly digest weekday/hour, default America/Chicago and Sunday 16:00.",
+        "Organization immutable sending-church/network kind and identity, bounded name/contact email/phone/HTTPS website/description and independent locality.",
+        "Profile revision and attributable changes; past schedule Instants and LocalDate obligations retain their original meaning."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Trimmed name is nonempty; organization kind is immutable.",
+        "Weekday is 0 through 6, hour 0 through 23; inactivity values are 1 through 365 and warning is less than alert.",
+        "Profile locality fields may be absent independently; plant street has no organization-oversight disclosure.",
+        "Same-tenant revision checks protect concurrent profile edits."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "plant",
+        "organization",
+        "audit_event"
+      ],
+      "notes": "Sources: REQ-IDN-011, 026. No billing, configurable permissions, public organization deletion, ownership transfer or inferred geography is added."
+    },
+    {
+      "id": "CAP-A-008",
+      "name": "Explicit Discovery profile and conversion lineage",
+      "feature_ids": [
+        "IDN-016"
+      ],
+      "persists": true,
+      "entities": [
+        "Discovery profile",
+        "conversion event"
+      ],
+      "facts": [
+        "Owning account, explicit preplant profile/setup answers, current/retired-by-conversion state and profile revision.",
+        "Current independent sending-church/network association identities, each consent and history.",
+        "Conversion intent, chosen carried-forward relationships/sharing choices, created plant/Owner/Person identity and conversion Instant.",
+        "Once-only Phase 1 church-creation provenance, distinct from journey answer or readiness."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Discovery has no organization seat and cannot be inferred from a missing seat.",
+        "Only actual profile owner converts; account lock protects conversion against first-seat claim and relationship changes.",
+        "Conversion preserves only disclosed chosen relationships and cannot create a second active seat."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "discovery_profile",
+        "discovery_association",
+        "app_account",
+        "plant",
+        "tenancy_membership",
+        "account_person_link",
+        "association_event",
+        "command_receipt"
+      ],
+      "notes": "Source: REQ-IDN-016. Setup answers are named product facts, not permission-bearing arbitrary profile JSON."
+    },
+    {
+      "id": "CAP-A-009",
+      "name": "Typed affiliation invitations and independent link history",
+      "feature_ids": [
+        "IDN-020",
+        "IDN-021",
+        "IDN-027"
+      ],
+      "persists": true,
+      "entities": [
+        "relationship invitation",
+        "affiliation",
+        "relationship event"
+      ],
+      "facts": [
+        "Exact typed plant-to-sending-church, plant-to-network, sending-church-to-network, Discovery-to-sending-church or Discovery-to-network endpoints.",
+        "Normalized mailable recipient, inviter identity, hashed purpose token, pending/accepted/expired/revoked state, current revision and thirty-day expiry.",
+        "Creation-attempt times by subject/address for the rolling thirty-day maximum of three; resend/supersession facts and response actor/time.",
+        "Independent accepted/ended affiliation state and revision for each exact pair; historical actor/organization/subject/source invitation/Instant/reason.",
+        "Same-intent claim/sever receipt and retryable coarse relationship notice, including no-effect replay."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every endpoint kind matches its actual plant, Discovery account or organization kind; pair links cannot duplicate current accepted relationships.",
+        "No duplicate pending subject/address intent; exact receiving organization alone approves its side.",
+        "Multiple independent affiliations may coexist and ending one cannot end another or grant a seat.",
+        "A revoked/ended link has no current body entitlement even if historical events survive."
+      ],
+      "retention": "Keep minimal legitimate counterpart relationship history after source deletion, without retained private plant bodies or contacts. Discovery-owned private association content follows account deletion. Token authority expires and ordinary rejoin never resets existing consent.",
+      "current_tables": [
+        "plant_affiliation",
+        "organization_network_link",
+        "discovery_association",
+        "association_invitation",
+        "association_event",
+        "command_receipt",
+        "email_intent"
+      ],
+      "notes": "Sources: REQ-IDN-020, 021, 027. No special rejoin engine or configurable general tenant graph is required."
+    },
+    {
+      "id": "CAP-A-010",
+      "name": "Independent per-organization consent",
+      "feature_ids": [
+        "IDN-022",
+        "IDN-010"
+      ],
+      "persists": true,
+      "entities": [
+        "plant-organization sharing policy"
+      ],
+      "facts": [
+        "Exact plant and receiving organization pair with live relationship identity and consent revision.",
+        "Independent booleans for People, Meetings, Tasks, ministry Teams, Wiki, activity push and released shared findings.",
+        "Self-start all-OFF defaults and disclosed first accepted invitation category defaults; actual prior choices retained across rejoin.",
+        "Actual consent change actor/Instant and coarse relationship-notice receipt where required."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One policy per exact plant/organization pair; missing/revoked relationship or policy confers no consent.",
+        "Category values are closed and independently editable; omitted categories preserve current values.",
+        "Organization notification preference cannot override plant consent; shared_findings is the sole released-health/NI permission.",
+        "No finance/facility/background/coach/private-care categories exist."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "organization_sharing_settings",
+        "plant_affiliation",
+        "association_event",
+        "audit_event"
+      ],
+      "notes": "Sources: REQ-IDN-022 and the affiliation settings category adapter. Consent OFF fences current reads, cached bodies and future dispatch; oversight aggregates are derived elsewhere."
+    },
+    {
+      "id": "CAP-A-011",
+      "name": "Private avatar and Person photo references",
+      "feature_ids": [
+        "IDN-006",
+        "PPL-005"
+      ],
+      "persists": true,
+      "entities": [
+        "account avatar",
+        "Person photo",
+        "private object",
+        "upload or cleanup intent"
+      ],
+      "facts": [
+        "Actual owning account or same-plant Person, generated immutable private object reference, MIME/type, byte length and display version.",
+        "Upload ready/pending/failed state and orphan/old-object cleanup intent after atomic reference replacement.",
+        "Selected stored source/survivor photo and protected object references in merge/inverse receipts."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Nonempty verified JPG/JPEG/PNG/WebP, at most 3 MiB.",
+        "Only existing stored authorized photo choices may enter merge; reference commit precedes old unreferenced byte cleanup.",
+        "A failed save keeps old reference; cleanup cannot delete any currently or inverse-retention referenced object.",
+        "Person photo belongs to the exact tenant; account avatars remain private self-owned facts."
+      ],
+      "retention": "Avatars follow personal deletion; Person photos follow plant ownership. Keep prior photo bytes only while a live reference or permitted merge inverse needs them. Orphans are tracked for cleanup; no indefinite image-version archive is required.",
+      "current_tables": [
+        "app_account",
+        "person",
+        "object_metadata",
+        "upload_intent",
+        "job",
+        "person_merge"
+      ],
+      "notes": "Sources: REQ-IDN-006, PPL-005, PPL-025. Authenticated account/Person version routes expose no arbitrary raw keys or storage bearer URLs."
+    },
+    {
+      "id": "CAP-A-012",
+      "name": "Confirmed personal timezone and stable private calendar",
+      "feature_ids": [
+        "IDN-010",
+        "IDN-026"
+      ],
+      "persists": true,
+      "entities": [
+        "personal timezone preference",
+        "author-private calendar transition"
+      ],
+      "facts": [
+        "Confirmed personal IANA timezone, independent of plant/device timezone; calendar revision belongs to immutable original account author.",
+        "Stable private-week identity/ordinal, frozen start/end Instants, Monday LocalDate and frozen zone.",
+        "Pending requested zone and first strictly future Monday transition boundary; open-week continuity across repeated zone edits."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Missing confirmed preference remains missing; there is no silent timezone fallback.",
+        "One stable ordinal per author calendar, without rekeying historical weeks or duplicate rollover.",
+        "Save/correction/zone edit/rollover serialize on the same author calendar revision.",
+        "Private week existence and transitions cannot enter shared audit, logs, telemetry, Evry, model input, organization data or exports."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "app_account",
+        "planter_checkin",
+        "planter_checkin_event"
+      ],
+      "notes": "Sources: REQ-IDN-031, 033 and settings integration. Answer dimensions and correction streams are inventoried by the private-care owner in group B. Twelve-week display is not a retention limit."
+    },
+    {
+      "id": "CAP-A-013",
+      "name": "Durable onboarding answers and resume facts",
+      "feature_ids": [
+        "IDN-013",
+        "IDN-014",
+        "IDN-015",
+        "ADM-004"
+      ],
+      "persists": true,
+      "entities": [
+        "plant setup answer",
+        "onboarding completion",
+        "journey attestation"
+      ],
+      "facts": [
+        "Completed basics identity, ordinary lead yes/no/skip answer and any explicitly selected existing Person/lead or vacant Senior Pastor assignment.",
+        "Optional journey answer distinguishing attested existing journey from unsure/discerning/skip; actor, occurrence, reason and current source revision.",
+        "Selected launch plan/no-date choice and resumable reviewed phase/launch intent identity, preserving existing schedule when omitted.",
+        "Once-only onboarding completion Instant and material source revision; actual creation Phase 1 provenance remains separate.",
+        "Named incomplete/remaining provisioning effects in receipt for safe resume."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Basics cannot provision again on reentry; repeat finish cannot reset completion or overwrite later phase.",
+        "Lead answer grants no account authority and imports no unselected template structure.",
+        "Unsure/skip answer is not phase attestation; creation needs no six-article completion gate.",
+        "Omitted launch date cannot silently clear an existing plan."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "plant",
+        "phase_transition",
+        "plant_attestation",
+        "launch",
+        "ministry_team",
+        "team_role",
+        "team_membership",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-IDN-013 through 015; ADM-004. Resume and missing-fact prompts derive from saved answers; no separate per-screen completion table is required."
+    },
+    {
+      "id": "CAP-A-014",
+      "name": "Own notification choices and mailbox suppression",
+      "feature_ids": [
+        "IDN-012"
+      ],
+      "persists": true,
+      "entities": [
+        "account notification preference",
+        "mailbox suppression"
+      ],
+      "facts": [
+        "Authenticated account, audience-valid closed category/channel and daily/weekly cadence choice.",
+        "Current proven normalized mailbox and factual suppression status/clear request revision.",
+        "Applicable plant weekly digest schedule comes from CAP-A-007; delivery and digest occurrences stay with communications."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Preference identity is unique per account/category/channel and valid for current audience.",
+        "Self suppression-clear can affect only current proven own mailbox.",
+        "Enabled organization push cannot authorize withheld plant data; private-care preferences are absent."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "notification_preference",
+        "email_suppression",
+        "email_intent"
+      ],
+      "notes": "Source: REQ-IDN-012. Shared communications owner inventories delivery attempts, digest occurrences and unsubscribe proofs."
+    },
+    {
+      "id": "CAP-A-015",
+      "name": "Finite personal and plant deletion",
+      "feature_ids": [
+        "IDN-026"
+      ],
+      "persists": true,
+      "entities": [
+        "account or plant deletion request",
+        "purge checkpoint",
+        "current deletion/access witness"
+      ],
+      "facts": [
+        "Exact actual account/plant subject and original requester; immutable request identity, request revision and active/pending_deletion/purging/purged lifecycle.",
+        "Requested Instant and cancellation deadline exactly thirty elapsed days later; current cancellation result with independently still-valid grants.",
+        "Typed owned-reference/byte/effect cancellation manifest, completed chunks, failures and current purge claim generation.",
+        "Coherent live-purge completion Instant, nonresetting recovery-copy expiry at most seven days later and actual provider cleanup state.",
+        "Minimal body-free current subject/request/access witnesses and witness checkpoint usable after live root removal."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Self requests account deletion; actual current plant Owner alone requests workspace deletion; organizations are not requestable deletion subjects.",
+        "Normal access stops at request commit; restricted cancellation succeeds only strictly before deadline under request lock/revision.",
+        "livePurgedAt is absent until eligible live database and private byte cleanup is coherently complete.",
+        "Restore and recopy cannot reset expiry, resurrect revoked grants or expose uncertain/expired subjects."
+      ],
+      "retention": "Eligible private content is held for cancellation only through the thirty-day window, then purged coherently. Recovery copies become ineligible within seven days after live purge. Body-free current witnesses outlive copies only to prevent resurrection; shared independently owned records retain minimum attribution. Physical universal day-37 erasure is not promised.",
+      "current_tables": [
+        "app_account",
+        "plant",
+        "deletion_witness",
+        "job",
+        "command_receipt",
+        "recovery_manifest",
+        "object_metadata"
+      ],
+      "notes": "Source: REQ-IDN-032, recovery deletion contract. No separate transfer/rejoin product or public organization-delete console is required."
+    },
+    {
+      "id": "CAP-A-016",
+      "name": "Identity settings shell and oversight projections",
+      "feature_ids": [
+        "IDN-004",
+        "IDN-010",
+        "IDN-023",
+        "IDN-024",
+        "IDN-028"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [],
+      "retention": "No additional product persistence. Existing identities, seats, relationships, consent, facts and lifecycle govern these reads.",
+      "current_tables": [],
+      "notes": "Sources: REQ-IDN-004, 010, 023, 024, 028. Fixture switching is isolated development configuration. Settings drafts/deep links, request Origin checks, safe returns, directory/health aggregates and network roster counts add no customer data beyond the referenced capabilities. Domain health/release producers remain independently owned."
+    },
+    {
+      "id": "CAP-A-017",
+      "name": "People contact identity and adult classification",
+      "feature_ids": [
+        "PPL-001",
+        "PPL-002",
+        "PPL-004",
+        "PPL-019"
+      ],
+      "persists": true,
+      "entities": [
+        "plant-owned Person"
+      ],
+      "facts": [
+        "Stable Person identity, owning plant, real display identity and optional first/last components; names are bounded to 255 characters per component.",
+        "Independent nullable email/phone/street/city/region/postal code/country, closed source/source details and profile summary notes.",
+        "Current seven-stage recruitment status, recorded creation Instant for deterministic pagination/export and expected mutation revision.",
+        "Explicit adult/child/unknown classification with dated actor/reason correction lineage; date of birth is optional and not proof of classification.",
+        "Independently editable contact email, distinct from login mailbox and identity link."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Person and all current related records belong to the same plant; display identity cannot be wholly blank.",
+        "Names, shared email or phone are not unique human identity, and intentional duplicates remain valid.",
+        "Adult classification, stage, account link and commitment state are independent; no background-check fields exist."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person",
+        "record_correction",
+        "person_activity"
+      ],
+      "notes": "Sources: REQ-PPL-001, 002, 004, 019, 026. Persist searchable scalar facts, not saved copies of directory results."
+    },
+    {
+      "id": "CAP-A-018",
+      "name": "Person retirement and account linkage",
+      "feature_ids": [
+        "PPL-003",
+        "PPL-004",
+        "IDN-013",
+        "IDN-019"
+      ],
+      "persists": true,
+      "entities": [
+        "Person lifecycle",
+        "account-Person link"
+      ],
+      "facts": [
+        "Live/ordinarily retired/merged-away status, retirement actor/Instant/reason, current revision and merge lineage where applicable.",
+        "Stable verified application-account-to-same-plant-Person link; original link provenance remains after seat removal or login-email change.",
+        "Explicit actionable-duty and household/leadership/assignment handoff outcome references on retirement/restore."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "At most one live Person link per account per plant; link selection cannot steal another account or infer identity from ambiguous email.",
+        "Retired Persons accept no new current references.",
+        "Ordinary restore cannot restore merged-away source, seat authority or private-care authorship.",
+        "All registered current references preserve same-plant ownership during retirement/merge races."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person",
+        "account_person_link",
+        "person_merge",
+        "person_activity",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-PPL-003, 004, 024; REQ-IDN-013, 019. Person-reference manifest is static documentation, not runtime registry data."
+    },
+    {
+      "id": "CAP-A-019",
+      "name": "Recruitment transitions and automatic progression provenance",
+      "feature_ids": [
+        "PPL-006",
+        "PPL-020",
+        "TEAM-015"
+      ],
+      "persists": true,
+      "entities": [
+        "Person stage",
+        "stage transition event"
+      ],
+      "facts": [
+        "Current closed prospect/attendee/following_up/interviewed/core_group/launch_team/leader stage and revision.",
+        "Before/after stage, original performer, actual occurrence Instant/date, reason, source fact/receipt and source revision.",
+        "Explicit handoff selection or declined/Needs owner outcome for actionable duties when leaving committed stages.",
+        "Idempotent event identity for attended Vision, recorded interview/commitment, ministry membership and ordinary leadership source transitions."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Same-stage/retried source effect adds no duplicate semantic history.",
+        "Only specified producer transitions advance automatically; repeats/corrections cannot demote advanced stage.",
+        "Stage changes cannot implicitly withdraw commitment, revoke training or remove a seat.",
+        "Producer effect, stage/history, receipt and material revision commit together."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person",
+        "person_activity",
+        "command_receipt",
+        "follow_up_obligation",
+        "task",
+        "team_membership",
+        "ministry_team"
+      ],
+      "notes": "Sources: REQ-PPL-006, 020; TEAM-015. Stable dated transition history also supports correctly labelled internal pipeline cohorts without a separate analytics store."
+    },
+    {
+      "id": "CAP-A-020",
+      "name": "Saved pipeline ordering",
+      "feature_ids": [
+        "PPL-007"
+      ],
+      "persists": true,
+      "entities": [
+        "current pipeline order"
+      ],
+      "facts": [
+        "Same-plant active Person ordering within the applicable current pipeline column/group.",
+        "Expected column/order revision or equivalent concurrency witness for reviewed reorder."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Only active same-plant IDs can participate; stale or foreign reorder changes nothing.",
+        "Five visible columns group seven stages; milestone badges and follow-up urgency are derived, not extra stage values."
+      ],
+      "retention": "Order exists only for current active contacts; retired history remains under Person lifecycle, with no independent order-version archive required.",
+      "current_tables": [
+        "person"
+      ],
+      "notes": "Source: REQ-PPL-007. Follow-up dates/status and confirmed-contact history are owned by their originating capabilities."
+    },
+    {
+      "id": "CAP-A-021",
+      "name": "Person timeline and author-controlled notes",
+      "feature_ids": [
+        "PPL-008"
+      ],
+      "persists": true,
+      "entities": [
+        "typed Person activity",
+        "authored note",
+        "note correction or tombstone"
+      ],
+      "facts": [
+        "Exact Person/plant, closed activity kind, actual occurrence Instant and stable event ID for tied-time pagination.",
+        "Original performer/author provenance; note body is trimmed nonempty text up to 5000 characters.",
+        "Original occurrence preserved on edit, current revision, edited Instant, corrector/reason and old/new body history.",
+        "Note deletion tombstone with attributable removal; any meeting link is an actual same-tenant meeting/attendance relation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Only original author edits/deletes their own exact Person note; system qualification/audit events are not editable notes.",
+        "Summary profile notes are separate from authored timeline entries.",
+        "Typed target and meeting references cannot point outside the owning plant."
+      ],
+      "retention": "Deleted current note body is removed while attributable correction/tombstone history follows shared-record ownership and deletion policy. No permanent retention exemption or fixed extra TTL is specified.",
+      "current_tables": [
+        "person_activity",
+        "record_correction",
+        "meeting",
+        "meeting_participation"
+      ],
+      "notes": "Source: REQ-PPL-008. Qualified timeline projections may read other domains without duplicating their complete payloads."
+    },
+    {
+      "id": "CAP-A-022",
+      "name": "Households and current member roles",
+      "feature_ids": [
+        "PPL-009"
+      ],
+      "persists": true,
+      "entities": [
+        "household",
+        "household membership"
+      ],
+      "facts": [
+        "Owning plant, household name and independent address facts.",
+        "Current Person-to-household relation and head/spouse/child/other role, with dated prior membership/address-change provenance.",
+        "Reviewed address propagation selected Person identities and expected revisions; actual changed-count receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Household and each live current member share plant ownership.",
+        "Each Person has at most one current household membership; household role is independent from adult classification.",
+        "Initial household/head creation is coherent; deletion requires no active members.",
+        "Household child role does not establish adult classification; leaving does not clear Person address.",
+        "Retired members detach from current household while original snapshots remain attributable."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "household",
+        "person",
+        "person_activity",
+        "command_receipt"
+      ],
+      "notes": "Source: REQ-PPL-009. Household address and independently editable Person address are distinct required facts."
+    },
+    {
+      "id": "CAP-A-023",
+      "name": "Tenant-defined tags and assignments",
+      "feature_ids": [
+        "PPL-010"
+      ],
+      "persists": true,
+      "entities": [
+        "tenant tag",
+        "Person-tag assignment"
+      ],
+      "facts": [
+        "Same-plant tag identity, trimmed display/normalized name of 1 through 100 characters and optional supported named/hex color.",
+        "Distinct live same-plant Person/tag pair; rename/deletion actor and semantic assign/remove activity."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Normalized current tag name is unique within its plant, not globally.",
+        "One current Person/tag pair; repeat assign/remove adds no fictitious event.",
+        "Tag deletion removes current assignments with attributable history, not unrelated taxonomy."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_tag_definition",
+        "person_tag",
+        "person_activity",
+        "audit_event"
+      ],
+      "notes": "Source: REQ-PPL-010. All-selected-tag directory filtering uses these assignments directly."
+    },
+    {
+      "id": "CAP-A-024",
+      "name": "Recorded skills and gifts",
+      "feature_ids": [
+        "PPL-011"
+      ],
+      "persists": true,
+      "entities": [
+        "Person skill"
+      ],
+      "facts": [
+        "Same-plant Person, skill name of 1 through 100 characters and category worship/tech/admin/teaching/hospitality/leadership/other.",
+        "Nullable proficiency beginner/intermediate/advanced/expert and notes up to 5000 characters.",
+        "Current/removed status, revision and dated actor/old-new correction lineage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Category/proficiency values are closed and nullable clears are explicit.",
+        "Removed current item retains owned historical references; a skill cannot rewrite human interview testimony."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_skill",
+        "person_activity",
+        "record_correction"
+      ],
+      "notes": "Source: REQ-PPL-011. No editable category lookup or automated calling/readiness inference is required."
+    },
+    {
+      "id": "CAP-A-025",
+      "name": "Dated human four-Cs assessments",
+      "feature_ids": [
+        "PPL-012"
+      ],
+      "persists": true,
+      "entities": [
+        "Person four-Cs assessment"
+      ],
+      "facts": [
+        "Same-plant Person, assessment LocalDate, original human assessor and recorded Instant with stable ID.",
+        "Committed, Compelled, Contagious and Courageous integer scores, each 1 through 5; optional lens notes up to 5000 characters.",
+        "Current corrected record revision with preserved original provenance and correction linkage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "All four scores satisfy the closed scale; total is derived as 4 through 20, with integrity if stored.",
+        "Latest orders by assessment LocalDate, recorded Instant and ID, not insertion time alone.",
+        "Human evidence cannot be supplied by a model or account/bootstrap title; recording has no stage effect."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_4c_assessment",
+        "record_correction"
+      ],
+      "notes": "Source: REQ-PPL-012. Full qualification evidence is current plant Owner/Admin-only, not organization CRM."
+    },
+    {
+      "id": "CAP-A-026",
+      "name": "Dated human interviews and recorded next steps",
+      "feature_ids": [
+        "PPL-013"
+      ],
+      "persists": true,
+      "entities": [
+        "Person interview"
+      ],
+      "facts": [
+        "Same-plant Person, interview LocalDate, original human interviewer, recorded Instant and current revision.",
+        "Maturity, Gifted, Chemistry, Right Reasons and Season each have pass/fail/concern and dated human notes.",
+        "Overall qualified/qualified_with_notes/not_qualified/follow_up result and explicit next-steps text.",
+        "Attributable prior corrections and named lower-stage interviewed progression receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Closed criterion/result values; chronological latest uses occurrence date, recorded Instant and ID.",
+        "Any result establishes that interview occurred, not that the person qualified.",
+        "Next-step text is not automatically an assignment/task and cannot demote an advanced Person."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_interview",
+        "record_correction",
+        "person_activity",
+        "command_receipt"
+      ],
+      "notes": "Source: REQ-PPL-013. Interview evidence is distinct from immutable Plant Intelligence rubric and human four-Cs assessments."
+    },
+    {
+      "id": "CAP-A-027",
+      "name": "Commitment signatures and independent lifecycle",
+      "feature_ids": [
+        "PPL-014",
+        "PPL-015"
+      ],
+      "persists": true,
+      "entities": [
+        "Person commitment record",
+        "Person commitment lifecycle event",
+        "private commitment document"
+      ],
+      "facts": [
+        "Exact Person/plant, core_group or launch_team type, actual signed LocalDate, original recorder/recorded Instant and optional notes.",
+        "Optional same-plant witness Person or unstructured dated external witness text; optional private verified PDF/JPG/PNG up to 10 MiB with owned upload reference.",
+        "Authoritative per-Person active/withdrawn/unknown commitment state supported by dated actual signature/withdrawal/reactivation evidence, actor and reason.",
+        "Earliest valid genuine eligible commitment occurrence and correction/void lineage, deduplicated by explicit Person merge lineage.",
+        "Current adult-classification evidence remains independent; historical acquisitions retain actual occurrence date across withdrawal and reactivation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Repeated signature, multiple roles or account links cannot duplicate current distinct committed adult or first acquisition.",
+        "Real withdrawal reduces current cohort but does not erase genuine acquisition; reactivation is not another new Person.",
+        "Correction of invalid original occurrence preserves old/new/actor/reason and may alter acquisition windows; prior assessments retain frozen lineage.",
+        "Witness Person, file and current lifecycle evidence belong to the same plant; old signature cannot override later withdrawal."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_commitment",
+        "person",
+        "record_correction",
+        "person_merge",
+        "object_metadata",
+        "upload_intent",
+        "person_activity"
+      ],
+      "notes": "Sources: REQ-PPL-014, 015, 026. Earliest acquisition and cohort counts can be derived from valid history; no cache is required by the capability. Current schema witness_account_id is not the requirement for optional witness Person."
+    },
+    {
+      "id": "CAP-A-028",
+      "name": "Typed corrections across owned records",
+      "feature_ids": [
+        "PPL-015",
+        "TEAM-002",
+        "TEAM-009"
+      ],
+      "persists": true,
+      "entities": [
+        "typed record correction"
+      ],
+      "facts": [
+        "Exact owning plant and existing target record kind/identity; before/after revision and permitted changed facts.",
+        "Immutable original recording actor/time; actual corrector, correction occurrence Instant, reason and original command receipt.",
+        "Old/new approved assessment/interview/commitment/classification/lifecycle/team/program values and invalid-evidence correction/void lineage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Target kind/reference is enforced and same-plant; stale revision or cross-Person edit cannot append correction.",
+        "Original author/account/private identity and ordinary qualification document/witness provenance cannot change through generic field patch.",
+        "Correction recomputes dependent current facts without replaying stage automation or mutating historical assessment snapshots."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "record_correction",
+        "person_4c_assessment",
+        "person_interview",
+        "person_commitment",
+        "person",
+        "ministry_team",
+        "training_program",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-PPL-015, TEAM-002, TEAM-009. Old/new correction diffs may be opaque audit payloads; typed target and queryable facts cannot be hidden in unconstrained JSON."
+    },
+    {
+      "id": "CAP-A-029",
+      "name": "Exact Person merge and guarded Unmerge receipts",
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "persists": true,
+      "entities": [
+        "Person merge receipt",
+        "typed reference movement",
+        "inverse receipt"
+      ],
+      "facts": [
+        "Original source and survivor Person identities, plant, source/survivor reviewed revisions and recorded pre/post survivor revision.",
+        "All differing stored field choices, account/household/photo/current-lifecycle effects, original before-values and exact moved/deduplicated row identities.",
+        "Typed target/reference ownership, pre/post revisions, uniqueness/collision and inverse conditions for each registered consumer.",
+        "Acyclic merged-source-to-survivor lineage, original merge actor/Instant/intent receipt, current merged/reversed state and later reversal actor/receipt.",
+        "Stored source/survivor photo and historical row references retained while safe inverse requires them."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Both Persons and moved current references are same plant; two account-linked Persons cannot merge and linked Person must survive.",
+        "Current reference writers validate live Person so no new reference races onto retired source.",
+        "Source-to-survivor lineage is acyclic and retries do not create duplicate merge or inverse.",
+        "Unmerge requires unchanged recorded facts/reference revisions and all inverse checks; no discarded later facts, transferred private author identity or unsent mail."
+      ],
+      "retention": "Keep original merge and inverse receipts plus necessary owned snapshots/reference/photo facts under plant lifecycle. No unlimited undo or blanket permanent private snapshot exemption exists; deleted private account data cannot survive in merge payloads.",
+      "current_tables": [
+        "person_merge",
+        "person",
+        "account_person_link",
+        "person_activity",
+        "record_correction",
+        "command_receipt",
+        "object_metadata"
+      ],
+      "notes": "Sources: REQ-PPL-017, 024, 025. Reference manifest is static schema metadata; moved-row identities and snapshots are concrete storage requirements, not a universal runtime registry."
+    },
+    {
+      "id": "CAP-A-030",
+      "name": "Frozen CSV import choices and resumable row outcomes",
+      "feature_ids": [
+        "PPL-018"
+      ],
+      "persists": true,
+      "entities": [
+        "People import intent",
+        "reviewed row choice",
+        "row outcome",
+        "duplicate-review pair"
+      ],
+      "facts": [
+        "Original validated CSV bytes or authorized private upload reference and digest, owning plant/actor and frozen review/source revision.",
+        "Twelve contact input fields first_name/last_name/email/phone/street/city/state/postal_code/country/source/source_details/notes, stable original row keys/digests and validated values.",
+        "Frozen skip/create/create_and_review choice per row, including exact within-file/existing duplicate choices.",
+        "Created Person identity or skipped/error reason per row, remaining unfinished row keys and original completed receipt.",
+        "Optional specifically requested new duplicate-review pair, never an overwritten existing Person."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Server reparses original bytes, caps 10 MiB and 10000 rows, and checks frozen reviewed digest.",
+        "Each import-intent/row key commits at most one successful creation; retries resume only unfinished rows.",
+        "Stale authority/review refuses effects; partial outcomes remain factual and named."
+      ],
+      "retention": "Retain frozen reviewed rows/digests and outcomes while resumable work and its receipt require them, following plant lifecycle. No permanent duplicate of all imported raw contact bytes or separate backup archive is required; no explicit import TTL is specified.",
+      "current_tables": [
+        "upload_intent",
+        "object_metadata",
+        "command_receipt",
+        "operation_execution",
+        "operation_effect",
+        "operation_result",
+        "person"
+      ],
+      "notes": "Source: REQ-PPL-018. These are current candidate reference stores, not a requirement to use the full assistant execution stack for native CSV import."
+    },
+    {
+      "id": "CAP-A-031",
+      "name": "People derived reads, exports and consolidated aliases",
+      "feature_ids": [
+        "PPL-001",
+        "PPL-007",
+        "PPL-016",
+        "PPL-019",
+        "PPL-021",
+        "PPL-022",
+        "PPL-023"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [],
+      "retention": "No additional storage beyond Person facts, dated transition/contact history, tags, current work, original-domain team/training/mail records and shared receipts.",
+      "current_tables": [],
+      "notes": "Sources: REQ-PPL-001, 007, 016, 019, 021, 022, 023. Duplicate hints are calculated, not unique identity claims. CSV output, tabs, urgency and pipeline rates are projections. A rate without reconstructable source-window cohort is Unknown. Explicit follow-up/task creation remains with group B; deferred no-op source handlers add no storage."
+    },
+    {
+      "id": "CAP-A-032",
+      "name": "Configured teams and archive state",
+      "feature_ids": [
+        "TEAM-001",
+        "TEAM-002"
+      ],
+      "persists": true,
+      "entities": [
+        "ministry team"
+      ],
+      "facts": [
+        "Same-plant team identity, trimmed name, nullable description/icon and stable optional template identity independent of display name.",
+        "Forming/active/paused state, distinct archive status/Instant, current sort order and mutation revision.",
+        "Original actor plus edit/archive/restore reason and before/after history.",
+        "Current leader reference/provenance is CAP-A-034; operational staffing counts derive from actual role occupancy."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Tenant/template key is unique for imported predefined teams; custom same-name teams remain independent.",
+        "Paused is not archived; archive does not waive duties or turn team programs churchwide.",
+        "Restoration cannot restore revoked account access or rewrite old tenure."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "ministry_team",
+        "record_correction"
+      ],
+      "notes": "Sources: REQ-TEAM-001, 002. No editable reporting hierarchy or specialized children/safety/inventory/rotation fields are needed."
+    },
+    {
+      "id": "CAP-A-033",
+      "name": "Configured ministry role slots",
+      "feature_ids": [
+        "TEAM-005"
+      ],
+      "persists": true,
+      "entities": [
+        "team role slot"
+      ],
+      "facts": [
+        "Owning plant/team, trimmed role name, leadership flag and nullable description/time commitment/desired-skills text.",
+        "Sort order, stable imported-role identity where needed for repeat selected import, current/retired status and revision.",
+        "Occupied-role retirement choice and attributable role-edit/retirement history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Role belongs to its same-plant team and permits at most one active occupant.",
+        "Open/filled is a projection of live occupancy, not an independently editable stored flag.",
+        "Retiring an occupied role preserves previous membership episodes and reviewed leadership effects."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "team_role",
+        "team_membership",
+        "record_correction"
+      ],
+      "notes": "Source: REQ-TEAM-005. Dormant reportsTo fields have no product chart/hierarchy requirement."
+    },
+    {
+      "id": "CAP-A-034",
+      "name": "Current team leader and appointment provenance",
+      "feature_ids": [
+        "TEAM-004",
+        "IDN-014",
+        "IDN-019"
+      ],
+      "persists": true,
+      "entities": [
+        "team leader appointment"
+      ],
+      "facts": [
+        "Same-plant team and live leader Person, explicit/role-derived/legacy provenance and optional exact deriving leadership role.",
+        "Appointment/removal actor, dated reason, revision and prior provenance.",
+        "Current linked-account/seat eligibility needed to distinguish visible unlinked ministry leadership from authenticated own-team duties."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Explicit appointment outranks fallback and survives removal of that role; role-derived fallback fills only an empty leader.",
+        "Unlinked contact title grants no account seat; linked-account own-team authority requires current exact plant seat.",
+        "Access-dependent appointment clears on seat revocation without erasing earlier history."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "ministry_team",
+        "team_role",
+        "team_membership",
+        "person",
+        "account_person_link",
+        "tenancy_membership",
+        "person_activity"
+      ],
+      "notes": "Sources: REQ-TEAM-004; REQ-IDN-014, 019. Lead/Senior Pastor is ordinary ministry role data, not a separate operating-lead claim or ownership system."
+    },
+    {
+      "id": "CAP-A-035",
+      "name": "Ministry membership tenure episodes",
+      "feature_ids": [
+        "TEAM-006",
+        "TEAM-015"
+      ],
+      "persists": true,
+      "entities": [
+        "Person role-assignment episode"
+      ],
+      "facts": [
+        "Same-plant Person, team and exact role slot; active/inactive tenure, start/end LocalDates and original assigning/removing actor.",
+        "Distinct reactivation episode linked to preceding tenure, retaining original dates rather than overwriting them.",
+        "Current revision and idempotent assignment/removal/conditional People-stage receipt.",
+        "Prior role occupancy and explicit/derived leadership effect provenance."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One active occupant per role; same-person retry differs from conflicting other-person assignment.",
+        "Person/team/role belong to one plant and role belongs to selected team.",
+        "Multiple teams/roles are allowed; 2+teams is an advisory display, not an integrity ceiling.",
+        "Removal preserves earned training, commitment, account seat and advanced People stage."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "team_membership",
+        "team_role",
+        "ministry_team",
+        "person_activity",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-TEAM-006, 015. The active row is not sufficient unless prior reactivation tenure remains reconstructable."
+    },
+    {
+      "id": "CAP-A-036",
+      "name": "Reviewed optional team, role and responsibility imports",
+      "feature_ids": [
+        "TEAM-003"
+      ],
+      "persists": true,
+      "entities": [
+        "template-import intent",
+        "selected row outcome"
+      ],
+      "facts": [
+        "Exact immutable reference release/template version/key and independently selected teams/roles/responsibility rows.",
+        "Reviewed destination choices, eligibility/occupied-role effects, original actor and current source revision.",
+        "Per-selected-row created/skipped/remaining identity and coherent resumable intent/receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Unique tenant/template identity prevents renamed-team duplicates; unselected custom/occupied data is preserved.",
+        "Repeated or competing selected import cannot duplicate the winner-created rows.",
+        "Cancel, no selection and read/preview create no structure."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "reference_template_version",
+        "template_import_receipt",
+        "command_receipt",
+        "ministry_team",
+        "team_role",
+        "team_responsibility"
+      ],
+      "notes": "Source: REQ-TEAM-003. Ten canonical team templates are immutable reference content, not editable tenant taxonomies."
+    },
+    {
+      "id": "CAP-A-037",
+      "name": "Responsibility offer decisions and reversible checklist facts",
+      "feature_ids": [
+        "TEAM-007"
+      ],
+      "persists": true,
+      "entities": [
+        "responsibility offer response",
+        "team responsibility"
+      ],
+      "facts": [
+        "Team/plant and immutable structured Playbook offer identity/version; accepted/declined offer decision with actor and receipt.",
+        "Selected original source lines, current editable responsibility text/order, removed state and revision.",
+        "Current complete/incomplete state, completion date/actor and tick/untick/edit/delete history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Only explicitly accepted selected rows persist; preview/read never seeds rows.",
+        "Edited/deleted/declined items do not resurrect on reload, bootstrap or upstream update.",
+        "Current completion has one state/date and does not attest a phase pass."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "ministry_team",
+        "team_responsibility",
+        "reference_template_version",
+        "template_import_receipt",
+        "command_receipt",
+        "record_correction"
+      ],
+      "notes": "Source: REQ-TEAM-007. Accepted/declined offer facts cannot be replaced by a generic read-time seeded stamp."
+    },
+    {
+      "id": "CAP-A-038",
+      "name": "Training programs and requirement versions",
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009"
+      ],
+      "persists": true,
+      "entities": [
+        "training program",
+        "immutable requirement version"
+      ],
+      "facts": [
+        "Exact plant and explicit team-bound or churchwide scope, program name/description, required/optional flag, archive state and current program revision.",
+        "Named version identity, applicable requirements and source article/reference/version identities for reading-based requirements.",
+        "Original requirement-version facts and compatibility lineage so earned credit remains against the version actually earned.",
+        "Program correction old/new actor/time/reason and reviewed affected-obligation choices."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Team archive/retirement cannot silently null scope into churchwide.",
+        "Same-plant program/requirement identity and version uniqueness are enforced.",
+        "Program edits cannot relabel prior completion or silently force rereading genuinely credited material."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "training_program",
+        "training_requirement_version",
+        "record_correction",
+        "wiki_article_version",
+        "wiki_read_progress"
+      ],
+      "notes": "Sources: REQ-TEAM-008, 009, 016. Requirement content that determines applicability or compatibility is queryable domain data, not an opaque unrestricted JSON bag."
+    },
+    {
+      "id": "CAP-A-039",
+      "name": "Saved training assignment episodes and roster events",
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009",
+        "TEAM-011"
+      ],
+      "persists": true,
+      "entities": [
+        "training assignment episode",
+        "training roster event"
+      ],
+      "facts": [
+        "Exact live Person/program/plant and requirement version, current applicable/removed state and effective start/end dates.",
+        "Frozen reviewed selection expanded to exact distinct Person IDs, selector/source revisions and original actor/receipt.",
+        "Append-only add/remove/correction events retaining previous roster membership and original episode history.",
+        "Explicit requirement-change compatibility/obligation decisions and current source revision."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One active assignment per Person/program; repeated roles/overlapping selector sets do not duplicate obligations.",
+        "Later membership/lead/classification/commitment changes cannot recompute saved applicability silently.",
+        "Stale or partially invalid roster preview refuses all writes.",
+        "Assignment is distinct from completion; empty or unknown applicability is not 100 percent complete."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "training_assignment_episode",
+        "training_assignment_event",
+        "training_requirement_version",
+        "command_receipt"
+      ],
+      "notes": "Source: REQ-TEAM-016. Saved assignment episodes are required even if assignment events are stored in a shared history mechanism."
+    },
+    {
+      "id": "CAP-A-040",
+      "name": "Human-earned completion, revocation and redo history",
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009",
+        "TEAM-010"
+      ],
+      "persists": true,
+      "entities": [
+        "earned training evidence",
+        "revocation event",
+        "new earned event"
+      ],
+      "facts": [
+        "Exact plant/Person/program/requirement version, optional applicable assignment episode and actual human verifier.",
+        "Original completion occurrence/date and notes; current nonrevoked/compatible evidence and expected revision.",
+        "Revocation actor/time/reason, correction lineage and separately dated redo event with new verifier and link to prior evidence."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "No duplicate effective Person/program/version earned credit from repeated roles or retries.",
+        "Revocation invalidates current credit without deleting original evidence; redo appends rather than overwrites.",
+        "Unassigned or incompatible completion cannot increase current required-obligation numerator.",
+        "Team leaders attest only eligible own-team program participants; churchwide evidence remains Owner/Admin-owned."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "training_completion",
+        "training_assignment_episode",
+        "training_requirement_version",
+        "record_correction"
+      ],
+      "notes": "Sources: REQ-TEAM-008, 009, 016. Earned evidence survives leaving team or removal of applicability; scheduling a session provides no completion credit."
+    },
+    {
+      "id": "CAP-A-041",
+      "name": "Dated attendance-and-volunteering testimony",
+      "feature_ids": [
+        "TEAM-011",
+        "TEAM-015"
+      ],
+      "persists": true,
+      "entities": [
+        "Person sustained-behavior attestation"
+      ],
+      "facts": [
+        "Exact Person/plant, human actor, question/reference version and actual dated observed or attested evidence provenance.",
+        "Both attendance and volunteering behaviors and sustained start/end or asOf period, with correction lineage.",
+        "Named unresolved conflicting observations and preserved original testimony where available."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Both behaviors and a supported sixty-day continuous period are separate facts; CRM tenure or lifetime totals do not establish continuity.",
+        "Insufficient evidence stays unknown; a model cannot supply testimony.",
+        "Attestation creates no readiness, role, promotion or phase effect and includes no private care."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "person_attestation",
+        "record_correction",
+        "meeting_participation",
+        "team_membership"
+      ],
+      "notes": "Source: REQ-TEAM-017. Shared contract has no separate active feature ID; attached to TEAM-011/015 evidence projections. No extra manual-signal key, service calendar or invented attendance quotas are needed."
+    },
+    {
+      "id": "CAP-A-042",
+      "name": "Shared team meetings and frozen distinct-member rosters",
+      "feature_ids": [
+        "TEAM-013"
+      ],
+      "persists": true,
+      "entities": [
+        "shared meeting",
+        "meeting roster snapshot",
+        "attendance fact"
+      ],
+      "facts": [
+        "Same-plant shared meeting identity and team; team_meeting type with regular/training/planning/special/rehearsal subtype, location, date/Instant, notes and status.",
+        "Exact distinct active Person roster captured at scheduling, historical relevant-member denominator and actual individual attendance.",
+        "Explicit later roster reconciliation version/selection and original scheduling/attendance actor history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One shared meeting identity serves team tab and global list; repeated role holders appear once in roster.",
+        "Later membership changes do not silently alter saved roster.",
+        "Attended guest is distinct from relevant-member denominator; session schedule implies no earned training or task/calendar delivery."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "meeting",
+        "meeting_location",
+        "meeting_participation",
+        "meeting_event",
+        "command_receipt"
+      ],
+      "notes": "Sources: REQ-TEAM-013, 011. Group B inventories full meeting lifecycle and shared participation fields; these team-specific facts reuse that owning resource."
+    },
+    {
+      "id": "CAP-A-043",
+      "name": "Derived team health, cross-links and organization chart",
+      "feature_ids": [
+        "TEAM-010",
+        "TEAM-011",
+        "TEAM-012"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [],
+      "retention": "No additional stored health score, staffing counter, report hierarchy, chart drawing or export bytes are required.",
+      "current_tables": [],
+      "notes": "Sources: REQ-TEAM-010 through 012. Staffing uses configured slots/current occupancy; training uses saved applicable assignments/nonrevoked compatible evidence; attendance uses historical distinct-member rosters over last four completed meetings. Missing input is Unknown with no reweighting. Fixed Leadership-template chart root and SVG/PDF output derive from existing facts. No weekly health job or hierarchy editor is added."
+    },
+    {
+      "id": "CAP-A-044",
+      "name": "Private feedback intake and author-owned status",
+      "feature_ids": [
+        "ADM-001"
+      ],
+      "persists": true,
+      "entities": [
+        "private feedback submission"
+      ],
+      "facts": [
+        "Immutable original author account, optional actual subject context and stable occurrence/idempotency identity.",
+        "Closed bug/suggestion/question/other category, trimmed nonempty private original description up to 5000 characters and submitted Instant.",
+        "Optional page input bounded to 500 characters reduced to canonical known internal route label without query, fragment or credentials.",
+        "Current factual triage/publication states and approved public issue reference when one exists; current mutation revision."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Same submission occurrence creates at most one durable intake result before outward effects.",
+        "Original author is immutable; own status/read cannot expand to another author or private platform triage joins.",
+        "No screenshot upload, attachment list or public roadmap requirement."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [
+        "product_feedback",
+        "command_receipt"
+      ],
+      "notes": "Source: ADM-001. Own list/status projects bounded category/date/state/public-link facts, not the private original or internal routing."
+    },
+    {
+      "id": "CAP-A-045",
+      "name": "Authorized private feedback triage history",
+      "feature_ids": [
+        "ADM-002"
+      ],
+      "persists": true,
+      "entities": [
+        "feedback triage state",
+        "triage event"
+      ],
+      "facts": [
+        "Exact feedback identity and current new/reviewed/resolved/dismissed triage state/revision.",
+        "Actual immutable-platform-granted actor, change Instant, prior/new state, correction/no-op reason and receipt.",
+        "Separately observed public issue closure state without fabricated implementation/PR/deployment completion."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Only actual platform-principal grant permits private triage; plant/organization role never supplies it.",
+        "Unknown record or stale revision creates no transition; repeated semantic no-op has a factual receipt.",
+        "External issue closure cannot silently change product implementation status."
+      ],
+      "retention": "Private intake and associated private triage body follow original-account deletion. Minimal independently legitimate operational receipts may remain without private original, account contacts or narrative; no broad permanent audit exemption is specified.",
+      "current_tables": [
+        "product_feedback",
+        "platform_grant",
+        "audit_event",
+        "command_receipt"
+      ],
+      "notes": "Source: ADM-002. Filtered triage lists do not require stored copies of status/category search results."
+    },
+    {
+      "id": "CAP-A-046",
+      "name": "Frozen safe public feedback publication and reconciliation",
+      "feature_ids": [
+        "ADM-003",
+        "OPS-009"
+      ],
+      "persists": true,
+      "entities": [
+        "publication intent",
+        "actual issue locator",
+        "publication observation or triage receipt"
+      ],
+      "facts": [
+        "Private-intake link under actual author ownership, approved closed category/public product-area label and random opaque publication-occurrence marker.",
+        "Frozen sanitized title/body and payload hash; exact immutable intended separate public repository numeric/node identity and owner/name snapshot.",
+        "Pending/held/publishing/published/rejected/unknown publication state, revision, job/attempt receipt and actual observed error/outcome.",
+        "Actual issue number/node identity/URL and publication Instant; marker-search observations or duplicate-candidate/operator resolution evidence in that frozen repository.",
+        "Exact reviewed richer payload/audience/provenance if used; actual public label/action receipts; optional authorized operator-mail intent."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Public payload excludes raw description/URL/internal IDs/names/contact/log/private-care data; uncertain serialization has no raw fallback.",
+        "Frozen destination/payload cannot be rewritten by later global configuration or repository rename.",
+        "Unknown response after ten-second timeout cannot blindly issue another create; only authoritative absence permits bounded retry.",
+        "Issue creation/triage/closure cannot claim code implementation or merge."
+      ],
+      "retention": "Private intake and private publisher payload/linkage follow original-account deletion; keep only legitimate body-free external effect locator/outcome needed to prevent replay. Existing public issues cannot be recalled or promised erased through account purge.",
+      "current_tables": [
+        "feedback_publication",
+        "product_feedback",
+        "job",
+        "command_receipt",
+        "email_intent"
+      ],
+      "notes": "Sources: ADM-003, OPS-009. Safe deterministic summaries publish automatically; no standalone workflow-routing/classifier/engineering-board platform is implied."
+    },
+    {
+      "id": "CAP-A-047",
+      "name": "Scoped optional dashboard prompt dismissal",
+      "feature_ids": [
+        "ADM-005"
+      ],
+      "persists": true,
+      "entities": [
+        "optional prompt dismissal"
+      ],
+      "facts": [
+        "Exact viewing account/plant, closed prompt identity and dismissed/current choice.",
+        "Prompt context/version or revision if needed to distinguish a changed optional prompt from its prior dismissal."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "Dismissal is unique per current account/plant/prompt context and cannot certify setup or alter underlying evidence.",
+        "Dismissal may hide only an optional prompt, never actual overdue work or missing mandatory data."
+      ],
+      "retention": "Account-owned data is hidden immediately on deletion request, held solely for cancellation for 30 elapsed days, then coherently purged; recovery-copy expiry is at most seven days after live purge. Shared independently owned facts retain only necessary attribution.",
+      "current_tables": [],
+      "notes": "Source: ADM-005. No clearly dedicated prompt-dismissal store is identified in the current schema. This is a concrete requirement gap, not a requirement for an inbox-based implementation or a new stored metric."
+    },
+    {
+      "id": "CAP-A-048",
+      "name": "Public invitation-request mail intent",
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "persists": true,
+      "entities": [
+        "public invitation-request occurrence",
+        "limited mail intent"
+      ],
+      "facts": [
+        "Validated normalized requester email, twenty-four-hour dedupe occurrence/window and admitted rate-budget receipt.",
+        "Closed purpose, configured authorized destination identity, frozen safe mail payload and truthful pending/sent/failed/unknown transport outcome."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
+        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
+        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation."
+      ],
+      "retention": "Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected.",
+      "current_tables": [
+        "email_intent",
+        "email_attempt",
+        "auth_throttle"
+      ],
+      "notes": "Source: ADM-006. Public examples and landing text are static synthetic content, not stored user-domain records."
+    },
+    {
+      "id": "CAP-A-049",
+      "name": "Derived dashboards and static public documents",
+      "feature_ids": [
+        "ADM-004",
+        "ADM-005",
+        "ADM-006",
+        "ADM-007"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [],
+      "retention": "No additional database storage for routing, metric snapshots, feeds, legal-page versions, sitemap or robots is required.",
+      "current_tables": [],
+      "notes": "Sources: ADM-004 through 007. Routing reads identity/onboarding facts; metrics and twenty-event feed read current owned records and actual dated source/correction history. Optional dismissal is CAP-A-047. Public policies are reviewed static copy describing selected vendors and actual lifecycle/recovery limits, without a consent/legal-version tracking product."
+    },
+    {
+      "id": "CAP-A-050",
+      "name": "Durable asynchronous work and fenced claims",
+      "feature_ids": [
+        "OPS-001",
+        "OPS-004"
+      ],
+      "persists": true,
+      "entities": [
+        "owed job",
+        "claim or checkpoint",
+        "fairness cursor"
+      ],
+      "facts": [
+        "Closed job type, enforced typed actual subject/owner, occurrence key, originating receipt/source revision and bounded ID/version payload.",
+        "Eligibility Instant, ready/claimed/retry_wait/reconcile/succeeded/failed/cancelled/superseded state, attempt count/max, next retry and safe failure code.",
+        "Current claim owner, lease-until Instant, monotonically advancing generation and bounded completed-work checkpoint.",
+        "Persisted type/tenant last-served scan cursor and remaining owed-work identity for fair sweep without dropping tail cohorts.",
+        "Current cancellation/lifecycle/source fence and actual external unknown outcome reference; operator recovery actor/reason/proof receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Unique job-type/actual-subject/occurrence prevents duplicate demand; payload never confers authority.",
+        "Checkpoint/completion compare current ID/generation/owner and actual source revision; stale reclaimed workers cannot publish.",
+        "Unknown external outcome enters reconciliation, not generic retry; required cross-domain consequences remain in the producer transaction.",
+        "Permanent authority/lifecycle refusal cannot reopen a deleted subject, canceled mail or stale approval."
+      ],
+      "retention": "Keep active/unknown work and bounded recovery receipts until settled or properly canceled; delete private payloads according to actual subject ownership. No arbitrary permanent full payload archive or separate universal workflow event store is required.",
+      "current_tables": [
+        "job",
+        "command_receipt",
+        "email_intent",
+        "feedback_publication"
+      ],
+      "notes": "Sources: OPS-001, 004; execution claim protocol. Fairness state and retry/checkpoint facts are real needs, not a reason for a per-feature queue or separate worker platform."
+    },
+    {
+      "id": "CAP-A-051",
+      "name": "Shared command receipts, domain history and safe audit",
+      "feature_ids": [
+        "OPS-004",
+        "OPS-005",
+        "PPL-019"
+      ],
+      "persists": true,
+      "entities": [
+        "command receipt",
+        "typed audit event"
+      ],
+      "facts": [
+        "Actual originating native or reviewed assistant actor, exact owning scope, typed subject and command/occurrence identity.",
+        "Validated input digest and expected revision; factual committed/no-effect/partial/conflict outcome and named actual created/moved/remaining record references.",
+        "Actual occurrence Instant, current material-source revision and domain history linkage committed alongside required effect and outbox intent.",
+        "Safe before/after permitted changes, original attribution or scope-local opaque deleted-account attribution.",
+        "CSV export receipt has exact authorized filter and actual count, without retaining exported private bytes as a new archive."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One command/scope/intent identity binds one effect result; conflicting input cannot reuse success.",
+        "Queryable targets and references are typed and same-owner rather than unenforced type/ID payloads.",
+        "Audit does not replace required domain histories and excludes all private-care body/existence/calendar/count/nudge facts.",
+        "Shared attribution must not preserve removed credentials or private account narrative."
+      ],
+      "retention": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "current_tables": [
+        "command_receipt",
+        "audit_event",
+        "person_activity",
+        "record_correction"
+      ],
+      "notes": "Sources: OPS-004; People producer/correction/export contracts; identity account lifecycle. JSON diffs may hold opaque audit changes, not queryable ownership or target integrity."
+    },
+    {
+      "id": "CAP-A-052",
+      "name": "Coherent recovery copies, current witnesses and restore receipts",
+      "feature_ids": [
+        "OPS-005",
+        "OPS-007"
+      ],
+      "persists": true,
+      "entities": [
+        "encrypted recovery candidate",
+        "byte inventory",
+        "current access/deletion journal",
+        "restore receipt"
+      ],
+      "facts": [
+        "Immutable candidate/artifact/source/schema version, consistent database snapshot Instant/LSN/locator/checksum/length and exact object inventory.",
+        "Each referenced ready private object identity/version key/MIME/length/checksum, deterministic inventory completeness and manifest checksum/hash.",
+        "Encryption key reference/version without secret material, actual private backup destination/environment and copy creation/expiry Instants.",
+        "Per-embedded-subject original nonresetting deletion expiry origin; current separately synchronized deletion/access witness checkpoint and freshness.",
+        "Candidate complete/incomplete/verified state, actual verification Instant, latest successful complete copy reference and failed/missed schedule facts.",
+        "Scoped operator authorization, isolated restore identity, checksum/current-witness/external-effect reconciliation receipt and measured incident/snapshot/reopen Instants."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Incomplete/truncated/missing-byte candidate is never promoted successful.",
+        "Current witnesses are independent of stale database image; uncertain decisions prevent reopening.",
+        "Restore cannot replay accepted/unknown mail or issues or reset deletion-copy expiry.",
+        "Backup bucket/key access is restricted to positively identified operator context; ordinary runtime/preview/model receives no backup credentials or decryption key."
+      ],
+      "retention": "Seven-day database/object recovery and expiring daily snapshots/encrypted copies are finite; embedded deletion subjects become ineligible within seven days of their original coherent live purge, including recopies/restores. Body-free witnesses outlive copies only to prevent resurrection. Cleanup outcomes distinguish inaccessible from physically confirmed deletion.",
+      "current_tables": [
+        "recovery_manifest",
+        "deletion_witness",
+        "job",
+        "object_metadata",
+        "command_receipt"
+      ],
+      "notes": "Sources: OPS-005, 007 and architecture/recovery.md. Inventory/checksums and per-subject expiries are concrete external/private artifact facts; they need not all be duplicated in mutable application database rows. No second backup provider or customer recovery console is required."
+    },
+    {
+      "id": "CAP-A-053",
+      "name": "Engineering, health, telemetry and migration provenance without new customer storage",
+      "feature_ids": [
+        "OPS-002",
+        "OPS-003",
+        "OPS-005",
+        "OPS-006",
+        "OPS-007",
+        "OPS-008",
+        "OPS-009",
+        "OPS-010",
+        "OPS-011"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [],
+      "retention": "Existing versioned migration journal, approved references, isolated fixture/preview records, operational evidence and optional content-free provider telemetry keep their own engineering lifecycle. No additional customer-domain table is required.",
+      "current_tables": [],
+      "notes": "Sources: OPS-002 through 011. Liveness/readiness derive process/dependency/job/reference/backup state. Optional telemetry records only allowed latency/token/status/build/run correlation in its selected provider. Migration checksums/applied history, named preview checkout/revision/URL/environment, proof coverage, tool classification and workflow version are engineering artifacts/configuration. Immutable reference content belongs to group C; safe issue locators are CAP-A-046 and recovery copies CAP-A-052. No historical Evry tables, general audit browser or customer workflow configuration is revived."
+    }
+  ],
+  "observations": [
+    {
+      "current_tables": [
+        "ministry_team",
+        "team_role"
+      ],
+      "observation": "reports_to_team_id and reports_to_role_id store dormant hierarchy facts, while REQ-TEAM-012 uses a fixed Leadership-template root and explicitly adds no reporting-hierarchy editor. These references are not required to render the retained organization view."
+    },
+    {
+      "current_tables": [
+        "ministry_team"
+      ],
+      "observation": "type and template_key may duplicate predefined identity; responsibilities_seeded_at and phase_introduced suggest read-time seeding or automatic phase setup. REQ-TEAM-003/007 require optional exact imports and an explicit accepted/declined versioned offer; they do not require those additional source-mechanism flags."
+    },
+    {
+      "current_tables": [
+        "team_role",
+        "person"
+      ],
+      "observation": "team_role.status duplicates filled/open if independently stored from current membership. person.first_genuine_commitment_date is derivable from valid dated commitment history and merge lineage. REQ-TEAM-005 and REQ-PPL-026 require accurate projections, not extra mutable caches; any retained cache needs a named query and coherent invalidation reason."
+    },
+    {
+      "current_tables": [
+        "person"
+      ],
+      "observation": "current_commitment is a boolean, while REQ-PPL-026 distinguishes active, withdrawn and unknown supported lifecycle. Adding more redundant booleans would be heavier and still lose uncertainty. Keep the actual lifecycle/evidence distinction; this observation is a mismatch, not permission to drop commitment history."
+    },
+    {
+      "current_tables": [
+        "product_feedback"
+      ],
+      "observation": "attachment_object_ids is beyond ADM-001, which explicitly has no screenshot-upload feature. account_id and original_author_account_id are both present; the requirement needs one immutable private owner/original author unless an actual differing ownership use is identified."
+    },
+    {
+      "current_tables": [
+        "feedback_publication"
+      ],
+      "observation": "allowed_categories JSON adds an editable-looking permission payload to a deterministic closed serializer with one validated category and public-area label. operation_effect_id ties publication to the assistant effect stack even though ordinary safe publishing is automatic. Frozen payload/destination/hash, factual outcomes and reconciliation remain necessary."
+    },
+    {
+      "current_tables": [
+        "organization_network_link",
+        "plant_affiliation",
+        "discovery_association",
+        "association_invitation",
+        "association_event"
+      ],
+      "observation": "Several link resources repeat independently scoped relationship state/lifecycle. IDN-020/021 require exactly five typed endpoint shapes and enforceable independent links, not one physical table per pair type. This is a consolidation candidate only if endpoint type/FK integrity, invitation authority and counterpart retention remain explicit."
+    },
+    {
+      "current_tables": [
+        "access_invitation",
+        "association_invitation"
+      ],
+      "observation": "Seat and relationship invitations repeat addressed token/expiry/revision/resend/claim history. Shared lifecycle storage may reduce repetition, but their grant effects and typed targets differ and cannot become generic unenforced type/ID authority."
+    },
+    {
+      "current_tables": [
+        "training_assignment_episode",
+        "training_assignment_event",
+        "training_completion",
+        "record_correction"
+      ],
+      "observation": "Training-specific event and general correction envelopes may repeat actor/time/reason/revision facts. A shared typed history envelope is a possible reduction; saved assignment applicability, genuine tenure episodes, immutable requirement versions and earned/revoked/redo history are substantive obligations, not redundant copies to delete."
+    },
+    {
+      "current_tables": [
+        "auth_throttle",
+        "record_correction",
+        "association_event",
+        "training_requirement_version"
+      ],
+      "observation": "created_at, updated_at and revision appear broadly, including expiring attempt buckets or immutable history/version rows. Require each timestamp/revision to serve an actual pagination, deadline, observed occurrence or concurrency purpose; immutable events generally do not need generic mutable-row bookkeeping."
+    },
+    {
+      "current_tables": [
+        "operation_execution",
+        "operation_effect",
+        "operation_result",
+        "command_receipt"
+      ],
+      "observation": "Native CSV import requires frozen reviewed rows, resumable per-row outcomes and an idempotent final/partial receipt. REQ-PPL-018 does not itself require a full assistant execution/effect/result decomposition; keep per-row identity and failure/retry semantics without automatically copying that stack."
+    },
+    {
+      "current_tables": [
+        "job",
+        "recovery_manifest",
+        "deletion_witness"
+      ],
+      "observation": "Generic tagged scope fields and repeated owner stamps on operational envelopes can be heavier than exact typed subject/manifest identity needs. Recovery facts may live in an authenticated encrypted manifest plus a minimal index/journal. Current witnesses must remain independently current and survive live-root removal, so they cannot be collapsed into the stale backup image."
+    },
+    {
+      "current_tables": [
+        "person_4c_assessment",
+        "person_interview"
+      ],
+      "observation": "Four-Cs and interview facts need concrete human criteria and chronological occurrence/recorded lineage; they do not need stored latest pointers or derived score totals. No observation proposes hiding constrained human criteria in opaque JSON or replacing them with model assessment."
+    }
+  ]
+}
