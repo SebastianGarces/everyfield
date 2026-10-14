@@ -1,21 +1,36 @@
 import { join } from 'node:path';
-import { fail, findPackage, loadDag, loadProgress, loadConfig, readJson, type TaskRef } from './lib.ts';
+import { fail, findPackage, loadDag, loadConfig, readJson, type TaskRef } from './lib.ts';
+import { producerReady } from './progress.ts';
 
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
 export function requireImplementation(root:string,wp:string):void {
- const gates=readJson<{gates:Array<{id:string;status:string;work_packages:string[]}>}>(join(root,'docs/plan/release-gates.json')).gates;
+ const gates=readJson<{gates:Array<{id:string;status:string;scope?:string;work_packages:string[]}>}>(join(root,'docs/plan/release-gates.json')).gates;
  for(const id of ['G-AUTH','G-WORKFLOW']) {
   const g=gates.find(g=>g.id===id),expected=id==='G-AUTH'?'authorized':'reconciled-independent-review';
-  if(g?.status!==expected) fail(`${id} is not closed for application implementation. Read-only briefs and this separately authorized local tooling task do not open the application gate.`);
+  if(!g||(g.scope!=='global' && g.work_packages?.length!==0)||g.status!==expected) fail(`${id} is not closed for application implementation. Global action gates apply to every application package; read-only work does not open them.`);
  }
- const p=findPackage(loadDag(root),wp),progress=loadProgress(root);
- const blocked=p.depends_on.filter(id=>progress[id]?.status!=='done');
- if(blocked.length) fail(`Prerequisites not canonically done: ${blocked.join(', ')}. --allow-unready cannot grant implementation authority.`);
+ const p=findPackage(loadDag(root),wp);
+ const blocked=p.depends_on.filter(id=>!producerReady(root,id));
+ if(blocked.length) fail(`Prerequisites need reviewed producer/interface milestones: ${blocked.join(', ')}. --allow-unready cannot grant implementation authority.`);
  }
 /** Check actual paid commitments separately from local implementation and synthetic proof. */
 export function requireSpend(root:string):void {
  const gates=readJson<{gates:Array<{id:string;status:string}>}>(join(root,'docs/plan/release-gates.json')).gates;
  if(!['approved','closed','passed'].includes(gates.find(g=>g.id==='G-SPEND')?.status??''))fail('G-SPEND must approve the concrete paid provider envelope before usage or subscription commitment.');
+}
+
+export function requireTaskScope(root:string,task:TaskRef,wp?:string):void {
+ if(task.kind==='ops') {
+  const scope=loadConfig(root).maintenanceTasks?.[task.id];
+  if(!scope?.title||!scope.owningPaths.length||!scope.checks?.length)fail('Maintenance requires a reviewed title, owning paths and local tooling checks in maintenanceTasks.');
+  const files=['AGENTS.md','evf.config.json','skills-lock.json','.gitignore','bin/evf'];
+  const directories=['.agents/','.claude/','docs/','tools/evf/','.github/'];
+  if(scope.owningPaths.some(path=>path.split('/').includes('..')||!files.includes(path)&&!directories.some(dir=>path.startsWith(dir))))fail('Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.');
+ } else {
+  if(!wp)fail('Missing reviewed task scope.');
+  requireImplementation(root,wp);
+ }
+ requireTaskRisk(root,task);
 }
 
 /** Intent's reviewed task scope supplies risk. Ordinary auto-merge never approves sensitive work. */

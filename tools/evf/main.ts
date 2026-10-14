@@ -1,6 +1,8 @@
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
-import { EvfError, git, homeRoot, parseTask } from "./lib.ts";
+import { EvfError, git, homeRoot, parseTask, run } from "./lib.ts";
+import { join } from 'node:path';
+import { draftProofPlan } from './proof-plan.ts';
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
 import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
@@ -14,7 +16,8 @@ Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
   evf ac <acceptance-id>                                      full obligations for one criterion
-  evf shipped [--clear <task> ...]                            merged tasks waiting for a progress patch
+  evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
+  evf proof draft <task>                                     print a proof plan for operator review
 
 Task loop (implementor, ui-designer)
   evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
@@ -35,11 +38,12 @@ Feedback desk (public feedback repo)
   evf feedback status [--json]   evf feedback ideas   evf feedback promote <n>   evf feedback labels
 
 Upkeep
+  evf test [Node test options]                               local tooling regressions on evf's Node
   evf doctor [--here]  evf gc [--apply]          evf github setup [--dry-run]
   evf principles [--apply] [--ref <sha>]                      compare or sync principles with pstack
 
 <task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
-or FB-<n> for public feedback issue n (bug fix, or prototype for feature-small).`;
+FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
 
 function flag(args: string[], name: string): boolean {
   const i = args.indexOf(name);
@@ -65,6 +69,14 @@ function main(argv: string[]): number {
   }
   const root = homeRoot();
   switch (cmd) {
+    case 'test':
+      return run(process.execPath,['--test',...args,join(git(process.cwd(),'rev-parse','--show-toplevel'),'tools/evf/tests/reconciliation.test.ts')],{cwd:process.cwd(),inherit:true}).code;
+    case 'proof':
+      if(args.shift()==='draft') {
+        const task=parseTask(args[0]);
+        console.log(JSON.stringify({task:task.id,installed:false,review:'Review risk, all clause/case expectations, layers and deferred downstream owners. Install only the approved plan under verification.proofPlans in root evf.config.json.',plan:draftProofPlan(root,task)},null,2));return 0;
+      }
+      break;
     case "doctor": {
       const here = flag(args, "--here");
       return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);

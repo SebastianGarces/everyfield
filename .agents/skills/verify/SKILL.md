@@ -11,4 +11,8 @@ The author and independent verifier use distinct trusted provider identities/mod
 
 Run full verification after syncing and committing. HEAD, clean state, source fingerprint and base are checked again after commands/runner return. Exact log hashes and selected context are validated when consuming proof. Dirty or mutated checks, another task's artifact, stale main, a changed policy, same actor/family or historical full plus current quick cannot ship.
 
-Read the diff against the selected clauses and try real denied/failure behavior. Keep screenshots/traces outside the checkout. Report actual scope and failures; a screenshot, source suite count or successful scaffold check is not application acceptance. Human review is additionally required for feedback PRs at their final head; ordinary build PRs may merge automatically after tests and independently approved review. Signed verifier review binds the exact head and reviewed risk classification; sensitive work still escalates via Intent. All external execution is separately authorized.
+Read the diff against the selected clauses and try real denied/failure behavior. Keep screenshots/traces outside the checkout. Report actual scope and failures; a screenshot, source suite count or successful scaffold check is not application acceptance. Signed verifier review binds the exact head and reviewed risk classification. Merge authority lives in the `ship` skill. All external execution is separately authorized.
+
+For maintenance (`OPS-n`), prove tooling only with no package cases or gates. The signed runner and independent review flow is unchanged.
+
+Application checks emit passing test names/annotations in `EVF_TEST_REPORT`. Every selected case needs an `AC:<case-id>` marker in at least one passing test. One test may cover several cases. Review the duplicate coverage report for repeated behavior; broad proof stays outside the repo.

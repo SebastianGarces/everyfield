@@ -2,10 +2,10 @@
 
 This tooling branch adapts the received workflow to the current standalone plan. It does not authorize application implementation, run the live feedback desk, configure GitHub protections or commit spending. G-AUTH remains unopened, G-WORKFLOW remains open for the qualified runner/setup handoff, and all 86 canonical package statuses remain `not_started`.
 
-Run focused local tooling regressions with Node 24:
+Run local tooling regressions with the Node version resolved by `bin/evf`:
 
 ```sh
-node --test tools/evf/tests/reconciliation.test.ts
+bin/evf test
 ```
 
 Tests create disposable Git repositories/worktrees. `gh` and the attestation service are external fakes; no real GitHub, paid providers or application databases are contacted. A fixture's signed “application qualified” result tests this tool's proof protocol and is not v3 application acceptance. The current repository config uses `kind: tooling`, `applicationQualified: false`, no attestation runner, no stack and no active proof plans.
@@ -38,7 +38,7 @@ A separately trusted runner reproduces the applicable real checks and signs an E
 
 This is an operator trust boundary: cryptography binds a claim to the configured runner, while the runner is responsible for reproducing evidence and authenticating actual provider/session identity. Root configuration and keys must be independently reviewed; agents cannot self-authorize their own proof-plan/key changes. Context/policy changes merge separately before consumer verification.
 
-Before any verification check/runner or stack-up command, worktree control/context bytes must match the reviewed root. Relabeling a worktree proof as tooling cannot bypass application or risk gates. Checks and runner return before final HEAD/clean/base/fingerprint checks. Consumption revalidates task, selected context, staged plan, gate names, exact log hashes, signature and current full head/base. Quick proof cannot borrow a historical full pass. External PR/ship paths fetch current main before consumption. A changed branch stops for full author/verifier evidence and renewed human review. Strict enforced protection closes the race with a concurrently advancing main; its actual state is verified before feedback merge.
+Before any verification check/runner or stack-up command, worktree control/context bytes must match the reviewed root. Relabeling a worktree proof as tooling cannot bypass application or risk gates. Checks and runner return before final HEAD/clean/base/fingerprint checks. Consumption revalidates task, selected context, staged plan, gate names, exact log hashes, signature and current full head/base. Quick proof cannot borrow a historical full pass. External PR/ship paths fetch current main before consumption. A changed branch stops for fresh proof and the review requirements in `ship`.
 
 ## Feedback and human ownership
 
@@ -56,11 +56,50 @@ Daily slots count actual starts plus current reservations, never triage-cache pr
 
 Internal creation is source-marker keyed in a verified private repo. A lost response becomes `unknown`; retry first searches for the exact marker and reconciles a single existing issue, refusing zero/ambiguous unknown outcomes. Public shipped updates record pending/unknown/complete outcomes and never report closure after a failed call. Inspect provider evidence and record a reviewed reconciliation before retrying unknown writes; do not delete caches or blindly repeat them.
 
-Feedback PR merge additionally requires the configured human's approval at the exact head, no outstanding decisive requested changes, full independent proof and actual strict enforced protection. COMMENTED/PENDING reviews do not erase an earlier request for changes. Ordinary build PR automatic merge is owner-approved after final-head full tests, independently approved review and applicable gates. Feedback human review remains required; prototypes remain owner-reviewed drafts. `github setup` performs no writes and reports that concrete protection configuration needs a separate owner action.
+Merge authority and Git safety live in `.agents/skills/ship/SKILL.md`. `github setup` performs no
+writes; concrete protection configuration remains a separate owner action.
 
 ## Progress and integration
 
-Owners submit their owned progress patch at start, blocker changes, reviewed milestones and handoff. One integration owner reviews/applies canonical patches and refreshes/checks the offline explorer. Shipped records retain proven/deferred case/gate portions, merge commit, part and `package_completion: false`; a merged part or scaffold proof cannot mark a whole package done. `shipped --clear` acknowledges the inbox while retaining prerequisite/proof provenance. Actual package closure still requires all parts, obligations, direct prerequisites, substantive reviewed output and the mandatory offline explorer checklist.
+Only evf writes `docs/build-progress.json`, on ship and coordinator acknowledgement. Shipped records
+retain author/verifier proofs, proven/deferred case/gate portions and merge commits. A coordinator
+reviews `evf shipped`, then acknowledges with `evf shipped --clear <task>`; exact replays are
+idempotent. Commit the generated canonical change in the normal integration branch. No package
+patch, separate progress PR or offline explorer closure checklist is required.
+
+Reviewed producer/interface milestones unlock dependents while full closure stays at integration.
+A contract milestone unlocks consumers; without a contract split the API/producer milestone does.
+Milestone readiness rechecks retained signed independent proof, main ancestry and actual merged
+owning-path bytes. Full closure still needs all parts, obligations, gates and canonically done
+prerequisites. A reviewed full-target integration plan may declare
+`packageClosures: [{packageId, gateIndexes}]`, covering every target package gate and case.
+Acknowledgement validates its full integration portions, acknowledged merged parts and done direct
+prerequisites, then closes only those explicitly reviewed packages. Feedback and upkeep do not change
+package progress.
+
+## Proof plan drafts, case coverage and upkeep
+
+`evf proof draft WP-001` prints a draft from the context manifest's selected cases and DAG gates.
+The operator reviews risk, portions, applicable layers and downstream adapter owners, then installs
+only the approved plan under root `verification.proofPlans`. Draft output never changes the config.
+
+Application checks write `EVF_TEST_REPORT`, or the reviewed `verification.testReport` path. Format:
+
+```json
+{"tests":[{"name":"AC:MTG-CASE-001 AC:MTG-CASE-002 finalization produces expected tasks","status":"passed","annotations":["AC:MTG-CASE-003"]}]}
+```
+
+Only `passed` tests count; `failed` and `skipped` do not. Names and string annotations share the
+`AC:<case-id>` form used by `{acGrep}`. One test can cover several cases. evf clears stale reports,
+checks every selected case and retains the report in hashed proof evidence before attestation.
+Duplicate case coverage is reported for verifier review. Broad current proof stays outside the repo;
+regression tests follow `test-standard` and protect costly silent failures.
+
+`OPS-n` is tooling maintenance. The operator registers its title, owning paths and local tooling `checks` in `maintenanceTasks`,
+reviews and installs its maintenance draft, then uses the same task, verify, PR and ship commands.
+It runs no application stack and has no package cases or gates. Independent signed author/verifier
+proof and approved review still apply; OPS proof kind is always tooling. It grants no application or
+external setup authority. A runner remains necessary before remote shipping.
 
 ## Remaining external setup
 
@@ -69,8 +108,8 @@ Before any application/automation execution: explicit kickoff; the qualified sta
 
 ## Intent starting-state checklist
 
-Local preparation here covers the coherent entry/role/skill paths, current bounded context, DAG-to-Intent dependencies/conflicts, evidence/merge guards and explorer maintenance. Reconcile stale workspace checkouts through a preserved checkpoint; do not discard their dirty state or use a force switch. Use the normal development folder for the eventual Intent workspace; the agent's detached review checkout need not own main.
+Local preparation here covers the coherent entry/role/skill paths, current bounded context, DAG-to-Intent dependencies/conflicts and evidence/merge guards. Reconcile stale workspace checkouts through a preserved checkpoint; do not discard their dirty state or use a force switch. Use the normal development folder for the eventual Intent workspace; the agent's detached review checkout need not own main.
 
-Owner/harness setup remains: explicit kickoff; the actual Intent review/identity and scoped sensitive-approval receipt interface; independently reviewed task risk/stage plans; verified feedback/bot/human identities and safe publisher/reproduction protocol; concrete protection and paid usage approvals where applicable. Map the receipt adapter to existing Intent capabilities before choosing any additional service. If GitHub requires a review globally, Intent's independent verifier must supply the required agent approval for ordinary PRs; feedback still needs a real configured human. The helper never weakens protection to obtain a merge.
+Owner/harness setup remains: explicit kickoff; the actual Intent review/identity and scoped sensitive-approval receipt interface; independently reviewed task risk/stage plans; verified feedback/bot/human identities and safe publisher/reproduction protocol; concrete protection and paid usage approvals where applicable. Map the receipt adapter to existing Intent capabilities before choosing any additional service. Follow `ship` for review and protection requirements.
 
 Future implementation work remains all 86 packages: their contracts/reference/platform/schema producers, native/assistant vertical slices, real runtime/database/browser/evaluation assertions, operational environment and recovery proofs. Keep stage evidence and package closure separate; do not bootstrap applications or launch the first wave during repository preparation.

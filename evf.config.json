@@ -9,9 +9,8 @@
     {
       "name": "workflow-regressions",
       "run": [
-        "{node}",
-        "--test",
-        "tools/evf/tests/reconciliation.test.ts"
+        "bin/evf",
+        "test"
       ]
     },
     {
@@ -63,7 +62,8 @@
     "applicationQualified": false,
     "attest": null,
     "usesPaidProviders": false,
-    "proofPlans": {}
+    "proofPlans": {},
+    "testReport": "{testReport}"
   },
   "mergePolicy": {
     "ordinary": "automatic-after-independent-review",
@@ -75,5 +75,6 @@
       "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
     },
     "sensitive": "owner-escalation-required"
-  }
+  },
+  "maintenanceTasks": {}
 }

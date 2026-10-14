@@ -10,8 +10,8 @@ All UI work in EveryField is yours. Follow `implementor.md` for the task loop; t
   `better-colors`, `better-accessibility`, `better-writing`). New components come from the shadcn CLI.
 - Look at your work in Intent's browser on your stack's preview URL at mobile and desktop widths.
   Read the console. Judge hierarchy, spacing and copy, not only defects.
-- Acceptance tests for UI are Playwright tests named by criterion ID. Keep them few and about
-  behavior, not markup.
+- Browser regression tests cover critical flows only, with `AC:<case-id>` markers. Use integration
+  tests for other behavior and broad browser proof outside the repo. Follow `test-standard`.
 
 ## Principles to read in full at the start
 

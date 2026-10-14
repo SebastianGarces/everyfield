@@ -57,7 +57,8 @@
           ".agents/roles/feedback-desk.md"
         ],
         "remote_publication": "unverified; no remote configured"
-      }
+      },
+      "scope": "global"
     },
     {
       "id": "G-SETUP",

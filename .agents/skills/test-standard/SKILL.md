@@ -1,56 +1,54 @@
 ---
 name: test-standard
-description: "Apply before you write, keep or delete a test. A test must cite an acceptance ID, an invariant or an escaped bug. Default to integration tests against real Postgres through the public operation; no tests that restate types, mock our own modules or snapshot markup."
+description: "Apply before writing, keeping or deleting a test. Keep few behavior-focused regression tests; use broad proof outside the repository."
 ---
 
 # Test standard
 
-Tests protect behavior that would cost us if it broke silently. They do not measure effort. A
-large suite that nobody trusts slows every agent down, so each test must earn its place.
+Verification proves the current result broadly: run the app, inspect browser captures and traces,
+and use throwaway scripts. evf stores this proof outside the repository. A regression test stays in
+the repository only when a silent break would cost us. Suite size is not evidence.
 
-## Write a test only when one of these is true
+## Keep a test when it protects
 
-1. **Acceptance.** It proves a criterion from `docs/catalog/index.json and the selected current clauses/cases`. Put the
-   shared gate ID in the test name: `AC-MTG-012: zero-attendee finalization creates one evaluation task`.
-   `evf verify` selects acceptance tests by these IDs (`{acGrep}`).
-2. **Invariant.** It guards a rule the type system cannot hold: tenancy, permissions, privacy
-   filtering, concurrency and races, idempotency, counts and denominators, date/DST math.
-   Name it `INV-<area>: ...`, for example `INV-tenancy: coach cannot read another plant's people`.
-3. **Escaped bug.** A bug got through once. Name it `BUG-<short-sha or PR>: ...` and reproduce the
-   failure first (red), then fix (green).
-4. **Combinatorial logic.** Pure logic with many input combinations: policy tables, parsers,
-   scheduling. Write one table-driven test, not one test per case. Name it `INV-` or `AC-`.
+1. Acceptance behavior from `docs/catalog/index.json` and its selected current clauses/cases.
+   Mark literal case IDs in names or annotations with `AC:<case-id>`, for example
+   `AC:MTG-CASE-001 AC:MTG-CASE-002 finalization creates the expected follow-up tasks`.
+   `{acGrep}` selects this same form. One passing test may cover several case IDs.
+2. An invariant the type system cannot enforce: tenancy, privacy, transaction races, idempotency,
+   counts, denominators or date/DST math. Name it `INV-<area>: ...`, for example
+   `INV-tenancy: member cannot read another plant's people`.
+3. An escaped bug. Name it `BUG-<short-sha or PR>: ...`. Reproduce the failure first, then fix it.
+
+Prefer an added row or assertion in an existing test over another test. Use table-driven tests for
+combinatorial behavior. Count case IDs covered per test, never require one test per case.
 
 ## Assert behavior
 
-Follow `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`: call the subject as its
-users do and assert the literal result. A test that would pass if every import returned `undefined`
-is rewritten or deleted.
+Call the public operation as its users do and assert the exact observable result. Follow
+`principle-test-behavior-not-implementation`. A test that passes when imports return `undefined` or a
+wrong value earns no place. Do not restate types, schemas, constants or source shape; mock our own
+modules; snapshot markup; test an already-covered private helper; or write tests solely for counts.
 
-## Do not write
-
-- A test that restates a TypeScript type or a Zod schema.
-- A test that mocks our own modules to check wiring.
-- A snapshot of markup, or an assertion on source shape (file contents, import lists).
-- A test for a private helper that an acceptance test already covers.
-- A test whose only purpose is a count or a coverage number.
+A denied-access test belongs only to a criterion with an access or privacy rule. A failure test
+belongs only where the product defines a specific refusal, such as a named error, user-visible
+message or partial receipt. Generic input validation gets no regression test.
 
 ## Pick the layer
 
-| What you prove | Layer |
-|---|---|
-| Domain operation, permission, transaction, race | Integration test: real Postgres from `evf stack`, call the public operation |
-| Contract shape at a boundary | Contract test in `tests/contracts/`, round trip only |
-| User-visible flow from an acceptance criterion | Browser test (Playwright) against the stack's preview URL |
-| Evry behavior | Eval in `tests/evals/` with recorded fixtures and a scored rubric |
+- Use integration tests against real Postgres from `evf stack`, through the public operation.
+- Use browser tests only for critical flows: sign-in, one meeting end to end, Evry review and approve.
+  Prove other UI behavior broadly now; protect its domain behavior with integration tests.
+- Use contract tests only when something outside our code consumes the shape: Evry tool schemas,
+  provider webhooks or the public feedback serializer. Round trip the external boundary.
+- Use Evry evals with recorded fixtures and a scored rubric when model behavior requires them.
+- Workflow tooling tests use disposable repositories and fake external providers; they establish
+  tooling behavior only. Mock providers we cannot run locally; prefer local fakes.
 
-Mock only what we do not own and cannot run locally (a paid provider). Use the stack's local
-fakes first (mail catcher, stubbed providers).
+## Review the suite
 
-## Keep the suite healthy
-
-- Every test name starts with `AC-`, `INV-` or `BUG-`. A test without one is a deletion candidate.
-- Each acceptance criterion needs a positive case, a denied-access case and an invalid-input or
-  failure case, as the selected clauses/cases require. Cover them in as few tests as stay readable.
-- A flaky test is fixed or deleted the same day. Never retry a flaky test into a pass.
-- Deleting a useless test is a good change. Say why in the PR body.
+Test names start with `AC:`, `INV-` or `BUG-`, or use case annotations alongside an invariant/bug name.
+Every owned case must appear in at least one passing test name or annotation. Reports use the exact
+`AC:<case-id>` marker. Duplicate coverage is flagged for verifier review; keep another test only
+when it protects a distinct costly failure. Fix or delete flaky tests; retries do not prove a pass.
+Explain deletion of useless tests in the PR body.

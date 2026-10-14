@@ -28,6 +28,7 @@ export type Config = {
   maxAgentsMdLines: number;
   stack: StackDef | null;
   checks: CheckDef[];
+  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[] }>;
 };
 
 export type Package = {
@@ -68,7 +69,7 @@ export type Part = "contract" | "api" | "ui" | null;
 
 export type TaskRef = {
   id: string;
-  kind: "wp" | "fb";
+  kind: "wp" | "fb" | "ops";
   /** Public feedback issue number for FB tasks. */
   issue: number | null;
   /** Work package for WP tasks; empty for FB tasks. */
@@ -161,18 +162,21 @@ export function currentCatalog(root: string): { catalog: Catalog; requirements: 
   return {catalog,requirements,cases,registry};
 }
 export function loadRegistry(root: string): AcceptanceEntry[] { return currentCatalog(root).registry; }
-export function packageContext(root: string, wp: string): Context {
+export function loadContexts(root: string): Context[] {
   currentCatalog(root);
   const check = run("python3", ["docs/package-context.py", "--check-manifest", "--root", root], {cwd:root});
   if (check.code !== 0) fail(`Invalid current package context: ${check.stderr || check.stdout}`);
   const manifest = readJson<{packages: Context[]}>(join(root,"docs/plan/context-manifest.json"));
-  const context = manifest.packages.find(p => p.id === wp);
+  return manifest.packages;
+}
+export function packageContext(root: string, wp: string): Context {
+  const context = loadContexts(root).find(p => p.id === wp);
   if (!context) fail(`No current context for ${wp}.`);
   return context;
 }
 /** Pin every committed policy/context byte; proof artifacts remain outside the checkout. */
 export function contractFingerprint(root: string): string {
-  const files = git(root,"ls-files","-z").split("\0").filter(p => p === 'AGENTS.md' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
+  const files = git(root,"ls-files","-z").split("\0").filter(p => p !== 'docs/build-progress.json' && p !== 'docs/.build-progress.lock').filter(p => p === 'AGENTS.md' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
   const hash = createHash('sha256');
   for (const path of files) hash.update(path+'\0').update(readFileSync(join(root,path))).update('\0');
   return hash.digest('hex');
@@ -185,13 +189,15 @@ export function loadProgress(root: string): Record<string, { status: string }> {
 
 export function parseTask(raw: string | undefined): TaskRef {
   if (!raw) fail("Give a task ID, for example WP-022, WP-022/ui or FB-12.");
+  const ops = /^OPS-([1-9]\d*)$/i.exec(raw.trim());
+  if (ops) return { id: `OPS-${ops[1]}`, kind: 'ops', issue: null, wp: '', part: null, slug: `ops-${ops[1]}`, branch: `task/ops-${ops[1]}` };
   const fb = /^FB-(\d+)$/i.exec(raw.trim());
   if (fb) {
     const n = Number(fb[1]);
     return { id: `FB-${n}`, kind: "fb", issue: n, wp: "", part: null, slug: `fb-${n}`, branch: `task/fb-${n}` };
   }
   const m = /^(WP-\d{3})(?:\/(contract|api|ui))?$/i.exec(raw.trim());
-  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, or FB-<issue>.`);
+  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, FB-<issue> or OPS-<n>.`);
   const wp = m[1].toUpperCase();
   const part = (m[2]?.toLowerCase() ?? null) as Part;
   const slug = part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();

@@ -1,19 +1,33 @@
-import { fail, findPackage, loadConfig, loadDag, currentCatalog, partsOf, parseTask, type TaskRef } from './lib.ts';
+import { fail, findPackage, loadConfig, loadDag, currentCatalog, partsOf, parseTask, packageContext, type TaskRef } from './lib.ts';
 
 export type Portion='reference'|'platform'|'contract'|'domain'|'native'|'assistant'|'integration';
 export type CasePlan={id:string;requiredPortions:Portion[];deferred:Array<{portion:Portion;ownerTask:string}>};
 export type GatePlan={index:number;requiredPortions:Portion[];deferred:Array<{portion:Portion;ownerTask:string}>};
 export type Risk='ordinary'|'sensitive'|'security'|'privacy'|'irreversible';
-export type ProofPlan={risk:Risk;gates:GatePlan[];stage:'producer'|'contract'|'api'|'ui'|'full-target';ownedPortion:Portion;requiresStack:boolean;cases:CasePlan[]};
+export type ProofPlan={risk:Risk;gates:GatePlan[];stage:'producer'|'contract'|'api'|'ui'|'full-target'|'maintenance';ownedPortion:Portion;requiresStack:boolean;cases:CasePlan[];packageClosures?:Array<{packageId:string;gateIndexes:number[]}>};
 const portions=['reference','platform','contract','domain','native','assistant','integration'];
 export function proofPlan(root:string,task:TaskRef,wp:string,expectedCases:string[]):ProofPlan {
  const cfg=loadConfig(root) as ReturnType<typeof loadConfig>&{verification:{proofPlans?:Record<string,ProofPlan>}};
  const plan=cfg.verification.proofPlans?.[task.id];
  if(!plan) fail('A reviewed task proof plan must select current-stage portions and explicitly account for later adapters before application qualification.');
+ if(task.kind==='ops') {
+  if(plan.risk!=='ordinary'||plan.stage!=='maintenance'||plan.ownedPortion!=='platform'||plan.requiresStack!==false||plan.cases.length||plan.gates.length)fail('Maintenance proof is tooling only, ordinary risk, no stack, cases or package gates.');
+  return plan;
+ }
  const stage=task.part??(['WP-056','WP-057'].includes(wp)?'full-target':'producer');
  if(!['ordinary','sensitive','security','privacy','irreversible'].includes(plan.risk))fail('Every reviewed task proof plan needs an explicit risk classification; unknown risk grants no automatic authority.');
  if(plan.stage!==stage||!portions.includes(plan.ownedPortion)||typeof plan.requiresStack!=='boolean'||!Array.isArray(plan.cases))fail('Invalid reviewed proof stage.');
  const dag=loadDag(root),catalog=currentCatalog(root);
+ if(plan.packageClosures?.length) {
+  if(stage!=='full-target')fail('Package closure belongs only to reviewed full-target integration proof.');
+  const seen=new Set<string>();
+  for(const closure of plan.packageClosures){
+   if(seen.has(closure.packageId))fail('Duplicate package closure.');seen.add(closure.packageId);
+   const gates=findPackage(dag,closure.packageId).acceptance_gates;
+   if(closure.gateIndexes.slice().sort((a,b)=>a-b).join(',')!==gates.map((_,i)=>i).join(','))fail('Integration closure must review every target package gate.');
+   if(packageContext(root,closure.packageId).case_ids.some(id=>!expectedCases.includes(id)))fail('Integration closure must include every target package case.');
+  }
+ }
  const reaches=(owner:string,start:string,seen=new Set<string>()):boolean=>{
   if(owner===start)return true;if(seen.has(owner))return false;seen.add(owner);
   return findPackage(dag,owner).depends_on.some(id=>reaches(id,start,seen));
@@ -48,6 +62,16 @@ export function proofPlan(root:string,task:TaskRef,wp:string,expectedCases:strin
   }
  }
  return plan;
+}
+
+/** A draft is a review aid, never installed proof authority. Start broadly; the operator scopes adapters. */
+export function draftProofPlan(root:string,task:TaskRef):ProofPlan {
+ if(task.kind==='fb')fail('Feedback proof drafts require the reviewed issue package scope. Draft its package task first.');
+ if(task.kind==='ops')return {risk:'ordinary',stage:'maintenance',ownedPortion:'platform',requiresStack:false,cases:[],gates:[]};
+ const pkg=findPackage(loadDag(root),task.wp),context=packageContext(root,task.wp);
+ const stage=task.part??(['WP-056','WP-057'].includes(task.wp)?'full-target':'producer');
+ const ownedPortion:Portion=stage==='full-target'?'integration':task.part==='contract'?'contract':task.part==='ui'?'native':pkg.owning_paths.some(p=>p.startsWith('packages/reference/'))?'reference':pkg.owning_paths.some(p=>p.startsWith('packages/domain/'))?'domain':'platform';
+ return {risk:'ordinary',stage,ownedPortion,requiresStack:ownedPortion==='domain'||ownedPortion==='native'||ownedPortion==='integration',cases:context.case_ids.map(id=>({id,requiredPortions:[ownedPortion],deferred:[]})),gates:pkg.acceptance_gates.map((_,index)=>({index,requiredPortions:[ownedPortion],deferred:[]}))};
 }
 export function requiredPortions(plan:ProofPlan):Array<{caseId:string;portion:Portion}> {
  return plan.cases.flatMap(c=>c.requiredPortions.map(portion=>({caseId:c.id,portion}))).sort((a,b)=>a.caseId.localeCompare(b.caseId)||a.portion.localeCompare(b.portion));

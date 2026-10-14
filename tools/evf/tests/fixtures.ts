@@ -36,8 +36,14 @@ if(a[0]==='api') {
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
-else if(a[0]==='pr'&&a[1]==='view')result=s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
-else if(a[0]==='pr'&&a[1]==='merge'){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
+else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='merge'){
+ if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
+ const cp=require('node:child_process'),cwd=fs.realpathSync(process.cwd()+'/../..');
+ cp.execFileSync('git',['-C',cwd,'merge','--no-ff','-m','Fixture reviewed merge',s.mergeBranch]);
+ s.mergeCommit=cp.execFileSync('git',['-C',cwd,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
+ cp.execFileSync('git',['-C',cwd,'push','-q','origin','main']);result='';
+}
 else if(a[0]==='issue') {
  const n=Number(a[2]);
  if(a[1]==='comment'){(s.comments[n]??=[]).push({body,user:s.user});result='https://github.com/test/feedback/issues/'+n+'#comment';}

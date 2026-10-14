@@ -8,8 +8,7 @@ Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf d
 
 Intent coordinators plan and delegate. Each implementation task uses its own worktree and
 reviewed proof plan. Current authorization and prerequisite gates apply before execution.
-Feedback implementation PRs require human approval at the final head and an independently
-attested full verifier proof. Ordinary build PRs may merge automatically after final-head tests, independent approved review and applicable gates. Sensitive work escalates through Intent.
+Merge policy and review requirements live in `.agents/skills/ship/SKILL.md`.
 
 1. `bin/evf task start <task>`: worktree, stack and your task brief. Read the brief first.
 2. Build inside your owning paths. Tests follow the `test-standard` skill.
@@ -17,12 +16,12 @@ attested full verifier proof. Ordinary build PRs may merge automatically after f
 4. `bin/evf pr open <task>`. A verifier runs `bin/evf verify <task> --role verifier`, then `bin/evf ship <task>`.
 
 Task IDs: `WP-NNN`, or `WP-NNN/contract`, `WP-NNN/api`, `WP-NNN/ui` when a package splits.
-`FB-<n>` is a task from public feedback issue n: a bug fix, or a prototype that only Sebastian merges.
+`OPS-<n>` is reviewed tooling maintenance. Feedback routing lives in `.agents/roles/feedback-desk.md`.
 Run `bin/evf help` for every command.
 
 ## Hard rules
 
-- Never push to `main`, never force-push, never merge your own PR.
+- Follow `.agents/skills/ship/SKILL.md` for Git safety and merge authority.
 - Your shell starts in the workspace root. Task work happens in `.worktrees/<task>`; use the path
   `evf` prints or `git -C`. Never commit task work in the workspace root.
 - All UI work belongs to the `ui-designer` specialist on Opus 5.5.
@@ -41,7 +40,6 @@ Read the file for your specialist before you start:
 | `implementor` | `.agents/roles/implementor.md` |
 | `ui-designer` | `.agents/roles/ui-designer.md` |
 | `verifier` | `.agents/roles/verifier.md` |
-| `spec-writer` in the Feedback desk workspace | `.agents/roles/feedback-desk.md` |
 
 ## Where to look
 
@@ -49,7 +47,7 @@ Read the file for your specialist before you start:
 |---|---|
 | Your package scope, clauses, cases, aliases and paths | `docs/plan/context.md` and `docs/package-context.py` |
 | Full obligations of one criterion | `docs/catalog/index.json` and selected package detail pages |
-| Architecture, contracts, transactions, tenancy | `docs/architecture/architecture.md` |
+| Architecture, contracts, transactions, tenancy | `docs/architecture/README.md` |
 | Feature behavior | `docs/product/` (only the current sections selected by your packet) |
 | Current approved product contract | `docs/START-HERE.md` and selected current clauses |
 | What v2 taught us | `docs/lessons.md` |
@@ -95,18 +93,14 @@ file or skill. Your role file names the ones to read in full at the start. Open 
 - `test-behavior-not-implementation`: Call code as users do; assert the exact result.
 - `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
 
-## Build-explorer maintenance
+## Build progress
 
-These instructions are additive and concern only work-package progress and the offline documentation explorer. Preserve any other repository instructions. This maintenance workflow does not authorize v3 application implementation, database/runtime changes, deployment or external services.
-
-- Read `docs/build-agent-workflow.md` before changing a work-package status. Treat `docs/plan/dag.json` as the package/dependency authority and versioned `docs/build-progress.json` as the evidence-backed progress authority.
-- Each assigned package owner must keep progress current when work starts, blockers change, reviewed milestones/tests complete, and before handoff or closure. Submit only the owned `docs/build-progress-updates/WP-NNN.json`; do not race other agents with whole canonical JSON or HTML rewrites.
-- Use the current package `base_revision`, real output/commit references, named test/review results and explanatory evidence. File presence and browser-local planning changes never establish canonical completion. `done` requires substantive output/commit plus named passed acceptance evidence, satisfied package gates and canonically done direct prerequisites.
-- The integration owner reviews and merges package patches with `python3 docs/update-build-explorer.py --root . --check`, `--apply`, then `--check`. A stale revision requires evidence reconciliation before resubmission. Preserve submitted patches and use the canonical applied SHA records for idempotent replay.
-- Before a package is closed, complete the mandatory checklist in `docs/build-agent-workflow.md`, integrate its evidence and progress, refresh the single `everyfield-build-explorer.html`, and verify the file offline. Keep browser-local overrides separate and source `embedded-local-state` empty.
-- Preserve inline CSS, JavaScript, graph data, unrelated review documents and existing instructions. Only the integration owner changes shared canonical progress or refreshes embedded progress. Use `--refresh-html` followed by `--check` to repair an interrupted integration; canonical progress takes precedence.
+`docs/plan/dag.json` defines packages and dependencies. Only `evf` writes `docs/build-progress.json`,
+automatically on ship and coordinator acknowledgement. Agents update task notes, not package patches.
+Reviewed producer/interface milestones unlock dependents; full package closure stays at integration.
+Read `docs/build-agent-workflow.md` for coordinator duties. Explorer generation is a separate view.
 
 ## Current documentation context
 Read docs/START-HERE.md and generate the assigned package context from docs/plan/context-manifest.json using docs/package-context.py. Current product chapters, catalogs and target schema directly define behavior; do not reconstruct a prior decision chronology or require v2. Read original reference passages and approved design sections on demand. This repository has no superseded-material archive. External evidence is an investigation path, not a package prerequisite. Preserve original reference bytes, unrelated assets, and design/everyfield-ui.html. Documentation status is separate from implementation authorization and evidence.
 
-The received workflow is under independent local tooling reconciliation. G-WORKFLOW remains open until the reviewed runner/setup contract is supplied; this separately authorized local task does not authorize v3 implementation, paid providers, publication or protection configuration. Read tools/evf/README.md for proof, feedback and recovery boundaries.
+Read `tools/evf/README.md` for runner setup, proof and recovery boundaries. G-WORKFLOW remains open.

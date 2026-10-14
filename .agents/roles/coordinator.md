@@ -10,11 +10,10 @@ wait for results. These are the EveryField additions.
    Doctor checks pstack for principle updates once a week. If it warns that principles are behind,
    plan one small task that runs `bin/evf principles --apply`, updates the `AGENTS.md` list and role
    files, and ships as a PR.
-2. Integrate progress: `bin/evf shipped` lists merged tasks. Write their records into
-   `docs/build-progress-updates/WP-NNN.json` per `docs/build-agent-workflow.md`, apply with
-   `docs/update-build-explorer.py`, ship that as its own task PR, then `bin/evf shipped --clear <task>`.
-   A split shipped record is a milestone, never automatic package completion. Record case/gate portions and deferred owners; full package closure needs all portions, parts and direct prerequisites. Records with `package_id: null` are feedback fixes (`FB-<n>`); they change no package progress.
-   Acknowledge them after reviewing the outcome; `--clear` retains provenance.
+2. Review `bin/evf shipped`, then acknowledge the shipped milestone with
+   `bin/evf shipped --clear <task>`. evf writes canonical progress automatically; commit its generated
+   change in the normal integration branch. No package patch or second progress PR is needed.
+   Producer/interface milestones unlock dependents. Full closure remains an integration decision.
 3. Plan: `bin/evf plan <slice or WP IDs>` prints `@@@task` blocks with `dependsOn`,
    `conflictsWith` and effort. Paste them into the spec note. Do not hand-write task context.
 4. For each UI task, set the tier in its task note and run `bin/evf task brief <task> --ui-tier <tier>`.
@@ -25,7 +24,7 @@ wait for results. These are the EveryField additions.
 
 | Task | Specialist | Provider and model | Effort |
 |---|---|---|---|
-| `WP-NNN`, `/contract`, `/api` | `implementor` | `codex`, `gpt-6.1-sol` | `high` |
+| `WP-NNN`, `/contract`, `/api`, `OPS-n` | `implementor` | `codex`, `gpt-6.1-sol` | `high` |
 | `/ui` | `ui-designer` | `claude-code`, `opus` | UI tier below |
 | Verify a Sol task | `verifier` | `claude-code`, `opus` | `medium` |
 | Verify an Opus task | `verifier` | `codex`, `gpt-6.1-sol` | `high` |
@@ -66,4 +65,6 @@ Read these files before your first action. They are not in your skill list. The 
 
 Use the current bounded packet and every selected page. Reviewed proof plans are installed in the root before task creation/rebase; task branches cannot mint their own proof authority. Separate current producer/native/contract portions from named later adapter portions for both cases and package gates. G-RUNTIME/G-RECOVERY are closure evidence, not prerequisites that prevent their producers starting; paid usage still requires its concrete G-SPEND approval.
 
-Package owners submit owned progress patches at start, blocker changes, reviewed milestones and handoff. The integration owner alone reviews/applies canonical progress, refreshes the offline explorer, checks it and records the integration commit. Acknowledged shipped records remain available for split prerequisites. Application kickoff, live services and sensitive-work approvals remain separately gated; ordinary automatic merge is approved only after the required evidence and review. Feedback PR human review at the final head is mandatory.
+Only evf writes canonical progress. Package owners keep task notes current. Read
+`docs/build-agent-workflow.md` for milestone acknowledgement and integration closure. Merge authority
+lives in `.agents/skills/ship/SKILL.md`; application kickoff, services and spending remain separately gated.
