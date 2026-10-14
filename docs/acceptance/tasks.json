@@ -110,7 +110,7 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "description": "Timed task deadlineInstant 18:00 Z; dispatch due notice late/early without editing deadline.",
+      "description": "Timed task `deadlineInstant` 18:00 Z; dispatch due notice late/early without editing deadline.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -181,7 +181,7 @@
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT",
-      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "requirement": "`AssigneeAccountId` remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -499,7 +499,7 @@
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
-      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "requirement": "`AssigneeAccountId` remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -821,7 +821,7 @@
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
-      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "requirement": "`AssigneeAccountId` remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -1141,7 +1141,7 @@
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
-      "requirement": "AssigneeAccountId remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
+      "requirement": "`AssigneeAccountId` remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact.",
       "feature_ids": [
         "PPL-017"
       ],

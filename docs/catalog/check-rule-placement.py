@@ -36,6 +36,18 @@ def check(root, write=False):
     files = requirements(root)
     current = {r['id']: r for data in files.values() for r in data.get('requirements', [])}
     before = {r['id']: r for p in files for r in original(p.relative_to(root).as_posix(), base, root).get('requirements', [])}
+    baseline_links = {(rid, op) for rid, req in before.items() for op in req['operations']}
+    added_links = [(row['requirement'], row['operation']) for row in mapping['added_links']]
+    assert len(added_links) == len(set(added_links)), 'Duplicate added operation link in ledger'
+    assert all(row['reason'].strip() for row in mapping['added_links']), 'Added operation links need a reason'
+    for rid, op in added_links:
+        assert rid in current and op not in before[rid]['operations'], 'Ledger link is not a baseline addition'
+        if write and op not in current[rid]['operations']:
+            current[rid]['operations'].append(op)
+            current[rid].setdefault('operation_refs', []).append({'operation_id': op, 'catalog': 'docs/catalog/operations.json'})
+    head_links = {(rid, op) for rid, req in current.items() for op in req['operations']}
+    assert head_links - baseline_links == set(added_links), 'Added operation links differ from reviewed ledger'
+    assert baseline_links <= head_links, 'Removed baseline operation link'
     known_text = {b['rule'] for r in before.values() for b in r.get('behavior_rules', [])}
     old_inventory = original('docs/catalog/operations.json', base, root)
     known_text.update(b['rule'] for o in old_inventory['operations'] for b in o['authority'])
@@ -54,9 +66,6 @@ def check(root, write=False):
             assert rule['feature'] in req['feature_ids'], f"Wrong feature placement: {p}"
         else:
             rule = {'operation': old['operation'], 'rule': translated(old['rule'])}
-            if write and rule['operation'] not in req['operations']:
-                req['operations'].append(rule['operation'])
-                req.setdefault('operation_refs', []).append({'operation_id': rule['operation'], 'catalog': 'docs/catalog/operations.json'})
             assert rule['operation'] in req['operations'], f"Wrong operation placement: {p}"
         expected[p['to']].append(rule)
         moved += p['from'] != p['to']

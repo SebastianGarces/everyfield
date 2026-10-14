@@ -4769,7 +4769,7 @@
     },
     {
       "id": "B03-025",
-      "requirement": "Two eligible authors in one plant have isolated personal weeks and histories; successor/admin access or plant-wide upsert cannot replace answeredBy.",
+      "requirement": "Two eligible authors in one plant have isolated personal weeks and histories; successor/admin access or plant-wide upsert cannot replace `answeredBy`.",
       "requirement_ids": [
         "REQ-IDN-033"
       ],
@@ -8571,7 +8571,7 @@
     },
     {
       "id": "CA018",
-      "requirement": "Compare counts of first eligible person occurrences in trailing 28 versus prior 28 windows under frozen boundary rules. Withdrawal is not a new entry; current net headcount change and growthDelta do not alone determine stalled wording. A genuine new adult yesterday can coexist with zero growthDelta.",
+      "requirement": "Compare counts of first eligible person occurrences in trailing 28 versus prior 28 windows under frozen boundary rules. Withdrawal is not a new entry; current net headcount change and `growthDelta` do not alone determine stalled wording. A genuine new adult yesterday can coexist with zero `growthDelta`.",
       "requirement_ids": [
         "REQ-PPL-026"
       ],

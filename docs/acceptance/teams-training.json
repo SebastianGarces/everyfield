@@ -855,7 +855,7 @@
       "acceptance_ids": [],
       "work_packages": [],
       "status": "future-not-run",
-      "description": "Childrens team renamed Hospitality; source templateKey mentions child-care; Person has a source-only background field",
+      "description": "Childrens team renamed Hospitality; source `templateKey` mentions child-care; Person has a source-only background field",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4332,7 +4332,7 @@
         "WP-069"
       ],
       "status": "future-not-run",
-      "description": "Compare same asOf/revision Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
+      "description": "Compare same `asOf`/revision Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4523,7 +4523,7 @@
     },
     {
       "id": "SME53-006",
-      "requirement": "Native dated occurrence evidence may support the same sustained period where available. CRM-createdAt tenure, lifetime attendance count and active membership alone cannot satisfy it. Absence of complete records does not disprove a dated planter attestation; conflicting/corrected evidence is visible rather than silently resolved by a model.",
+      "requirement": "Native dated occurrence evidence may support the same sustained period where available. CRM-`createdAt` tenure, lifetime attendance count and active membership alone cannot satisfy it. Absence of complete records does not disprove a dated planter attestation; conflicting/corrected evidence is visible rather than silently resolved by a model.",
       "requirement_ids": [
         "REQ-TEAM-017"
       ],

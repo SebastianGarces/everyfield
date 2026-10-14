@@ -1630,7 +1630,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Initial manifest installs twice then sameID/hash mismatch attempted.",
+      "description": "Initial manifest installs twice then same ID/hash mismatch attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",

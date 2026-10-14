@@ -7363,7 +7363,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Two distinct Vision meetings on same LocalDate; origin across DST; completion at 48 h and 48 h+1 ms; due day end differs; manual task, waived soft-deleted generated task, absent post launch source. Frozen asOf with pending 23h, pending 48h, success 2h, success 48h, future actual origin/completion, pre-origin completion, late recorded historical valid completion, waived origin and retired genuine originating meeting. Two Persons: one originating typed administrative completion at 2h with no contacted outcome, another open obligation 24h; plain completed checkbox/provider acceptance without typed human outcome.",
+      "description": "Two distinct Vision meetings on same LocalDate; origin across DST; completion at 48 h and 48 h+1 ms; due day end differs; manual task, waived soft-deleted generated task, absent post launch source. Frozen `asOf` with pending 23h, pending 48h, success 2h, success 48h, future actual origin/completion, pre-origin completion, late recorded historical valid completion, waived origin and retired genuine originating meeting. Two Persons: one originating typed administrative completion at 2h with no contacted outcome, another open obligation 24h; plain completed checkbox/provider acceptance without typed human outcome.",
       "given": {
         "P": {
           "fixture_type": "plant",

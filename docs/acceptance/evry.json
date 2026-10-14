@@ -2544,7 +2544,7 @@
         "storage.readAuthorizedObject"
       ],
       "status": "future-not-run",
-      "description": "Approved eleven templates expose PDF/DOCX/XLSX formats and exact merge placeholders. Agenda PDF A and DOCX B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digestH; core-values designation points to one current authorized document.",
+      "description": "Approved eleven templates expose PDF/DOCX/XLSX formats and exact merge placeholders. Agenda PDF A and DOCX B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digest H; core-values designation points to one current authorized document.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2860,7 +2860,7 @@
     },
     {
       "id": "EVRY-FAMILY-IDENTITY-PLATFORM",
-      "requirement": "Native auth never model credential tool. Internal authorization evaluates fresh original principal, not caller privilege. Token+seat/Person/history/security-mail intent atomic after staged credentials; one active seat, no inherited grant, no lead-title power. Owner/Admin routine writes equal, Owner-only workspace request; exactA ending leaves B/independent access. Restricted cancellation reveals no normal content and fails at deadline. Private intake stored; closed safe public summary contains no originals/secrets/contacts/Person/care; own status bounded and platform grant independent; no coding/deploy authority.",
+      "requirement": "Native auth never model credential tool. Internal authorization evaluates fresh original principal, not caller privilege. Token+seat/Person/history/security-mail intent atomic after staged credentials; one active seat, no inherited grant, no lead-title power. Owner/Admin routine writes equal, Owner-only workspace request; exact A ending leaves B/independent access. Restricted cancellation reveals no normal content and fails at deadline. Private intake stored; closed safe public summary contains no originals/secrets/contacts/Person/care; own status bounded and platform grant independent; no coding/deploy authority.",
       "feature_ids": [
         "EVR-002",
         "EVR-020"
@@ -2980,7 +2980,7 @@
         "settings.saveSection"
       ],
       "status": "future-not-run",
-      "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliationA plus independent affiliationB and safe private feedback exist; personal deletion holds 30 days while normal session revoked.",
+      "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliation A plus independent affiliation B and safe private feedback exist; personal deletion holds 30 days while normal session revoked.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3487,7 +3487,7 @@
     },
     {
       "id": "EVRY-FAMILY-INTELLIGENCE-PHASE",
-      "requirement": "Measured/attested/Unknown and denominators/dates/version lineage exact; no inferred spiritual judgment. Split readers never pool; actual single eligible reader all 6 qualifies, exactly 80 does not; phase 1 creation independent. Same-phase no-op; human explicit phase authority only. Source writes synchronously bump revision; fixed-asOf demand and claim fence stale publication. Failure/deferred/stale truthful. Seen-or 72h release respects current sharing and remains separate from private care.",
+      "requirement": "Measured/attested/Unknown and denominators/dates/version lineage exact; no inferred spiritual judgment. Split readers never pool; actual single eligible reader all 6 qualifies, exactly 80 does not; phase 1 creation independent. Same-phase no-op; human explicit phase authority only. Source writes synchronously bump revision; fixed-`asOf` demand and claim fence stale publication. Failure/deferred/stale truthful. Seen-or 72h release respects current sharing and remains separate from private care.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -3555,7 +3555,7 @@
         "signals.reaffirm"
       ],
       "status": "future-not-run",
-      "description": "Fixed-asOf snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit 60 day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase 6 contact criterion. Six foundation articles are split 4/2 between readers; one actual eligible reader later qualifies all 6 above 80. Assessment cited source later revoked; phase 3 currently declared.",
+      "description": "Fixed-`asOf` snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit 60 day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase 6 contact criterion. Six foundation articles are split 4/2 between readers; one actual eligible reader later qualifies all 6 above 80. Assessment cited source later revoked; phase 3 currently declared.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9725,7 +9725,7 @@
         "WP-053"
       ],
       "status": "future-not-run",
-      "description": "Lease 60 sec generationG; renewal every 15 sec; executor-A pauses; B claims G+1 after expiry; domain receipt exists after lost reply",
+      "description": "Lease 60 sec generation G; renewal every 15 sec; executor-A pauses; B claims G+1 after expiry; domain receipt exists after lost reply",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10600,7 +10600,7 @@
         "tasks.removeSubtask"
       ],
       "status": "future-not-run",
-      "description": "Parent P assigned AdminB has child C assigned MemberA through parent_task_id with own revision 2/not_started/history. Child J is assigned MemberD. Parent PA is assigned MemberA, while parent PM assigned MemberM has child X assigned MemberD; M has no Admin role. C has no actual contact outcome. Existing prior prerequisite Q is soft-deleted with retained graph/history. Template source stores inert child definitions before reviewed instantiation.",
+      "description": "Parent P assigned AdminB has child C assigned MemberA through parent_task_id with own revision 2/not_started/history. Child J is assigned Member D. Parent PA is assigned MemberA, while parent PM assigned Member M has child X assigned Member D; M has no Admin role. C has no actual contact outcome. Existing prior prerequisite Q is soft-deleted with retained graph/history. Template source stores inert child definitions before reviewed instantiation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13806,7 +13806,7 @@
         "WP-077"
       ],
       "status": "future-not-run",
-      "description": "Published global and own-org variants same canonicalId; draft and foreign variant; sharing revoked midway",
+      "description": "Published global and own-org variants same `canonicalId`; draft and foreign variant; sharing revoked midway",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -15528,7 +15528,7 @@
         "WP-065"
       ],
       "status": "future-not-run",
-      "description": "Hall active capacity 80; HallAnnex inactive; foreign Hall",
+      "description": "Hall active capacity 80; Hall Annex inactive; foreign Hall",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -27707,7 +27707,7 @@
         "WP-051"
       ],
       "status": "future-not-run",
-      "description": "Contextual panel shows conversation-C with draft-D and messageSequence 4",
+      "description": "Contextual panel shows conversation-C with draft-D and `messageSequence` 4",
       "given": {
         "P": {
           "fixture_type": "plant",

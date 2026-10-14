@@ -422,7 +422,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Previously completed milestone with requiredTask reopened/corrected.",
+      "description": "Previously completed milestone with required task reopened/corrected.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1743,7 +1743,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "One promotional email sent and prepTask complete but no whole-plan execution evidence.",
+      "description": "One promotional email sent and prep task complete but no whole-plan execution evidence.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1824,7 +1824,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Native actualLaunch/debrief questionnaire and separately editable counts/outcome notes.",
+      "description": "Native actual Launch/debrief questionnaire and separately editable counts/outcome notes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2290,7 +2290,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Same-name duplicate candidate selected existingID and replay named create.",
+      "description": "Same-name duplicate candidate selected existing ID and replay named create.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2539,7 +2539,7 @@
         "WP-073"
       ],
       "status": "future-not-run",
-      "description": "Email/model/otherMember reads result before eligible human opportunity.",
+      "description": "Email/model/other Member reads result before eligible human opportunity.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5463,7 +5463,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "New real named guest versus explicitly selected sameplant existingPerson; DB failure between create/link.",
+      "description": "New real named guest versus explicitly selected sameplant existing Person; DB failure between create/link.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7094,7 +7094,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Current plantOwner/Admin, Member, foreign actor, expired review and revoked grant write guest/debrief.",
+      "description": "Current plant Owner/Admin, Member, foreign actor, expired review and revoked grant write guest/debrief.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7197,7 +7197,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Headcount/outcomeRecorded set but no submitted questionnaire; arbitrary manual signal attempted.",
+      "description": "Headcount/`outcomeRecorded` set but no submitted questionnaire; arbitrary manual signal attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7283,7 +7283,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "GuestPerson merge into existing attendee, link correction and unchanged reported missing count.",
+      "description": "Guest Person merge into existing attendee, link correction and unchanged reported missing count.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7397,7 +7397,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "PI evidenceDTO includes bounded submission/counts with private care/reflection canaries.",
+      "description": "PI evidence DTO includes bounded submission/counts with private care/reflection canaries.",
       "given": {
         "P": {
           "fixture_type": "plant",

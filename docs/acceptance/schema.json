@@ -383,7 +383,7 @@
         "request",
         "sql"
       ],
-      "description": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signedURL canaries and event.diff at 2048/2049 UTF-8 bytes for a closed event.action.",
+      "description": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signed URL canaries and event.diff at 2048/2049 UTF-8 bytes for a closed event.action.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -617,7 +617,7 @@
         "request",
         "sql"
       ],
-      "description": "TenantAdmin, orgAdmin affiliated ON, generic platform admin and scoped investigator; cursor search/export and wrong resource context.",
+      "description": "Tenant Admin, org Admin affiliated ON, generic platform admin and scoped investigator; cursor search/export and wrong resource context.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1500,7 +1500,7 @@
         "request",
         "sql"
       ],
-      "description": "Password change with built-in revokeOtherSessions enabled and reset with revokeSessionsOnPasswordReset enabled, real pinned database adapter transactions, cookie cache disabled and no secondary store. Check initiating/other/prior sessions, expired or consumed proof, refused/unknown call and app-event failure after successful auth. Test concurrent trusted-IP limits and own-key cleanup.",
+      "description": "Password change with built-in revokeOtherSessions enabled and reset with `revokeSessionsOnPasswordReset` enabled, real pinned database adapter transactions, cookie cache disabled and no secondary store. Check initiating/other/prior sessions, expired or consumed proof, refused/unknown call and app-event failure after successful auth. Test concurrent trusted-IP limits and own-key cleanup.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1730,7 +1730,7 @@
         "request",
         "sql"
       ],
-      "description": "Delete last Owner account; independent platform role/leadPerson/org association; end seat then ordinary invitation.",
+      "description": "Delete last Owner account; independent platform role/lead Person/org association; end seat then ordinary invitation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3024,7 +3024,7 @@
         "assessment",
         "assessment_contributor"
       ],
-      "description": "A plant affiliated with sending churchesA/B and networkN; org run points to plant ID, wrong kind or parent-network-only reach; endA while B valid.",
+      "description": "A plant affiliated with sending churches A/B and network N; org run points to plant ID, wrong kind or parent-network-only reach; end A while B valid.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3692,7 +3692,7 @@
         "private_week",
         "private_week_revision"
       ],
-      "description": "AuthorsA/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
+      "description": "Authors A/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4987,7 +4987,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "ClientComponent imports protected database/auth/storage/mail/model adapter; inspect emitted browser/RSC bundles for secrets.",
+      "description": "Client Component imports protected database/auth/storage/mail/model adapter; inspect emitted browser/RSC bundles for secrets.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5329,7 +5329,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Unauthorized account/contact/assessment canaries in HTML/RSC/JSON/errors/streams/file metadata/counts; crawler forgedUA to org Wiki.",
+      "description": "Unauthorized account/contact/assessment canaries in HTML/RSC/JSON/errors/streams/file metadata/counts; crawler forged UA to org Wiki.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5555,7 +5555,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "ForgedHost/x-forwarded-host/client actor headers, foreign/missingOrigin, unsafe redirect, GET mutation, unsigned machine/webhook, replay unsubscribe/RSVP.",
+      "description": "Forged Host/x-forwarded-host/client actor headers, foreign/missing Origin, unsafe redirect, GET mutation, unsigned machine/webhook, replay unsubscribe/RSVP.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5683,7 +5683,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "MalformedUUID/filters/order/fields, whitespace-only names, omitted vs null, massassignment/oversize, forgedIP, parallel limiter burst, changed idem digest. Plant/org profile patches include independent null clears, boundary lengths, unknown nested contact/profile keys, malformed email/HTTPS URL, attempted kind/ID/lifecycle/material-revision assignment, own-org Owner/Admin/Member and foreign/plant-only role controls.",
+      "description": "Malformed UUID/filters/order/fields, whitespace-only names, omitted vs null, massassignment/oversize, forged IP, parallel limiter burst, changed idem digest. Plant/org profile patches include independent null clears, boundary lengths, unknown nested contact/profile keys, malformed email/HTTPS URL, attempted kind/ID/lifecycle/material-revision assignment, own-org Owner/Admin/Member and foreign/plant-only role controls.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5813,7 +5813,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "SpoofedMIME/format/traversal/oversize/decompression heavy Office/CSV formula, cross owner intent/finalize/download, expired handle/deleted subject/revoked grant; real PDF/DOCX/XLSX bytes.",
+      "description": "Spoofed MIME/format/traversal/oversize/decompression heavy Office/CSV formula, cross owner intent/finalize/download, expired handle/deleted subject/revoked grant; real PDF/DOCX/XLSX bytes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7501,7 +7501,7 @@
         "request",
         "sql"
       ],
-      "description": "Plant hasA/B and parent church/network relations; health/category differs, endA with B direct grant valid; departed Wiki citations warm.",
+      "description": "Plant has A/B and parent church/network relations; health/category differs, end A with B direct grant valid; departed Wiki citations warm.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7955,7 +7955,7 @@
         "request",
         "sql"
       ],
-      "description": "Personalpurge with sharedPerson/training/meeting/Launch records and private artifacts; exact plant purge with other org/account data.",
+      "description": "Personalpurge with shared Person/training/meeting/Launch records and private artifacts; exact plant purge with other org/account data.",
       "given": {
         "P": {
           "fixture_type": "plant",

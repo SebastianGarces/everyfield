@@ -5709,7 +5709,7 @@
     },
     {
       "id": "B03-014",
-      "requirement": "Church-zone change does not alter past timestamps or source/history rows; old assessment asOf/zone remains immutable.",
+      "requirement": "Church-zone change does not alter past timestamps or source/history rows; old assessment `asOf`/zone remains immutable.",
       "requirement_ids": [
         "REQ-TSK-018"
       ],
@@ -5727,7 +5727,7 @@
         "WP-043"
       ],
       "status": "future-not-run",
-      "description": "Church zone edit after saved past meeting/history and prior assessment with asOf/zone.",
+      "description": "Church zone edit after saved past meeting/history and prior assessment with `asOf`/zone.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6340,7 +6340,7 @@
         "maintenance.purgeEligibleSubject"
       ],
       "status": "future-not-run",
-      "description": "Account A requestR is at deadline; plantP requestS is 1 second before deadline; plantQ was canceled; accountB independent. R owns privateCare bytes and account-native document but shares plant-owned ordinary history; object delete for R times out after DB chunk commit.",
+      "description": "Account A request R is at deadline; plant P request S is 1 second before deadline; plant Q was canceled; account B independent. R owns privateCare bytes and account-native document but shares plant-owned ordinary history; object delete for R times out after DB chunk commit.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6557,7 +6557,7 @@
         "maintenance.restoreWithCurrentManifest"
       ],
       "status": "future-not-run",
-      "description": "Encrypted yesterday DB+byte manifest has A active, while current witness says A purged and copies expire today; P pending deletion and affiliationX revoked; provider journal says sendE accepted-unknown and scheduledF canceled. Isolated target normal jobs/mail/issue publishers disabled.",
+      "description": "Encrypted yesterday DB+byte manifest has A active, while current witness says A purged and copies expire today; P pending deletion and affiliation X revoked; provider journal says sendE accepted-unknown and scheduledF canceled. Isolated target normal jobs/mail/issue publishers disabled.",
       "given": {
         "P": {
           "fixture_type": "plant",

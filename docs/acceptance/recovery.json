@@ -386,7 +386,7 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "description": "Self account request, current workspaceOwner, ordinaryAdmin/foreign requests and concurrent reads.",
+      "description": "Self account request, current workspace Owner, ordinary Admin/foreign requests and concurrent reads.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -904,7 +904,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Pendingdeletion with unsent intent, accepted scheduled mail, sent mail and unexpired issuedURL.",
+      "description": "Pendingdeletion with unsent intent, accepted scheduled mail, sent mail and unexpired issued URL.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -4080,5 +4080,152 @@
     "Registered current identity/seat/assignment caller; use canonical stored link+current seat, never email equality or model/caller account role. Do not publish raw Person.userId as generic profile DTO.": "Registered current identity/seat/assignment caller; use canonical stored link+current seat, never email equality or model/caller account role. Do not publish raw Person.user id as generic profile DTO.",
     "Active original account AND current same-plant Owner/Admin seat AND stored.originalAuthorAccountId == actual accountId. Role/title/CRM merges do not transfer authorship; Member/former/revoked author has no normal care access. Native only; no model/tool/audit/log existence disclosure.": "Active original account AND current same-plant Owner/Admin seat AND stored.original author account id == actual account id. Role/title/CRM merges do not transfer authorship; Member/former/revoked author has no normal care access. Native only; no model/tool/audit/log existence disclosure.",
     "Current same-plant Owner/Admin OR actual task/obligation assigned Member; exact obligation/current task identity, old recurrence-open conflict guarded; retained history. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR actual task/obligation assigned Member; exact obligation/current task identity, old recurrence-open conflict guarded; retained history. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
-  }
+  },
+  "added_links": [
+    {
+      "requirement": "REQ-COM-011",
+      "operation": "communication.correctContactLog",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-COM-011",
+      "operation": "communication.recordContactFromTask",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-EVR-017",
+      "operation": "calendar.getContext",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-005",
+      "operation": "access.projectRead",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-006",
+      "operation": "account.requestAvatarUpload",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-011",
+      "operation": "plant.previewTimezoneChange",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-011",
+      "operation": "plant.setDigestSchedule",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-012",
+      "operation": "emailSuppression.requestRestore",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-020",
+      "operation": "associations.acceptInvitation",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-033",
+      "operation": "account.setPersonalTimezone",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-041",
+      "operation": "meetings.listCompletedPreLaunchPractices",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-044",
+      "operation": "meetings.correctPracticeOccurrence",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-072",
+      "operation": "documents.purgeOwnedForDeletion",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-009",
+      "operation": "meetings.resolveTokenRsvp",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-010",
+      "operation": "meetings.checkIn",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-010",
+      "operation": "meetings.listAttendance",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-019",
+      "operation": "meetings.reconcileInvitationResponse",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-NTF-003",
+      "operation": "notifications.markSelectedRead",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PI-021",
+      "operation": "intelligence.requestRefresh",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-006",
+      "operation": "people.getStatusWarnings",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-009",
+      "operation": "people.getHousehold",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-017",
+      "operation": "people.mergedPersonDestination",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TEAM-005",
+      "operation": "teams.listImportTemplates",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TEAM-007",
+      "operation": "teams.addResponsibility",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-001",
+      "operation": "tasks.get",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-010",
+      "operation": "tasks.acceptPhaseOffer",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-012",
+      "operation": "tasks.eligibleAssignees",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-012",
+      "operation": "tasks.listFollowUpOwners",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-WIKI-014",
+      "operation": "wiki.organizationArticles.getDraft",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    }
+  ]
 }

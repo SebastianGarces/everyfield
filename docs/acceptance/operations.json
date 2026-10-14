@@ -2635,7 +2635,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "Current exact object signedURL then scope revoke, TTL expiry and guessed client key.",
+      "description": "Current exact object signed URL then scope revoke, TTL expiry and guessed client key.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2888,7 +2888,7 @@
         "WP-049"
       ],
       "status": "future-not-run",
-      "description": "Original account and another account guessing ownstatusID; platform adminDTO includes contacts.",
+      "description": "Original account and another account guessing own status ID; platform admin DTO includes contacts.",
       "given": {
         "P": {
           "fixture_type": "plant",

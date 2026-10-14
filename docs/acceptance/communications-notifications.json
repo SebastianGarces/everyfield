@@ -3171,7 +3171,7 @@
         "WP-028"
       ],
       "status": "future-not-run",
-      "description": "Signed delivered event before accepted, repeated eventID, soft bounce, hard bounce and callback storage failure.",
+      "description": "Signed delivered event before accepted, repeated event ID, soft bounce, hard bounce and callback storage failure.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4504,7 +4504,7 @@
       "operation_ids": [
         "communication.list"
       ],
-      "description": "Review-P unapproved; review-Q applied send message-M provider accepted with deliveryUnknown",
+      "description": "Review-P unapproved; review-Q applied send message-M provider accepted with delivery unknown",
       "given": {
         "P": {
           "fixture_type": "plant",

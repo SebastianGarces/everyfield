@@ -2102,7 +2102,7 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "description": "One Person has no follow-up task; source handleFollowUpInitiated has no functioning caller",
+      "description": "One Person has no follow-up task; source `handleFollowUpInitiated` has no functioning caller",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9151,7 +9151,7 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "25 People with equal createdAt; AND 2 tags; search literal%/_; retired and foreign cursor; switch card/filter/load more; unresolved adult classification.",
+      "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired and foreign cursor; switch card/filter/load more; unresolved adult classification.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9959,7 +9959,7 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "3 activities at one instant; author A/B; forged personId with valid note ID; edit and delete; ordinary audit row.",
+      "description": "3 activities at one instant; author A/B; forged `personId` with valid note ID; edit and delete; ordinary audit row.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12226,7 +12226,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 asOf, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",

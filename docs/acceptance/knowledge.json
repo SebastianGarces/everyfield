@@ -7524,7 +7524,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plantWiki edit attempted.",
+      "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plant Wiki edit attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",

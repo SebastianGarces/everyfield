@@ -42,120 +42,42 @@
       "Lens5": "Original rubric lens reference.",
       "Lens7": "Original rubric lens reference."
     },
-    "docs/acceptance/communications-notifications.json": {
-      "eventID": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "deliveryUnknown": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
+    "docs/acceptance/communications-notifications.json": {},
     "docs/acceptance/evry.json": {
-      "digestH": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "exactA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "affiliationA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "affiliationB": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "generationG": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "AdminB": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "MemberA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "MemberD": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "MemberM": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "canonicalId": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "HallAnnex": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "executeApprovedPlan": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "messageSequence": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+      "executeApprovedPlan": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
     "docs/acceptance/execution.json": {
-      "RetryAfter": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "maxDuration": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+      "RetryAfter": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
     "docs/acceptance/identity-access.json": {
-      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "livePurgedAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "requestR": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "plantP": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "requestS": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "plantQ": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "accountB": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "privateCare": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "affiliationX": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "sendE": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "scheduledF": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
     "docs/acceptance/intelligence.json": {
-      "answeredBy": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "committedCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "classificationNeededCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "cohortEvidenceStatus": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "exactCommittedAdultCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "growthDelta": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+      "exactCommittedAdultCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
-    "docs/acceptance/knowledge.json": {
-      "plantWiki": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
-    "docs/acceptance/launch.json": {
-      "requiredTask": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "prepTask": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "actualLaunch": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "existingID": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "otherMember": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "existingPerson": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "plantOwner": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "outcomeRecorded": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "GuestPerson": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "evidenceDTO": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
-    "docs/acceptance/meetings-follow-up.json": {
-      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
-    "docs/acceptance/operations.json": {
-      "signedURL": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "ownstatusID": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "adminDTO": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
-    "docs/acceptance/people.json": {
-      "handleFollowUpInitiated": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "createdAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "personId": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
+    "docs/acceptance/knowledge.json": {},
+    "docs/acceptance/launch.json": {},
+    "docs/acceptance/meetings-follow-up.json": {},
+    "docs/acceptance/operations.json": {},
+    "docs/acceptance/people.json": {},
     "docs/acceptance/recovery.json": {
-      "workspaceOwner": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "ordinaryAdmin": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "issuedURL": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
       "livePurgedAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
-    "docs/acceptance/reference-release.json": {
-      "sameID": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
+    "docs/acceptance/reference-release.json": {},
     "docs/acceptance/schema.json": {
-      "signedURL": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "TenantAdmin": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "orgAdmin": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "revokeOtherSessions": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "revokeSessionsOnPasswordReset": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "leadPerson": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "churchesA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "networkN": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "endA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "AuthorsA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "ClientComponent": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "forgedUA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "ForgedHost": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "missingOrigin": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "MalformedUUID": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "forgedIP": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "SpoofedMIME": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "hasA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "sharedPerson": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+      "revokeOtherSessions": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
     },
-    "docs/acceptance/tasks.json": {
-      "deadlineInstant": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "AssigneeAccountId": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
-    "docs/acceptance/teams-training.json": {
-      "templateKey": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
-      "createdAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
-    },
+    "docs/acceptance/tasks.json": {},
+    "docs/acceptance/teams-training.json": {},
     "docs/architecture/audit.md": {
       "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
     },

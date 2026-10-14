@@ -414,10 +414,29 @@ def current_files(root):
                   not in originals | {'docs/text-allowlist.json', 'docs/catalog/rule-placement.json'})
 
 
+def fixture_tokens(value):
+    """Collect whole labels/properties only from literal case data, never prose."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {'given', 'actor', 'clock', 'action', 'expected', 'fixture', 'fixtures'}:
+                yield from TOKEN.findall(json.dumps(item, ensure_ascii=False))
+            else:
+                yield from fixture_tokens(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from fixture_tokens(item)
+
+
 def check(root):
     allowlist = json.loads((root / 'docs/text-allowlist.json').read_text())
     allowed = set(allowlist['tokens'])
     failures = []
+    for name, entries in allowlist.get('files', {}).items():
+        fixture_labels = {label for label, reason in entries.items() if 'fixture label' in reason.lower()}
+        if fixture_labels:
+            labels = set(fixture_tokens(json.loads((root / name).read_text())))
+            for label in sorted(fixture_labels - labels):
+                failures.append(f'{name}: fixture-label exemption absent from literal case data: {label!r}')
     files = current_files(root)
     for path in files:
         text = path.read_text()
