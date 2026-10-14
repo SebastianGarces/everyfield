@@ -130,7 +130,9 @@ Only changes inside those reviewed owning paths may differ from the root. To wir
 and test scripts, explicitly allow `configChanges: ["stack", "checks"]` and own `evf.config.json`.
 No other config field may change: runner/key references, risk/proof plans, maintenance scope and
 merge policy remain root authority. Checks, proof plans and runner commands always come from the
-reviewed root. The signed final-head source fingerprint binds the actual candidate tooling and
+reviewed root. OPS runner commands execute from that root, so relative runner paths cannot
+resolve to candidate code; `EVF_WORKTREE` and the request still identify the candidate to reproduce.
+The signed final-head source fingerprint binds the actual candidate tooling and
 config, and publication rechecks both the reviewed boundary and full proof. A later change to
 root policy invalidates existing proof. WP and feedback tasks have no maintenance exception.
 

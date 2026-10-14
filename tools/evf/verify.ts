@@ -65,7 +65,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  if((settings.kind==='application'&&settings.applicationQualified||task.kind==='ops')&&settings.attest) {
   // A separately trusted runner must reproduce/attest actual provider identity and evidence. CLI flags are only requests.
   const request=join(dir,'attestation-request.json');writeFileSync(request,JSON.stringify({task:task.id,role,mode,sha,baseSha,fingerprint,reviewRequired:role==='verifier',casePortions:plan?requiredPortions(plan):[],plan,gatePortions:plan?requiredGatePortions(plan):[],checkDigest:digest(JSON.stringify(checks))}));
-  const argv=fill(settings.attest,{...vars,request});const r=run(argv[0],argv.slice(1),{cwd:wt,env});
+  const argv=fill(settings.attest,{...vars,request});const r=run(argv[0],argv.slice(1),{cwd:task.kind==='ops'?root:wt,env});
   if(r.code===0){try{attestation=JSON.parse(r.stdout);}catch{fail('Malformed independent runner attestation.');}}
  }
  // Checks or runner may mutate files, HEAD or main. The recorded precheck state must never survive that mutation.

@@ -403,6 +403,7 @@ test('INV-maintenance: OPS uses tooling-only proof without global app gates or s
  const f=qualifiedFixture();try{
   const task=parseTask('OPS-1');f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/','evf.config.json'],configChanges:['stack','checks'],checks:[{name:'tooling-upkeep',run:[process.execPath,'-e',`require('node:assert/strict').equal(require('node:fs').readFileSync('tools/evf/upkeep.txt','utf8'),'Reviewed tooling change')`]}]}};
   f.cfg.verification.proofPlans[task.id]=draftProofPlan(f.root,task);
+  f.cfg.verification.attest=[process.execPath,'fake-bin/attest.cjs','{request}'];
   f.cfg.maintenanceTasks[task.id].owningPaths=['packages/domain/','evf.config.json'];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
   assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/OPS cannot authorize application code/);assert.equal(f.git('branch','--list',task.branch),'');
   f.cfg.maintenanceTasks[task.id].owningPaths=['tools/evf/','evf.config.json'];
@@ -432,7 +433,11 @@ test('INV-execution-policy: worktree tooling/risk edits cannot run checks or sta
   const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/executed.txt');
   f.cfg.stack={usesPaidProviders:false,up:[process.execPath,'-e',`require('node:fs').writeFileSync(${JSON.stringify(marker)},'ran')`],status:[process.execPath,'-e','process.exit(0)']};
   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();importGit(wt,'merge','--ff-only','main');
-  const changed=JSON.parse(readFileSync(join(wt,'evf.config.json'),'utf8'));changed.verification.kind='tooling';changed.verification.proofPlans[f.wp].risk='security';changed.checks=[{name:'unreviewed-check',run:f.cfg.stack.up}];writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
+  for(const key of ['publicKey','attest','proofPlans']){
+   const forbidden=structuredClone(f.cfg);forbidden.verification[key]=null;writeFileSync(join(wt,'evf.config.json'),JSON.stringify(forbidden));
+   assert.throws(()=>verify(f.root,task,'author','full'),/match the reviewed root before any check/);
+  }
+  const changed=structuredClone(f.cfg);changed.verification.kind='tooling';changed.verification.proofPlans[f.wp].risk='security';changed.checks=[{name:'unreviewed-check',run:f.cfg.stack.up}];writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
   assert.throws(()=>verify(f.root,task,'verifier','full'),/match the reviewed root before any check/);
   assert.throws(()=>stack(f.root,task,'up'),/match the reviewed root before runtime/);
   assert.equal(existsSync(marker),false);
