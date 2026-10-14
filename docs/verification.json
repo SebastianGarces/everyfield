@@ -8,7 +8,8 @@
       "reasoning_effort": "high",
       "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f",
       "review_scope": "Independent whole-plan documentation semantic review of the frozen candidate; not authorization or proof of application implementation",
-      "reviewed_at_utc": null
+      "reviewed_at_utc": null,
+      "applies_to": "Prior candidate only; superseded by the fix wave. New independent review required."
     },
     "losslessness": {
       "verdict": "passed",
@@ -16,7 +17,8 @@
       "reasoning_effort": "high",
       "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f",
       "review_scope": "Independent semantic documentation-preservation review; neither implementation acceptance nor permission to install/delete.",
-      "reviewed_at_utc": "2026-10-13T18:41:43.200631+00:00"
+      "reviewed_at_utc": "2026-10-13T18:41:43.200631+00:00",
+      "applies_to": "Prior candidate only; superseded by the fix wave. New independent review required."
     }
   },
   "coverage": {
@@ -31,7 +33,7 @@
     "original_detailed_case_definitions": 486,
     "preservation_fields": 11732,
     "recorded_approved_rulings": 60,
-    "current": {
+    "prior_candidate": {
       "features": 494,
       "acceptance": 720,
       "requirements": 715,
@@ -42,7 +44,8 @@
       "fks": 435,
       "packages": 86,
       "edges": 284
-    }
+    },
+    "applies_to": "Prior candidate only; catalog counts changed in the fix wave."
   },
   "documentation_checks": {
     "passed": 30075,
@@ -53,7 +56,8 @@
     "silent_omissions": 0,
     "dag_acyclic": true,
     "unordered_owning_path_overlaps": 0,
-    "reviewed_substantive_links": 156
+    "reviewed_substantive_links": 156,
+    "applies_to": "Prior candidate only"
   },
   "offline_explorer_checks": {
     "passed": 38,
@@ -62,23 +66,23 @@
     "external_page_requests": 0,
     "runtime_errors": 0,
     "canonical_progress_unchanged": true,
-    "dialog_close_regression": "Import confirmation captures its own validated candidate; cancellation and a delayed previous close event cannot clear or apply a different candidate. Fresh offline38-check run passed with zero errors."
+    "dialog_close_regression": "Import confirmation captures its own validated candidate; cancellation and a delayed previous close event cannot clear or apply a different candidate. Fresh offline 38-check run passed with zero errors.",
+    "applies_to": "Retired committed explorer only; current generation is read-only and checked by docs/check-all.py"
   },
   "preserved": {
     "sme_original_reference_bytes": true,
     "bootstrap_articles": 96,
     "bootstrap_sections": 21,
     "bootstrap_templates": 7,
-    "progress_packages": 86,
-    "progress_status": "not_started",
-    "progress_revision": 0,
     "design_and_unreviewed_assets": true,
-    "existing_external_backup": true
+    "existing_external_backup": true,
+    "progress_source": "docs/build-progress.json"
   },
   "implementation_tests_run": 0,
   "provider_changes": 0,
   "new_archive": false,
   "future_gates": [
+    "G-DESIGN",
     "G-AUTH",
     "G-SPEND",
     "G-WORKFLOW",
@@ -92,6 +96,13 @@
     "Official geography payload/checksum verification, real scoped accounts/credentials/restricted backup invocation, concrete spending and promised merged owner workflow remain future execution inputs."
   ],
   "provenance": "Detailed independent verdicts, exact baseline/source/field/case/approval/removal mappings and final installed-byte evidence remain in the external execution evidence directory. Default builder context consumes current contracts, not review chronology.",
-  "metadata_delta": "This record and the passed G-DESIGN label record the actual substantive-review result. The final scoped delta also fixes an independently reproduced explorer import dialog-close race through lexical candidate capture; cancellation/delayed-close/import/export regressions pass. Final review checks the resulting delta and installed fingerprint separately; the substantive fingerprint intentionally excludes these later changes.",
-  "local_baseline_integration": "Current approved plan incorporated with existing merged UI/design/workflow files preserved. Only documentation routing and workflow handoff receipt metadata change; application packages remain unstarted and execution gates remain. Original substantive independent-review fingerprints remain provenance, not a claim of workflow runtime verification."
+  "metadata_delta": "The fix wave changed the reviewed inputs. Historical results are preserved as provenance and do not close current G-DESIGN.",
+  "local_baseline_integration": "Current fix-wave branch awaits independent re-review and owner merge. Progress is recorded only in docs/build-progress.json.",
+  "current_review": {
+    "status": "re-review-required",
+    "reason": "The 2026-10-14 fix wave changed schema, architecture, catalogs, acceptance cases, package scope, workflow and design handoff inputs. Prior fingerprints are historical provenance; review the corrected current inputs independently.",
+    "input_manifest": "docs/plan/current-inputs.json",
+    "documentation_check_command": "python3 docs/check-all.py",
+    "proof_kind": "documentation/tooling only; no application acceptance"
+  }
 }

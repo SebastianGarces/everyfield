@@ -1,6 +1,9 @@
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
-import { EvfError, git, homeRoot, parseTask } from "./lib.ts";
+import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
+import { recordFastTrack } from './progress.ts';
+import { join } from 'node:path';
+import { draftProofPlan } from './proof-plan.ts';
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
 import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
@@ -13,8 +16,10 @@ const HELP = `evf: EveryField v3 workflow CLI
 Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
-  evf ac <acceptance-id>                                      full obligations for one criterion
-  evf shipped [--clear <task> ...]                            merged tasks waiting for a progress patch
+  evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
+  evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
+  evf shipped --fast-track WP-097 --evidence <file>           record owner-approved completion on main
+  evf proof draft <task>                                     print a proof plan for operator review
 
 Task loop (implementor, ui-designer)
   evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
@@ -35,11 +40,12 @@ Feedback desk (public feedback repo)
   evf feedback status [--json]   evf feedback ideas   evf feedback promote <n>   evf feedback labels
 
 Upkeep
+  evf test [Node test options]                               local tooling regressions on evf's Node
   evf doctor [--here]  evf gc [--apply]          evf github setup [--dry-run]
   evf principles [--apply] [--ref <sha>]                      compare or sync principles with pstack
 
 <task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
-or FB-<n> for public feedback issue n (bug fix, or prototype for feature-small).`;
+FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
 
 function flag(args: string[], name: string): boolean {
   const i = args.indexOf(name);
@@ -65,6 +71,14 @@ function main(argv: string[]): number {
   }
   const root = homeRoot();
   switch (cmd) {
+    case 'test':
+      return run(process.execPath,['--test',...args,join(git(process.cwd(),'rev-parse','--show-toplevel'),'tools/evf/tests/reconciliation.test.ts')],{cwd:process.cwd(),inherit:true}).code;
+    case 'proof':
+      if(args.shift()==='draft') {
+        const task=parseTask(args[0]);
+        console.log(JSON.stringify({task:task.id,installed:false,review:'Review risk, all clause/case expectations, layers and deferred downstream owners. Install only the approved plan under verification.proofPlans in root evf.config.json.',plan:draftProofPlan(root,task)},null,2));return 0;
+      }
+      break;
     case "doctor": {
       const here = flag(args, "--here");
       return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
@@ -109,9 +123,19 @@ function main(argv: string[]): number {
       return 0;
     }
     case "ac":
-      console.log(renderAc(root, args[0] ?? ""));
+      console.log((args.length?args:[" "]).map(id=>renderAc(root,id)).join("\n\n"));
       return 0;
     case "shipped": {
+      const fastTrack=option(args,'--fast-track');
+      if(fastTrack){
+        const evidence=option(args,'--evidence');
+        if(!evidence||args.length)throw new EvfError('Use evf shipped --fast-track WP-097 --evidence <file>.');
+        const cfg=loadConfig(root);
+        const fetch=run('git',['fetch',cfg.remote,cfg.baseBranch],{cwd:root});
+        if(fetch.code!==0)throw new EvfError('Cannot confirm current main before fast-track completion.');
+        recordFastTrack(root,fastTrack,readJson<unknown>(evidence));
+        console.log('WP-097 fast-track completion recorded. Commit the evf-generated progress through reviewed maintenance.');return 0;
+      }
       const clear: string[] = [];
       for (let v = option(args, "--clear"); v; v = option(args, "--clear")) clear.push(v);
       return listShipped(root, clear);

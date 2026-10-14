@@ -52,8 +52,7 @@
         "IDN-002",
         "IDN-007",
         "IDN-008",
-        "IDN-009",
-        "ADM-006"
+        "IDN-009"
       ],
       "persists": true,
       "entities": [
@@ -64,8 +63,7 @@
         "Purpose/kind, normalized identifier or privacy-preserving identifier hash, trustworthy IP or its hash, attempt/reservation time and exact rolling-window occupancy.",
         "Login and password-change failures each use separate 5/identifier and 20/IP budgets per fifteen minutes; successful login clears only the matching identifier/kind failures.",
         "Registration counts every submitted attempt at 3/trusted IP/hour, including success and refused or malformed attempts.",
-        "Reset requests and email-change requests use separate 3/identifier/hour and 10/IP/hour budgets; email-change identifier is the existing own login, not proposed target address.",
-        "Public invite-request counts use 5/address/day and 20/trusted IP/hour plus global provider budget."
+        "Reset requests and email-change requests use separate 3/identifier/hour and 10/IP/hour budgets; email-change identifier is the existing own login, not proposed target address."
       ],
       "history": "current-only",
       "invariants": [
@@ -77,7 +75,7 @@
       "current_tables": [
         "auth_throttle"
       ],
-      "notes": "Sources: REQ-IDN-001, 002, 007, 008, 009; ADM-006. Invitation creation/resend limits are separately recorded in CAP-A-006 and CAP-A-009."
+      "notes": "Sources: REQ-IDN-001, 002, 007, 008, 009. Invitation creation/resend limits are separately recorded in CAP-A-006 and CAP-A-009."
     },
     {
       "id": "CAP-A-003",
@@ -1559,32 +1557,38 @@
     },
     {
       "id": "CAP-A-048",
-      "name": "Public invitation-request mail intent",
+      "name": "Early access requests and delivery",
       "feature_ids": [
         "ADM-006"
       ],
       "persists": true,
       "entities": [
-        "public invitation-request occurrence",
-        "limited mail intent"
+        "early access request",
+        "admitted limiter attempt",
+        "recorded mail receipt",
+        "migration receipt"
       ],
       "facts": [
-        "Validated normalized requester email, twenty-four-hour dedupe occurrence/window and admitted rate-budget receipt.",
-        "Closed purpose, configured authorized destination identity, frozen safe mail payload and truthful pending/sent/failed/unknown transport outcome."
+        "Form kind, normalized email and validated data with every declared planter or network field, including a numeric supplied plants count.",
+        "Creation instant, nullable stored IP, frozen mail payload and nullable mail_id/mailed_at; pending is inferred from absent receipts.",
+        "Short-lived admitted valid attempts, including duplicates and retries, and private applied migration-name receipts."
       ],
       "history": "current-only",
       "invariants": [
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation."
+        "Rate limits take precedence over duplicate suppression and pending retry; admitted valid duplicates/retries add one limiter attempt.",
+        "Concurrent same-email/kind admission preserves one request; repeated provider calls use the same original payload and key and send one email.",
+        "Only a recorded mail receipt suppresses a duplicate within 24 hours; pending is inferred from NULL mail_id and mailed_at.",
+        "No request, limiter attempt or mail for a filled honeypot or invalid input. A rate refusal creates no effects.",
+        "Private operator CSV only; no public export endpoint, tenant-seat, generic record or model access.",
+        "Provider or receipt-storage failure returns unavailable and leaves the request pending; no false success."
       ],
-      "retention": "Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected.",
+      "retention": "Delete requests strictly older than 12 calendar months, clear request IPs strictly older than 30 days, and delete limiter attempts strictly older than 24 hours. Exact cutoff rows remain. Migration receipts contain no contact data.",
       "current_tables": [
-        "email_intent",
-        "email_attempt",
-        "auth_throttle"
+        "early_access_request",
+        "early_access_attempt",
+        "schema_migration"
       ],
-      "notes": "Source: ADM-006. Public examples and landing text are static synthetic content, not stored user-domain records."
+      "notes": "WP-097 follows applied migration 0001 and the approved E3 form contract. Only recorded mail receipts suppress admitted duplicates; pending retry retains the original payload/key below 23 hours; from 23 hours onward an admitted submission stores a new request and key, with a second owner email acceptable."
     },
     {
       "id": "CAP-A-049",
@@ -1615,13 +1619,13 @@
       "entities": [
         "owed job",
         "claim or checkpoint",
-        "fairness cursor"
+        "durable scan cursor"
       ],
       "facts": [
         "Closed job type, enforced typed actual subject/owner, occurrence key, originating receipt/source revision and bounded ID/version payload.",
         "Eligibility Instant, ready/claimed/retry_wait/reconcile/succeeded/failed/cancelled/superseded state, attempt count/max, next retry and safe failure code.",
         "Current claim owner, lease-until Instant, monotonically advancing generation and bounded completed-work checkpoint.",
-        "Persisted type/tenant last-served scan cursor and remaining owed-work identity for fair sweep without dropping tail cohorts.",
+        "Durable scan cursor and remaining owed-work identity preserve tail cohorts across bounded sweeps and crashes.",
         "Current cancellation/lifecycle/source fence and actual external unknown outcome reference; operator recovery actor/reason/proof receipt."
       ],
       "history": "append-only events",
@@ -1634,11 +1638,11 @@
       "retention": "Keep active/unknown work and bounded recovery receipts until settled or properly canceled; delete private payloads according to actual subject ownership. No arbitrary permanent full payload archive or separate universal workflow event store is required.",
       "current_tables": [
         "job",
-        "command_receipt",
-        "email_intent",
+        "operation",
+        "mail",
         "feedback_publication"
       ],
-      "notes": "Sources: OPS-001, 004; execution claim protocol. Fairness state and retry/checkpoint facts are real needs, not a reason for a per-feature queue or separate worker platform."
+      "notes": "Sources: OPS-001, 004; execution claim protocol. Implement leases, fences, idempotency, bounded retries, checkpoints and unknown-outcome reconciliation during the build. Per-tenant fairness, reserved slots and alert tuning belong to G-LOAD after representative measurements; no prescribed last-served rotation or fairness state is a build prerequisite."
     },
     {
       "id": "CAP-A-051",

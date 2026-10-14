@@ -1,0 +1,293 @@
+{
+  "purpose": "Exact reviewed technical exceptions to pattern-based prose checks. No whole sentence, lowercase/uppercase pattern or arbitrary quantity is allowlisted. Literal case inputs/results, raw SQL, code spans, links and immutable originals are outside prose scope. rule-placement.json is the reviewed historical migration ledger, whose before-text is intentionally retained.",
+  "tokens": {
+    "sha256": "Hash algorithm and manifest field name.",
+    "python3": "Interpreter command.",
+    "utf8CsvBytes": "Existing result field name, not prose.",
+    "p95": "Latency percentile.",
+    "v0": "Reference version label.",
+    "v1": "Reference version label.",
+    "v2": "Previous product version.",
+    "v3": "Current product version.",
+    "15min": "Compact duration unit.",
+    "23h55m": "Compact compound duration.",
+    "rev1": "Fixture revision label.",
+    "rev2": "Fixture revision label.",
+    "b01": "Existing acceptance-case slug prefix.",
+    "fix2107": "Historical v2 fix identifier.",
+    "WikiGuide": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "PostgreSQL": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "EveryField": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "AppShell": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "WebP": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "WebView": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "GitHub": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "WhatsApp": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "macOS": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "BetterAuth": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "TypeScript": "Reviewed product, platform or component name; its internal capitals are intentional.",
+    "KiB": "Standard binary size unit. Only the exact symbol is exempt; attached prose is rejected.",
+    "MiB": "Standard binary size unit. Only the exact symbol is exempt; attached prose is rejected.",
+    "LocalDateTime": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type.",
+    "FourCs": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type.",
+    "LocalDate": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type.",
+    "LocalTime": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type.",
+    "UoW": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type.",
+    "LocalDates": "Reviewed date/assessment/transaction vocabulary referenced in prose; it does not prescribe an implementation type."
+  },
+  "files": {
+    "docs/reference/manifest.json": {
+      "watch21": "Preserved source-drift shorthand for a cadence threshold.",
+      "direct28": "Preserved source-drift shorthand for a cadence threshold.",
+      "Lens5": "Original rubric lens reference.",
+      "Lens7": "Original rubric lens reference."
+    },
+    "docs/acceptance/communications-notifications.json": {},
+    "docs/acceptance/evry.json": {
+      "AdminB": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "MemberA": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "executeApprovedPlan": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/execution.json": {
+      "RetryAfter": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/identity-access.json": {
+      "livePurgedAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "privateCare": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "sendE": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "scheduledF": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/intelligence.json": {
+      "asOf": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "committedCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "classificationNeededCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "cohortEvidenceStatus": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved.",
+      "exactCommittedAdultCount": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/knowledge.json": {},
+    "docs/acceptance/launch.json": {},
+    "docs/acceptance/meetings-follow-up.json": {},
+    "docs/acceptance/operations.json": {},
+    "docs/acceptance/people.json": {},
+    "docs/acceptance/recovery.json": {
+      "livePurgedAt": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/reference-release.json": {},
+    "docs/acceptance/schema.json": {
+      "revokeOtherSessions": "Reviewed literal fixture label or property reference in this case prose; fixture/action/expected data is preserved."
+    },
+    "docs/acceptance/tasks.json": {},
+    "docs/acceptance/teams-training.json": {},
+    "docs/architecture/audit.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/architecture/auth.md": {
+      "revokeOtherSessions": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "revokeSessionsOnPasswordReset": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/features.json": {
+      "revokeOtherSessions": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "revokeSessionsOnPasswordReset": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "activityPush": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "sourceDetails": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "accountId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "editedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "attendanceScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "locationScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "logisticsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "agendaScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "vibeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "messageScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "closeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "nextStepsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "templateKey": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "sentAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "occurredAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "repoID": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "issueID": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "updatedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "maxRetries": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/communications-notifications.json": {
+      "sentAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "NeedsYou": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "firstDispatchedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/identity-access.json": {
+      "revokeOtherSessions": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "revokeSessionsOnPasswordReset": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "activityPush": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "originalAuthorAccountId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/knowledge-documents.json": {
+      "plantWiki": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/launch.json": {
+      "outcomeRecorded": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/meetings-follow-up.json": {
+      "occurredAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "attendanceScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "locationScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "logisticsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "agendaScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "vibeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "messageScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "closeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "nextStepsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/methodology-intelligence.json": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "updatedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "maxRetries": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/operations.json": {
+      "repoID": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "issueID": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "listOwn": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "getOwnStatus": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "feedbackID": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "pageURL": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/people.json": {
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "sourceDetails": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "accountId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "editedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "growthDelta": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/recovery.json": {
+      "requestedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "cancelUntil": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "userId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "livePurgedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/tasks.json": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/catalog/requirements/teams-training.json": {
+      "templateKey": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/lessons.md": {
+      "FollowUpObligation": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/plan/adapter-ownership.json": {
+      "PersonId": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "ActorContext": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "CommandContext": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt."
+    },
+    "docs/plan/context-manifest.json": {
+      "totalPages": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "selectedCount": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt."
+    },
+    "docs/plan/dag.json": {
+      "applySharingPatchInTransaction": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "DomainTransaction": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "CreateChurchFromDiscovery": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "PersonalTimezonePreference": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "updateProfile": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "orgOwner": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "manualOwner": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "PersonName": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "suppliedDisplayName": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "givenName": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "familyName": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "persistFollowUpObligation": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "scheduledAt": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "SharedNativeEditorContract": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "meaningfulUpdate": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "OwnedDocumentOperations": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "DocumentSubject": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "CoreValuesEvidence": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "DiscoveryEvidenceProvider": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "asOf": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "frozenC0": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "currentPhase": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt.",
+      "getOwnStatus": "Existing plan interface/type/property label. Round 2-3 owns code-shape cleanup here; only this exact label is exempt."
+    },
+    "docs/product/communications-notifications.md": {
+      "firstDispatchedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/identity-access.md": {
+      "originalAuthorAccountId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "revokeOtherSessions": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "revokeSessionsOnPasswordReset": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "activityPush": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/meetings-follow-up.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "occurredAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "attendanceScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "locationScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "logisticsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "agendaScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "vibeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "messageScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "closeScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "nextStepsScore": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/methodology-intelligence.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/operations.md": {
+      "feedbackId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "submittedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/people.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "growthDelta": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "createdAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "sourceDetails": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "accountId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "editedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "personId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/tasks.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/product/teams-training.md": {
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "templateKey": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/schema/capabilities/a-identity-people-teams-ops.json": {
+      "livePurgedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "reportsTo": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/schema/capabilities/b-meetings-tasks-launch-comms.json": {
+      "occurredAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "recordedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "logicalWeekId": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "firstDispatchedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/schema/capabilities/c-knowledge-intelligence-evry.json": {
+      "isActive": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/schema/target.json": {
+      "livePurgedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "isActive": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "firstDispatchedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
+      "personSources": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    }
+  }
+}

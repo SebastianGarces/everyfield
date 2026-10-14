@@ -1,0 +1,4253 @@
+{
+  "baseline": "0efd9a1dbfefb2a388c04506170f2cb8ed498c91",
+  "purpose": "Lossless rule-placement and behavior-language mapping. Information lists describe concepts, not required signatures or result-property names. Every baseline occurrence, including duplicates, is preserved. Shared rules name an owning feature instead of a fictional operation.",
+  "placements": [
+    {
+      "from": "REQ-EVR-004",
+      "index": 0,
+      "to": "REQ-EVR-004"
+    },
+    {
+      "from": "REQ-EVR-008",
+      "index": 0,
+      "to": "REQ-EVR-008"
+    },
+    {
+      "from": "REQ-EVR-008",
+      "index": 1,
+      "to": "REQ-EVR-008"
+    },
+    {
+      "from": "REQ-EVR-012",
+      "index": 0,
+      "to": "REQ-EVR-012"
+    },
+    {
+      "from": "REQ-EVR-012",
+      "index": 1,
+      "to": "REQ-EVR-012"
+    },
+    {
+      "from": "REQ-EVR-014",
+      "index": 0,
+      "to": "REQ-EVR-014"
+    },
+    {
+      "from": "REQ-EVR-018",
+      "index": 0,
+      "to": "REQ-EVR-018"
+    },
+    {
+      "from": "REQ-EVR-020",
+      "index": 0,
+      "to": "REQ-EVR-017"
+    },
+    {
+      "from": "REQ-EVR-020",
+      "index": 1,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-EVR-026",
+      "index": 0,
+      "to": "REQ-EVR-026"
+    },
+    {
+      "from": "REQ-EVR-030",
+      "index": 0,
+      "to": "REQ-EVR-030"
+    },
+    {
+      "from": "REQ-EVR-030",
+      "index": 1,
+      "to": "REQ-EVR-030"
+    },
+    {
+      "from": "REQ-EVR-031",
+      "index": 0,
+      "to": "REQ-EVR-031"
+    },
+    {
+      "from": "REQ-EVR-031",
+      "index": 1,
+      "to": "REQ-EVR-031"
+    },
+    {
+      "from": "REQ-EVR-031",
+      "index": 2,
+      "to": "REQ-EVR-031"
+    },
+    {
+      "from": "REQ-EVR-031",
+      "index": 3,
+      "to": "REQ-EVR-031"
+    },
+    {
+      "from": "REQ-COM-007",
+      "index": 0,
+      "to": "REQ-COM-007"
+    },
+    {
+      "from": "REQ-COM-007",
+      "index": 1,
+      "to": "REQ-COM-007"
+    },
+    {
+      "from": "REQ-COM-007",
+      "index": 2,
+      "to": "REQ-COM-007"
+    },
+    {
+      "from": "REQ-COM-008",
+      "index": 0,
+      "to": "REQ-COM-008"
+    },
+    {
+      "from": "REQ-COM-008",
+      "index": 1,
+      "to": "REQ-COM-008"
+    },
+    {
+      "from": "REQ-COM-010",
+      "index": 0,
+      "to": "REQ-COM-010"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 0,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 1,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 2,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 3,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 4,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 5,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 6,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 7,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 8,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 9,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 10,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 11,
+      "to": "REQ-NTF-004"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 12,
+      "to": "REQ-NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 13,
+      "to": "REQ-IDN-005",
+      "feature": "IDN-005"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 14,
+      "to": "REQ-IDN-005",
+      "feature": "IDN-005"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 15,
+      "to": "REQ-IDN-005",
+      "feature": "IDN-005"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 16,
+      "to": "REQ-IDN-022",
+      "feature": "IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 17,
+      "to": "REQ-PI-038",
+      "feature": "PI-038"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 18,
+      "to": "REQ-ADM-001",
+      "feature": "ADM-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 19,
+      "to": "REQ-EVR-020",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 20,
+      "to": "REQ-EVR-020",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 21,
+      "to": "REQ-EVR-020",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 22,
+      "to": "REQ-EVR-020",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 23,
+      "to": "REQ-EVR-020",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 24,
+      "to": "REQ-OPS-001",
+      "feature": "OPS-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 25,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 26,
+      "to": "REQ-PPL-026",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 27,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 28,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 29,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 30,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 31,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 32,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 33,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 34,
+      "to": "REQ-TSK-006",
+      "feature": "TSK-006"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 35,
+      "to": "REQ-TSK-001",
+      "feature": "TSK-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 36,
+      "to": "REQ-TSK-001",
+      "feature": "TSK-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 37,
+      "to": "REQ-MTG-001",
+      "feature": "MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 38,
+      "to": "REQ-MTG-001",
+      "feature": "MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 39,
+      "to": "REQ-MTG-001",
+      "feature": "MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 40,
+      "to": "REQ-COM-001",
+      "feature": "COM-001"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 41,
+      "to": "REQ-COM-005",
+      "feature": "COM-005"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 42,
+      "to": "REQ-NTF-003",
+      "feature": "NTF-003"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 43,
+      "to": "REQ-EVR-002",
+      "feature": "EVR-002"
+    },
+    {
+      "from": "REQ-KNOW-001",
+      "index": 44,
+      "to": "REQ-EVR-002",
+      "feature": "EVR-002"
+    },
+    {
+      "from": "REQ-KNOW-002",
+      "index": 0,
+      "to": "REQ-NTF-012"
+    },
+    {
+      "from": "REQ-KNOW-002",
+      "index": 1,
+      "to": "REQ-NTF-001"
+    },
+    {
+      "from": "REQ-KNOW-002",
+      "index": 2,
+      "to": "REQ-NTF-001"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 0,
+      "to": "REQ-NTF-013"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 1,
+      "to": "REQ-NTF-013"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 2,
+      "to": "REQ-NTF-011"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 3,
+      "to": "REQ-NTF-011"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 4,
+      "to": "REQ-NTF-015"
+    },
+    {
+      "from": "REQ-KNOW-003",
+      "index": 5,
+      "to": "REQ-NTF-015"
+    },
+    {
+      "from": "REQ-KNOW-004",
+      "index": 0,
+      "to": "REQ-NTF-007"
+    },
+    {
+      "from": "REQ-KNOW-004",
+      "index": 1,
+      "to": "REQ-NTF-007"
+    },
+    {
+      "from": "REQ-KNOW-004",
+      "index": 2,
+      "to": "REQ-NTF-007"
+    },
+    {
+      "from": "REQ-KNOW-004",
+      "index": 3,
+      "to": "REQ-NTF-007"
+    },
+    {
+      "from": "REQ-KNOW-005",
+      "index": 0,
+      "to": "REQ-NTF-008"
+    },
+    {
+      "from": "REQ-KNOW-005",
+      "index": 1,
+      "to": "REQ-NTF-008"
+    },
+    {
+      "from": "REQ-KNOW-005",
+      "index": 2,
+      "to": "REQ-NTF-008"
+    },
+    {
+      "from": "REQ-KNOW-005",
+      "index": 3,
+      "to": "REQ-NTF-008"
+    },
+    {
+      "from": "REQ-KNOW-006",
+      "index": 0,
+      "to": "REQ-NTF-002"
+    },
+    {
+      "from": "REQ-KNOW-006",
+      "index": 1,
+      "to": "REQ-NTF-002"
+    },
+    {
+      "from": "REQ-KNOW-006",
+      "index": 2,
+      "to": "REQ-NTF-006"
+    },
+    {
+      "from": "REQ-KNOW-006",
+      "index": 3,
+      "to": "REQ-NTF-006"
+    },
+    {
+      "from": "REQ-KNOW-008",
+      "index": 0,
+      "to": "REQ-NTF-010"
+    },
+    {
+      "from": "REQ-KNOW-008",
+      "index": 1,
+      "to": "REQ-NTF-010"
+    },
+    {
+      "from": "REQ-KNOW-008",
+      "index": 2,
+      "to": "REQ-NTF-010"
+    },
+    {
+      "from": "REQ-KNOW-008",
+      "index": 3,
+      "to": "REQ-MAIL-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 0,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 1,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 2,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 3,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 4,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 5,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 6,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 7,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 8,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 9,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 10,
+      "to": "REQ-COM-001"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 11,
+      "to": "REQ-COM-004"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 12,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 13,
+      "to": "REQ-COM-002"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 14,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 15,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 16,
+      "to": "REQ-COM-004"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 17,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 18,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 19,
+      "to": "REQ-COM-004"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 20,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-019",
+      "index": 21,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 0,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 1,
+      "to": "REQ-COM-005"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 2,
+      "to": "REQ-COM-005"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 3,
+      "to": "REQ-COM-005"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 4,
+      "to": "REQ-COM-005"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 5,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 6,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 7,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 8,
+      "to": "REQ-COM-012"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 9,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-020",
+      "index": 10,
+      "to": "REQ-COM-003"
+    },
+    {
+      "from": "REQ-KNOW-023",
+      "index": 0,
+      "to": "REQ-COM-009"
+    },
+    {
+      "from": "REQ-KNOW-023",
+      "index": 1,
+      "to": "REQ-COM-009"
+    },
+    {
+      "from": "REQ-KNOW-023",
+      "index": 2,
+      "to": "REQ-COM-009"
+    },
+    {
+      "from": "REQ-DOC-001",
+      "index": 0,
+      "to": "REQ-DOC-001"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 0,
+      "to": "REQ-WIKI-001"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 1,
+      "to": "REQ-WIKI-001"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 2,
+      "to": "REQ-WIKI-001"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 3,
+      "to": "REQ-WIKI-001"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 4,
+      "to": "REQ-WIKI-009"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 5,
+      "to": "REQ-WIKI-009"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 6,
+      "to": "REQ-WIKI-009"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 7,
+      "to": "REQ-WIKI-009"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 8,
+      "to": "REQ-WIKI-004"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 9,
+      "to": "REQ-WIKI-004"
+    },
+    {
+      "from": "REQ-KNOW-015",
+      "index": 10,
+      "to": "REQ-WIKI-013"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 0,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 1,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 2,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 3,
+      "to": "REQ-TEAM-016"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 4,
+      "to": "REQ-TEAM-016"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 5,
+      "to": "REQ-TEAM-016"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 6,
+      "to": "REQ-TEAM-016"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 7,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 8,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 9,
+      "to": "REQ-TEAM-016"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 10,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 11,
+      "to": "REQ-EVR-003",
+      "feature": "EVR-003"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 12,
+      "to": "REQ-PI-015",
+      "feature": "PI-015"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 13,
+      "to": "REQ-PI-015",
+      "feature": "PI-015"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 14,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 15,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 16,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 17,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 18,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 19,
+      "to": "REQ-PI-043",
+      "feature": "PI-043"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 20,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 21,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 22,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 23,
+      "to": "REQ-TEAM-008"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 24,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 25,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-018",
+      "index": 26,
+      "to": "REQ-TEAM-009"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 0,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 1,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 2,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 3,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 4,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 5,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 6,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 7,
+      "to": "REQ-DOC-002"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 8,
+      "to": "REQ-EVR-025"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 9,
+      "to": "REQ-PPL-014"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 10,
+      "to": "REQ-PPL-014"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 11,
+      "to": "REQ-PPL-005"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 12,
+      "to": "REQ-PPL-005"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 13,
+      "to": "REQ-PPL-005"
+    },
+    {
+      "from": "REQ-KNOW-079",
+      "index": 14,
+      "to": "REQ-PPL-014"
+    },
+    {
+      "from": "REQ-KNOW-090",
+      "index": 0,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-KNOW-090",
+      "index": 1,
+      "to": "REQ-REF-002"
+    },
+    {
+      "from": "REQ-KNOW-090",
+      "index": 2,
+      "to": "REQ-REF-006"
+    },
+    {
+      "from": "REQ-KNOW-090",
+      "index": 3,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-KNOW-090",
+      "index": 4,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 0,
+      "to": "REQ-WIKI-007"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 1,
+      "to": "REQ-WIKI-007"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 2,
+      "to": "REQ-WIKI-008"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 3,
+      "to": "REQ-WIKI-008"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 4,
+      "to": "REQ-WIKI-014"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 5,
+      "to": "REQ-WIKI-008"
+    },
+    {
+      "from": "REQ-KNOW-142",
+      "index": 6,
+      "to": "REQ-WIKI-008"
+    },
+    {
+      "from": "REQ-WIKI-002",
+      "index": 0,
+      "to": "REQ-WIKI-002"
+    },
+    {
+      "from": "REQ-WIKI-002",
+      "index": 1,
+      "to": "REQ-WIKI-002"
+    },
+    {
+      "from": "REQ-WIKI-002",
+      "index": 2,
+      "to": "REQ-WIKI-002"
+    },
+    {
+      "from": "REQ-WIKI-002",
+      "index": 3,
+      "to": "REQ-WIKI-002"
+    },
+    {
+      "from": "REQ-WIKI-005",
+      "index": 0,
+      "to": "REQ-WIKI-005"
+    },
+    {
+      "from": "REQ-WIKI-005",
+      "index": 1,
+      "to": "REQ-WIKI-005"
+    },
+    {
+      "from": "REQ-WIKI-006",
+      "index": 0,
+      "to": "REQ-WIKI-006"
+    },
+    {
+      "from": "REQ-WIKI-006",
+      "index": 1,
+      "to": "REQ-WIKI-006"
+    },
+    {
+      "from": "REQ-WIKI-006",
+      "index": 2,
+      "to": "REQ-WIKI-006"
+    },
+    {
+      "from": "REQ-WIKI-011",
+      "index": 0,
+      "to": "REQ-WIKI-011"
+    },
+    {
+      "from": "REQ-IDN-004",
+      "index": 0,
+      "to": "REQ-IDN-004"
+    },
+    {
+      "from": "REQ-IDN-008",
+      "index": 0,
+      "to": "REQ-IDN-008"
+    },
+    {
+      "from": "REQ-IDN-008",
+      "index": 1,
+      "to": "REQ-IDN-008"
+    },
+    {
+      "from": "REQ-IDN-009",
+      "index": 0,
+      "to": "REQ-IDN-009"
+    },
+    {
+      "from": "REQ-IDN-009",
+      "index": 1,
+      "to": "REQ-IDN-009"
+    },
+    {
+      "from": "REQ-IDN-009",
+      "index": 2,
+      "to": "REQ-IDN-009"
+    },
+    {
+      "from": "REQ-IDN-012",
+      "index": 0,
+      "to": "REQ-IDN-012"
+    },
+    {
+      "from": "REQ-IDN-013",
+      "index": 0,
+      "to": "REQ-IDN-013"
+    },
+    {
+      "from": "REQ-IDN-014",
+      "index": 0,
+      "to": "REQ-IDN-014"
+    },
+    {
+      "from": "REQ-IDN-014",
+      "index": 1,
+      "to": "REQ-IDN-014"
+    },
+    {
+      "from": "REQ-IDN-014",
+      "index": 2,
+      "to": "REQ-IDN-014"
+    },
+    {
+      "from": "REQ-IDN-014",
+      "index": 3,
+      "to": "REQ-IDN-014"
+    },
+    {
+      "from": "REQ-IDN-015",
+      "index": 0,
+      "to": "REQ-IDN-015"
+    },
+    {
+      "from": "REQ-IDN-016",
+      "index": 0,
+      "to": "REQ-IDN-016"
+    },
+    {
+      "from": "REQ-IDN-016",
+      "index": 1,
+      "to": "REQ-IDN-016"
+    },
+    {
+      "from": "REQ-IDN-016",
+      "index": 2,
+      "to": "REQ-IDN-016"
+    },
+    {
+      "from": "REQ-IDN-018",
+      "index": 0,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 0,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 1,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 2,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 3,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 4,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-019",
+      "index": 5,
+      "to": "REQ-IDN-019"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 0,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 1,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 2,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 3,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 4,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-020",
+      "index": 5,
+      "to": "REQ-IDN-020"
+    },
+    {
+      "from": "REQ-IDN-024",
+      "index": 0,
+      "to": "REQ-IDN-024"
+    },
+    {
+      "from": "REQ-IDN-028",
+      "index": 0,
+      "to": "REQ-IDN-028"
+    },
+    {
+      "from": "REQ-IDN-028",
+      "index": 1,
+      "to": "REQ-IDN-028"
+    },
+    {
+      "from": "REQ-IDN-028",
+      "index": 2,
+      "to": "REQ-IDN-028"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 0,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 1,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 2,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 3,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 4,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 5,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-029",
+      "index": 6,
+      "to": "REQ-IDN-005"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 0,
+      "to": "REQ-IDN-002"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 1,
+      "to": "REQ-IDN-002"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 2,
+      "to": "REQ-IDN-002"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 3,
+      "to": "REQ-IDN-017"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 4,
+      "to": "REQ-IDN-017"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 5,
+      "to": "REQ-IDN-003"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 6,
+      "to": "REQ-IDN-002"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 7,
+      "to": "REQ-IDN-017"
+    },
+    {
+      "from": "REQ-IDN-030",
+      "index": 8,
+      "to": "REQ-IDN-017"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 0,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 1,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 2,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 3,
+      "to": "REQ-IDN-033"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 4,
+      "to": "REQ-OPS-013"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 5,
+      "to": "REQ-OPS-013"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 6,
+      "to": "REQ-OPS-013"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 7,
+      "to": "REQ-OPS-014"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 8,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 9,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 10,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 11,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 12,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 13,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 14,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 15,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 16,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 17,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 18,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 19,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 20,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 21,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 22,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 23,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 24,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 25,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-031",
+      "index": 26,
+      "to": "REQ-IDN-010"
+    },
+    {
+      "from": "REQ-IDN-032",
+      "index": 0,
+      "to": "REQ-IDN-032"
+    },
+    {
+      "from": "REQ-IDN-033",
+      "index": 0,
+      "to": "REQ-IDN-011"
+    },
+    {
+      "from": "REQ-IDN-033",
+      "index": 1,
+      "to": "REQ-IDN-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 0,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 1,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 2,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 3,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 4,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-COM-011",
+      "index": 5,
+      "to": "REQ-COM-011"
+    },
+    {
+      "from": "REQ-MTG-003",
+      "index": 0,
+      "to": "REQ-MTG-003"
+    },
+    {
+      "from": "REQ-MTG-003",
+      "index": 1,
+      "to": "REQ-MTG-003"
+    },
+    {
+      "from": "REQ-MTG-006",
+      "index": 0,
+      "to": "REQ-MTG-006"
+    },
+    {
+      "from": "REQ-MTG-006",
+      "index": 1,
+      "to": "REQ-MTG-006"
+    },
+    {
+      "from": "REQ-MTG-006",
+      "index": 2,
+      "to": "REQ-MTG-006"
+    },
+    {
+      "from": "REQ-MTG-008",
+      "index": 0,
+      "to": "REQ-MTG-008"
+    },
+    {
+      "from": "REQ-MTG-008",
+      "index": 1,
+      "to": "REQ-MTG-008"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 0,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 1,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 2,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 3,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 4,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 5,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 6,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 7,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 8,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-009",
+      "index": 9,
+      "to": "REQ-MTG-009"
+    },
+    {
+      "from": "REQ-MTG-019",
+      "index": 0,
+      "to": "REQ-MTG-019"
+    },
+    {
+      "from": "REQ-MTG-019",
+      "index": 1,
+      "to": "REQ-MTG-019"
+    },
+    {
+      "from": "REQ-MTG-019",
+      "index": 2,
+      "to": "REQ-MTG-019"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 0,
+      "to": "REQ-MTG-014"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 1,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 2,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 3,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 4,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 5,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 6,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 7,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-020",
+      "index": 8,
+      "to": "REQ-TSK-012"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 0,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 1,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 2,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 3,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 4,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 5,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 6,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 7,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 8,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 9,
+      "to": "REQ-TSK-004"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 10,
+      "to": "REQ-TSK-004"
+    },
+    {
+      "from": "REQ-MTG-021",
+      "index": 11,
+      "to": "REQ-TSK-003"
+    },
+    {
+      "from": "REQ-REFREL-001",
+      "index": 0,
+      "to": "REQ-REFREL-001"
+    },
+    {
+      "from": "REQ-PHASE-001",
+      "index": 0,
+      "to": "REQ-PHASE-001"
+    },
+    {
+      "from": "REQ-PHASE-002",
+      "index": 0,
+      "to": "REQ-PHASE-002"
+    },
+    {
+      "from": "REQ-PHASE-002",
+      "index": 1,
+      "to": "REQ-PHASE-002"
+    },
+    {
+      "from": "REQ-PHASE-003",
+      "index": 0,
+      "to": "REQ-PHASE-003"
+    },
+    {
+      "from": "REQ-PHASE-003",
+      "index": 1,
+      "to": "REQ-PHASE-003"
+    },
+    {
+      "from": "REQ-PHASE-005",
+      "index": 0,
+      "to": "REQ-PHASE-005"
+    },
+    {
+      "from": "REQ-PHASE-005",
+      "index": 1,
+      "to": "REQ-PHASE-005"
+    },
+    {
+      "from": "REQ-PHASE-005",
+      "index": 2,
+      "to": "REQ-PHASE-005"
+    },
+    {
+      "from": "REQ-PHASE-006",
+      "index": 0,
+      "to": "REQ-PHASE-006"
+    },
+    {
+      "from": "REQ-PHASE-006",
+      "index": 1,
+      "to": "REQ-PHASE-006"
+    },
+    {
+      "from": "REQ-PI-016",
+      "index": 0,
+      "to": "REQ-PI-016"
+    },
+    {
+      "from": "REQ-PI-017",
+      "index": 0,
+      "to": "REQ-PI-017"
+    },
+    {
+      "from": "REQ-PI-017",
+      "index": 1,
+      "to": "REQ-PI-017"
+    },
+    {
+      "from": "REQ-PI-018",
+      "index": 0,
+      "to": "REQ-PI-018"
+    },
+    {
+      "from": "REQ-PI-019",
+      "index": 0,
+      "to": "REQ-PI-019"
+    },
+    {
+      "from": "REQ-PI-020",
+      "index": 0,
+      "to": "REQ-PI-020"
+    },
+    {
+      "from": "REQ-PI-020",
+      "index": 1,
+      "to": "REQ-PI-020"
+    },
+    {
+      "from": "REQ-PI-021",
+      "index": 0,
+      "to": "REQ-PI-021"
+    },
+    {
+      "from": "REQ-PI-021",
+      "index": 1,
+      "to": "REQ-PI-021"
+    },
+    {
+      "from": "REQ-PI-021",
+      "index": 2,
+      "to": "REQ-PI-037"
+    },
+    {
+      "from": "REQ-PI-021",
+      "index": 3,
+      "to": "REQ-PI-037"
+    },
+    {
+      "from": "REQ-PI-021",
+      "index": 4,
+      "to": "REQ-PI-021"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 0,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 1,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 2,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 3,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 4,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-023",
+      "index": 5,
+      "to": "REQ-PI-023"
+    },
+    {
+      "from": "REQ-PI-026",
+      "index": 0,
+      "to": "REQ-PI-026"
+    },
+    {
+      "from": "REQ-PI-026",
+      "index": 1,
+      "to": "REQ-PI-026"
+    },
+    {
+      "from": "REQ-PI-032",
+      "index": 0,
+      "to": "REQ-PI-032"
+    },
+    {
+      "from": "REQ-PI-033",
+      "index": 0,
+      "to": "REQ-PI-033"
+    },
+    {
+      "from": "REQ-PI-035",
+      "index": 0,
+      "to": "REQ-PI-035"
+    },
+    {
+      "from": "REQ-PI-036",
+      "index": 0,
+      "to": "REQ-PI-036"
+    },
+    {
+      "from": "REQ-PI-036",
+      "index": 1,
+      "to": "REQ-PI-036"
+    },
+    {
+      "from": "REQ-PI-041",
+      "index": 0,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-PI-042",
+      "index": 0,
+      "to": "REQ-PI-022"
+    },
+    {
+      "from": "REQ-PI-042",
+      "index": 1,
+      "to": "REQ-PI-022"
+    },
+    {
+      "from": "REQ-PI-042",
+      "index": 2,
+      "to": "REQ-PI-022"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 0,
+      "to": "REQ-TEAM-007"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 1,
+      "to": "REQ-TEAM-011"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 2,
+      "to": "REQ-TEAM-005"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 3,
+      "to": "REQ-TEAM-005"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 4,
+      "to": "REQ-TEAM-005"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 5,
+      "to": "REQ-PI-045"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 6,
+      "to": "REQ-TEAM-007"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 7,
+      "to": "REQ-TEAM-007"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 8,
+      "to": "REQ-TEAM-006"
+    },
+    {
+      "from": "REQ-PI-045",
+      "index": 9,
+      "to": "REQ-PI-045"
+    },
+    {
+      "from": "REQ-REF-003",
+      "index": 0,
+      "to": "REQ-REF-003"
+    },
+    {
+      "from": "REQ-REF-008",
+      "index": 0,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-REF-008",
+      "index": 1,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-REF-008",
+      "index": 2,
+      "to": "REQ-REF-008"
+    },
+    {
+      "from": "REQ-KNOW-034",
+      "index": 0,
+      "to": "REQ-PI-002"
+    },
+    {
+      "from": "REQ-KNOW-034",
+      "index": 1,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-034",
+      "index": 2,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-034",
+      "index": 3,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-034",
+      "index": 4,
+      "to": "REQ-PI-002"
+    },
+    {
+      "from": "REQ-KNOW-035",
+      "index": 0,
+      "to": "REQ-LCH-001"
+    },
+    {
+      "from": "REQ-KNOW-035",
+      "index": 1,
+      "to": "REQ-LCH-001"
+    },
+    {
+      "from": "REQ-KNOW-035",
+      "index": 2,
+      "to": "REQ-LCH-002"
+    },
+    {
+      "from": "REQ-KNOW-035",
+      "index": 3,
+      "to": "REQ-LCH-001"
+    },
+    {
+      "from": "REQ-KNOW-037",
+      "index": 0,
+      "to": "REQ-LCH-004"
+    },
+    {
+      "from": "REQ-KNOW-037",
+      "index": 1,
+      "to": "REQ-LCH-009"
+    },
+    {
+      "from": "REQ-KNOW-038",
+      "index": 0,
+      "to": "REQ-LCH-010"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 0,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 1,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 2,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 3,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 4,
+      "to": "REQ-KNOW-044"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 5,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 6,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 7,
+      "to": "REQ-MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 8,
+      "to": "REQ-MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 9,
+      "to": "REQ-MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 10,
+      "to": "REQ-MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 11,
+      "to": "REQ-KNOW-041"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 12,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 13,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 14,
+      "to": "REQ-MTG-002"
+    },
+    {
+      "from": "REQ-KNOW-040",
+      "index": 15,
+      "to": "REQ-MTG-001"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 0,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 1,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 2,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 3,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 4,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 5,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-043",
+      "index": 6,
+      "to": "REQ-MTG-010"
+    },
+    {
+      "from": "REQ-KNOW-046",
+      "index": 0,
+      "to": "REQ-MTG-005"
+    },
+    {
+      "from": "REQ-KNOW-046",
+      "index": 1,
+      "to": "REQ-MTG-005"
+    },
+    {
+      "from": "REQ-KNOW-046",
+      "index": 2,
+      "to": "REQ-MTG-005"
+    },
+    {
+      "from": "REQ-KNOW-050",
+      "index": 0,
+      "to": "REQ-PI-015"
+    },
+    {
+      "from": "REQ-KNOW-050",
+      "index": 1,
+      "to": "REQ-PI-015"
+    },
+    {
+      "from": "REQ-KNOW-050",
+      "index": 2,
+      "to": "REQ-PI-015"
+    },
+    {
+      "from": "REQ-KNOW-050",
+      "index": 3,
+      "to": "REQ-PI-015"
+    },
+    {
+      "from": "REQ-KNOW-050",
+      "index": 4,
+      "to": "REQ-PI-015"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 0,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 1,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 2,
+      "to": "REQ-LCH-007"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 3,
+      "to": "REQ-LCH-007"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 4,
+      "to": "REQ-LCH-007"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 5,
+      "to": "REQ-LCH-007"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 6,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 7,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 8,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 9,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 10,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 11,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 12,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 13,
+      "to": "REQ-LCH-008"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 14,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 15,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 16,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-052",
+      "index": 17,
+      "to": "REQ-LCH-006"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 0,
+      "to": "REQ-MTG-011"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 1,
+      "to": "REQ-PPL-002"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 2,
+      "to": "REQ-PPL-002"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 3,
+      "to": "REQ-TSK-006",
+      "feature": "TSK-006"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 4,
+      "to": "REQ-PPL-001",
+      "feature": "PPL-001"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 5,
+      "to": "REQ-PPL-017",
+      "feature": "PPL-017"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 6,
+      "to": "REQ-MTG-011"
+    },
+    {
+      "from": "REQ-KNOW-056",
+      "index": 7,
+      "to": "REQ-PPL-002"
+    },
+    {
+      "from": "REQ-KNOW-059",
+      "index": 0,
+      "to": "REQ-PI-024"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 0,
+      "to": "REQ-PI-031"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 1,
+      "to": "REQ-PI-031"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 2,
+      "to": "REQ-IDN-023"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 3,
+      "to": "REQ-PI-031"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 4,
+      "to": "REQ-PI-031"
+    },
+    {
+      "from": "REQ-KNOW-061",
+      "index": 5,
+      "to": "REQ-IDN-023"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 0,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 1,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 2,
+      "to": "REQ-PI-032"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 3,
+      "to": "REQ-PI-032"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 4,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 5,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 6,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 7,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 8,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 9,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 10,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 11,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 12,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 13,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 14,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 15,
+      "to": "REQ-PI-043"
+    },
+    {
+      "from": "REQ-KNOW-062",
+      "index": 16,
+      "to": "REQ-PI-044"
+    },
+    {
+      "from": "REQ-KNOW-098",
+      "index": 0,
+      "to": "REQ-PPL-004"
+    },
+    {
+      "from": "REQ-KNOW-098",
+      "index": 1,
+      "to": "REQ-PPL-004"
+    },
+    {
+      "from": "REQ-KNOW-098",
+      "index": 2,
+      "to": "REQ-PPL-004"
+    },
+    {
+      "from": "REQ-KNOW-100",
+      "index": 0,
+      "to": "REQ-PPL-016"
+    },
+    {
+      "from": "REQ-KNOW-100",
+      "index": 1,
+      "to": "REQ-PPL-017"
+    },
+    {
+      "from": "REQ-KNOW-100",
+      "index": 2,
+      "to": "REQ-PPL-017"
+    },
+    {
+      "from": "REQ-KNOW-100",
+      "index": 3,
+      "to": "REQ-PPL-017"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 0,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 1,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 2,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 3,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 4,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 5,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 6,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 7,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 8,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 9,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 10,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 11,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 12,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 13,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-103",
+      "index": 14,
+      "to": "REQ-PI-001"
+    },
+    {
+      "from": "REQ-KNOW-115",
+      "index": 0,
+      "to": "REQ-MTG-022",
+      "feature": "COM-011"
+    },
+    {
+      "from": "REQ-KNOW-115",
+      "index": 1,
+      "to": "REQ-PI-038",
+      "feature": "PI-038"
+    },
+    {
+      "from": "REQ-KNOW-115",
+      "index": 2,
+      "to": "REQ-KNOW-040",
+      "feature": "EVR-020"
+    },
+    {
+      "from": "REQ-TEAM-001",
+      "index": 0,
+      "to": "REQ-TEAM-001"
+    },
+    {
+      "from": "REQ-TEAM-001",
+      "index": 1,
+      "to": "REQ-TEAM-001"
+    },
+    {
+      "from": "REQ-TEAM-001",
+      "index": 2,
+      "to": "REQ-TEAM-001"
+    },
+    {
+      "from": "REQ-TEAM-001",
+      "index": 3,
+      "to": "REQ-TEAM-001"
+    },
+    {
+      "from": "REQ-TEAM-002",
+      "index": 0,
+      "to": "REQ-TEAM-002"
+    },
+    {
+      "from": "REQ-TEAM-003",
+      "index": 0,
+      "to": "REQ-PI-045"
+    },
+    {
+      "from": "REQ-TEAM-003",
+      "index": 1,
+      "to": "REQ-TEAM-005"
+    },
+    {
+      "from": "REQ-TEAM-003",
+      "index": 2,
+      "to": "REQ-TEAM-003"
+    },
+    {
+      "from": "REQ-TEAM-003",
+      "index": 3,
+      "to": "REQ-TEAM-003"
+    },
+    {
+      "from": "REQ-TEAM-004",
+      "index": 0,
+      "to": "REQ-TEAM-004"
+    },
+    {
+      "from": "REQ-TEAM-004",
+      "index": 1,
+      "to": "REQ-TEAM-004"
+    },
+    {
+      "from": "REQ-TEAM-010",
+      "index": 0,
+      "to": "REQ-TEAM-010"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 0,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 1,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 2,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 3,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 4,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 5,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-012",
+      "index": 6,
+      "to": "REQ-TEAM-012"
+    },
+    {
+      "from": "REQ-TEAM-013",
+      "index": 0,
+      "to": "REQ-TEAM-013"
+    },
+    {
+      "from": "REQ-TEAM-015",
+      "index": 0,
+      "to": "REQ-TEAM-015"
+    },
+    {
+      "from": "REQ-PPL-001",
+      "index": 0,
+      "to": "REQ-PPL-001"
+    },
+    {
+      "from": "REQ-PPL-001",
+      "index": 1,
+      "to": "REQ-PPL-001"
+    },
+    {
+      "from": "REQ-PPL-001",
+      "index": 2,
+      "to": "REQ-PPL-001"
+    },
+    {
+      "from": "REQ-PPL-001",
+      "index": 3,
+      "to": "REQ-PPL-001"
+    },
+    {
+      "from": "REQ-PPL-004",
+      "index": 0,
+      "to": "REQ-PPL-004"
+    },
+    {
+      "from": "REQ-PPL-006",
+      "index": 0,
+      "to": "REQ-PPL-006"
+    },
+    {
+      "from": "REQ-PPL-007",
+      "index": 0,
+      "to": "REQ-PPL-007"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 0,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 1,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 2,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 3,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 4,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-008",
+      "index": 5,
+      "to": "REQ-PPL-008"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 0,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 1,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 2,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 3,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 4,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 5,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 6,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 7,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-009",
+      "index": 8,
+      "to": "REQ-PPL-009"
+    },
+    {
+      "from": "REQ-PPL-011",
+      "index": 0,
+      "to": "REQ-PPL-011"
+    },
+    {
+      "from": "REQ-PPL-011",
+      "index": 1,
+      "to": "REQ-PPL-011"
+    },
+    {
+      "from": "REQ-PPL-011",
+      "index": 2,
+      "to": "REQ-PPL-011"
+    },
+    {
+      "from": "REQ-PPL-012",
+      "index": 0,
+      "to": "REQ-PPL-012"
+    },
+    {
+      "from": "REQ-PPL-012",
+      "index": 1,
+      "to": "REQ-PPL-012"
+    },
+    {
+      "from": "REQ-PPL-012",
+      "index": 2,
+      "to": "REQ-PPL-012"
+    },
+    {
+      "from": "REQ-PPL-012",
+      "index": 3,
+      "to": "REQ-PPL-012"
+    },
+    {
+      "from": "REQ-PPL-013",
+      "index": 0,
+      "to": "REQ-PPL-013"
+    },
+    {
+      "from": "REQ-PPL-013",
+      "index": 1,
+      "to": "REQ-PPL-013"
+    },
+    {
+      "from": "REQ-PPL-013",
+      "index": 2,
+      "to": "REQ-PPL-013"
+    },
+    {
+      "from": "REQ-PPL-013",
+      "index": 3,
+      "to": "REQ-PPL-013"
+    },
+    {
+      "from": "REQ-PPL-013",
+      "index": 4,
+      "to": "REQ-PPL-013"
+    },
+    {
+      "from": "REQ-PPL-018",
+      "index": 0,
+      "to": "REQ-PPL-018"
+    },
+    {
+      "from": "REQ-PPL-019",
+      "index": 0,
+      "to": "REQ-PPL-019"
+    },
+    {
+      "from": "REQ-PPL-023",
+      "index": 0,
+      "to": "REQ-PPL-023"
+    },
+    {
+      "from": "REQ-PPL-023",
+      "index": 1,
+      "to": "REQ-PPL-023"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 0,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 1,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 2,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 3,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 4,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 5,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 6,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 7,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 8,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 9,
+      "to": "REQ-PPL-021"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 10,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 11,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 12,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 13,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 14,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 15,
+      "to": "REQ-MTG-022"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 16,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 17,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-024",
+      "index": 18,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 0,
+      "to": "REQ-PPL-020"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 1,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 2,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 3,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 4,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 5,
+      "to": "REQ-PPL-015"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 6,
+      "to": "REQ-PPL-020"
+    },
+    {
+      "from": "REQ-PPL-026",
+      "index": 7,
+      "to": "REQ-PPL-020"
+    },
+    {
+      "from": "REQ-TSK-004",
+      "index": 0,
+      "to": "REQ-MTG-021"
+    },
+    {
+      "from": "REQ-TSK-004",
+      "index": 1,
+      "to": "REQ-MTG-021"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 0,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 1,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 2,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 3,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 4,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 5,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 6,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 7,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 8,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 9,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 10,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 11,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 12,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 13,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 14,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 15,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 16,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 17,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-005",
+      "index": 18,
+      "to": "REQ-TSK-005"
+    },
+    {
+      "from": "REQ-TSK-006",
+      "index": 0,
+      "to": "REQ-TSK-006"
+    },
+    {
+      "from": "REQ-TSK-008",
+      "index": 0,
+      "to": "REQ-TSK-008"
+    },
+    {
+      "from": "REQ-TSK-008",
+      "index": 1,
+      "to": "REQ-TSK-008"
+    },
+    {
+      "from": "REQ-TSK-008",
+      "index": 2,
+      "to": "REQ-TSK-008"
+    },
+    {
+      "from": "REQ-TSK-008",
+      "index": 3,
+      "to": "REQ-TSK-008"
+    },
+    {
+      "from": "REQ-TSK-009",
+      "index": 0,
+      "to": "REQ-TSK-009"
+    },
+    {
+      "from": "REQ-TSK-009",
+      "index": 1,
+      "to": "REQ-TSK-009"
+    },
+    {
+      "from": "REQ-TSK-009",
+      "index": 2,
+      "to": "REQ-TSK-009"
+    },
+    {
+      "from": "REQ-TSK-010",
+      "index": 0,
+      "to": "REQ-TSK-010"
+    },
+    {
+      "from": "REQ-TSK-010",
+      "index": 1,
+      "to": "REQ-TSK-010"
+    },
+    {
+      "from": "REQ-TSK-010",
+      "index": 2,
+      "to": "REQ-TSK-010"
+    },
+    {
+      "from": "REQ-TSK-010",
+      "index": 3,
+      "to": "REQ-TSK-010"
+    },
+    {
+      "from": "REQ-TSK-013",
+      "index": 0,
+      "to": "REQ-TSK-013"
+    },
+    {
+      "from": "REQ-TSK-015",
+      "index": 0,
+      "to": "REQ-TSK-015"
+    },
+    {
+      "from": "REQ-TSK-016",
+      "index": 0,
+      "to": "REQ-TSK-016"
+    },
+    {
+      "from": "REQ-TSK-017",
+      "index": 0,
+      "to": "REQ-TSK-017"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 0,
+      "to": "REQ-TSK-017"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 1,
+      "to": "REQ-TSK-017"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 2,
+      "to": "REQ-TSK-017"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 3,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 4,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 5,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 6,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 7,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 8,
+      "to": "REQ-TSK-001"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 9,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 10,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 11,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 12,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 13,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 14,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 15,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 16,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 17,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 18,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 19,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 20,
+      "to": "REQ-TSK-002"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 21,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 22,
+      "to": "REQ-TSK-001"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 23,
+      "to": "REQ-TSK-007"
+    },
+    {
+      "from": "REQ-TSK-018",
+      "index": 24,
+      "to": "REQ-TSK-001"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 0,
+      "to": "REQ-OPS-005"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 1,
+      "to": "REQ-OPS-005"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 2,
+      "to": "REQ-OPS-005"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 3,
+      "to": "REQ-OPS-007"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 4,
+      "to": "REQ-DOC-015"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 5,
+      "to": "REQ-DOC-015"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 6,
+      "to": "REQ-DOC-015"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 7,
+      "to": "REQ-DOC-015"
+    },
+    {
+      "from": "REQ-KNOW-011",
+      "index": 8,
+      "to": "REQ-DOC-015"
+    },
+    {
+      "from": "REQ-KNOW-012",
+      "index": 0,
+      "to": "REQ-DOC-003"
+    },
+    {
+      "from": "REQ-KNOW-012",
+      "index": 1,
+      "to": "REQ-DOC-003"
+    },
+    {
+      "from": "REQ-KNOW-012",
+      "index": 2,
+      "to": "REQ-DOC-003"
+    },
+    {
+      "from": "REQ-KNOW-012",
+      "index": 3,
+      "to": "REQ-DOC-003"
+    },
+    {
+      "from": "REQ-KNOW-012",
+      "index": 4,
+      "to": "REQ-DOC-003"
+    },
+    {
+      "from": "REQ-KNOW-013",
+      "index": 0,
+      "to": "REQ-ADM-007"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 0,
+      "to": "REQ-IDN-006"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 1,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 2,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 3,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 4,
+      "to": "REQ-IDN-006"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 5,
+      "to": "REQ-IDN-001"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 6,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 7,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 8,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-066",
+      "index": 9,
+      "to": "REQ-IDN-026"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 0,
+      "to": "REQ-IDN-021"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 1,
+      "to": "REQ-IDN-021"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 2,
+      "to": "REQ-IDN-021"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 3,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 4,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 5,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 6,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 7,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 8,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 9,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 10,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 11,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 12,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 13,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 14,
+      "to": "REQ-IDN-027"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 15,
+      "to": "REQ-IDN-027"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 16,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 17,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-068",
+      "index": 18,
+      "to": "REQ-IDN-022"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 0,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 1,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 2,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 3,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 4,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 5,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 6,
+      "to": "REQ-KNOW-072"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 7,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 8,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 9,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 10,
+      "to": "REQ-DOC-016"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 11,
+      "to": "REQ-PI-046"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 12,
+      "to": "REQ-IDN-013"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 13,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 14,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 15,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 16,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 17,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 18,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 19,
+      "to": "REQ-PI-038"
+    },
+    {
+      "from": "REQ-KNOW-069",
+      "index": 20,
+      "to": "REQ-PI-041"
+    },
+    {
+      "from": "REQ-OPS-013",
+      "index": 0,
+      "to": "REQ-OPS-013"
+    },
+    {
+      "from": "REQ-OPS-013",
+      "index": 1,
+      "to": "REQ-OPS-013"
+    },
+    {
+      "from": "REQ-KNOW-082",
+      "index": 0,
+      "to": "REQ-OPS-008"
+    },
+    {
+      "from": "REQ-KNOW-082",
+      "index": 1,
+      "to": "REQ-OPS-008"
+    },
+    {
+      "from": "REQ-OPS-015",
+      "index": 0,
+      "to": "REQ-OPS-001"
+    },
+    {
+      "from": "REQ-OPS-015",
+      "index": 1,
+      "to": "REQ-OPS-001"
+    },
+    {
+      "from": "REQ-OPS-015",
+      "index": 2,
+      "to": "REQ-OPS-001"
+    },
+    {
+      "from": "REQ-OPS-015",
+      "index": 3,
+      "to": "REQ-OPS-001"
+    },
+    {
+      "from": "REQ-OPS-015",
+      "index": 4,
+      "to": "REQ-OPS-001"
+    },
+    {
+      "from": "REQ-ADM-005",
+      "index": 0,
+      "to": "REQ-ADM-005"
+    },
+    {
+      "from": "REQ-ADM-005",
+      "index": 1,
+      "to": "REQ-ADM-005"
+    },
+    {
+      "from": "REQ-ADM-006",
+      "index": 0,
+      "to": "REQ-ADM-006"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 0,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 1,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 2,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 3,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 4,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 5,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 6,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 7,
+      "to": "REQ-ADM-008"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 8,
+      "to": "REQ-ADM-008"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 9,
+      "to": "REQ-ADM-001"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 10,
+      "to": "REQ-ADM-001"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 11,
+      "to": "REQ-ADM-003"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 12,
+      "to": "REQ-ADM-008"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 13,
+      "to": "REQ-ADM-001"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 14,
+      "to": "REQ-ADM-001"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 15,
+      "to": "REQ-ADM-003"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 16,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 17,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-KNOW-028",
+      "index": 18,
+      "to": "REQ-ADM-002"
+    },
+    {
+      "from": "REQ-OPS-002",
+      "index": 0,
+      "to": "REQ-OPS-002"
+    },
+    {
+      "from": "REQ-OPS-002",
+      "index": 1,
+      "to": "REQ-OPS-002"
+    },
+    {
+      "from": "REQ-OPS-002",
+      "index": 2,
+      "to": "REQ-OPS-002"
+    },
+    {
+      "from": "REQ-OPS-003",
+      "index": 0,
+      "to": "REQ-OPS-003"
+    },
+    {
+      "from": "REQ-OPS-003",
+      "index": 1,
+      "to": "REQ-OPS-003"
+    },
+    {
+      "from": "REQ-OPS-004",
+      "index": 0,
+      "to": "REQ-OPS-004"
+    },
+    {
+      "from": "REQ-OPS-011",
+      "index": 0,
+      "to": "REQ-OPS-011"
+    }
+  ],
+  "rewrites": {
+    "Supported contextKind values: account, plant, sending_church, sending_network.": "Supported context kind values: account, plant, sending_church, sending_network.",
+    "Supported closedOutcome values: completed, partial, failed, refused, unknown.": "Supported closed outcome values: completed, partial, failed, refused, unknown.",
+    "Strip raw Interview/FourCs judgments, scores, results and notes from BOTH current and retained messages/citations before model input; allow only permitted human-record presence/count/date and operational candidate facts. Separate native/authorized People record operations retain their own floor.": "Strip raw Interview/4Cs judgments, scores, results and notes from BOTH current and retained messages/citations before model input; allow only permitted human-record presence/count/date and operational candidate facts. Separate native/authorized People record operations retain their own floor.",
+    "Supported requestedAction values: archive, delete.": "Supported requested action values: archive, delete.",
+    "Visible information for plant_owner|plant_admin|plant_member: templates, sourceIds, versions, meetingTypeMappings, completeness.": "Visible information for plant_owner|plant_admin|plant_member: templates, source ids, versions, meeting type mappings, completeness.",
+    "Supported adultClassification values: adult, child, unknown.": "Supported adult classification values: adult, child, unknown.",
+    "Supported currentCommitment values: active, withdrawn, unknown, any.": "Supported current commitment values: active, withdrawn, unknown, any.",
+    "Supported recordType values: currently_authorized_assessment, currently_authorized_interview, currently_authorized_commitment, ordinary_note, follow_up.": "Supported record type values: currently_authorized_assessment, currently_authorized_interview, currently_authorized_commitment, ordinary_note, follow_up.",
+    "Supported contactAvailability values: email, phone, either, neither, any.": "Supported contact availability values: email, phone, either, neither, any.",
+    "Supported prerequisiteState values: incomplete, complete, any.": "Supported prerequisite state values: incomplete, complete, any.",
+    "Supported dueKind values: undated, local_date, resolved_instant, any.": "Supported due kind values: undated, local_date, resolved_instant, any.",
+    "Supported preparationState values: complete, incomplete, any.": "Supported preparation state values: complete, incomplete, any.",
+    "Supported providerOutcomes values: accepted, delivered, rejected, bounced, suppressed, unknown.": "Supported provider outcomes values: accepted, delivered, rejected, bounced, suppressed, unknown.",
+    "Supported registeredCategory values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review.",
+    "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/defaultUTC, no arbitrary interval/plant actor/names/notes/giving/body.": "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/default utc, no arbitrary interval/plant actor/names/notes/giving/body.",
+    "Supported reminderKind values: scheduled_announcement, day_7, day_3, day_1.": "Supported reminder kind values: scheduled_announcement, day_7, day_3, day_1.",
+    "Visible information for plant_owner|plant_admin|plant_member: messageId, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, asOf.": "Visible information for plant_owner|plant_admin|plant_member: message id, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, as of.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, meetingId.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, meeting id.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, personId.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, person id.",
+    "Visible information for plant_owner|plant_admin|plant_member: communicationId, revision, state, subject, body, audienceCounts, attachmentMetadata, providerOutcomes, sourceReferences, completeness.": "Visible information for plant_owner|plant_admin|plant_member: communication id, revision, state, subject, body, audience counts, attachment metadata, provider outcomes, source references, completeness.",
+    "Operation requires its one exact communication/draft/execution parent; does not require unrelated messageIds or allow cross-domain execution receipt selection.": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution receipt selection.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, visibleCount, asOf, completeness.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, visible count, as of, completeness.",
+    "Bounded scoped history/search; listDrafts always enforces draft state server-side, filters cannot change it. State is aggregate projection over one mail ledger.": "Bounded scoped history/search; draft listing always enforces draft state server-side, filters cannot change it. State is aggregate projection over one mail ledger.",
+    "Supported providerOutcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown.": "Supported provider outcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, messageId, completeness.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, completeness.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, messageId, meetingId, completeness.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, meeting id, completeness.",
+    "Supported dstChoice values: unambiguous, earlier, later.": "Supported dst choice values: unambiguous, earlier, later.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, title, body, canonicalCredit, meaningfulLocalEditLabel, sourceReferences, completeness.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonical article id, source id, published version, title, body, canonical credit, meaningful local edit label, source references, completeness.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: items, nextCursor, sourceView, completeness, asOf.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: items, next cursor, source view, completeness, as of.",
+    "teamId/kind changes rejected; never convert archived team program into churchwide": "team id/kind changes rejected; never convert archived team program into churchwide",
+    "Visible information for plant_owner: deduplicatedPersonIds, sourceRevisions, excluded, digest.": "Visible information for plant_owner: deduplicated person ids, source revisions, excluded, digest.",
+    "Visible information for plant_admin: deduplicatedPersonIds, sourceRevisions, excluded, digest.": "Visible information for plant_admin: deduplicated person ids, source revisions, excluded, digest.",
+    "Visible information for plant_member: deduplicatedPersonIds, sourceRevisions, excluded, digest.": "Visible information for plant_member: deduplicated person ids, source revisions, excluded, digest.",
+    "Visible information for plant_member: personProgramPairs, effectiveDate, assignmentVersion, sourceReferences.": "Visible information for plant_member: person program pairs, effective date, assignment version, source references.",
+    "Visible information for plant_member: rows, applicablePairCount, validCompletedPairCount, coverageStatus, sourceRevision, nextCursor, completeness.": "Visible information for plant_member: rows, applicable pair count, valid completed pair count, coverage status, source revision, next cursor, completeness.",
+    "signalKey: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested.": "signal key: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested.",
+    "Only three prayer/giving legacy keys have source 30 day reaffirmation. Funding/values/systems/PrayerLeader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them.": "Only three prayer/giving legacy keys have source 30 day reaffirmation. Funding/values/systems/prayer leader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them.",
+    "forbidden: rawContributorManifest, rawPlantAssessment, individualPerson, privateCare, streetAddress, perPlantMetricTable, ranking.": "forbidden: raw contributor manifest, raw plant assessment, individual person, private care, street address, per plant metric table, ranking.",
+    "Integer>=supportCount or explicit Unknown; no unsupported denominator/proportion": "Integer>=support count or explicit Unknown; no unsupported denominator/proportion",
+    "Visible information for plant_owner|plant_admin|plant_member: documentId, plantId, templateVersion, format, status, byteHash, byteLength, downloadAvailable, correlationId.": "Visible information for plant_owner|plant_admin|plant_member: document id, plant id, template version, format, status, byte hash, byte length, download available, correlation id.",
+    "Visible information for plant_owner|plant_admin|plant_member: templateId, templateVersion, plantId, mergeFields, missingFields, sourceReferences, completeness, format, previewArtifact, previewDigest, renderEngineVersion.": "Visible information for plant_owner|plant_admin|plant_member: template id, template version, plant id, merge fields, missing fields, source references, completeness, format, preview artifact, preview digest, render engine version.",
+    "Visible information for plant_owner|plant_admin|plant_member: templateId, templateVersion, plantId, mergeFields, missingFields, sourceReferences, completeness.": "Visible information for plant_owner|plant_admin|plant_member: template id, template version, plant id, merge fields, missing fields, source references, completeness.",
+    "Supported fileKind values: people_csv, person_photo, commitment, text, docx.": "Supported file kind values: people_csv, person_photo, commitment, text, docx.",
+    "Visible information for plant_owner: items, latest, completeness, nextCursor, evidence.": "Visible information for plant_owner: items, latest, completeness, next cursor, evidence.",
+    "Visible information for plant_admin: items, latest, completeness, nextCursor, evidence.": "Visible information for plant_admin: items, latest, completeness, next cursor, evidence.",
+    "Visible information for plant_owner: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath.": "Visible information for plant_owner: authorized content reference, mime type, exact bytes hash, expires at, native download path.",
+    "Visible information for plant_admin: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath.": "Visible information for plant_admin: authorized content reference, mime type, exact bytes hash, expires at, native download path.",
+    "Visible information for plant_member: authorizedContentReference, mimeType, exactBytesHash, expiresAt, nativeDownloadPath.": "Visible information for plant_member: authorized content reference, mime type, exact bytes hash, expires at, native download path.",
+    "Global advisory lock+expected-current CAS, append activation of complete validated generation. Current=max committed activation_number; no mutable isActive. Increment activation number before commit; after-commit wake-up only. Old assessment workers fail reference CAS; no giant all-plant transaction.": "Global advisory lock+expected-current CAS, append activation of complete validated generation. Current=max committed activation_number; no mutable is active. Increment activation number before commit; after-commit wake-up only. Old assessment workers fail reference CAS; no giant all-plant transaction.",
+    "Guarded fresh/global-only transaction;96 published articles/21 sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import.": "Guarded fresh/global-only transaction; 96 published articles/21 sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, renderedContent, pdfBytesOrPrintView, sourceReferences, canonicalCredit, meaningfulLocalEditLabel.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonical article id, source id, published version, rendered content, pdf bytes or print view, source references, canonical credit, meaningful local edit label.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: guideKey, authorizedSections, sourceReferences, completeness.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: guide key, authorized sections, source references, completeness.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, section, bodyExcerpt, canonicalCredit, meaningfulLocalEditLabel, sourceReferences, completeness.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonical article id, source id, published version, section, body excerpt, canonical credit, meaningful local edit label, source references, completeness.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: previousCanonicalId, nextCanonicalId, sourceView.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: previous canonical id, next canonical id, source view.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: sections, authorizedLinks, sourceView, asOf.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: sections, authorized links, source view, as of.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonicalArticleId, sourceId, publishedVersion, headings.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: canonical article id, source id, published version, headings.",
+    "Visible information for plant_owner|plant_admin|plant_member: canonicalArticleId, sourceId, publishedVersion, rating, revision, changed.": "Visible information for plant_owner|plant_admin|plant_member: canonical article id, source id, published version, rating, revision, changed.",
+    "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion.": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion.",
+    "own identity; creation has no preexisting phase/PlantId; ordinary-role bootstrap only": "own identity; creation has no preexisting phase/plant identity; ordinary-role bootstrap only",
+    "Supported expectedPriorRole values: admin, member.": "Supported expected prior role values: admin, member.",
+    "Supported toRole values: admin, member.": "Supported to role values: admin, member.",
+    "Visible information for plant_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions.": "Visible information for plant_member: seats, seat id, display name, ordinary role, status, is self, allowed actions.",
+    "Visible information for organization_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions.": "Visible information for organization_member: seats, seat id, display name, ordinary role, status, is self, allowed actions.",
+    "Supported explicitDecision values: accept, decline.": "Supported explicit decision values: accept, decline.",
+    "Supported organizationKind values: sending_church, sending_network.": "Supported organization kind values: sending_church, sending_network.",
+    "Visible information for organization_member: organizationDisplayName, directRelationshipState, approvedOrganizationMetadata, nextCursor.": "Visible information for organization_member: organization display name, direct relationship state, approved organization metadata, next cursor.",
+    "Supported mutationKind values: ambient_cookie, sealed_token, verified_provider.": "Supported mutation kind values: ambient_cookie, sealed_token, verified_provider.",
+    "Fresh server-created ActorContext with verified account/session + exact current seat OR registered scoped job/proof principal. Unprivileged/revoked principals produce safe denial; internal invocation does not replace their domain authority.": "Fresh server-created server-verified actor and current context with verified account/session + exact current seat OR registered scoped job/proof principal. Unprivileged/revoked principals produce safe denial; internal invocation does not replace their domain authority.",
+    "Only server-side native adapter, assistant adapter or registered job adapter may invoke the primitive; evaluated principal remains the supplied trusted fresh ActorContext, never the caller identity or a model-selected actor.": "Only server-side native adapter, assistant adapter or registered job adapter may invoke the primitive; evaluated principal remains the supplied trusted fresh server-verified actor and current context, never the caller identity or a model-selected actor.",
+    "Supported accountKind values: plant_precreation, discovery, sending_church, sending_network.": "Supported account kind values: plant_precreation, discovery, sending_church, sending_network.",
+    "Supported tenancyKind values: plant, sending_church, sending_network.": "Supported tenancy kind values: plant, sending_church, sending_network.",
+    "Supported ordinaryRole values: admin, member.": "Supported ordinary role values: admin, member.",
+    "Lock exact subject/request; strict now<cancelUntil CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects.": "Lock exact subject/request; strict now<cancel until CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects.",
+    "Visible information for plant_owner|plant_admin|plant_member: section, subject, authorizedValues, revision, changed, completeness.": "Visible information for plant_owner|plant_admin|plant_member: section, subject, authorized values, revision, changed, completeness.",
+    "Visible information for organization_owner|organization_admin|organization_member: section, subject, authorizedValues, revision, changed, completeness.": "Visible information for organization_owner|organization_admin|organization_member: section, subject, authorized values, revision, changed, completeness.",
+    "Lock/recheck actual relationship expectedRevision and exact sharing expectedConsentRevision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction.": "Lock/recheck actual relationship expected revision and exact sharing expected consent revision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction.",
+    "WP007 owns applySharingPatchInTransaction in packages/domain/src/organizations/relationships.ts. privacy.setSharing and the WP010 settings adapter use this one registered helper inside the caller DomainTransaction, not a loop of separately committing public commands. One receipt/audit and exact history/intents plus conditional MW022 material revision commit atomically. Changed policy immediately gates saved/current/cache/assistant access; exact replay/no-op does not bump.": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional material revision commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision.",
+    "SettingsSectionReceipt projects only current authorized same-plant saved values/current relationship and consent revisions; organizations receive no stored consent through this mutation branch.": "saved settings result projects only current authorized same-plant saved values/current relationship and consent revisions; organizations receive no stored consent through this mutation branch.",
+    "plant/teams exact current plant and actual team parent; routine write Owner/Admin or separately approved exact team capability, never broad account section denial. warning<alert; zone change reviewed future schedule preview, past instants/LocalDates preserved.": "plant/teams exact current plant and actual team parent; routine write Owner/Admin or separately approved exact team capability, never broad account section denial. warning<alert; zone change reviewed future schedule preview, past instants/local calendar dates preserved.",
+    "plant/teams/affiliations exact current plant and actual team or approved direct relationship; routine write only current same-plant Owner/Admin. Affiliation category sharing is plant-side authority only. warning<alert; timezone change binds reviewed future schedule preview and preserves past instants/LocalDates.": "plant/teams/affiliations exact current plant and actual team or approved direct relationship; routine write only current same-plant Owner/Admin. Affiliation category sharing is plant-side authority only. warning<alert; timezone change binds reviewed future schedule preview and preserves past instants/local calendar dates.",
+    "Visible information for plant_member: oldTimezone, newTimezone, affectedMeetingInstants, affectedTaskLocalDates, affectedDigestInstants, warnings, digest.": "Visible information for plant_member: old timezone, new timezone, affected meeting instants, affected tasklocal calendar dates, affected digest instants, warnings, digest.",
+    "Visible information for plant_member_current_task_assignee: executionId, status, affected, excluded, results, correction, correlationId.": "Visible information for plant_member_current_task_assignee: execution id, status, affected, excluded, results, correction, correlation id.",
+    "Same followups.correctOutcome semantics: effective contact recomputed from valid occurredAt, old history preserved, no resend or administrative-contact inference.": "Same follow-up outcome correction semantics: effective contact recomputed from valid occurred at, old history preserved, no resend or administrative-contact inference.",
+    "Visible information for registered_internal_producer_or_exact_operator: contactProjectionRevision, receiptId, safeOutcome.": "Visible information for registered_internal_producer_or_exact_operator: contact projection revision, receipt id, safe outcome.",
+    "Same typed human-contact transaction; derive occurredAt from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer.": "Same typed human-contact transaction; derive occurred at from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer.",
+    "Visible information for plant_member: items, venueId, name, address, contact, cost, capacity, notes, active, history, revision.": "Visible information for plant_member: items, venue id, name, address, contact, cost, capacity, notes, active, history, revision.",
+    "Visible information for plant_member: items, matched, returned, completeness, nextCursor.": "Visible information for plant_member: items, matched, returned, completeness, next cursor.",
+    "Visible information for plant_member: meetingId, items, checkedCount, totalCount, kitVersion.": "Visible information for plant_member: meeting id, items, checked count, total count, kit version.",
+    "Exact canonical approved kit once with receipt; reads never seed, nonVision denied.": "Exact canonical approved kit once with receipt; reads never seed, non-Vision denied.",
+    "Visible information for plant_member: meetingId, ownRsvp, responseAllowed, revision.": "Visible information for plant_member: meeting id, own rsvp, response allowed, revision.",
+    "Visible information for plant_member: executionId, status, affected, excluded, results, correction, correlationId.": "Visible information for plant_member: execution id, status, affected, excluded, results, correction, correlation id.",
+    "Current same-plant seat AND actual account links to this exact live Person/guest within write; never accept caller personId/accountId. Native/Evry shared reply preserves attendance/cards/notes/delivery.": "Current same-plant seat AND actual account links to this exact live Person/guest within write; never accept caller person id/account id. Native/Evry shared reply preserves attendance/cards/notes/delivery.",
+    "Visible information for registered_internal_producer_or_exact_operator: guestId, canonicalRsvp, supersededTokenIds, revision.": "Visible information for registered_internal_producer_or_exact_operator: guest id, canonical rsvp, superseded token ids, revision.",
+    "Visible information for plant_member: evaluationId, factorVersion, eightScores, computedAverage, humanActor, eventDate, recordedAt, revision, correctionSummary.": "Visible information for plant_member: evaluation id, factor version, eight scores, computed average, human actor, event date, recorded at, revision, correction summary.",
+    "Existing obligation origin protected; no client-provided originMeetingId can fabricate 48h lineage.": "Existing obligation origin protected; no client-provided origin meeting id can fabricate 48h lineage.",
+    "A child Task cannot enter due/recurrence/source obligation/follow-up/contact branches or generic completion hooks. Eligible child tick/reopen delegates exact child-assignee guarded setSubtaskCompletion; Owner/Admin ordinary child title/assignment/removal uses the closed child contract. Parent duty never substitutes for child completion authority.": "A child Task cannot enter due/recurrence/source obligation/follow-up/contact branches or generic completion hooks. Eligible child tick/reopen delegates exact child-assignee guarded child-task completion; Owner/Admin ordinary child title/assignment/removal uses the closed child contract. Parent duty never substitutes for child completion authority.",
+    "Visible information for plant_member: items, obligationId, taskId, assigneeAccountId, outcome, unassignedCount, matched, completeness.": "Visible information for plant_member: items, obligation id, task id, assignee account id, outcome, unassigned count, matched, completeness.",
+    "one active exact plant seat; row plantId matches trusted context": "one active exact plant seat; row plant id matches trusted context",
+    "Supported toStatus values: not_started, in_progress, blocked, complete, no_longer_needed.": "Supported to status values: not_started, in_progress, blocked, complete, no_longer_needed.",
+    "reject contact/outcome/occurredAt fields; ordinary complete never creates a contact record": "reject contact/outcome/occurred at fields; ordinary complete never creates a contact record",
+    "Explicit actual occurredAt required contacted; non-contact may use server completion Instant.": "Explicit actual occurred at required contacted; non-contact may use server completion Instant.",
+    "no_longer_needed branch writes waiver state without completedAt/success/contact credit and persistent regeneration suppression; contacted alone updates effective actual-contact evidence; other complete outcomes may fulfill task only. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects.": "no_longer_needed branch writes waiver state without completed at/success/contact credit and persistent regeneration suppression; contacted alone updates effective actual-contact evidence; other complete outcomes may fulfill task only. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects.",
+    "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion.": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completed at/success/contact credit; protected obligation and waiver survives task edits/deletion.",
+    "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completed at/success/contact credit; protected obligation and waiver survives task edits/deletion. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "current assigneeAccountId=self on exact live task; no assignment/handoff/roster privilege": "current assignee account id=self on exact live task; no assignment/handoff/roster privilege",
+    "Derive fromPhase from locked current state, never caller-authoritative fromPhase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate.": "Derive from phase from locked current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate.",
+    "Visible information for plant_member: transitionId, actualTransitionLocalDate, currentPhase, answerState, availableVersionedTemplateRows, offerRevision, previousAnswerReceipt.": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous answer receipt.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phaseId, authorizedRecommendations, sourceReferences.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phase id, authorized recommendations, source references.",
+    "Only registered adapter loads pinned allowed prompt; maxRetries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials.": "Only registered adapter loads pinned allowed prompt; max retries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials.",
+    "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one DomainTransaction; exact replay no duplicate.": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one atomic transaction; exact replay no duplicate.",
+    "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferredUnattempted. No independent worker deployment.": "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferred unattempted. No independent worker deployment.",
+    "Supported demandKind values: material, reference, time_refresh.": "Supported demand kind values: material, reference, time_refresh.",
+    "Create idempotent demand only; no asOf forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source.": "Create idempotent demand only; no as of forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source.",
+    "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/asOf creates a new immutable run/demand where needed; old worker fenced.": "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/as of creates a new immutable run/demand where needed; old worker fenced.",
+    "Visible information for plant_member: measuredTeamCount, unknownTeamCount, operationalTeamCount, measuredScores, summary, sourceRevision.": "Visible information for plant_member: measured team count, unknown team count, operational team count, measured scores, summary, source revision.",
+    "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministryAreaKeys. Original mapping revision/history retained.": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministry area keys. Original mapping revision/history retained.",
+    "Visible information for plant_member: filledRoles, roleDenominator, distinctPeople, distinctTeams, requiredTrainingCompletedPairs, requiredTrainingApplicablePairs, Unknown, sourceReferences.": "Visible information for plant_member: filled roles, role denominator, distinct people, distinct teams, required training completed pairs, required training applicable pairs, Unknown, source references.",
+    "Visible information for plant_member: exactStructuredLines, currentCustomizations, acceptedOrDeclinedOfferState, templateVersion, previewDigest, proposedCreatedCount.": "Visible information for plant_member: exact structured lines, current customizations, accepted or declined offer state, template version, preview digest, proposed created count.",
+    "Authenticated server ActorContext/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant.": "Authenticated server server-verified actor and current context/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant.",
+    "Supported rubricKind values: plant, network.": "Supported rubric kind values: plant, network.",
+    "Visible information for plant_owner|plant_admin|plant_member: launchId, plannedLocalDate, countdownDays, state, asOf.": "Visible information for plant_owner|plant_admin|plant_member: launch id, planned local date, countdown days, state, as of.",
+    "Purpose-specific Launch query uses required real parent IDs and trusted server asOf; countdown/history never require or disclose raw questionnaire/guest DTO.": "Purpose-specific Launch query uses required real parent IDs and trusted server as of; countdown/history never require or disclose raw questionnaire/guest DTO.",
+    "Visible information for plant_owner|plant_admin|plant_member: launchId, plannedLocalDate, actualFacts, state, milestones, debriefComplete, publishedSummary, completeness.": "Visible information for plant_owner|plant_admin|plant_member: launch id, planned local date, actual facts, state, milestones, debrief complete, published summary, completeness.",
+    "The exact current section alias returns the complete cited FactSectionResult envelope with only its named data branch. It does not perform additional live reads or accept client asOf.": "The exact current section alias returns the complete cited authorized fact section with completeness and evidence envelope with only its named data branch. It does not perform additional live reads or accept client as of.",
+    "Move planned target with history; readiness Task dates stay under Tasks explicit commands, no hidden reviewedMilestoneDates side effects.": "Move planned target with history; readiness Task dates stay under Tasks explicit commands, no hidden reviewed milestone dates side effects.",
+    "Visible information for plant_owner|plant_admin|plant_member: launchId, items, nextCursor, asOf.": "Visible information for plant_owner|plant_admin|plant_member: launch id, items, next cursor, as of.",
+    "First schedule atomically creates real Launch and canonical nine milestones/23 undated Tasks; requires actual parent plant, no invented preexisting launchId or automatic Task due-date rewrite.": "First schedule atomically creates real Launch and canonical nine milestones/23 undated Tasks; requires actual parent plant, no invented preexisting launch id or automatic Task due-date rewrite.",
+    "Owning transaction internal exact canonical nine/23 identities; repair only incomplete initialization, retained Task/link tombstones never resurrect deliberate deletion. Domain UnitOfWork is trusted caller context, not a serialized input.": "Owning transaction internal exact canonical nine/23 identities; repair only incomplete initialization, retained Task/link tombstones never resurrect deliberate deletion. Domain atomic transaction is trusted caller context, not a serialized input.",
+    "Visible information for plant_owner|plant_admin|plant_member: milestoneId, items, nextCursor, asOf.": "Visible information for plant_owner|plant_admin|plant_member: milestone id, items, next cursor, as of.",
+    "Supported toStatus values: planning, ready, in_progress, completed, cancelled.": "Supported to status values: planning, ready, in_progress, completed, cancelled.",
+    "ApprovedMeetingType? (explicit erroneous-fact correction only)": "approved meeting type? (explicit erroneous-fact correction only)",
+    "Supported actualOccurrenceState values: completed, not_completed.": "Supported actual occurrence state values: completed, not_completed.",
+    "Visible information for plant_member: hasAuthorizedHistory, typeScope, sourceRevision.": "Visible information for plant_member: has authorized history, type scope, source revision.",
+    "Visible information for plant_member: mode, items, matched, returned, groups, completeness, nextCursor, evidence, exclusions.": "Visible information for plant_member: mode, items, matched, returned, groups, completeness, next cursor, evidence, exclusions.",
+    "Visible information for plant_member: actualCompletedMeetingIds, distinctOccurrenceCount, sourceReferences.": "Visible information for plant_member: actual completed meeting ids, distinct occurrence count, source references.",
+    "exact one current MeetingDetails or unavailable; never page mistaken as scalar": "exact one current authorized meeting details or unavailable; never page mistaken as scalar",
+    "Visible information for plant_member_current_team_leader: executionId, status, affected, excluded, results, correction, correlationId.": "Visible information for plant_member_current_team_leader: execution id, status, affected, excluded, results, correction, correlation id.",
+    "withDomainTransaction: fresh attendance authority + attendance mutation + history + synchronous material revision + operation + safe audit + required effect intent; provider/model outside transaction.": "one atomic transaction: fresh attendance authority + attendance mutation + history + synchronous material revision + operation + safe audit + required effect intent; provider/model outside transaction.",
+    "Visible information for plant_member: items, matched, returned, completeness, nextCursor, evidence.": "Visible information for plant_member: items, matched, returned, completeness, next cursor, evidence.",
+    "Visible information for plant_member: meetingId, sections, totalMinutes, copiedDefaultVersion, revision.": "Visible information for plant_member: meeting id, sections, total minutes, copied default version, revision.",
+    "LegacySignalKey|TypedEvidenceSelector|null; null=permitted plant human-evidence history": "approved attestation key|authorized evidence selection|null; null=permitted plant human-evidence history",
+    "Visible information for plant_owner|plant_admin: launchId, actualFacts, debriefDraft, submittedRevision, sixAreaAnswers, summaryDraft, publishedSummary, history, completeness.": "Visible information for plant_owner|plant_admin: launch id, actual facts, debrief draft, submitted revision, six area answers, summary draft, published summary, history, completeness.",
+    "Visible information for plant_member: launchId, actualFacts, submittedRevision, debriefComplete, missingNameAnswer, unenteredGuestCount, publishedSummary, completeness.": "Visible information for plant_member: launch id, actual facts, submitted revision, debrief complete, missing name answer, unentered guest count, published summary, completeness.",
+    "Visible information for plant_owner|plant_admin|plant_member: launchId, actualFacts, submittedRevision, debriefComplete, missingNameAnswer, unenteredGuestCount, publishedSummary, completeness.": "Visible information for plant_owner|plant_admin|plant_member: launch id, actual facts, submitted revision, debrief complete, missing name answer, unentered guest count, published summary, completeness.",
+    "Supported attendanceState values: attended, not_recorded.": "Supported attendance state values: attended, not_recorded.",
+    "reject (stage uses explicit changeStatus; account link/creator/storage/private author/revision cannot be patched)": "reject (stage uses explicit status change; account link/creator/storage/private author/revision cannot be patched)",
+    "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task 48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task 48 actual typed originating task completion differs from actual contacted occurredAt; raw checkbox/provider acceptance no typed contact proof.": "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task 48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task 48 actual typed originating task completion differs from actual contacted occurred at; raw checkbox/provider acceptance no typed contact proof.",
+    "Member hints expose only same-plant authorized ordinary identity summaries and normalized match reason; getMergeReview/previewUnmerge and manifest/revisions/reference conflict choices remain Owner/Admin.": "Member hints expose only same-plant authorized ordinary identity summaries and normalized match reason; merge review and Unmerge preview and manifest/revisions/reference conflict choices remain Owner/Admin.",
+    "Visible information for organization_member: plantIdentity, releasedAssessmentRef, classification, sharedStructuredConcerns, allowedAggregateEvidence, asOf, sharingStatus, authorizedCanonicalPlantLink, nextCursor.": "Visible information for organization_member: plant identity, released assessment ref, classification, shared structured concerns, allowed aggregate evidence, as of, sharing status, authorized canonical plant link, next cursor.",
+    "Visible information for organization_member: plantDirectoryName, ordinaryLeadMinistryRolePersonDisplayName, approvedSharingFields, fourValuedHealth, datedEvidence, consentRevision, sourceReferences, nextCursor.": "Visible information for organization_member: plant directory name, ordinary lead ministry role person display name, approved sharing fields, four valued health, dated evidence, consent revision, source references, next cursor.",
+    "Visible information for organization_member: plantIdentity, sharedLaunchState, nearDatePlusKnownGapReading, allowedCoverageTrainingAggregates, limitedVisibility, asOf, authorizedLink, nextCursor.": "Visible information for organization_member: plant identity, shared launch state, near date plus known gap reading, allowed coverage training aggregates, limited visibility, as of, authorized link, next cursor.",
+    "Current exact constrained organization(id,kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content.": "Current exact constrained organization(id, kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content.",
+    "Supported releaseCause values: eligible_human_opened, elapsed_72_hours.": "Supported release cause values: eligible_human_opened, elapsed_72_hours.",
+    "Visible information for organization_member: organization, assessmentId, runId, status, asOf, materialRevision, referenceActivationNumber, rubric, groupScope, availableEvidenceCoverage, supportedFindings, boundedPlantLensRows, ownFeedbackOnly, safeFailureCode, nextCursor.": "Visible information for organization_member: organization, assessment id, run id, status, as of, material revision, reference activation number, rubric, group scope, available evidence coverage, supported findings, bounded plant lens rows, own feedback only, safe failure code, next cursor.",
+    "Visible information for organization_member: organization, historicalAssessmentsWithCurrentGrantProjection, asOfAndOriginalGroupingReference, withheldPatterns, nextCursor.": "Visible information for organization_member: organization, historical assessments with current grant projection, as of and original grouping reference, withheld patterns, next cursor.",
+    "Visible information for organization_member: organization, historicalGroupedSlices, originalReferenceAndAssociationRevisions, separatelyLabeledCurrentPlacement, withheldPatterns, nextCursor.": "Visible information for organization_member: organization, historical grouped slices, original reference and association revisions, separately labeled current placement, withheld patterns, next cursor.",
+    "Visible information for organization_member: organization, assessmentId, asOf, geographyReferenceVersion, regionSlices, stateProvinceSlices, countrySlices, wholePortfolioSlice, unknownGeographyCoverage, boundedNamedLensRows, safeStatus.": "Visible information for organization_member: organization, assessment id, as of, geography reference version, region slices, state province slices, country slices, whole portfolio slice, unknown geography coverage, bounded named lens rows, safe status.",
+    "Exactly reviewed Owner/Admin request creates one org-wide shared demand. Regional views are slices of the same run; requestedView does not create an independent engine/job/cohort or accept contributor IDs.": "Exactly reviewed Owner/Admin request creates one org-wide shared demand. Regional views are slices of the same run; requested view does not create an independent engine/job/cohort or accept contributor IDs.",
+    "Visible information for organization_member: feedbackId, organization, assessmentId, findingId, rubricVersion, rating, comment, revision, recordedAt, replayed, assessmentOrRubricChanged.": "Visible information for organization_member: feedback id, organization, assessment id, finding id, rubric version, rating, comment, revision, recorded at, replayed, assessment or rubric changed.",
+    "Visible information for organization_member: exactPublishedSummary, publicationDate, sourceVersion, currentConsentStatus, sourceReferences.": "Visible information for organization_member: exact published summary, publication date, source version, current consent status, source references.",
+    "Visible information for plant_member: destinationPersonId, mergeReceiptId, safeStatus.": "Visible information for plant_member: destination person id, merge receipt id, safe status.",
+    "Consistent read-only capture with one fixed asOf; caller persists immutable run inside the same snapshot transaction. Private care structurally absent.": "Consistent read-only capture with one fixed as of; caller persists immutable run inside the same snapshot transaction. Private care structurally absent.",
+    "remove: rawInterviewCriterionJudgments, rawFourCsScores, humanQualificationResult, humanNotesOrTestimony, privateCareBody, privateCareExistence, privateCareCalendar, privateSupportNudgeMetadata.": "remove: raw interview criterion judgments, raw 4Cs scores, human qualification result, human notes or testimony, private care body, private care existence, private care calendar, private support nudge metadata.",
+    "actual immutable originating occurrence Instant; not recordedAt or storage-createdAt proxy": "actual immutable originating occurrence Instant; not recorded at or storage-created at proxy",
+    "effective actual successful originating-task completion Instant >=start and <=asOf": "effective actual successful originating-task completion Instant >=start and <=as of",
+    "Keep occurrence/effective completion separate from recordedAt/database createdAt; later recording does not invalidate valid backdated evidence": "Keep occurrence/effective completion separate from recorded at/database created at; later recording does not invalidate valid backdated evidence",
+    "Only explicitly recorded typed contacted outcome and actual occurredAt changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not": "Only explicitly recorded typed contacted outcome and actual occurred at changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not",
+    "Four typed human outcomes; only effective contacted occurredAt freshness; no email or generic completion inference.": "Four typed human outcomes; only effective contacted occurred at freshness; no email or generic completion inference.",
+    "Single current TeamDetails or unavailable; no page/scalar substitution": "Single current authorized team details or unavailable; no page/scalar substitution",
+    "Visible information for plant_member: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved.": "Visible information for plant_member: templates, roles, responsibilities, exact copied effects, existing tenant records preserved.",
+    "Visible information for plant_owner: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved.": "Visible information for plant_owner: templates, roles, responsibilities, exact copied effects, existing tenant records preserved.",
+    "Visible information for plant_admin: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved.": "Visible information for plant_admin: templates, roles, responsibilities, exact copied effects, existing tenant records preserved.",
+    "Visible information for plant_member: items, personId, activeAssignments, recordedTraining, overloadWarning, completeness.": "Visible information for plant_member: items, person id, active assignments, recorded training, overload warning, completeness.",
+    "Visible information for plant_member: items, sourceRevision.": "Visible information for plant_member: items, source revision.",
+    "Visible information for plant_owner: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness.": "Visible information for plant_owner: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness.",
+    "Visible information for plant_admin: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness.": "Visible information for plant_admin: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness.",
+    "Visible information for plant_member: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness.": "Visible information for plant_member: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness.",
+    "InternalProtocolResult/material source revision in producer transaction": "bounded internal processing result/material source revision in producer transaction",
+    "Visible information for plant_member: items, returned, completeness, nextCursor, evidence, exclusions.": "Visible information for plant_member: items, returned, completeness, next cursor, evidence, exclusions.",
+    "Visible information for plant_member: warnings, recordedEvidence, allowedStages, hardGate.": "Visible information for plant_member: warnings, recorded evidence, allowed stages, hard gate.",
+    "Visible information for plant_member: groups, personIds, ordinaryProfileFields, counts, inactivityWarnings, completeness.": "Visible information for plant_member: groups, person ids, ordinary profile fields, counts, inactivity warnings, completeness.",
+    "Visible information for plant_member: items(ordinaryNote,stageEvent,permittedOperationalActivity), recordCursor, completeness.": "Visible information for plant_member: items(ordinary note, stage event, permitted operational activity), record cursor, completeness.",
+    "Supported recordTypes values: note, activity, interview, assessment, commitment, follow_up.": "Supported record types values: note, activity, interview, assessment, commitment, follow_up.",
+    "Current same-plant Owner/Admin AND note.personId matches request Person AND note.kind=authored_note AND note.originalAuthorAccountId==actual account; cannot edit another author/system event.": "Current same-plant Owner/Admin AND the note Person matches request Person AND note.kind=authored_note AND the note original author account==actual account; cannot edit another author/system event.",
+    "Supported memberRole values: head, spouse, child, other.": "Supported member role values: head, spouse, child, other.",
+    "Visible information for plant_member: householdId, name, address, members, memberRoles, revision.": "Visible information for plant_member: household id, name, address, members, member roles, revision.",
+    "Current same-plant Owner/Admin exact Person record scope only; chronological latest by eventLocalDate then recordedAt then ID; Member/org/Discovery never receives full human qualification fields.": "Current same-plant Owner/Admin exact Person record scope only; chronological latest by event local date then recorded at then ID; Member/org/Discovery never receives full human qualification fields.",
+    "Assessment ID/computed total/revision inside CommandReceipt; stage unchanged": "Assessment ID/computed total/revision inside durable operation receipt; stage unchanged",
+    "Visible information for plant_member: approvedColumnNames, utf8CsvBytes, mimeType, safeFilename.": "Visible information for plant_member: approved column names, UTF-8 CSV bytes, mime type, safe filename.",
+    "Visible information for plant_member: utf8CsvBytes, safeFilename, mimeType, matched, returned, completeness.": "Visible information for plant_member: UTF-8 CSV bytes, safe filename, mime type, matched, returned, completeness.",
+    "Visible information for plant_member: items, effectiveLastConfirmedContactAt, nextCursor, completeness.": "Visible information for plant_member: items, effective last confirmed contact at, next cursor, completeness.",
+    "Outcome recordedAt/original actor immutable; task completion independently chosen, only effective contacted updates freshness, waiver no success credit or regeneration; no email-delivered inference.": "Outcome recorded at/original actor immutable; task completion independently chosen, only effective contacted updates freshness, waiver no success credit or regeneration; no email-delivered inference.",
+    "Supported recordType values: assessment, interview, commitment.": "Supported record type values: assessment, interview, commitment.",
+    "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/FourCs record deletion/retraction command is authorized.": "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/4Cs record deletion/retraction command is authorized.",
+    "Visible information for plant_member: items, personId, matched, returned, completeness, nextCursor, evidence.": "Visible information for plant_member: items, person id, matched, returned, completeness, next cursor, evidence.",
+    "TypedContactHistoryPage and effective confirmed contact freshness": "paged authorized contact history and effective confirmed contact freshness",
+    "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation.": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation.",
+    "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Visible information for plant_member: items, nextCursor, completeness.": "Visible information for plant_member: items, next cursor, completeness.",
+    "Visible information for plant_member: parentTaskId, items, nextCursor, completeness.": "Visible information for plant_member: parent task id, items, next cursor, completeness.",
+    "real child TaskId with own status/history; never BareChecklistId": "Each checklist child is an actual task with its own completion state and history, not a detached checklist item.",
+    "Current same-plant Owner/Admin OR actual child task assignee; parent assignment does not substitute for child assignee; validate exact parent_task_id. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR actual child task assignee; parent assignment does not substitute for child assignee; validate exact parent_task_id. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Visible information for plant_member: items, taskId, evidence, nextCursor, completeness.": "Visible information for plant_member: items, task id, evidence, next cursor, completeness.",
+    "Owner/Admin same plant OR Member current actual assignee for each selected task; evaluate row independently and return exact moved/succeeded/noop/denied/stale/conflict/remaining result. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Owner/Admin same plant OR Member current actual assignee for each selected task; evaluate row independently and return exact moved/succeeded/noop/denied/stale/conflict/remaining result. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Visible information for plant_member: templateId, version, tasks, checklists, relativeDates, existingOfferStatus, exactCopyEffects.": "Visible information for plant_member: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects.",
+    "Visible information for plant_owner: templateId, version, tasks, checklists, relativeDates, existingOfferStatus, exactCopyEffects.": "Visible information for plant_owner: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects.",
+    "Visible information for plant_admin: templateId, version, tasks, checklists, relativeDates, existingOfferStatus, exactCopyEffects.": "Visible information for plant_admin: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects.",
+    "Unique actual transition answer+selected tasks anchored to stored actual transitionLocalDate commit together; no client-selected false anchor, decline no tasks, no partial claim/cookie-only recovery.": "Unique actual transition answer+selected tasks anchored to stored actual transition local date commit together; no client-selected false anchor, decline no tasks, no partial claim/cookie-only recovery.",
+    "one durable answer+exact createdTaskIds or rollback": "one durable answer+exact created task ids or rollback",
+    "Visible information for plant_member: taskId, items, nextCursor, completeness.": "Visible information for plant_member: task id, items, next cursor, completeness.",
+    "Supported obligationKind values: first_vision_follow_up, meeting_evaluation.": "Supported obligation kind values: first_vision_follow_up, meeting_evaluation.",
+    "Caller same transaction only; unique tenant/originMeeting/person/kind, one active managed task; protected origin and persistent waiver prevent replay regeneration, no separate postcommit producer.": "Caller same transaction only; unique tenant/origin meeting/person/kind, one active managed task; protected origin and persistent waiver prevent replay regeneration, no separate postcommit producer.",
+    "reject count/totalOccurrences; count was an unapproved catalog invention, not retained source capability": "reject count/total occurrences; count was an unapproved catalog invention, not retained source capability",
+    "One interval successor/clamp, inclusive untilLocalDate, unique one-open-series. count branch explicitly rejected as catalog invention; stop preserves history.": "One interval successor/clamp, inclusive until local date, unique one-open-series. count branch explicitly rejected as catalog invention; stop preserves history.",
+    "Visible information for plant_member: topLevelTotal, byStatus, byPriority, byCategory, childTaskTotal, childTaskComplete.": "Visible information for plant_member: top level total, by status, by priority, by category, child task total, child task complete.",
+    "Visible information for plant_member: seriesId, openTaskId, occurrenceOrdinal, predecessorTaskId, revision.": "Visible information for plant_member: series id, open task id, occurrence ordinal, predecessor task id, revision.",
+    "Visible information for plant_member: items, description, assigneeAccountId, checklist, prerequisiteIds, obligationId, occurrenceId, revision.": "Visible information for plant_member: items, description, assignee account id, checklist, prerequisite ids, obligation id, occurrence id, revision.",
+    "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Read actual matching private bytes after current resource authorization; protected handle never model/raw credential, no placeholder safeCounts response.": "Read actual matching private bytes after current resource authorization; protected handle never model/raw credential, no placeholder counts-only response.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: documentId, revision, format, byteHash, byteLength, signedDownloadRef, expiresAt.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: document id, revision, format, byte hash, byte length, signed download ref, expires at.",
+    "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, asOf.": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, as of.",
+    "Anonymous static public content pure read; no sealed proof, approval, CommandReceipt or mutation audit.": "Anonymous static public content pure read; no sealed proof, approval, durable operation receipt or mutation audit.",
+    "Supported mimeType values: image/jpeg, image/png, image/webp.": "Supported mime type values: image/jpeg, image/png, image/webp.",
+    "Visible information for organization_owner|organization_admin|organization_member: organizationId, organizationKind, name, contact, profile, revision.": "Visible information for organization_owner|organization_admin|organization_member: organization id, organization kind, name, contact, profile, revision.",
+    "PrivateAvatarOutcome authenticated versioned route; no raw key": "private avatar result authenticated versioned route; no raw key",
+    "Visible information for plant_member: items, status, eventDate, recordedAt, safeAttribution, nextCursor, completeness.": "Visible information for plant_member: items, status, event date, recorded at, safe attribution, next cursor, completeness.",
+    "Visible information for organization_member: items, status, eventDate, recordedAt, safeAttribution, nextCursor, completeness.": "Visible information for organization_member: items, status, event date, recorded at, safe attribution, next cursor, completeness.",
+    "Supported subjectKind values: plant, sending_church, discovery.": "Supported subject kind values: plant, sending_church, discovery.",
+    "Visible information for plant_owner: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation, consentRevision, categoryToggles.": "Visible information for plant_owner: view kind, organization id, organization kind, organization display name, plant id, active affiliation, consent revision, category toggles.",
+    "Visible information for plant_admin: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation, consentRevision, categoryToggles.": "Visible information for plant_admin: view kind, organization id, organization kind, organization display name, plant id, active affiliation, consent revision, category toggles.",
+    "Visible information for plant_member: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation.": "Visible information for plant_member: view kind, organization id, organization kind, organization display name, plant id, active affiliation.",
+    "Visible information for organization_owner: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation, ownCategoryAvailability.": "Visible information for organization_owner: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability.",
+    "Visible information for organization_admin: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation, ownCategoryAvailability.": "Visible information for organization_admin: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability.",
+    "Visible information for organization_member: viewKind, organizationId, organizationKind, organizationDisplayName, plantId, activeAffiliation, ownCategoryAvailability.": "Visible information for organization_member: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability.",
+    "Supported organizationKind values: fixed sending_church, sending_network.": "Supported organization kind values: fixed sending_church, sending_network.",
+    "Fresh exact organization context + existing current relationship/portfolio read predicate for this actual direct plant; role alone or submitted plantId never authorizes. Own derived availability only; no stored consent/revision/all-affiliate projection.": "Fresh exact organization context + existing current relationship/portfolio read predicate for this actual direct plant; role alone or submitted plant id never authorizes. Own derived availability only; no stored consent/revision/all-affiliate projection.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: documentId, owner, revision, name, format, sourceReferences, actualAuthorizedContent, completeness.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: document id, owner, revision, name, format, source references, actual authorized content, completeness.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: items, nextCursor, owner, asOf.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: items, next cursor, owner, as of.",
+    "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: documentId, owner, revision, ready, nonempty, updatedAt, sourceReferences, completeness.": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member: document id, owner, revision, ready, nonempty, updated at, source references, completeness.",
+    "Supported marriageFamily values: steady, strained, struggling.": "Supported marriage family values: steady, strained, struggling.",
+    "Supported expectedState values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded.": "Supported expected state values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded.",
+    "Visible information for plant_member: namedCohortMetrics, datedActivity, safeAttribution, sourceReferences, completeness, nextCursor.": "Visible information for plant_member: named cohort metrics, dated activity, safe attribution, source references, completeness, next cursor.",
+    "Visible information for plant_member: accountKind, exactContext, safeDestination, setupGaps, currentlyAllowedActions.": "Visible information for plant_member: account kind, exact context, safe destination, setup gaps, currently allowed actions.",
+    "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field.": "Two public access forms collect a kind and the declared fields with trimmed, normalized email. The planter form requires name, email, plant_name, city and phase; sending is optional. The network form requires name, email, organization and role; plants and message are optional. The plants field accepts an empty value or up to four decimal digits and stores a supplied count as a number. Optional empty text is omitted. The approved phase choices are 0 · Discovery, 1 · Core group, 2 · Launch team, 3 · Training, 4 · Pre-launch, 5 · Launch Sunday and 6 · Post-launch. A filled website honeypot returns received before field validation without a request, attempt or mail. Invalid fields return invalid with field errors and create no effects. Mail configuration, including the recipient, must be usable before admission. Admission permits five valid attempts per normalized email in a rolling 24-hour window and twenty per IP in a rolling hour. Admitted duplicates and pending retries count as attempts. An unavailable trusted IP uses a shared unknown-IP budget rather than bypassing that axis. Rate limits are checked before duplicate suppression or retry; email is the reason when both limits apply. A refusal stores no request or attempt and sends no mail. An admitted submission stores one early access request with the validated fields and original owner-mail payload. Only an earlier request with a recorded mail receipt suppresses a duplicate within 24 hours for the same normalized email and kind, returning received without another request or email. Provider rejection, timeout, missing provider receipt or failure to save that receipt returns unavailable and leaves the stored request pending. Pending means both mail receipt fields are empty; a stored receipt supplies the provider mail ID and mail time. A pending retry less than 23 elapsed hours old reuses the same row, original payload and provider idempotency key, and returns received only after the mail receipt is saved. At exactly 23 elapsed hours or later, an admitted submission creates a new request with a new provider key and the newly submitted fields; the old pending row remains for retention. A second owner email is acceptable if the earlier delivery was unresolved. Rate limits still apply before this new request. Concurrent callers may repeat HTTP delivery attempts with that same key and payload, but the provider sends one email. Storage or mail failure returns unavailable; the visitor sees the contact fallback and no false success. Operator CSV export is a private command requiring database credentials, with no public export endpoint. It includes every retained request ordered by creation instant and ID, all submitted fields and mail receipt fields. The header has sixteen columns: id, created_at, kind, name, email, plant_name, city, phase, sending, organization, role, plants, message, ip_address, mail_id, mailed_at. Every data cell is quoted, embedded quotes are doubled, rows use CRLF and cells beginning with optional whitespace then =, +, @ or - are prefixed with an apostrophe to prevent spreadsheet formulas. A file export creates a new private file with mode 0600 and refuses to overwrite an existing file. The restricted scheduled job deletes requests strictly older than 12 calendar months, clears stored IP addresses strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours. Exact cutoff rows are retained; a twelve-month boundary request can still have its older IP cleared. No account, CRM record, newsletter or double opt-in is created.",
+    "Supported toStatus values: new, reviewed, resolved, dismissed.": "Supported to status values: new, reviewed, resolved, dismissed.",
+    "Visible information for explicit_platform_administrator: items, nextCursor, privateOriginal, privateOpaqueLocator, triageStatus, publishStatus.": "Visible information for explicit_platform_administrator: items, next cursor, private original, private opaque locator, triage status, publish status.",
+    "Visible information for explicit_platform_administrator: items, nextCursor, safePublicSummary, category, triageStatus, publishStatus.": "Visible information for explicit_platform_administrator: items, next cursor, safe public summary, category, triage status, publish status.",
+    "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback;10 sec timeout.": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback; 10 sec timeout.",
+    "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business CommandReceipt/history requirement.": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business durable operation receipt/history requirement.",
+    "Registered owning domain/consumer only; actual transaction UnitOfWork/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC.": "Registered owning domain/consumer only; actual transaction atomic transaction/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC.",
+    "Actual native self only. Private calendar fields are never an Evry/model DTO/schema/projection. Native privateCalendarMapping may be populated only by separately checked current Owner/Admin original author; ineligible actor receives no private existence flag/metadata.": "Actual native self only. Private calendar fields are never an Evry/model DTO/schema/projection. Native private calendar mapping may be populated only by separately checked current Owner/Admin original author; ineligible actor receives no private existence flag/metadata.",
+    "Owner/Admin same plant OR actual Member still owns exact task/obligation and authored the outcome being corrected. Server resolves contactLogId to outcome source; client cannot choose unrelated source.": "Owner/Admin same plant OR actual Member still owns exact task/obligation and authored the outcome being corrected. Server resolves contact log id to outcome source; client cannot choose unrelated source.",
+    "Owner/Admin same plant OR actual Member still owns exact task/obligation and authored the outcome being corrected. Server resolves contactLogId to outcome source; client cannot choose unrelated source. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Owner/Admin same plant OR actual Member still owns exact task/obligation and authored the outcome being corrected. Server resolves contact log id to outcome source; client cannot choose unrelated source. AND the task assignee account equals actual account id at write time, including checklist parent/child duty.",
+    "Registered follow-up producer in same caller transaction; re-read source outcome kind=contacted, actual valid occurredAt, exact Person/task/obligation and source revision; ordinary completion/attempt/admin/waiver cannot call as contact.": "Registered follow-up producer in same caller transaction; re-read source outcome kind=contacted, actual valid occurred at, exact Person/task/obligation and source revision; ordinary completion/attempt/admin/waiver cannot call as contact.",
+    "Current active authenticated account, including explicit no-seat Discovery or organization account profile. ownerAccountId is trusted self, never submitted.": "Current active authenticated account, including explicit no-seat Discovery or organization account profile. owner account id is trusted self, never submitted.",
+    "Only authoritative own/token/admin reply transaction with verified source receipt/proof; cannot accept model-supplied verifiedResponse/source.": "Only authoritative own/token/admin reply transaction with verified source receipt/proof; cannot accept model-supplied verified response/source.",
+    "Current active authenticated account, including explicit no-seat Discovery or organization account profile. ownerAccountId is trusted self, never submitted. Current exact actual plant recipient required for planter cadence; Discovery can change own categories but not fabricate planter digest.": "Current active authenticated account, including explicit no-seat Discovery or organization account profile. owner account id is trusted self, never submitted. Current exact actual plant recipient required for planter cadence; Discovery can change own categories but not fabricate planter digest.",
+    "Current active authenticated account, including explicit no-seat Discovery or organization account profile. ownerAccountId is trusted self, never submitted. Require actual current plant digest audience and exact current plant context; counts restricted by current assignment/read predicate.": "Current active authenticated account, including explicit no-seat Discovery or organization account profile. owner account id is trusted self, never submitted. Require actual current plant digest audience and exact current plant context; counts restricted by current assignment/read predicate.",
+    "Current exact constrained organization(id,kind) seat plus current contributor affiliation/shared_findings/all underlying category/release predicates; no inherited network grant.": "Current exact constrained organization(id, kind) seat plus current contributor affiliation/shared_findings/all underlying category/release predicates; no inherited network grant.",
+    "Current exact constrained organization(id,kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content. Own authenticated author only; Member feedback allowed only for currently readable finding, never Member refresh/publication.": "Current exact constrained organization(id, kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content. Own authenticated author only; Member feedback allowed only for currently readable finding, never Member refresh/publication.",
+    "Registered current identity/seat/assignment caller; use canonical stored link+current seat, never email equality or model/caller account role. Do not publish raw Person.userId as generic profile DTO.": "Registered current identity/seat/assignment caller; use canonical stored link+current seat, never email equality or model/caller account role. Do not publish raw Person.user id as generic profile DTO.",
+    "Active original account AND current same-plant Owner/Admin seat AND stored.originalAuthorAccountId == actual accountId. Role/title/CRM merges do not transfer authorship; Member/former/revoked author has no normal care access. Native only; no model/tool/audit/log existence disclosure.": "Active original account AND current same-plant Owner/Admin seat AND stored.original author account id == actual account id. Role/title/CRM merges do not transfer authorship; Member/former/revoked author has no normal care access. Native only; no model/tool/audit/log existence disclosure.",
+    "Current same-plant Owner/Admin OR actual task/obligation assigned Member; exact obligation/current task identity, old recurrence-open conflict guarded; retained history. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty.": "Current same-plant Owner/Admin OR actual task/obligation assigned Member; exact obligation/current task identity, old recurrence-open conflict guarded; retained history. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+  },
+  "added_links": [
+    {
+      "requirement": "REQ-COM-011",
+      "operation": "communication.correctContactLog",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-COM-011",
+      "operation": "communication.recordContactFromTask",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-EVR-017",
+      "operation": "calendar.getContext",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-005",
+      "operation": "access.projectRead",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-006",
+      "operation": "account.requestAvatarUpload",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-011",
+      "operation": "plant.previewTimezoneChange",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-011",
+      "operation": "plant.setDigestSchedule",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-012",
+      "operation": "emailSuppression.requestRestore",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-020",
+      "operation": "associations.acceptInvitation",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-IDN-033",
+      "operation": "account.setPersonalTimezone",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-041",
+      "operation": "meetings.listCompletedPreLaunchPractices",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-044",
+      "operation": "meetings.correctPracticeOccurrence",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-KNOW-072",
+      "operation": "documents.purgeOwnedForDeletion",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-009",
+      "operation": "meetings.resolveTokenRsvp",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-010",
+      "operation": "meetings.checkIn",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-010",
+      "operation": "meetings.listAttendance",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-MTG-019",
+      "operation": "meetings.reconcileInvitationResponse",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-NTF-003",
+      "operation": "notifications.markSelectedRead",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PI-021",
+      "operation": "intelligence.requestRefresh",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-006",
+      "operation": "people.getStatusWarnings",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-009",
+      "operation": "people.getHousehold",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-PPL-017",
+      "operation": "people.mergedPersonDestination",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TEAM-005",
+      "operation": "teams.listImportTemplates",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TEAM-007",
+      "operation": "teams.addResponsibility",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-001",
+      "operation": "tasks.get",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-010",
+      "operation": "tasks.acceptPhaseOffer",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-012",
+      "operation": "tasks.eligibleAssignees",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-TSK-012",
+      "operation": "tasks.listFollowUpOwners",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-WIKI-014",
+      "operation": "wiki.organizationArticles.getDraft",
+      "reason": "Attach the preserved operation rules to their matching requirement."
+    },
+    {
+      "requirement": "REQ-ADM-006",
+      "operation": "marketing.exportAccessRequests",
+      "reason": "Phase 4 early access export and scheduled retention, 2026-10-14."
+    },
+    {
+      "requirement": "REQ-ADM-006",
+      "operation": "marketing.expireAccessRequests",
+      "reason": "Phase 4 early access export and scheduled retention, 2026-10-14."
+    }
+  ],
+  "operation_additions": [
+    {
+      "id": "marketing.exportAccessRequests",
+      "requirement": "REQ-ADM-006",
+      "reason": "Phase 4 early access ruling, 2026-10-14; operator CSV export and restricted scheduled retention."
+    },
+    {
+      "id": "marketing.expireAccessRequests",
+      "requirement": "REQ-ADM-006",
+      "reason": "Phase 4 early access ruling, 2026-10-14; operator CSV export and restricted scheduled retention."
+    }
+  ]
+}

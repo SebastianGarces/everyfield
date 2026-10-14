@@ -6,16 +6,17 @@
       "title": "Whole target design and independent review",
       "owner": "Root integration owner",
       "closure": "Current domain/schema/operation/acceptance/packet contracts resolve all reviewed design findings; independent losslessness and whole-plan reviews pass; no substantive open design gap.",
-      "status": "passed-independent-documentation-review",
+      "status": "re-review-required",
       "work_packages": [],
-      "evidence": "docs/verification.json#independent_reviews",
-      "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f"
+      "evidence": "docs/verification.json#current_review",
+      "review_reason": "The 2026-10-14 fix wave changed schema, architecture, catalogs, acceptance cases, package scope, workflow and design handoff inputs. Prior fingerprints are historical provenance; review the corrected current inputs independently.",
+      "prior_reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f"
     },
     {
       "id": "G-AUTH",
       "title": "Implementation kickoff",
       "owner": "Owner",
-      "closure": "Separate explicit implementation authorization for this frozen version; all86packages currently unstarted.",
+      "closure": "Separate explicit implementation authorization for the reviewed frozen version. Package state is recorded only in docs/build-progress.json.",
       "status": "not-authorized",
       "work_packages": []
     },
@@ -35,14 +36,8 @@
       "id": "G-WORKFLOW",
       "title": "Merged development workflow",
       "owner": "Owner-provided external handoff",
-      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric.",
+      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric. Install the real qualified runner and authenticated Intent identity/review receipt adapter; independently review its public verification key and keep the signing key outside agent/worktree access. Configure and verify the main repository remote and required protection. Through one owner-reviewed bootstrap commit, switch evf.config.json from tooling-only verification to the qualified application runner and install the approved first-task proof plans and stack wiring. Independently prove the bootstrap before application workflow execution; simulated local tooling receipts cannot close this gate. Before WP-087 starts, import the reviewed WP-097 completion on main through the bounded fast-track path in the ship skill.",
       "status": "received-reconciliation-required",
-      "work_packages": [
-        "WP-049",
-        "WP-050",
-        "WP-055",
-        "WP-084"
-      ],
       "source": {
         "repository": "/Users/sebastian/dev/everyfield_v3",
         "ref": "refs/heads/main",
@@ -57,13 +52,14 @@
           ".agents/roles/feedback-desk.md"
         ],
         "remote_publication": "unverified; no remote configured"
-      }
+      },
+      "scope": "global"
     },
     {
       "id": "G-SETUP",
-      "title": "Real environment/account and restricted backup setup",
+      "title": "Authorized environment setup, with backup setup before customer data",
       "owner": "Platform/operations",
-      "closure": "Actual project/repository IDs, scoped credentials, paid-account privacy settings and restricted scheduled operator backup invocation are configured only under later authorization; prove no backup keys in ordinary app/build/preview.",
+      "closure": "Actual project/repository IDs, scoped ordinary credentials and approved privacy settings are configured only under applicable authorization. During the build, use Neon and Tigris native seven-day history. Restricted scheduled backup host, encrypted daily copies, dedicated backup keys and current witness sync are deferred to G-RECOVERY before customer data; prove keys absent from ordinary app/build/preview at that gate. Backup machinery is not a build kickoff prerequisite.",
       "status": "future-configuration-proof",
       "work_packages": [
         "WP-003",
@@ -71,7 +67,8 @@
         "WP-049",
         "WP-050",
         "WP-058"
-      ]
+      ],
+      "backup_setup_stage": "before-customer-data"
     },
     {
       "id": "G-RUNTIME",
@@ -88,9 +85,9 @@
     },
     {
       "id": "G-RECOVERY",
-      "title": "Before real customer data",
+      "title": "Before customer data",
       "owner": "DB/file/operations + release owner",
-      "closure": "Measured coherent DB+bytes restore meets ordinary1hRPO/4hRTO; fresh surviving daily24h fallback, current deletion barriers, receipt reconciliation, recoverable scoped keys and provider expiry/cleanup demonstrate accepted boundaries; reviewed privacy disclosure.",
+      "closure": "Before customer data, configure and prove encrypted daily DB-plus-byte copies, expiring daily snapshots, current deletion/access witness sync and the restricted scheduled backup host with recoverable scoped keys excluded from ordinary app/build/preview. Measure coherent restore for ordinary one-hour RPO/four-hour RTO, a fresh surviving accessible daily 24-hour-loss fallback, current pending/cancelled/completed deletion barriers, original seven-day copy expiry, external receipt non-replay and provider cleanup. Review privacy disclosure. During the build rely on native seven-day Neon/Tigris history; this gate does not block building the recovery producers.",
       "status": "future-not-run",
       "work_packages": [
         "WP-037",
@@ -98,10 +95,116 @@
         "WP-056",
         "WP-057",
         "WP-058"
-      ]
+      ],
+      "stage": "before-customer-data"
+    },
+    {
+      "id": "G-LOAD",
+      "title": "Measured scheduler load and fairness",
+      "owner": "Executor/assessment/operations + release owner",
+      "closure": "Measure representative backlog and bursts across tenants and every affected job kind to identify starvation, lag and saturation. Select per-tenant fairness, concurrency/page limits, reserved security/cancellation slots and per-kind alert thresholds from those measurements; prove recovery and owed scan-tail completion across every affected kind. Until then retain finite leases, claim fences, idempotency, bounded retries, durable checkpoints, unknown-outcome reconciliation and safe operator visibility. This gate does not block building the base executor and grants no deployment or spending authority.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-031",
+        "WP-043",
+        "WP-050"
+      ],
+      "stage": "before-production-schedules"
+    },
+    {
+      "id": "G-EARLY-ACCESS",
+      "title": "Early access site go-live",
+      "owner": "Owner and cross-model verifier",
+      "closure": "WP-097 only: normal tests, cross-model review, reviewed access/privacy/terms copy and Sebastian approval of the Vercel preview before production. No signed evf proof. Owner ruling 2026-10-14; product workflow and before-customer-data gates remain separate. Use Vercel everyfield, new Neon everyfield-v3 and Resend; never v2 database values.",
+      "status": "owner-preview-approval-required",
+      "work_packages": [
+        "WP-097"
+      ],
+      "stage": "early-access-go-live",
+      "owner_ruling_date": "2026-10-14"
     }
   ],
-  "owner_product_questions": [],
+  "owner_product_questions": [
+    {
+      "id": "Q-CHARTS",
+      "title": "Chart implementation",
+      "slice": "S0",
+      "work_packages": [
+        "WP-088"
+      ],
+      "owner": "UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose owned SVG components or a chart library before the shared UI package ships.",
+      "recommendation": "Use small owned SVG components; add Visx only if the required chart set exceeds them.",
+      "decision_before": "WP-088 shared chart components"
+    },
+    {
+      "id": "Q-WIKI-EDITOR",
+      "title": "Wiki editor library",
+      "slice": "S0",
+      "work_packages": [
+        "WP-032",
+        "WP-035"
+      ],
+      "owner": "Knowledge editor implementor and UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose Tiptap or Lexical before freezing the sanitized editor-node contract. Prove supported nodes, safe imports and organization/native editing; curated global MDX remains a separate release-validated source.",
+      "recommendation": "Compare both with real supported content before WP-032. Arbitrary executable MDX round-tripping is not required.",
+      "decision_before": "WP-032 editor contract; WP-035 consumes it"
+    },
+    {
+      "id": "Q-SLIDING-HIGHLIGHTS",
+      "title": "Shared sliding highlight",
+      "slice": "S0",
+      "work_packages": [
+        "WP-088"
+      ],
+      "owner": "UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose one shared sliding highlight mechanism before navigation, menus and tabs consume it.",
+      "recommendation": "Use an owned CSS transform mechanism first; add Motion only for a demonstrated benefit.",
+      "decision_before": "WP-088 shared navigation components"
+    },
+    {
+      "id": "Q-GRADIENT-RENDERING",
+      "title": "Gradient rendering cost",
+      "slice": "S5",
+      "work_packages": [
+        "WP-048",
+        "WP-057"
+      ],
+      "owner": "UI designer and integration verifier",
+      "status": "measurement-required",
+      "question": "Keep CSS blur or use pre-rendered tone images after profiling the actual Overview on a low-end laptop.",
+      "recommendation": "Retain the designed treatment until real profiling shows a paint problem.",
+      "decision_before": "WP-057 final UI performance proof"
+    },
+    {
+      "id": "FUTURE-HELP",
+      "title": "Help center",
+      "slice": "future",
+      "work_packages": [],
+      "owner": "Owner",
+      "status": "future-out-of-v3-scope",
+      "question": "Searchable Help center and how-to library are reserved for a future scope decision; retain the design.",
+      "recommendation": "Keep contextual Guide WIKI-008 in v3. Authorize and assign a separate Help feature only in a future plan.",
+      "decision_before": "Any future Help implementation"
+    },
+    {
+      "id": "Q-MARKETING-COPY",
+      "title": "Marketing copy review",
+      "slice": "S0/S3",
+      "work_packages": [
+        "WP-097",
+        "WP-049"
+      ],
+      "owner": "Owner",
+      "status": "owner-review-required",
+      "question": "Review access, privacy and terms copy before WP-097 go-live. Review planters and trust copy before WP-049 publishes those pages; home and oversight copy is already approved.",
+      "recommendation": "Approve the initial collection, retention, vendor and contact disclosures before WP-097 go-live. Keep planters/trust links hidden until their WP-049 copy review, and update product privacy before customer data.",
+      "decision_before": "WP-097 go-live for access/privacy/terms; WP-049 publication for planters/trust; product privacy update before customer data."
+    }
+  ],
   "implementation_tests_run": 0,
   "provider_changes": 0
 }

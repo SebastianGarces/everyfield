@@ -1,6 +1,16 @@
 {
   "version": 2,
   "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "review_status": {
+    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). The copy of the other pages is not yet reviewed.",
+    "home": "look approved, copy approved",
+    "oversight": "look approved, copy approved",
+    "planters": "look approved, copy not yet reviewed",
+    "trust": "look approved, copy not yet reviewed",
+    "access": "look approved, copy not yet reviewed",
+    "privacy": "look approved, copy not yet reviewed",
+    "terms": "look approved, copy not yet reviewed"
+  },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
@@ -41,8 +51,7 @@
           "title": "Who it is for",
           "links": [
             "Planters",
-            "Sending churches and networks",
-            "Coaches"
+            "Sending churches and networks"
           ]
         },
         {
@@ -110,7 +119,7 @@
         "items": [
           {
             "title": "Private means private",
-            "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it."
+            "body": "Your weekly check-in is for you only. Evry and your sending church never see it."
           },
           {
             "title": "You see it first",
@@ -305,11 +314,6 @@
             "a": "Yes. A network can send a plant on its own and assign a sending church at any time."
           },
           {
-            "id": "coaches",
-            "q": "Can coaches use it?",
-            "a": "Yes. Coaches the planter invites can read the plant's records and cannot change anything."
-          },
-          {
             "id": "phase",
             "q": "Does EveryField move a plant to the next phase or rate the planter?",
             "a": "No. The planter sets the phase. EveryField does not change it or grade the planter."
@@ -412,8 +416,7 @@
               "headline": "Stay close to the plant you sent.",
               "body": "See how your plant is doing without asking the planter for another report.",
               "points": [
-                "Phase, health and launch readiness for the plant, when the planter shares them",
-                "Coaches the planter invites can read that plant and change nothing",
+                "Phase, Plant Intelligence findings and launch readiness for the plant, when the planter shares them",
                 "No access to the planter's people or private notes"
               ],
               "cta": "See what sending churches and networks see"
@@ -461,7 +464,7 @@
       "sections": {
         "hero": {
           "headline": "See how every plant you send is doing.",
-          "subhead": "See the phase, health and launch readiness of each plant that shares with you. Never their people.",
+          "subhead": "See the phase, Plant Intelligence findings and launch readiness of each plant that shares with you. Never their people.",
           "cta_primary": "Talk to us about your network",
           "cta_secondary": "I am a planter"
         },
@@ -490,8 +493,8 @@
             },
             {
               "label": "Network",
-              "title": "Health summary",
-              "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first."
+              "title": "Network Intelligence",
+              "body": "Network Intelligence reads the Plant Intelligence findings your plants share and shows patterns across your network. You see a short, careful summary. The planter sees each concern first."
             },
             {
               "label": "Network",
@@ -499,9 +502,9 @@
               "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training."
             },
             {
-              "label": "Coaching",
-              "title": "Coach access",
-              "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything."
+              "label": "Network",
+              "title": "By state or metro area",
+              "body": "Switch between all plants, one state or one metro area, and every number follows."
             },
             {
               "label": "Planter",
@@ -524,7 +527,7 @@
               "headline": "Know where your coaching time matters most.",
               "body": "See every plant on one page and start each week with the ones that need you most.",
               "points": [
-                "Health status for each plant, from one shared rubric",
+                "A Network Intelligence status for each plant that shares, from one network rubric",
                 "Filter by phase, launch date or status",
                 "Sending churches in your network and their plants in one view"
               ],
@@ -536,8 +539,7 @@
               "headline": "Send a planter and stay close.",
               "body": "Your elders can see how the plant is doing without a monthly report.",
               "points": [
-                "Phase, launch date and health for the plants you send",
-                "Invite a coach or step back, as the plant needs",
+                "Phase, launch date and shared Plant Intelligence findings for the plants you send",
                 "Summaries only. The planter's people stay with the planter."
               ],
               "cta": "See what sending churches and networks see"

@@ -5,7 +5,7 @@ Do not edit the table by hand. Change the Inventory in `design/everyfield-ui.htm
 
 ## How to build them
 
-Components live in `packages/ui` (see `docs/architecture/architecture.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
+Components live in `packages/ui` (see `docs/architecture/README.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
 
 Rules that apply to every component:
 
@@ -110,7 +110,7 @@ Rules that apply to every component:
 | Overlays | Settings dialog | `<SettingsDialog section>` | Side nav, Section, Row, Footer (unsaved changes) | deep link per section | Dialog |
 | Overlays | Notification pop-over | `<NotificationPopover>` `<NotificationItem>` | Header, Item (icon, text, time, unread), Footer | unread | Popover |
 | Overlays | User menu | `<UserMenu>` | Identity, View switcher, Links, Sign out | current view | Menu |
-| Domain | Merge review | `<MergeReview>` `<MergeOption>` | Header pair, Field rows, What moves, Blockers | selected · empty | RadioGroup |
+| Domain | Merge review | `<MergeReview>` `<MergeOption>` | Header pair, Field rows, What moves, Blockers, Unmerge preview | selected · empty · unmerged · refused | RadioGroup |
 | Domain | Phase option | `<PhaseOption>` | Number, Name, Description, Check | selected | RadioGroup |
 | Domain | Check-in row and outcome option | `<CheckInRow>` `<OutcomeOption>` | Avatar, Name, Note, Check | here · selected · touch sized (58px) | Toggle, RadioGroup |
 | Domain | Person card | `<PersonCard>` | Avatar, Name, Meta, Footer | selected/dragging | none |

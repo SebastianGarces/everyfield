@@ -6,7 +6,7 @@
       "feature_ids": [
         "ADM-001"
       ],
-      "text": "Authenticated feedback stores original-author/private original, closed category, trimmed nonempty description\u22645000 and bounded canonical page label with occurrence/idempotency key before outward work. Original-author native listOwn/getOwnStatus uses dedicated25row-cursor DTO and current active account, never admin joins or another author. Stored success is distinct from publication/triage/implementation; suspended/deleted author denied.",
+      "text": "The authenticated feedback dialog collects category, description, page, address, church, role, browser, screen size, theme, app version and time, with no screenshot or attachment. Category is bug, suggestion, question or other; trim description to 1–5,000 characters. Page is the displayed page label; address is its internal path with query, fragment and tokens removed, not a postal address or arbitrary external URL. Bind church and role to trusted current account context; keep unavailable details null rather than inventing values. Store the private original, immutable original author, trusted submission time and occurrence/idempotency key before outward work. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text. Native own list/status uses the original authenticated active account and a bounded 25-row cursor projection, without private originals, admin joins or another author. Stored success is distinct from publication, triage or implementation; suspended/deleted authors are denied.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.submit",
@@ -22,6 +22,29 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "title": "Feedback dialog with private page and device details",
+      "behavior_rules": [
+        {
+          "feature": "ADM-001",
+          "rule": "platform privilege requires separate explicit grant"
+        },
+        {
+          "operation": "feedback.getOwnStatus",
+          "rule": "Exact trusted-original-author feedback status, no nullable missing ID/page args or private originals/admin joins/contact/plant IDs/routing."
+        },
+        {
+          "operation": "feedback.listOwn",
+          "rule": "Native own bounded 25 status page; original author current active account, no raw original or other author existence."
+        },
+        {
+          "operation": "feedback.submit",
+          "rule": "The dialog stores category, description and private page/address/church/role/browser/screen/theme/version/time details with a trusted author. Canonicalize the internal address by stripping query, fragment and tokens. No screenshot or attachment is accepted. Stored success is distinct from public publication or implementation; diagnostics never enter the public issue."
+        },
+        {
+          "operation": "feedback.submit",
+          "rule": "Supported category values: bug, suggestion, question, other."
+        }
       ]
     },
     {
@@ -29,7 +52,7 @@
       "feature_ids": [
         "ADM-002"
       ],
-      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expectedrevision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
+      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expected revision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.admin.list",
@@ -45,6 +68,49 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "title": "Platform-wide feedback triage and status transitions",
+      "behavior_rules": [
+        {
+          "operation": "feedback.admin.changeStatus",
+          "rule": "Revisioned exact triage status/no-op/correction with actor/time; external issue close does not mean implemented/resolved/deployed."
+        },
+        {
+          "operation": "feedback.admin.changeStatus",
+          "rule": "Supported to status values: new, reviewed, resolved, dismissed."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Visible information for explicit_platform_administrator: items, next cursor, private original, private opaque locator, triage status, publish status."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Authorized native private original triage"
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Visible information for explicit_platform_administrator: items, next cursor, safe public summary, category, triage status, publish status."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Closed safe public summary/status only; opaque original resolution separately requires actual merged workflow native/private purpose"
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Feedback category filters accept only bug, suggestion, question and other."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Pure trusted authorization guard evaluates actual fresh authenticated immutable-principal explicit platform grant; registered system job alone never becomes human platform admin. Does not mint grant/mutate/audit-success."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Actual active authenticated immutable principal with explicit current platform grant; no model-supplied principal or operator scope."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Stored explicit platform permission, owning exact-purpose operation predicate."
+        }
       ]
     },
     {
@@ -52,7 +118,7 @@
       "feature_ids": [
         "ADM-003"
       ],
-      "text": "Safe automatic feedback issue/triage uses separate PUBLICrepo with private original, frozen sanitized payload/hash/opaque occurrence and durable actual repoID/owner-name snapshot/issueID-number/URL.10second external timeout enters unknown and reconciles same marker in exact destination before retry; inaccessible/ambiguous remains held. Deterministic closed serializer never copies raw private text/IDs/URL/logs, richer publication exact-reviewed; actual merged owner workflow governs routing, no competing rubric/coding authority.",
+      "text": "Safe automatic feedback issue/triage uses separate PUBLIC repo with private original, frozen sanitized payload/hash/opaque occurrence and durable actual repoID/owner-name snapshot/issueID-number/URL.10 second external timeout enters unknown and reconciles same marker in exact destination before retry; inaccessible/ambiguous remains held. Deterministic closed serializer never copies raw private text/IDs/URL/logs, richer publication exact-reviewed; actual merged owner workflow governs routing, no competing rubric/coding authority.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.createConfiguredIssue",
@@ -69,6 +135,17 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "title": "Automatic safe public feedback issues and private operator mail",
+      "behavior_rules": [
+        {
+          "operation": "feedback.notifyOperator",
+          "rule": "Configured actual authorized operator and safe frozen content only, same mail ledger; no raw private original/token/contact body in general notification, unknown mail remains truthful."
+        },
+        {
+          "operation": "feedback.triageIssue",
+          "rule": "Bound registered safe category-label initial triage or owner-provided merged workflow version; no caller arbitrary labels/status, competing complexity rubric or coding/merge/deploy authority. Actual receipts never claim implementation."
+        }
       ]
     },
     {
@@ -91,7 +168,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-048"
-      ]
+      ],
+      "title": "Dashboard routing by identity and onboarding/plant state"
     },
     {
       "id": "REQ-ADM-005",
@@ -115,18 +193,31 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-048"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "dashboard.activity",
+          "rule": "Visible information for plant_member: named cohort metrics, dated activity, safe attribution, source references, completeness, next cursor."
+        },
+        {
+          "operation": "dashboard.availableActions",
+          "rule": "Visible information for plant_member: account kind, exact context, safe destination, setup gaps, currently allowed actions."
+        }
+      ],
+      "title": "Plant metrics, activity feed, quick actions and operational prompts"
     },
     {
       "id": "REQ-ADM-006",
       "feature_ids": [
         "ADM-006"
       ],
-      "text": "Public landing/examples are static synthetic illustrations with claims matching actual target. Invitation request validates normalized email and honeypot; it neither registers nor creates CRM/lead rows. Durable limited purpose-mail intent dedupes normalized email for a 24-hour window; bounded server rate limit 5 requests/address/day plus 20 trusted-IP requests/hour and global provider budget. Honeypot gets fake success; missing recipient/provider error gives contact fallback, not claimed invitation. No newsletter/double-opt-in/lead-management scope.",
+      "text": "The public early access site serves home, oversight, access, privacy and terms. Examples are static synthetic illustrations with claims matching the actual target. Only live pages appear in navigation, sitemap and robots; planters/trust pages and product sign-in links wait for WP-049. Initial reviewed privacy copy names Vercel, Neon and Resend, collection purpose, retention and how to ask for deletion. Two public access forms collect a kind and the declared fields with trimmed, normalized email. The planter form requires name, email, plant_name, city and phase; sending is optional. The network form requires name, email, organization and role; plants and message are optional. The plants field accepts an empty value or up to four decimal digits and stores a supplied count as a number. Optional empty text is omitted. The approved phase choices are 0 · Discovery, 1 · Core group, 2 · Launch team, 3 · Training, 4 · Pre-launch, 5 · Launch Sunday and 6 · Post-launch. A filled website honeypot returns received before field validation without a request, attempt or mail. Invalid fields return invalid with field errors and create no effects. Mail configuration, including the recipient, must be usable before admission. Admission permits five valid attempts per normalized email in a rolling 24-hour window and twenty per IP in a rolling hour. Admitted duplicates and pending retries count as attempts. An unavailable trusted IP uses a shared unknown-IP budget rather than bypassing that axis. Rate limits are checked before duplicate suppression or retry; email is the reason when both limits apply. A refusal stores no request or attempt and sends no mail. An admitted submission stores one early access request with the validated fields and original owner-mail payload. Only an earlier request with a recorded mail receipt suppresses a duplicate within 24 hours for the same normalized email and kind, returning received without another request or email. Provider rejection, timeout, missing provider receipt or failure to save that receipt returns unavailable and leaves the stored request pending. Pending means both mail receipt fields are empty; a stored receipt supplies the provider mail ID and mail time. A pending retry less than 23 elapsed hours old reuses the same row, original payload and provider idempotency key, and returns received only after the mail receipt is saved. At exactly 23 elapsed hours or later, an admitted submission creates a new request with a new provider key and the newly submitted fields; the old pending row remains for retention. A second owner email is acceptable if the earlier delivery was unresolved. Rate limits still apply before this new request. Concurrent callers may repeat HTTP delivery attempts with that same key and payload, but the provider sends one email. Storage or mail failure returns unavailable; the visitor sees the contact fallback and no false success. Operator CSV export is a private command requiring database credentials, with no public export endpoint. It includes every retained request ordered by creation instant and ID, all submitted fields and mail receipt fields. The header has sixteen columns: id, created_at, kind, name, email, plant_name, city, phase, sending, organization, role, plants, message, ip_address, mail_id, mailed_at. Every data cell is quoted, embedded quotes are doubled, rows use CRLF and cells beginning with optional whitespace then =, +, @ or - are prefixed with an apostrophe to prevent spreadsheet formulas. A file export creates a new private file with mode 0600 and refuses to overwrite an existing file. The restricted scheduled job deletes requests strictly older than 12 calendar months, clears stored IP addresses strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours. Exact cutoff rows are retained; a twelve-month boundary request can still have its older IP cleared. No account, CRM record, newsletter or double opt-in is created. The result uses status received, invalid with `fieldErrors`, rate_limited with reason email or ip, or unavailable. Field error codes are required, email, number and too_long. Retention reports `deleted` and `clearedIps`.",
       "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
       "operations": [
         "marketing.requestInvitation",
-        "marketing.readProductExamples"
+        "marketing.readProductExamples",
+        "marketing.exportAccessRequests",
+        "marketing.expireAccessRequests"
       ],
       "acceptance_ids": [
         "AC-ADM-006--ADM-006"
@@ -136,15 +227,22 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049"
-      ]
+        "WP-097"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "marketing.requestInvitation",
+          "rule": "Two public access forms collect a kind and the declared fields with trimmed, normalized email. The planter form requires name, email, plant_name, city and phase; sending is optional. The network form requires name, email, organization and role; plants and message are optional. The plants field accepts an empty value or up to four decimal digits and stores a supplied count as a number. Optional empty text is omitted. The approved phase choices are 0 · Discovery, 1 · Core group, 2 · Launch team, 3 · Training, 4 · Pre-launch, 5 · Launch Sunday and 6 · Post-launch. A filled website honeypot returns received before field validation without a request, attempt or mail. Invalid fields return invalid with field errors and create no effects. Mail configuration, including the recipient, must be usable before admission. Admission permits five valid attempts per normalized email in a rolling 24-hour window and twenty per IP in a rolling hour. Admitted duplicates and pending retries count as attempts. An unavailable trusted IP uses a shared unknown-IP budget rather than bypassing that axis. Rate limits are checked before duplicate suppression or retry; email is the reason when both limits apply. A refusal stores no request or attempt and sends no mail. An admitted submission stores one early access request with the validated fields and original owner-mail payload. Only an earlier request with a recorded mail receipt suppresses a duplicate within 24 hours for the same normalized email and kind, returning received without another request or email. Provider rejection, timeout, missing provider receipt or failure to save that receipt returns unavailable and leaves the stored request pending. Pending means both mail receipt fields are empty; a stored receipt supplies the provider mail ID and mail time. A pending retry less than 23 elapsed hours old reuses the same row, original payload and provider idempotency key, and returns received only after the mail receipt is saved. At exactly 23 elapsed hours or later, an admitted submission creates a new request with a new provider key and the newly submitted fields; the old pending row remains for retention. A second owner email is acceptable if the earlier delivery was unresolved. Rate limits still apply before this new request. Concurrent callers may repeat HTTP delivery attempts with that same key and payload, but the provider sends one email. Storage or mail failure returns unavailable; the visitor sees the contact fallback and no false success. Operator CSV export is a private command requiring database credentials, with no public export endpoint. It includes every retained request ordered by creation instant and ID, all submitted fields and mail receipt fields. The header has sixteen columns: id, created_at, kind, name, email, plant_name, city, phase, sending, organization, role, plants, message, ip_address, mail_id, mailed_at. Every data cell is quoted, embedded quotes are doubled, rows use CRLF and cells beginning with optional whitespace then =, +, @ or - are prefixed with an apostrophe to prevent spreadsheet formulas. A file export creates a new private file with mode 0600 and refuses to overwrite an existing file. The restricted scheduled job deletes requests strictly older than 12 calendar months, clears stored IP addresses strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours. Exact cutoff rows are retained; a twelve-month boundary request can still have its older IP cleared. No account, CRM record, newsletter or double opt-in is created."
+        }
+      ],
+      "title": "Early access site and two access-request forms"
     },
     {
       "id": "REQ-ADM-007",
       "feature_ids": [
         "ADM-007"
       ],
-      "text": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names actual selected vendors, model purpose/terms, immediate normal-access suspension, 30-day private cancellation hold, eligible live purge, \u22647 further days of recovery copies from completed live purge, minimal retained shared attribution and asynchronous/external-copy limits. Disclose shared Tigris provider/account backup risk and no customer recovery SLA. Avoid exact day-37 physical erasure or recalled public/mail/download claims.",
+      "text": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names actual selected vendors, model purpose/terms, immediate normal-access suspension, 30-day private cancellation hold, eligible live purge, ≤7 further days of recovery copies from completed live purge, minimal retained shared attribution and asynchronous/external-copy limits. Disclose shared Tigris provider/account backup risk and no customer recovery SLA. Avoid exact day-37 physical erasure or recalled public/mail/download claims.",
       "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
       "operations": [
         "marketing.privacyPolicy",
@@ -160,6 +258,13 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "title": "Public privacy/terms, static sitemap and robots",
+      "behavior_rules": [
+        {
+          "operation": "marketing.privacyPolicy",
+          "rule": "Anonymous static public content pure read; no sealed proof, approval, durable operation receipt or mutation audit."
+        }
       ]
     },
     {
@@ -168,7 +273,7 @@
         "ADM-001",
         "ADM-003"
       ],
-      "text": "Automatic public feedback serializer outputs only closed category/allowlisted public area/fixed product-summary wording/opaque random occurrence marker. Private original and actual immutable repo+issue locator are separate. Unknown unsafe fields hold; no raw original/title/URL/IDs/names/logs/attachments fallback. Richer exact payload requires authorized publication review; merged workflow handoff governs private triage/routing without granting coding authority.",
+      "text": "Automatic public feedback serializer outputs only closed category/allowlisted public area/fixed product-summary wording/opaque random occurrence marker. Private original and actual immutable repo+issue locator are separate. Unknown unsafe fields hold; no raw original/title/URL/IDs/names/logs/attachments fallback. Richer exact payload requires authorized publication review; merged workflow handoff governs private triage/routing without granting coding authority. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.createConfiguredIssue",
@@ -184,6 +289,20 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "feedback.createConfiguredIssue",
+          "rule": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback; 10 sec timeout."
+        },
+        {
+          "operation": "feedback.createConfiguredIssue",
+          "rule": "Supported state_contract values: pending, held, publishing, published, rejected, unknown."
+        },
+        {
+          "operation": "feedback.reconcileIssueLink",
+          "rule": "Actual exact frozen repo+opaque marker reconciliation records observed issue locator; caller cannot assert created/absent or override repo. Inaccessible/ambiguous search stays unknown; duplicate candidates held for review, no blind create."
+        }
       ]
     },
     {
@@ -208,8 +327,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
-        "WP-031",
         "WP-049",
         "WP-050"
       ]
@@ -232,7 +349,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
         "WP-049"
       ]
     },
@@ -243,7 +359,7 @@
         "ADM-003",
         "ADM-007"
       ],
-      "text": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature.",
+      "text": "Public title/body contains no raw private description or church/user IDs, names/contact details, church records, screenshots/logs or pageURL query tokens. Explicitly reviewed publication of an otherwise withheld item has exact authorized payload/audience provenance; no blanket consent or attachment feature. Church, role, browser, screen size, theme and app version stay in the private original and never appear in a public issue, including reviewed richer text.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -256,9 +372,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -282,8 +396,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049",
-        "WP-050",
-        "WP-056"
+        "WP-091"
       ]
     },
     {
@@ -308,10 +421,9 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050",
-        "WP-056"
+        "WP-091"
       ]
     },
     {
@@ -319,7 +431,7 @@
       "feature_ids": [
         "ADM-001",
         "ADM-003",
-        "EVR-290"
+        "EVR-020"
       ],
       "text": "Reviewed Evry feedback submission shares native domain intake and original-author scope. Named automatic intake/triage does not grant general conversational durable-write autonomy or coding authority. Await owner merged workflow; no competing rubric, repo creation or required public roadmap.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
@@ -348,7 +460,7 @@
         "ADM-002",
         "ADM-003"
       ],
-      "text": "Preserve durable native private feedback/triage and configured safe operator mail. Automatically create safe sanitized issue in a separate PUBLICfeedback repository, persisting actual destination/locator/receipt and truthful failure/unknown. Actual repository identity/configuration still future input, not a visibility choice or rawpublication grant.",
+      "text": "Preserve durable native private feedback/triage and configured safe operator mail. Automatically create safe sanitized issue in a separate PUBLIC feedback repository, persisting actual destination/locator/receipt and truthful failure/unknown. Actual repository identity/configuration still future input, not a visibility choice or raw publication grant.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -361,8 +473,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -372,7 +483,7 @@
         "ADM-003",
         "OPS-009"
       ],
-      "text": "Automatictriage uses safe minimal report and only the actual merged owner development workflow/version for severity/complexity/escalation. Missinghand-off remains explicit; no invented competing rubric or automaticimplementation class.",
+      "text": "Automatictriage uses safe minimal report and only the actual merged owner development workflow/version for severity/complexity/escalation. Missinghand-off remains explicit; no invented competing rubric or automatic implementation class.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -385,10 +496,9 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
         "WP-049",
         "WP-050",
-        "WP-056"
+        "WP-091"
       ]
     },
     {
@@ -397,7 +507,7 @@
         "ADM-003",
         "OPS-009"
       ],
-      "text": "Implementation/PRrouting waits for the actual merged authoritative owner workflow/version. Humanreview and explicit escalation remain; no automaticmerge/deploy or unspecifiedworktree inspection/merge.",
+      "text": "Implementation/PR routing waits for the actual merged authoritative owner workflow/version. Humanreview and explicit escalation remain; no automatic merge/deploy or unspecified worktree inspection/merge.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -411,7 +521,7 @@
       "work_packages": [
         "WP-049",
         "WP-050",
-        "WP-056",
+        "WP-091",
         "WP-058"
       ]
     },
@@ -433,13 +543,10 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-031",
         "WP-049",
-        "WP-050",
         "WP-053",
         "WP-055",
-        "WP-056"
+        "WP-091"
       ]
     },
     {
@@ -447,7 +554,7 @@
       "feature_ids": [
         "OPS-001"
       ],
-      "text": "One authenticated bounded Next/Postgres executor, durable owed work, fairness/lease/fencing/lag/recovery catalog in execution. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+      "text": "One authenticated bounded Next/Postgres executor, durable owed work, lease/fencing/checkpoint/reconciliation/recovery contract in execution; fairness and alert tuning belong to G-LOAD. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "jobs.tickNotifications",
@@ -463,8 +570,34 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-050"
+      ],
+      "title": "External schedules and bounded HTTP job ticks",
+      "behavior_rules": [
+        {
+          "feature": "OPS-001",
+          "rule": "one modular monolith, not one service per operation; these are closed command/query/protocol variants"
+        },
+        {
+          "operation": "jobs.inspectLag",
+          "rule": "Read-only DB-clock observed content-free bounded lag by registered job family; no tenant/body/calendar private-care metadata."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Scoped actual existing registered job/manual recovery only; recheck current fence/expiry and domain retry rules, unknown external reconcile cannot become new-key resend or generic arbitrary executor."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Supported expected state values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Persisted canonical job_state; pending→ready, completed→succeeded, blocked_unknown→reconcile are UI projections only."
+        },
+        {
+          "operation": "jobs.tickAssessments",
+          "rule": "Bounded same-app/Postgres tick with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD"
+        }
       ]
     },
     {
@@ -488,7 +621,22 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "ops.errorCorrelation",
+          "rule": "Pure existing content-free correlation query, no new business mutation or sensitive error/raw stack/body/credential leak."
+        },
+        {
+          "operation": "ops.liveness",
+          "rule": "Public liveness process/time only; no operator scope, DB credentials, tenant evidence or sensitive dependency detail."
+        },
+        {
+          "operation": "ops.readiness",
+          "rule": "Privileged content-free readiness distinguishes actual unavailable dependency/backlog/reference/backup proof; checks read only actual current configuration, never fake empty readiness or claim unconfigured host selected."
+        }
+      ],
+      "title": "Basic health and runtime errors versus dependency readiness"
     },
     {
       "id": "REQ-OPS-003",
@@ -512,7 +660,18 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "ops.flushTelemetry",
+          "rule": "Advisory bounded content-free telemetry sink only; omit prompts/body/bytes/credentials/email/address/private-care existence/calendar/nudge metadata. Sink/flush failure cannot roll back or alter business result; no mandatory domain mutation audit."
+        },
+        {
+          "operation": "ops.flushTelemetry",
+          "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business durable operation receipt/history requirement."
+        }
+      ],
+      "title": "Production Sentry errors and isolated optional Langfuse tracing"
     },
     {
       "id": "REQ-OPS-004",
@@ -534,8 +693,16 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-050"
-      ]
+        "WP-050",
+        "WP-002"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "domain.executeAtomicConsequences",
+          "rule": "Registered owning domain/consumer only; actual transaction atomic transaction/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC."
+        }
+      ],
+      "title": "Atomic domain consequences and durable advisory intents"
     },
     {
       "id": "REQ-OPS-005",
@@ -558,6 +725,21 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
+      ],
+      "title": "Migration generation, journal provenance and safe operator diagnostics",
+      "behavior_rules": [
+        {
+          "operation": "ops.applyVersionedMigration",
+          "rule": "Exact positively identified authorized DB target, protected actual config/credential context, advisory lock/checksum replay; no customer migration/live patch/db:push or submitted manifest creating permission."
+        },
+        {
+          "operation": "ops.inspectMigrationProvenance",
+          "rule": "Pure exact owned environment/journal/checksum inspection, not generic scope or unverified URL/sentinel authority."
+        },
+        {
+          "operation": "ops.schemaValidate",
+          "rule": "Read-only fresh target/migration artifact validation, no db:push/schema writes or runtime acceptance by text/count checks."
+        }
       ]
     },
     {
@@ -581,7 +763,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Development seeds, protected database guard and preserved reference content"
     },
     {
       "id": "REQ-OPS-007",
@@ -605,6 +788,13 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
+      ],
+      "title": "Isolated live database tests and hermetic build/CI checks",
+      "behavior_rules": [
+        {
+          "operation": "qa.hermeticBuild",
+          "rule": "Exact registered actual build/contract/native SQL/vertical suite invocation on positively identified own checkout/test environment; mock/text counts are not behavioral proof. Frozen lock/placeholders, independent services, no unapproved actual provider/mail/model actions."
+        }
       ]
     },
     {
@@ -628,6 +818,17 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
+      ],
+      "title": "Managed local previews, disposable mail and worktree environment",
+      "behavior_rules": [
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Exact purpose-specific registered diagnostic/owned disposable mutation. Actual environment/checkout/identity/config proof trusted context, sentinel alone insufficient; no production identities/credentials, unrelated worktree, spending/provider effect/board mutation absent actual authorization."
+        },
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Verified immutable-principal operator capability for the exact positively identified environment/target and registered operation. Not a plant/org role, ordinary job grant, model hint or submitted manifest; no unapproved spend/provider/configuration."
+        }
       ]
     },
     {
@@ -650,7 +851,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Issue board synchronization and agent workflow tooling"
     },
     {
       "id": "REQ-OPS-010",
@@ -673,7 +875,8 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "title": "Agent setup/hooks, script inventory and native proof tooling"
     },
     {
       "id": "REQ-OPS-011",
@@ -694,7 +897,14 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-050"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "ops.inspectLegacyEvidence",
+          "rule": "Read-only positively identified source/retired runtime diagnostic; no legacy DB mutation/restoration, credential extraction or runtime proof claim."
+        }
+      ],
+      "title": "Read-only retired Evry/database boundary diagnostics"
     }
   ]
 }

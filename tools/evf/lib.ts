@@ -28,22 +28,30 @@ export type Config = {
   maxAgentsMdLines: number;
   stack: StackDef | null;
   checks: CheckDef[];
+  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[]; configChanges?: Array<"stack" | "checks"> }>;
 };
 
 export type Package = {
   id: string;
   title: string;
+  goal: string;
   lane: string;
   domain: string;
   depends_on: string[];
+  ui_depends_on?: string[];
+  root_outputs?: string[];
   estimate_engineer_days: number;
   inputs: string[];
   outputs: string[];
   owning_paths: string[];
   interfaces: string[];
   acceptance_gates: string[];
-  feature_ids: string[];
   integration_rule: string;
+  context_scope: { proof_stage: string };
+  ui_specialist?: 'ui-designer';
+  ui_model?: string;
+  ui_composition_rule?: string;
+  fast_track?: { owner: string; scope: string; checks: string; signed_evf_proof_required: boolean };
 };
 
 export type Dag = {
@@ -58,17 +66,17 @@ export type AcceptanceEntry = {
 };
 export type Catalog = {
   feature_source: string; acceptance_source: string; operation_source: string;
-  requirement_files: string[]; case_files: string[]; current_alias_source: string;
+  requirement_files: string[]; case_files: string[];
 };
 export type Requirement = { id: string; text: string; spec: string };
-export type Case = { id: string; fixture: string; expected: string; work_packages: string[] };
-export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; [key: string]: unknown };
+export type Case = { id: string; description: string; given: Record<string, unknown>; actor: Record<string, unknown>; clock: Record<string, unknown>; action: Record<string, unknown>; expected: Record<string, unknown>; group?: string; subcases?: Array<Record<string, unknown>>; work_packages: string[] };
+export type Context = { id: string; acceptance_ids: string[]; case_ids: string[]; requirement_ids: string[]; own_requirement_ids: string[]; own_case_ids: string[]; [key: string]: unknown };
 
 export type Part = "contract" | "api" | "ui" | null;
 
 export type TaskRef = {
   id: string;
-  kind: "wp" | "fb";
+  kind: "wp" | "fb" | "ops";
   /** Public feedback issue number for FB tasks. */
   issue: number | null;
   /** Work package for WP tasks; empty for FB tasks. */
@@ -134,13 +142,14 @@ export function loadConfig(root: string): Config {
 
 export function loadDag(root: string): Dag {
   const dag = readJson<Dag>(join(root, "docs/plan/dag.json"));
+  if(dag.packages.some(p=>p.fast_track!==undefined&&p.id!=='WP-097'))fail('Only WP-097 may declare fast_track.');
   const by = new Map(dag.packages.map(p => [p.id, p]));
   const visiting = new Set<string>(), done = new Set<string>();
   const visit = (id: string) => {
     if (visiting.has(id)) fail(`Cyclic package dependency at ${id}.`);
     if (done.has(id)) return;
     const p = by.get(id); if (!p) fail(`Unknown prerequisite ${id}.`);
-    visiting.add(id); p.depends_on.forEach(visit); visiting.delete(id); done.add(id);
+    visiting.add(id); [...p.depends_on,...(p.ui_depends_on??[])].forEach(visit); visiting.delete(id); done.add(id);
   };
   dag.packages.forEach(p => visit(p.id));
   return dag;
@@ -150,31 +159,36 @@ export function currentCatalog(root: string): { catalog: Catalog; requirements: 
   const catalog = readJson<Catalog>(join(root, "docs/catalog/index.json"));
   const requirements = new Map(catalog.requirement_files.flatMap(path => readJson<{requirements: Requirement[]}>(join(root,path)).requirements).map(r => [r.id,r]));
   const cases = new Map(catalog.case_files.flatMap(path => readJson<{cases: Case[]}>(join(root,path)).cases).map(r => [r.id,r]));
-  const registry = readJson<AcceptanceEntry[]>(join(root,catalog.acceptance_source));
+  const expanded = run("python3", [join(root,"docs/package-context.py"), "--acceptance", "--root", root], {cwd:root});
+  if (expanded.code !== 0) fail(`Invalid acceptance inventory: ${expanded.stderr || expanded.stdout}`);
+  const registry = JSON.parse(expanded.stdout) as AcceptanceEntry[];
   if (!registry.length || !requirements.size || !cases.size) fail("Empty current context is not a valid implementation contract.");
   for (const entry of registry) {
     for (const id of entry.requirement_ids) if (!requirements.has(id)) fail(`Missing clause ${id} in ${entry.id}.`);
     for (const id of entry.case_ids) if (!cases.has(id)) fail(`Missing case ${id} in ${entry.id}.`);
   }
   // These are current source contracts, even when no operation is selected by this task.
-  for (const path of [catalog.feature_source,catalog.operation_source,catalog.current_alias_source,'docs/catalog/shared-contracts.json','docs/schema/target.json','docs/plan/context-manifest.json']) readJson<unknown>(join(root,path));
+  for (const path of [catalog.feature_source,catalog.operation_source,'docs/catalog/shared-contracts.json','docs/schema/target.json','docs/plan/context-manifest.json']) readJson<unknown>(join(root,path));
   return {catalog,requirements,cases,registry};
 }
 export function loadRegistry(root: string): AcceptanceEntry[] { return currentCatalog(root).registry; }
-export function packageContext(root: string, wp: string): Context {
+export function loadContexts(root: string): Context[] {
   currentCatalog(root);
   const check = run("python3", ["docs/package-context.py", "--check-manifest", "--root", root], {cwd:root});
   if (check.code !== 0) fail(`Invalid current package context: ${check.stderr || check.stdout}`);
   const manifest = readJson<{packages: Context[]}>(join(root,"docs/plan/context-manifest.json"));
-  const context = manifest.packages.find(p => p.id === wp);
+  return manifest.packages;
+}
+export function packageContext(root: string, wp: string): Context {
+  const context = loadContexts(root).find(p => p.id === wp);
   if (!context) fail(`No current context for ${wp}.`);
   return context;
 }
 /** Pin every committed policy/context byte; proof artifacts remain outside the checkout. */
-export function contractFingerprint(root: string): string {
-  const files = git(root,"ls-files","-z").split("\0").filter(p => p === 'AGENTS.md' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
+export function contractFingerprint(root: string, omit: (path: string) => boolean = () => false, config?: Config): string {
+  const files = git(root,"ls-files","-z").split("\0").filter(p => p !== 'docs/build-progress.json' && p !== 'docs/.build-progress.lock').filter(p => p === 'AGENTS.md' || p === 'bin/evf' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
   const hash = createHash('sha256');
-  for (const path of files) hash.update(path+'\0').update(readFileSync(join(root,path))).update('\0');
+  for (const path of files.filter(p => !omit(p))) hash.update(path+'\0').update(path === 'evf.config.json' && config ? JSON.stringify(config) : readFileSync(join(root,path))).update('\0');
   return hash.digest('hex');
 }
 
@@ -185,13 +199,15 @@ export function loadProgress(root: string): Record<string, { status: string }> {
 
 export function parseTask(raw: string | undefined): TaskRef {
   if (!raw) fail("Give a task ID, for example WP-022, WP-022/ui or FB-12.");
+  const ops = /^OPS-([1-9]\d*)$/i.exec(raw.trim());
+  if (ops) return { id: `OPS-${ops[1]}`, kind: 'ops', issue: null, wp: '', part: null, slug: `ops-${ops[1]}`, branch: `task/ops-${ops[1]}` };
   const fb = /^FB-(\d+)$/i.exec(raw.trim());
   if (fb) {
     const n = Number(fb[1]);
     return { id: `FB-${n}`, kind: "fb", issue: n, wp: "", part: null, slug: `fb-${n}`, branch: `task/fb-${n}` };
   }
   const m = /^(WP-\d{3})(?:\/(contract|api|ui))?$/i.exec(raw.trim());
-  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, or FB-<issue>.`);
+  if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, FB-<issue> or OPS-<n>.`);
   const wp = m[1].toUpperCase();
   const part = (m[2]?.toLowerCase() ?? null) as Part;
   const slug = part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
@@ -204,7 +220,7 @@ export function findPackage(dag: Dag, wp: string): Package {
   return p;
 }
 
-export const isUiPath = (p: string) => p.startsWith("apps/web/src/features/") || p.startsWith("apps/web/src/components/") || (p.startsWith("apps/web/src/app/") && !p.startsWith("apps/web/src/app/api/")) || p.startsWith("tests/browser/");
+export const isUiPath = (p: string) => p.startsWith("apps/web/src/features/") || p.startsWith("apps/web/src/components/") || (p.startsWith("apps/web/src/app/") && !p.startsWith("apps/web/src/app/api/")) || p.startsWith("tests/browser/") || p.startsWith("packages/ui/") || p.startsWith("tests/ui/");
 const isContract = (p: string) => p.startsWith("packages/contracts/") || p.startsWith("tests/contracts/");
 
 /** Splits a package into the parts that ship as separate tasks. */
@@ -222,11 +238,17 @@ export function partsOf(pkg: Package): Part[] {
 
 export function pathsForPart(pkg: Package, part: Part): string[] {
   const parts = partsOf(pkg);
-  if (part === null) return pkg.owning_paths;
+  if (part === null) return [...pkg.owning_paths,...(pkg.root_outputs??[])];
   if (!parts.includes(part)) fail(`${pkg.id} does not split into a "${part}" task. Valid: ${parts.map((p) => p ?? "(none)").join(", ")}.`);
   if (part === "ui") return pkg.owning_paths.filter(isUiPath);
   if (part === "contract") return pkg.owning_paths.filter(isContract);
   return pkg.owning_paths.filter((p) => !isUiPath(p) && (parts.includes("contract") ? !isContract(p) : true));
+}
+
+/** Design milestones gate only presentation; server/contracts can proceed independently. */
+export function prerequisitesForPart(pkg: Package, part: Part): string[] {
+  const ui = part === "ui" || part === null && pkg.owning_paths.some(isUiPath);
+  return [...pkg.depends_on, ...(ui ? pkg.ui_depends_on ?? [] : [])];
 }
 
 export function hasRemote(root: string, cfg: Config): boolean {

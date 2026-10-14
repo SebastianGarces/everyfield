@@ -4,14 +4,18 @@
 Reads the :root and [data-theme="dark"] token blocks and the gradient-card
 tones from design/everyfield-ui.html and writes design/handoff/tokens.css.
 Also writes the brand mark and wordmark to design/handoff/assets/ as SVG,
-and components.md from the prototype's Inventory table. The --check mode also
-confirms that every prototype route is listed in screens.md.
+components.md from the prototype's Inventory table, and fills empty screen-map
+ownership cells from the feature catalog. The --check mode also
+confirms that every prototype route is listed in screens.md, that every feature
+with a route in docs/catalog/features.json has a status in the screen-to-feature
+map, and that each not-drawn row names only packages that own one of its features.
 
 Usage:
   python3 design/handoff/export.py          # write all generated files
   python3 design/handoff/export.py --check  # fail if any output is stale
 """
 import html as htmllib
+import json
 import re
 import sys
 from pathlib import Path
@@ -173,7 +177,7 @@ Do not edit the table by hand. Change the Inventory in `design/everyfield-ui.htm
 
 ## How to build them
 
-Components live in `packages/ui` (see `docs/architecture/architecture.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
+Components live in `packages/ui` (see `docs/architecture/README.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
 
 Rules that apply to every component:
 
@@ -220,23 +224,95 @@ def routes(html):
     return out
 
 
+FEATURES = HERE.parent.parent / "docs" / "catalog" / "features.json"
+ID = re.compile(r"\b((?:REQ-)?[A-Z]+-\d{3})(?: to ([A-Z]+-\d{3}))?")
+
+
+STATUSES = ("designed", "not designed", "future feature")
+
+
+def expand(text):
+    ids = []
+    for first, last in ID.findall(text):
+        if not last:
+            ids.append(first)
+            continue
+        prefix, start = first.rsplit("-", 1)
+        ids += [f"{prefix}-{n:03d}" for n in range(int(start), int(last.rsplit("-", 1)[1]) + 1)]
+    return ids
+
+
+def screen_owners(screens):
+    """Fill missing owners from the catalog, preserving annotated owner cells."""
+    features = {f["id"]: f for f in json.loads(FEATURES.read_text(encoding="utf-8"))}
+    start, end = screens.find("## Screen-to-feature map"), screens.find("## Design system pages")
+    if start < 0 or end < 0:
+        return screens
+    rows = []
+    for line in screens[start:end].splitlines(keepends=True):
+        cells = line.split("|")
+        if line.startswith("|") and len(cells) == 6 and not cells[3].strip():
+            ids = [i for i in expand(cells[2]) if i in features]
+            owners = sorted({wp for i in ids for wp in features[i]["work_packages"]})
+            cells[3] = " " + (", ".join(owners) if owners else "none in v3") + " "
+            line = "|".join(cells)
+        rows.append(line)
+    return screens[:start] + "".join(rows) + screens[end:]
+
+
+def feature_map(screens):
+    """Return problems in the screen-to-feature map compared with the catalog."""
+    features = {f["id"]: f for f in json.loads(FEATURES.read_text(encoding="utf-8"))}
+    start, end = screens.find("## Screen-to-feature map"), screens.find("## Design system pages")
+    if start < 0 or end < 0:
+        return ["screens.md has no screen-to-feature map"]
+    mapped, problems = set(), []
+    for line in screens[start:end].splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not line.startswith("|") or len(cells) < 3 or set(cells[1]) <= set("-") or cells[-1] == "Status":
+            continue
+        ids = [i for i in expand(cells[1]) if not i.startswith("REQ-")]
+        unknown = [i for i in ids if i not in features]
+        if unknown:
+            problems.append(f"unknown feature IDs in map row '{cells[0]}': {', '.join(unknown)}")
+        routed = [i for i in ids if i in features and features[i]["routes"]]
+        if routed and not re.match(r"(?:not designed|designed)\b", cells[-1]):
+            problems.append(f"routed features {', '.join(routed)} have invalid status '{cells[-1]}' in map row '{cells[0]}'; use designed or not designed")
+        elif not cells[-1].startswith(STATUSES):
+            problems.append(f"map row '{cells[0]}' has status '{cells[-1]}'; start it with one of: {', '.join(STATUSES)}")
+        mapped.update(ids)
+        if len(cells) == 4:
+            owners = {wp for i in ids if i in features for wp in features[i]["work_packages"]}
+            extra = [wp for wp in expand(cells[2]) if wp not in owners]
+            if extra:
+                problems.append(f"map row '{cells[0]}' names packages that own none of its features: {', '.join(extra)}")
+    missing = sorted(k for k, f in features.items() if f["routes"] and k not in mapped)
+    if missing:
+        problems.append("routed features with no status in the screen-to-feature map: " + ", ".join(missing))
+    return problems
+
+
 def main():
     html = SOURCE.read_text(encoding="utf-8")
     comp_md, comp_count = components(html)
     outputs = {TARGET: render(html), **symbols(html), COMPONENTS: comp_md}
+    screens = SCREENS.read_text(encoding="utf-8") if SCREENS.exists() else ""
+    outputs[SCREENS] = screen_owners(screens)
     if "--check" in sys.argv:
         stale = [p.name for p, text in outputs.items() if not p.exists() or p.read_text(encoding="utf-8") != text]
-        screens = SCREENS.read_text(encoding="utf-8") if SCREENS.exists() else ""
         missing = [r for r in routes(html) if f"`{r}`" not in screens]
-        if stale or missing:
+        map_problems = feature_map(screens)
+        if stale or missing or map_problems:
             if stale:
                 print("Out of date: " + ", ".join(stale) + ". Run: python3 design/handoff/export.py")
             if missing:
                 print("Routes missing from screens.md: " + ", ".join(missing))
+            for problem in map_problems:
+                print("Screen map: " + problem)
             return 1
         print(f"Up to date: tokens.css ({outputs[TARGET].count('--ef-')} --ef- references), "
               f"{len(SYMBOLS)} brand assets, components.md ({comp_count} components), "
-              f"screens.md ({len(routes(html))} routes).")
+              f"screens.md ({len(routes(html))} routes, every routed feature mapped).")
         return 0
     ASSETS.mkdir(exist_ok=True)
     for path, text in outputs.items():

@@ -9,10 +9,10 @@
       "text": "Retain custom/predefined teams with name, description, icon, forming/active/paused states, current leader and staffing counts. Stable templateKey survives rename; name is never template identity. Tenant-scoped lists and team tabs use live membership rather than drifting filled flags. Paused differs from archived. Custom setup and empty states remain usable without accepting a template. Current read-only role receives no mutation controls; server policy remains authoritative.",
       "spec": "docs/product/teams-training.md#req-team-001",
       "operations": [
-        "teams.listTeams",
-        "teams.getTeam",
-        "teams.createTeam",
-        "teams.updateTeam"
+        "teams.list",
+        "teams.get",
+        "teams.create",
+        "teams.edit"
       ],
       "acceptance_ids": [
         "AC-TEAM-001--TEAM-001"
@@ -25,7 +25,26 @@
       ],
       "work_packages": [
         "WP-017"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.create",
+          "rule": "null (only immutable reviewed canonical import may set)"
+        },
+        {
+          "operation": "teams.get",
+          "rule": "Visible information for plant_member: items, sections, revision, evidence."
+        },
+        {
+          "operation": "teams.get",
+          "rule": "Supported sections values: profile, roles, roster, responsibilities, training."
+        },
+        {
+          "operation": "teams.get",
+          "rule": "Single current authorized team details or unavailable; no page/scalar substitution"
+        }
+      ],
+      "title": "Ministry teams and staffing"
     },
     {
       "id": "REQ-TEAM-002",
@@ -35,10 +54,10 @@
       "text": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under expected revision commits current row plus before/after actor/reason history and material revision; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
       "spec": "docs/product/teams-training.md#req-team-002",
       "operations": [
-        "teams.archiveTeam",
-        "teams.restoreTeam",
-        "teams.correctTeam",
-        "teams.listTeamCorrections"
+        "teams.archive",
+        "teams.restore",
+        "teams.correct",
+        "teams.history"
       ],
       "acceptance_ids": [
         "AC-TEAM-002--TEAM-002"
@@ -51,18 +70,25 @@
       ],
       "work_packages": [
         "WP-016"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.correct",
+          "rule": "Supported state values: forming, active, paused?."
+        }
+      ],
+      "title": "Archive, restore and correct teams"
     },
     {
       "id": "REQ-TEAM-003",
       "feature_ids": [
         "TEAM-003"
       ],
-      "text": "Retain ten predefined ministry templates and separately selected role catalog through the versioned immutable reference manifest. Preview independently chosen ministries and roles, exact rows and edit able destination choices. Skip/cancel/no selection and all reads create zero structure. Permit later additional selected roles after partial/custom setup; custom same name is never auto-conflated. Unique tenant/templateKey prevents renamed-template duplicates. Reviewed import validates every key/version/authority, creates selected teams/roles/responsibilities and receipt together or explicitly resumes named missing rows under one intent; response loss/retry/concurrent winner never duplicates. Existing customization/occupied leadership survives. Disclosed eligible Owner lead/Senior Pastor assignment uses ordinary selected vacant role only, with no entire automatic template import.",
+      "text": "Retain ten predefined ministry templates and separately selected role catalog through the versioned immutable reference manifest. Preview independently chosen ministries and roles, exact rows and editable destination choices. Skip/cancel/no selection and all reads create zero structure. Permit later additional selected roles after partial/custom setup; custom same name is never auto-conflated. Unique tenant/templateKey prevents renamed-template duplicates. Reviewed import validates every key/version/authority, creates selected teams/roles/responsibilities and receipt together or explicitly resumes named missing rows under one intent; response loss/retry/concurrent winner never duplicates. Existing customization/occupied leadership survives. Disclosed eligible Owner lead/Senior Pastor assignment uses ordinary selected vacant role only, with no entire automatic template import.",
       "spec": "docs/product/teams-training.md#req-team-003",
       "operations": [
         "teams.previewTemplateImport",
-        "teams.importSelectedTemplates"
+        "teams.initialize"
       ],
       "acceptance_ids": [
         "AC-TEAM-003--TEAM-003"
@@ -75,7 +101,18 @@
       ],
       "work_packages": [
         "WP-017"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.previewTemplateImport",
+          "rule": "Visible information for plant_owner: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
+        },
+        {
+          "operation": "teams.previewTemplateImport",
+          "rule": "Visible information for plant_admin: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
+        }
+      ],
+      "title": "Initialize predefined teams and roles"
     },
     {
       "id": "REQ-TEAM-004",
@@ -85,9 +122,8 @@
       "text": "Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Parent/team-before-role/member locking makes assignment/vacate/retire/access-removal races coherent, with history and source revision in the same transaction.",
       "spec": "docs/product/teams-training.md#req-team-004",
       "operations": [
-        "teams.assignLeader",
-        "teams.removeLeader",
-        "teams.searchLeaderCandidates"
+        "teams.appointLeader",
+        "teams.leaderCandidates"
       ],
       "acceptance_ids": [
         "AC-TEAM-004--TEAM-004"
@@ -100,7 +136,18 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.leaderCandidates",
+          "rule": "Visible information for plant_member: items, person id, active assignments, recorded training, overload warning, completeness."
+        },
+        {
+          "operation": "teams.appointLeader",
+          "rule": "appointment removal/history without seat or earned-training loss"
+        }
+      ],
+      "title": "Appoint and synchronize team leaders"
     },
     {
       "id": "REQ-TEAM-005",
@@ -111,9 +158,10 @@
       "spec": "docs/product/teams-training.md#req-team-005",
       "operations": [
         "teams.createRole",
-        "teams.updateRole",
+        "teams.editRole",
         "teams.retireRole",
-        "teams.listRoles"
+        "teams.listRoles",
+        "teams.listImportTemplates"
       ],
       "acceptance_ids": [
         "AC-TEAM-005--TEAM-005"
@@ -127,6 +175,31 @@
       ],
       "work_packages": [
         "WP-017"
+      ],
+      "title": "Team roles and template import",
+      "operation_refs": [
+        {
+          "operation_id": "teams.listImportTemplates",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.editRole",
+          "rule": "A role may have an explicit saved set of distinct ministry areas: worship, childrens, assimilation, small_groups, admin_finance, facilities, promotion and technology. An empty set clears the mapping. Never infer it from the role name; Prayer remains separate and is not a ninth area."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Changing a role's ministry areas requires the current mapping revision."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministry area keys. Original mapping revision/history retained."
+        },
+        {
+          "operation": "teams.listImportTemplates",
+          "rule": "Visible information for plant_member: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
+        }
       ]
     },
     {
@@ -154,6 +227,13 @@
       ],
       "work_packages": [
         "WP-017"
+      ],
+      "title": "Membership, role occupancy and tenure history",
+      "behavior_rules": [
+        {
+          "operation": "teams.reactivateMembership",
+          "rule": "Append new tenure episode with one active occupant; prior dates/history retained, no automatic People demotion or earned-training reset."
+        }
       ]
     },
     {
@@ -166,10 +246,11 @@
       "operations": [
         "teams.listResponsibilities",
         "teams.previewResponsibilities",
-        "teams.acceptResponsibilities",
-        "teams.updateResponsibility",
-        "teams.setResponsibilityComplete",
-        "teams.removeResponsibility"
+        "teams.offerResponsibilities",
+        "teams.editResponsibility",
+        "teams.completeResponsibility",
+        "teams.deleteResponsibility",
+        "teams.addResponsibility"
       ],
       "acceptance_ids": [
         "AC-TEAM-007--TEAM-007"
@@ -182,6 +263,27 @@
       ],
       "work_packages": [
         "WP-018"
+      ],
+      "title": "Team responsibilities",
+      "operation_refs": [
+        {
+          "operation_id": "teams.addResponsibility",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.addResponsibility",
+          "rule": "Membership/role/training history retained; no implicit roster-based training applicability recompute."
+        },
+        {
+          "operation": "teams.offerResponsibilities",
+          "rule": "Explicit offer answer+only reviewed selected structured lines once; preview/read zero writes, changed/deleted/declined never resurrect."
+        },
+        {
+          "operation": "teams.previewResponsibilities",
+          "rule": "Visible information for plant_member: exact structured lines, current customizations, accepted or declined offer state, template version, preview digest, proposed created count."
+        }
       ]
     },
     {
@@ -194,7 +296,7 @@
       "operations": [
         "teams.listTraining",
         "teams.createProgram",
-        "teams.updateProgram",
+        "teams.correctProgram",
         "teams.attestCompletion",
         "teams.trainingMatrix",
         "teams.personTraining",
@@ -213,6 +315,37 @@
       ],
       "work_packages": [
         "WP-019"
+      ],
+      "title": "Training programs, assignments and completion",
+      "behavior_rules": [
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Human earned completion and attributable verifier/version/date history in one transaction; current program team leader may attest eligible own-team member, churchwide Owner/Admin only. Completion never creates applicability from a dynamic roster."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "A team-scoped training program requires the authorized team; a churchwide program has no team."
+        },
+        {
+          "operation": "teams.trainingMatrix",
+          "rule": "Visible information for plant_member: rows, applicable pair count, valid completed pair count, coverage status, source revision, next cursor, completeness."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        }
       ]
     },
     {
@@ -225,8 +358,8 @@
       "operations": [
         "teams.correctProgram",
         "teams.revokeCompletion",
-        "teams.redoCompletion",
-        "teams.listTrainingHistory"
+        "teams.recompleteTraining",
+        "teams.trainingHistory"
       ],
       "acceptance_ids": [
         "AC-TEAM-009--TEAM-009"
@@ -240,6 +373,33 @@
       ],
       "work_packages": [
         "WP-019"
+      ],
+      "title": "Correct, revoke and redo training",
+      "behavior_rules": [
+        {
+          "operation": "teams.correctProgram",
+          "rule": "team id/kind changes rejected; never convert archived team program into churchwide"
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "The completion date is required when redoing training and omitted when revoking completion."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Revoke/redo appends earned/revoked/corrected history, no original date/verifier overwrite; current nonrevoked compatible projection changes."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.correctProgram",
+          "rule": "program correction receipt, no silent roster recompute"
+        }
       ]
     },
     {
@@ -250,9 +410,9 @@
       "text": "Person views show distinct current team assignments, multiple-role detail, dated former tenure and earned/revoked training independently of current applicability. Archived/retired teams are labelled historical and excluded from current counts; earned completion is not erased. Candidate selection/search is bounded and database-backed, including Person 101. Links recheck exact current Person/team permission and do not grant account authority.",
       "spec": "docs/product/teams-training.md#req-team-010",
       "operations": [
-        "teams.getPersonTeams",
-        "teams.getTeamCountsForPeople",
-        "teams.getPersonTraining"
+        "teams.personAssignments",
+        "teams.personTeamCounts",
+        "teams.personTraining"
       ],
       "acceptance_ids": [
         "AC-TEAM-010--TEAM-010"
@@ -266,7 +426,14 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.personTeamCounts",
+          "rule": "Visible information for plant_member: items, source revision."
+        }
+      ],
+      "title": "Person team assignments and training"
     },
     {
       "id": "REQ-TEAM-011",
@@ -276,9 +443,9 @@
       "text": "Staffing measures occupied configured slots/slots; team attendance uses distinct actually attended relevant members against preserved historical distinct-member roster, not repeated-role rows or extra guests, over last 4 completed team meetings. Required training uses REQ-TEAM-016. Composite retains 40/35/25% staffing/training/attendance; absent required input means Unknown with no available-component reweighting. Measured zero differs from missing/not-applicable; empty configuration is not 100%. Staffing<40 red,<60 yellow and attendance<50 yellow remain. Exclude archived/inactive/pending from current operational measures while retaining dated historical basis and paused distinction; aggregate reports measured-team denominator. On-demand query, no invented weekly health job/leader alert or phase gate.",
       "spec": "docs/product/teams-training.md#req-team-011",
       "operations": [
-        "teams.readStaffing",
-        "teams.readHealth",
-        "teams.readAggregateHealth"
+        "teams.staffingFacts",
+        "teams.health",
+        "teams.aggregateHealth"
       ],
       "acceptance_ids": [
         "AC-TEAM-011--TEAM-011"
@@ -292,6 +459,13 @@
       ],
       "work_packages": [
         "WP-019"
+      ],
+      "title": "Team and aggregate staffing health",
+      "behavior_rules": [
+        {
+          "operation": "teams.aggregateHealth",
+          "rule": "Visible information for plant_member: measured team count, unknown team count, operational team count, measured scores, summary, source revision."
+        }
       ]
     },
     {
@@ -302,9 +476,8 @@
       "text": "Preserve all-team and single-team responsive chart, pan, visible leaders/roles/vacancies and identical legible SVG/PDF exports, with long/unbroken-name wrapping in shared drawing model. Leadership template is the fixed root, other teams children; labels say organization view, not formal reporting hierarchy. Current default excludes archived with explicit labelled inclusion option. Tenant DTO excludes raw contact/account/storage IDs and unsafe markup; exports reauthorize current scope. Dormant reports To data does not create hierarchy editing.",
       "spec": "docs/product/teams-training.md#req-team-012",
       "operations": [
-        "teams.getOrganizationView",
-        "teams.exportOrganizationSvg",
-        "teams.exportOrganizationPdf"
+        "teams.orgChart",
+        "teams.exportOrgChart"
       ],
       "acceptance_ids": [
         "AC-TEAM-012--TEAM-012"
@@ -317,7 +490,38 @@
       ],
       "work_packages": [
         "WP-017"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "Visible information for plant_owner: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
+        },
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "Visible information for plant_admin: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
+        },
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "Visible information for plant_member: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
+        },
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "Supported format values: view, svg, pdf."
+        },
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "actual PDF bytes/source revision, same names/vacancies/wrapping"
+        },
+        {
+          "operation": "teams.exportOrgChart",
+          "rule": "legible actual SVG bytes/source revision; file-persistence wrapper requires exact reviewed artifact effect"
+        },
+        {
+          "operation": "teams.orgChart",
+          "rule": "fixed Leadership-root organization view, no reporting editor"
+        }
+      ],
+      "title": "Organization chart from team hierarchy"
     },
     {
       "id": "REQ-TEAM-013",
@@ -329,7 +533,7 @@
       "operations": [
         "teams.scheduleMeeting",
         "teams.listMeetings",
-        "meetings.recordAttendance"
+        "meetings.setAttendance"
       ],
       "acceptance_ids": [
         "AC-TEAM-013--TEAM-013"
@@ -342,14 +546,21 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.scheduleMeeting",
+          "rule": "Supported subtype values: regular, training, planning, special, rehearsal."
+        }
+      ],
+      "title": "Team meetings and training sessions"
     },
     {
       "id": "REQ-TEAM-014",
       "feature_ids": [
         "TEAM-006"
       ],
-      "text": "Background-check tracking and children\u2019s roster status display are excluded, including renamed-template lookup, imports/exports and assistant fields. Unimplemented child ratios/curriculum/rooms/acknowledgments, worship songs/rotations, inventory and apprenticeship remain outside current build. Generic desired-skills and advisory overload stay under TEAM-005/006; no software safety-clearance inference is introduced.",
+      "text": "Background-check tracking and children’s roster status display are excluded, including renamed-template lookup, imports/exports and assistant fields. Unimplemented child ratios/curriculum/rooms/acknowledgments, worship songs/rotations, inventory and apprenticeship remain outside current build. Generic desired-skills and advisory overload stay under TEAM-005/006; no software safety-clearance inference is introduced.",
       "spec": "docs/product/teams-training.md#req-team-014",
       "operations": [],
       "acceptance_ids": [
@@ -366,10 +577,10 @@
       "feature_ids": [
         "TEAM-015"
       ],
-      "text": "Active role assignment advances only core_group\u2192launch_team; qualifying ordinary ministry leadership advances only launch_team\u2192leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
+      "text": "Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
       "spec": "docs/product/teams-training.md#req-team-015",
       "operations": [
-        "teams.applyMembershipEffects"
+        "teams.assignmentEffects"
       ],
       "acceptance_ids": [
         "AC-TEAM-015--TEAM-015"
@@ -382,7 +593,14 @@
       ],
       "work_packages": [
         "WP-019"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.assignmentEffects",
+          "rule": "bounded internal processing result/material source revision in producer transaction"
+        }
+      ],
+      "title": "Team assignment consequences"
     },
     {
       "id": "REQ-TEAM-016",
@@ -393,7 +611,7 @@
         "TEAM-010",
         "TEAM-011"
       ],
-      "text": "Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Persist `training_assignment_episode` with person, program, requirement version, current state/effective dates and reviewed selection manifest; `training_assignment_event` records add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and source revision atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same receipt.\n\nMeasure distinct current applicable person/program obligations with valid nonrevoked compatible completion evidence. Assignment does not mean completion; unassigned earned completions do not increase the numerator. Complete means 100% of applicable obligations. Missing applicability, unavailable reads, or an empty required-evidence set is Unknown, never 100%. Removed assignments retain prior roster and earned/revoked/corrected history. People tabs, team matrix/health, plant training lens and advisory phase guidance use the same projection/asOf/revision. Historical assessments retain their recorded roster/version.",
+      "text": "Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Persist `training_assignment` with person, program, requirement version, current state/effective dates and reviewed selection manifest; `event` records add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and source revision atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same receipt.\n\nMeasure distinct current applicable person/program obligations with valid nonrevoked compatible completion evidence. Assignment does not mean completion; unassigned earned completions do not increase the numerator. Complete means 100% of applicable obligations. Missing applicability, unavailable reads, or an empty required-evidence set is Unknown, never 100%. Removed assignments retain prior roster and earned/revoked/corrected history. People tabs, team matrix/health, plant training lens and advisory phase guidance use the same projection/asOf/revision. Historical assessments retain their recorded roster/version.",
       "spec": "docs/product/teams-training.md#req-team-016",
       "operations": [
         "teams.previewRequiredTrainingParticipants",
@@ -416,12 +634,32 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
-        "WP-004",
         "WP-019",
         "WP-040",
         "WP-069",
         "WP-070"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_owner: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_admin: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.readRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: person program pairs, effective date, assignment version, source references."
+        },
+        {
+          "operation": "teams.setRequiredTrainingParticipants",
+          "rule": "One versioned roster change, unique active person/program, historical assignment episodes/events retained, no later dynamic roster mutation."
+        }
       ]
     },
     {

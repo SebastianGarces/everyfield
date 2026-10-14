@@ -4,7 +4,7 @@ This is the current target for PPL-001–023. People are tenant-owned contacts, 
 
 The seven recruitment stages are `prospect`, `attendee`, `following_up`, `interviewed`, `core_group`, `launch_team`, `leader`. Recording evidence and choosing a stage are distinct actions. Human-recorded person qualification uses the unchanged four C’s—Committed, Compelled, Contagious, Courageous—and interview criteria Maturity, Gifted, Chemistry, Right Reasons, Season. No model supplies pastoral judgment, assessment scores or testimony. These person assessments differ from the immutable SME Plant Intelligence rubric. Background-check capture/display/import/export/tool fields and coach workflows are explicitly excluded.
 
-The target schema uses `person`, `person_activity`, typed qualification/commitment history, `record_correction`, and `person_merge`. Successful material mutations, history, receipt/audit and plant source-revision advancement commit together; an outbox wake-up may follow commit. Native and reviewed Evry commands use the same domain policy. Expected revisions and operation IDs prevent stale edits or retries from silently losing history.
+The target schema uses `person`, typed qualification/commitment history, `event`, and `person_merge`. Successful material mutations, history, receipt/audit and plant source-revision advancement commit together; an outbox wake-up may follow commit. Native and reviewed Evry commands use the same domain policy. Expected revisions and operation IDs prevent stale edits or retries from silently losing history.
 
 
 ## Shared domain contracts
@@ -87,9 +87,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-002 — Profile creation, quick named guests and explicit nullable edits
 
-**REQ-PPL-002.** Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/edit able. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.
+**REQ-PPL-002.** Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.
 
-**Target operations:** `people.createPerson`, `people.quickAddPerson`, `people.updatePerson`.
+**Target operations:** `people.createPerson`, `people.updatePerson`.
 
 **Acceptance:** AC-PPL-002--PPL-002. **Named cases:** TARGET-PPL-002.
 
@@ -102,7 +102,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-003.** Use attributable soft retirement, preserving authorized CRM relations/history and private file references; remove from active queries/selectors and prevent new current references. Review actionable assigned duties and household/leadership/assignment effects before committing; unresolved work remains explicitly Needs owner rather than disappears. Native/reviewed restore rechecks tenant/revision, restores only an ordinary retired Person and recomputes current eligibility; it does not restore account seats or transfer private care. Merged sources are denied ordinary restore and routed to reviewed Unmerge. Retired history remains discoverable under current permission.
 
-**Target operations:** `people.retirePerson`, `people.restorePerson`.
+**Target operations:** `people.deletePerson`, `people.restorePerson`.
 
 **Acceptance:** AC-PPL-003--PPL-003. **Named cases:** TARGET-PPL-003.
 
@@ -113,9 +113,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-004 — Account-linked contact identity
 
-**REQ-PPL-004.** Maintain one live same plant Person per account through a partial uniqueness arbiter. Owner bootstrap and accepted ordinary seat link reuse an exact already-linked identity; otherwise show/select a same-email active unlinked contact only when verified non ambiguous, or create a new linked Person. Never choose the oldest ambiguous email match as identity proof or steal another link; client cannot set accountId. Seat removal/email change retains stable account-link history and independently edit able CRM email. Recruited-contact source composition remains distinct from all-currently-committed adult size: bootstrap alone is no recruitment/commitment evidence, while a login holder with real adult active commitment may count.
+**REQ-PPL-004.** Maintain one live same plant Person per account through a partial uniqueness arbiter. Owner bootstrap and accepted ordinary seat link reuse an exact already-linked identity; otherwise show/select a same-email active unlinked contact only when verified non ambiguous, or create a new linked Person. Never choose the oldest ambiguous email match as identity proof or steal another link; client cannot set accountId. Seat removal/email change retains stable account-link history and independently editable CRM email. Recruited-contact source composition remains distinct from all-currently-committed adult size: bootstrap alone is no recruitment/commitment evidence, while a login holder with real adult active commitment may count.
 
-**Target operations:** `people.ensureAccountPerson`, `people.getAccountPerson`.
+**Target operations:** `people.ensureAccountPerson`, `people.getOwnAccountPerson`.
 
 **Acceptance:** AC-PPL-004--PPL-004. **Named cases:** TARGET-PPL-004, ROLE43-003.
 
@@ -128,7 +128,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-005.** Apply 3 MiB verified JPG/JPEG/PNG/WebP private image policy and same plant live Person authority. Save generated key/reference/version atomically before old unreferenced cleanup; return authenticated Person/version image route without raw key or signed bearer URL. Foreign/retired photo access returns unavailable. Merge may choose only stored source/survivor photo and keeps referenced bytes until manifest/inverse retention no longer needs them. Failure cleanup cannot delete another currently referenced blob; failed write keeps old reference.
 
-**Target operations:** `people.uploadPhoto`, `people.removePhoto`, `people.getPhoto`.
+**Target operations:** `people.setPersonPhoto`, `people.removePersonPhoto`, `people.getPersonPhoto`.
 
 **Acceptance:** AC-PPL-005--PPL-005. **Named cases:** TARGET-PPL-005.
 
@@ -141,11 +141,11 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-006.** Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and expected revision. Same-stage is a no-op receipt. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.
 
-**Target operations:** `people.changeStage`, `people.previewStageHandoff`.
+**Target operations:** `people.changeStatus`, `tasks.planHandoff`.
 
 **Acceptance:** AC-PPL-006--PPL-006. **Named cases:** TARGET-PPL-006.
 
-**TARGET-PPL-006 fixture:** Skip prospect→leader, backward leader→at ten dee, same-stage retry, concurrent edits and declined open-duty handoff. **Expected:** Warnings and attributable history persist, explicit demotion works, decline keeps Needs owner and other lifecycles do not change implicitly.
+**TARGET-PPL-006 fixture:** Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff. **Expected:** Warnings and attributable history persist, explicit demotion works, decline keeps Needs owner and other lifecycles do not change implicitly.
 
 
 <a id="req-ppl-007"></a>
@@ -154,7 +154,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-007.** Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs under column/version lock; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.
 
-**Target operations:** `people.readPipeline`, `people.reorderPipeline`.
+**Target operations:** `people.getPipelineData`, `people.reorderPipeline`.
 
 **Acceptance:** AC-PPL-007--PPL-007. **Named cases:** TARGET-PPL-007.
 
@@ -165,9 +165,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-008 — Attributable timeline and authored notes
 
-**REQ-PPL-008.** Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-edit able notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
+**REQ-PPL-008.** Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
 
-**Target operations:** `people.listActivities`, `people.addNote`, `people.editNote`, `people.deleteNote`.
+**Target operations:** `people.getActivities`, `people.addNote`, `people.editNote`, `people.deleteNote`.
 
 **Acceptance:** AC-PPL-008--PPL-008. **Named cases:** TARGET-PPL-008.
 
@@ -180,7 +180,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-009.** Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current revisions and deliberately overwrites them in one bounded transaction, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Lock Person/household consistently against retire/join/delete to avoid orphan records.
 
-**Target operations:** `households.create`, `households.update`, `households.addMember`, `households.removeMember`, `households.setRole`, `households.propagateAddress`, `households.deleteEmpty`.
+**Target operations:** `people.createHouseholdWithHead`, `people.updateHousehold`, `people.addToHousehold`, `people.removeFromHousehold`, `people.setHouseholdRole`, `people.propagateAddress`, `people.deleteHousehold`.
 
 **Acceptance:** AC-PPL-009--PPL-009. **Named cases:** TARGET-PPL-009.
 
@@ -191,9 +191,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-010 — Tenant tags and assignment
 
-**REQ-PPL-010.** Keep church-defined labels with trimmed name 1–100, optional supported named/hex color, explicit nullable clear and unique current tenant normalized name. Assignment validates live Person+tag same tenant and unique pair. Retry assign/remove writes one semantic activity or original no-op receipt, never fictitious tag event. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable audit without becoming global taxonomy.
+**REQ-PPL-010.** Keep church-defined tags with a name trimmed of leading and trailing spaces, 1–100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op receipt. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.
 
-**Target operations:** `tags.list`, `tags.create`, `tags.update`, `tags.delete`, `tags.assign`, `tags.remove`.
+**Target operations:** `people.listTags`, `people.createTag`, `people.updateTag`, `people.deleteTag`, `people.assignTag`, `people.removeTag`.
 
 **Acceptance:** AC-PPL-010--PPL-010. **Named cases:** TARGET-PPL-010.
 
@@ -206,7 +206,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-011.** Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1–100 and bounded 5000 character notes. Add/edit/remove have expected revision and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.
 
-**Target operations:** `people.listSkills`, `people.recordSkill`, `people.updateSkill`, `people.removeSkill`.
+**Target operations:** `people.getPersonSkills`, `people.addSkill`, `people.updateSkill`, `people.removeSkill`.
 
 **Acceptance:** AC-PPL-011--PPL-011. **Named cases:** TARGET-PPL-011.
 
@@ -219,7 +219,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-012.** Record dated human Committed/Compelled/Contagious/Courageous assessment, each integer 1–5 and optional bounded 5000 character lens notes. Compute total 4–20 server-side and enforce score/total integrity. Preserve all records, actor/occurrence date/recorded instant and latest ordering by assessment LocalDate, recordedAt, ID; late historical entry cannot become latest merely by recording time. Advisory early-stage warning is not a hard gate. Recording does not change stage. Correction is REQ-PPL-015 and never supplies model person judgment.
 
-**Target operations:** `people.recordAssessment`, `people.listAssessments`, `people.getLatestAssessment`.
+**Target operations:** `people.createAssessment`, `people.getAssessments`.
 
 **Acceptance:** AC-PPL-012--PPL-012. **Named cases:** TARGET-PPL-012.
 
@@ -232,7 +232,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-013.** Keep all five criteria Maturity/Gifted/Chemistry/Right Reasons/Season as pass/fail/concern with dated human notes, next steps and result qualified/qualified_with_notes/not_qualified/follow_up. ANY result means interview occurred; on lower earlier stage record interviewed progression atomically, while an already core_group/launch_team/leader remains advanced. Only explicit stage command demotes. Chronological latest and attributable history match assessments. Next steps remain recorded text; intended-but-undelivered automatic task prompts are not registered as automation. A user can explicitly draft/create named task through ordinary Task command.
 
-**Target operations:** `people.recordInterview`, `people.listInterviews`, `people.getLatestInterview`.
+**Target operations:** `people.createInterview`, `people.getInterviews`.
 
 **Acceptance:** AC-PPL-013--PPL-013. **Named cases:** TARGET-PPL-013.
 
@@ -245,7 +245,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-014.** Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without foreign Person FK. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/source revision/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.
 
-**Target operations:** `people.recordCommitment`, `people.listCommitments`, `people.getCommitmentDocument`, `people.withdrawCommitment`, `people.reactivateCommitment`.
+**Target operations:** `people.createCommitment`, `people.getCommitments`, `people.getCommitmentDownload`, `people.withdrawCommitment`, `people.reactivateCommitment`.
 
 **Acceptance:** AC-PPL-014--PPL-014. **Named cases:** TARGET-PPL-014.
 
@@ -258,7 +258,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-015.** Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.
 
-**Target operations:** `people.correctAssessment`, `people.correctInterview`, `people.correctCommitment`, `people.correctAdultClassification`, `people.correctCommitmentLifecycle`, `people.listCorrections`.
+**Target operations:** `people.correctPersonRecord`, `people.correctAdultClassification`, `people.correctCommitmentLifecycle`, `people.listRecordCorrections`.
 
 **Acceptance:** AC-PPL-015--PPL-015. **Named cases:** TARGET-PPL-015.
 
@@ -271,7 +271,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-016.** Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current revisions and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.
 
-**Target operations:** `people.findDuplicates`, `people.listDuplicatePairs`.
+**Target operations:** `people.checkForDuplicates`, `people.listDuplicatePairs`.
 
 **Acceptance:** AC-PPL-016--PPL-016. **Named cases:** TARGET-PPL-016.
 
@@ -297,7 +297,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-018.** Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; per-row short transactions record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.
 
-**Target operations:** `people.getImportTemplate`, `people.previewImport`, `people.executeImport`, `people.getImportReceipt`.
+**Target operations:** `people.generateCsvTemplate`, `people.previewImport`, `people.executeBulkImport`, `people.getImportReceipt`.
 
 **Acceptance:** AC-PPL-018--PPL-018. **Named cases:** TARGET-PPL-018.
 
@@ -308,7 +308,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-019 — Filtered formula-safe CSV export
 
-**REQ-PPL-019.** Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spread sheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV notan XLSXclaim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; large exports stream/bound rows and include exact filter/count receipt. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip.
+**REQ-PPL-019.** Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; large exports stream/bound rows and include exact filter/count receipt. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip.
 
 **Target operations:** `people.exportPeople`.
 
@@ -321,9 +321,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-020 — Exact cross-domain recruitment advancement
 
-**REQ-PPL-020.** Preserve only conditional source transitions: attended Vision prospect→at ten dee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; asyncwake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.
+**REQ-PPL-020.** Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.
 
-**Target operations:** `people.applyRecordedProgression`.
+**Target operations:** `people.applyRecordedRecruitmentEvent`.
 
 **Acceptance:** AC-PPL-020--PPL-020. **Named cases:** TARGET-PPL-020.
 
@@ -336,7 +336,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-021.** Project own ing Teams/Training/Communication data under exact Person/tenant current permission; merge redirects and retired history consistent. Show distinct current membership plus dated former tenure; explicit assigned training obligations separate from earned/revoked/former completion history. Actual email sent/accepted/delivered/opened/clicked/bounced/failed are distinct from typed human contact logs; contact badge must not claim provider mail delivery. Empty/unavailable states explain truth and read-only user has no send control. Dates use church zone intentionally; tabs never widen scope.
 
-**Target operations:** `people.getPersonTeams`, `people.getPersonTraining`, `people.getPersonCommunication`.
+**Target operations:** `people.getPersonTeams`, `people.getPersonTraining`, `people.getPersonCommunications`.
 
 **Acceptance:** AC-PPL-021--PPL-021. **Named cases:** TARGET-PPL-021.
 
@@ -349,7 +349,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-022.** The uncalled deferred follow-up-initiation warning and undelivered interview next-step automatic task prompt are not executable target capabilities. Consolidate useful intent into explicit ordinary follow-up create/assign or reviewed task creation, retaining manualfollowing_up stage. No no-op tool, hidden subscriber, automatic qualification or autonomous stage/task side effect is registered. Show recorded next steps as text with option to explicitly open a task draft.
 
-**Target operations:** `followups.createAndAssign`, `tasks.createTask`.
+**Target operations:** `tasks.createFollowUp`, `tasks.create`.
 
 **Acceptance:** AC-PPL-022--PPL-022. **Named cases:** TARGET-PPL-022.
 
@@ -366,9 +366,9 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **Acceptance:** AC-PPL-023--PPL-023. **Named cases:** TARGET-PPL-023.
 
-**TARGET-PPL-023 fixture:** At October 13 asOf, P moved prospect→at ten dee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request. **Expected:** Distinct current stage counts and September transition count use different labelled units; repeated P counts once, retired/merged source counts once through canonical history, missing denominator gives Unknown and foreign request refuses. No widget/tool is registered.
+**TARGET-PPL-023 fixture:** At October 13 asOf, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request. **Expected:** Distinct current stage counts and September transition count use different labelled units; repeated P counts once, retired/merged source counts once through canonical history, missing denominator gives Unknown and foreign request refuses. No widget/tool is registered.
 
 
 ## Consumer closure and proof
 
-Implementation remains `not_started`. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.

@@ -18,27 +18,12 @@ CLOSED_VALUE_COLUMNS = {
     'operation': ['name', 'stop_reason'],
     'evidence_link': ['purpose', 'projection', 'source_purpose'],
     'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
+    'person': ['source'], 'event': ['action'], 'job': ['kind'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 OWNER_ROOTS = {'account', 'plant', 'organization'}
-CURRENT_DOMAINS = {
-    'identity': 'auth_user auth_account auth_session auth_verification auth_throttle app_account platform_grant',
-    'tenancy': 'tenancy_membership access_invitation plant organization organization_network_link plant_affiliation organization_sharing_settings discovery_profile discovery_association association_invitation association_event account_person_link',
-    'people': 'household person person_tag_definition person_tag person_skill person_4c_assessment person_interview person_commitment person_activity record_correction person_merge',
-    'teams': 'ministry_team team_role team_membership team_responsibility training_program training_requirement_version training_assignment_episode training_assignment_event training_completion',
-    'meetings': 'meeting_location meeting meeting_participation meeting_invitation meeting_rsvp_token vision_response meeting_evaluation meeting_checklist_item meeting_event',
-    'tasks': 'recurrence_series follow_up_obligation task task_relation task_dependency task_status_event follow_up_outcome phase_template_offer_response template_import_receipt',
-    'phases': 'phase_transition plant_attestation person_attestation',
-    'launch': 'launch launch_event launch_milestone launch_milestone_task launch_person_attendance',
-    'care': 'planter_checkin planter_checkin_event',
-    'reference': 'reference_release reference_activation reference_section reference_chunk reference_template_version',
-    'wiki': 'wiki_article wiki_source wiki_article_version organization_wiki_article_state plant_wiki_source_order plant_wiki_source_order_entry wiki_read_progress wiki_read_event wiki_bookmark wiki_article_feedback',
-    'documents': 'owned_documents owned_document_revisions generated_document upload_intent object_metadata',
-    'intelligence': 'assessment_demand intelligence_assessment_run intelligence_insight organization_intelligence_runs organization_intelligence_contributor organization_intelligence_assessments intelligence_feedback',
-    'communication': 'message_template communication communication_recipient email_intent email_attempt provider_event_receipt communication_delivery_retry email_suppression notification_preference inbox_entry',
-    'assistant': 'assistant_conversation assistant_message assistant_artifact assistant_attachment assistant_plan assistant_approval operation_execution operation_effect operation_result',
-    'operations': 'product_feedback feedback_publication command_receipt job audit_event deletion_witness recovery_manifest',
-}
+# Applied early-access migration and its runner use these exact physical keys.
+PHYSICAL_KEY_EXCEPTIONS = {'early_access_attempt': (), 'schema_migration': ('name',)}
 
 
 def read(path):
@@ -122,7 +107,7 @@ def closed_values(checks, column):
     return set()
 
 
-def validate_schema(schema, label, proposal=False, documented_exceptions=None):
+def validate_schema(schema, label, authority=False, documented_exceptions=None):
     """Validate the graph; the CLI also supplies README's exception names."""
     errors = []
     tables = schema['tables']
@@ -130,9 +115,9 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
     if len(by_name) != len(tables):
         errors.append(f'{label}: duplicate table name')
     domains = {d['id'] for d in schema.get('domains', [])}
-    if proposal and schema['database'] != 'PostgreSQL':
+    if authority and schema['database'] != 'PostgreSQL':
         errors.append(f'{label}: database must be PostgreSQL')
-    if proposal and len(domains) != len(schema['domains']):
+    if authority and len(domains) != len(schema['domains']):
         errors.append(f'{label}: duplicate domain ID')
     for table in tables:
         name = table['name']
@@ -141,9 +126,13 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
         if len(columns) != len(table['columns']):
             errors.append(f'{prefix}: duplicate column name')
         pk = table['primary_key']
-        if not pk or len(pk) != len(set(pk)):
+        key_exception = authority and name in PHYSICAL_KEY_EXCEPTIONS
+        if key_exception and tuple(pk) != PHYSICAL_KEY_EXCEPTIONS[name]:
+            errors.append(f'{prefix}: primary key differs from applied early-access schema')
+        if (not pk and not key_exception) or len(pk) != len(set(pk)):
             errors.append(f'{prefix}: empty or repeated primary key')
-        for key in [pk] + [k['columns'] for k in table['unique_keys']]:
+        keys = ([] if key_exception and not pk else [pk]) + [k['columns'] for k in table['unique_keys']]
+        for key in keys:
             if not key or len(key) != len(set(key)):
                 errors.append(f'{prefix}: empty or repeated key columns {key}')
             missing = sorted(set(key) - columns.keys())
@@ -152,7 +141,7 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
         for column in pk:
             if column in columns and columns[column]['nullable']:
                 errors.append(f'{prefix}: nullable PK column {column}')
-        if proposal:
+        if authority:
             required = {'name', 'domain', 'purpose', 'library_owned', 'columns', 'primary_key',
                         'unique_keys', 'foreign_keys', 'checks', 'jsonb_keys', 'capabilities', 'replaces'}
             missing = required - table.keys()
@@ -167,7 +156,11 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
                     errors.append(f'{prefix}: incomplete column definition {column.get("name")}')
                 if not isinstance(column['nullable'], bool):
                     errors.append(f'{prefix}: nullable must be boolean')
-            if len(pk) == 1 and columns.get(pk[0], {}).get('type') != 'uuid':
+            migration_key = (name == 'schema_migration' and pk == ['name']
+                             and columns.get('name', {}).get('type') == 'text')
+            if name == 'schema_migration' and not migration_key:
+                errors.append(f'{prefix}: migration ledger needs its applied text primary key')
+            if len(pk) == 1 and columns.get(pk[0], {}).get('type') != 'uuid' and not migration_key:
                 errors.append(f'{prefix}: single-column PK must be UUID')
             json_columns = {c['name'] for c in table['columns'] if c['type'].lower() == 'jsonb'}
             if json_columns != table['jsonb_keys'].keys():
@@ -202,7 +195,7 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
                 continue
             target = by_name[target_name]
             target_columns = {c['name']: c for c in target['columns']}
-            if proposal:
+            if authority:
                 child_owners, parent_owners = owner_columns(table), owner_columns(target)
                 exception = fk.get('scope_exception', '').strip()
                 exception_name = scope_exception_name(name, fk)
@@ -232,20 +225,20 @@ def validate_schema(schema, label, proposal=False, documented_exceptions=None):
     return errors
 
 
-def validate_catalog_sets(proposal, operations):
-    """INV-schema-catalog: literal operation/projection sets must match their authority."""
+def validate_catalog_sets(schema, operations):
+    """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
         ('operation', 'name'): {o['id'] for o in operations},
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
         ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
-        ('evidence_link', 'projection'): {a['result_projection'] for o in operations if o['kind'] == 'query' for a in o['authority']},
+        ('evidence_link', 'projection'): set(schema['type_contracts']['evidence_link.projection']),
     }
-    tables = {t['name']: t for t in proposal['tables']}
+    tables = {t['name']: t for t in schema['tables']}
     errors = []
     for (name, column), values in expected.items():
         if name in tables and closed_values(tables[name]['checks'], column) != values:
-            errors.append(f'proposal.{name}: {column} IN CHECK differs from current operation catalog')
+            errors.append(f'authority.{name}: {column} IN CHECK differs from current operation catalog')
     return errors
 
 
@@ -255,18 +248,18 @@ def counts(tables):
             sum(c['type'].lower() == 'jsonb' for t in tables for c in t['columns']))
 
 
-def coverage(capability_files, features, proposal):
+def coverage(capability_files, features, schema):
     errors = []
     capabilities = [c for file in capability_files for c in file['capabilities']]
     capability_ids = [c['id'] for c in capabilities]
     if len(capability_ids) != len(set(capability_ids)):
         errors.append('duplicate capability IDs')
-    # Catalog status tracks implementation, not whether a feature still counts.
+    # Catalog membership defines coverage; implementation progress lives in build-progress.json.
     active_ids = {f['id'] for f in features if f.get('active', True)}
     feature_ids = {f['id'] for f in features}
     covered_features = {f for c in capabilities for f in c['feature_ids']}
     persistent = {c['id'] for c in capabilities if c['persists']}
-    served = {c for t in proposal['tables'] for c in t['capabilities']}
+    served = {c for t in schema['tables'] for c in t['capabilities']}
     missing_features = sorted(active_ids - covered_features)
     missing_capabilities = sorted(persistent - served)
     unknown_features = sorted(covered_features - feature_ids)
@@ -290,75 +283,105 @@ def coverage(capability_files, features, proposal):
     ]
 
 
-def run(root, proposal_path):
-    current = read(root / 'docs/schema/target.json')
-    proposal = read(proposal_path)
-    files = sorted((root / 'docs/schema-proposal/capabilities').glob('*.json'))
+def run(root, schema_path):
+    schema = read(schema_path)
+    files = sorted((root / 'docs/schema/capabilities').glob('*.json'))
     if len(files) != 3:
         raise ValueError(f'expected three capability files, found {len(files)}')
     capability_files = [read(path) for path in files]
     features = read(root / 'docs/catalog/features.json')
-    readme = (root / 'docs/schema-proposal/README.md').read_text(encoding='utf-8')
+    readme = (root / 'docs/schema/README.md').read_text(encoding='utf-8')
     documented_exceptions = set(re.findall(r'^- `([^`]+ -> [^`]+)`: .+', readme, re.M))
-    errors = validate_schema(current, 'current') + validate_schema(proposal, 'proposal', True, documented_exceptions)
-    errors.extend(validate_catalog_sets(proposal, read(root / 'docs/catalog/operations.json')['operations']))
-    coverage_errors, coverage_lines = coverage(capability_files, features, proposal)
+    errors = validate_schema(schema, 'authority', True, documented_exceptions)
+    errors.extend(validate_catalog_sets(schema, read(root / 'docs/catalog/operations.json')['operations']))
+    errors.extend(validate_metadata(schema, read(root / 'docs/plan/dag.json'), capability_files))
+    coverage_errors, coverage_lines = coverage(capability_files, features, schema)
     errors.extend(coverage_errors)
-    for table in proposal['tables']:
-        unknown = set(table['replaces']) - {t['name'] for t in current['tables']}
-        if unknown:
-            errors.append(f'{table["name"]}: replaces unknown current tables {sorted(unknown)}')
+    for table in schema['tables']:
         if table['library_owned'] != (table['name'] in LIBRARY_TABLES):
             errors.append(f'{table["name"]}: incorrect library_owned designation')
-    current_domain = {}
-    for domain, names in CURRENT_DOMAINS.items():
-        for name in names.split():
-            if name in current_domain:
-                errors.append(f'current domain assignment repeated: {name}')
-            current_domain[name] = domain
-    current_names = {t['name'] for t in current['tables']}
-    if current_names != current_domain.keys():
-        errors.append(f'current domain mapping mismatch: missing {sorted(current_names - current_domain.keys())}; obsolete {sorted(current_domain.keys() - current_names)}')
-    print('Schema                 Tables Columns   FKs JSONB')
-    for label, schema in [('Current', current), ('Proposal', proposal)]:
-        row = counts(schema['tables'])
-        print(f'{label:22} {row[0]:6} {row[1]:7} {row[2]:5} {row[3]:5}')
-    print('\nLibrary-owned subtotal Tables Columns   FKs JSONB')
-    for label, schema in [('Current', current), ('Proposal', proposal)]:
-        selected = [t for t in schema['tables'] if t['name'] in LIBRARY_TABLES] if label == 'Current' else [t for t in schema['tables'] if t['library_owned']]
-        row = counts(selected)
-        print(f'{label:22} {row[0]:6} {row[1]:7} {row[2]:5} {row[3]:5}')
-    print('\nDomain                 Current T/C/F/J       Proposal T/C/F/J')
-    old_groups, new_groups = defaultdict(list), defaultdict(list)
-    for table in current['tables']:
-        old_groups[current_domain.get(table['name'], 'unmapped')].append(table)
-    for table in proposal['tables']:
-        new_groups[table['domain']].append(table)
-    for domain in sorted(old_groups.keys() | new_groups.keys()):
-        old = '/'.join(map(str, counts(old_groups[domain])))
-        new = '/'.join(map(str, counts(new_groups[domain])))
-        print(f'{domain:22} {old:20} {new}')
+    print('Authority              Tables Columns   FKs JSONB')
+    row = counts(schema['tables'])
+    print(f'Target                 {row[0]:6} {row[1]:7} {row[2]:5} {row[3]:5}')
+    print('\nDomain                 Tables/Columns/FKs/JSONB')
+    groups = defaultdict(list)
+    for table in schema['tables']:
+        groups[table['domain']].append(table)
+    for domain, tables in sorted(groups.items()):
+        print(f'{domain:22} ' + '/'.join(map(str, counts(tables))))
     print('\nCoverage')
     for line in coverage_lines:
         print(line)
-    for file in capability_files:
-        active = {f['id'] for f in features if f['id'] in {fid for c in file['capabilities'] for fid in c['feature_ids']}}
-        print(f'Group {file["group"]}: {len(file["capabilities"])} capabilities; {len(active)} feature IDs')
     if errors:
         print('\nFAIL')
         for error in errors:
             print('- ' + error)
         return 1
-    print('\nPASS: structural keys, references, ownership, closed sets, NULL guards, JSONB documentation and coverage')
+    print('\nPASS: structural keys, references, ownership, closed sets, NULL guards, JSONB documentation and coverage; producer and Person metadata')
     return 0
 
 
+def validate_metadata(schema, dag, capability_files):
+    """INV-schema-authority: metadata must resolve to the adopted graph and actual packages."""
+    errors = []
+    packages = {p['id'] for p in dag['packages']}
+    caps = {c['id']: c for f in capability_files for c in f['capabilities']}
+    old = schema['legacy_table_producers']
+    by = {t['name']: t for t in schema['tables']}
+    for table in schema['tables']:
+        name = table['name']
+        producers = set(table['producer_work_packages'])
+        if not producers:
+            errors.append(f'{name}: no producer package')
+        if producers - packages:
+            errors.append(f'{name}: unknown producer packages {sorted(producers - packages)}')
+        inherited = {p for n in table['replaces'] for p in old.get(n, [])}
+        if set(table['replaces']) - old.keys():
+            errors.append(f'{name}: unknown previous table in replaces')
+        if not inherited <= producers:
+            errors.append(f'{name}: missing inherited producer packages')
+        basis = table['producer_derivation']
+        if 'adopted_subtypes' in basis:
+            actual_subtypes = {t['name'] for t in schema['tables'] if any(f['references']['table'] == 'record' and 'id' in f['columns'] for f in t['foreign_keys'])}
+            expected_producers = {'WP-004'} | {p for n in actual_subtypes for p in by[n]['producer_work_packages']}
+            if set(basis['adopted_subtypes']) != actual_subtypes:
+                errors.append(f'{name}: subtype producer basis differs from adopted graph')
+        else:
+            sources = basis['old_target_tables']
+            if set(sources) - old.keys():
+                errors.append(f'{name}: producer basis names unknown previous table')
+            expected_producers = {p for n in sources for p in old.get(n, [])} | set(basis.get('additional_producers', []))
+            if table['replaces'] and set(sources) != set(table['replaces']):
+                errors.append(f'{name}: producer basis differs from replaced tables')
+        if producers != expected_producers:
+            errors.append(f'{name}: producer packages differ from recorded derivation')
+        expected_features = {f for c in table['capabilities'] if c in caps for f in caps[c]['feature_ids']}
+        if set(table['feature_ids']) != expected_features:
+            errors.append(f'{name}: feature metadata differs from capabilities')
+    declared = {(t['name'], tuple(f['columns']), tuple(f['references']['columns']))
+                for t in schema['tables'] for f in t['foreign_keys'] if f['references']['table'] == 'person'}
+    registered = [(r['table'], tuple(r['columns']), tuple(r['target_columns'])) for r in schema['person_references']]
+    if declared != set(registered) or len(registered) != len(set(registered)):
+        errors.append('Person reference registry differs from adopted Person FKs')
+    for key, actual in [('table_count', len(by)), ('column_count', counts(schema['tables'])[1]), ('foreign_key_count', counts(schema['tables'])[2])]:
+        if schema[key] != actual:
+            errors.append(f'{key}: metadata differs from authority')
+    person_sources = closed_values(by['person']['checks'], 'source')
+    if not {'other', 'meeting_guest_list'} <= person_sources or any(set(schema['type_contracts'][key]) != person_sources for key in ['person_source', 'person.source', 'ApprovedRecruitmentSource']):
+        errors.append('Person source CHECK differs from literal type contract or lacks required sources')
+    for name, table in by.items():
+        for column in table['columns']:
+            values = closed_values(table['checks'], column['name'])
+            if values and set(schema['type_contracts'].get(name + '.' + column['name'], [])) != values:
+                errors.append(f'{name}.{column["name"]}: literal type contract differs from CHECK')
+    return errors
+
+
 def self_test(root):
-    """AC-schema-proposal: the public CLI must reject each required broken input."""
-    schema = read(root / 'docs/schema-proposal/schema.json')
-    current = read(root / 'docs/schema/target.json')
+    """INV-schema-authority: the public CLI must reject each required broken input."""
+    schema = read(root / 'docs/schema/target.json')
     features = read(root / 'docs/catalog/features.json')
-    capability_paths = sorted((root / 'docs/schema-proposal/capabilities').glob('*.json'))
+    capability_paths = sorted((root / 'docs/schema/capabilities').glob('*.json'))
     capabilities = [read(path) for path in capability_paths]
     cases = [
         ('valid input', None, 0, 'PASS: structural keys'),
@@ -373,7 +396,7 @@ def self_test(root):
         ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
         ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
         ('INV-tenancy: publication FK without account owner', 'account_fk', 1, 'tenant-owned parent feedback lacks compound owner FK'),
-        ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'proposal.account: tenant-owned parent file_object lacks compound owner FK'),
+        ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'authority.account: tenant-owned parent file_object lacks compound owner FK'),
         ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
         ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
         ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation conversation_id has no FK'),
@@ -383,17 +406,22 @@ def self_test(root):
         ('NULL in every alternative', 'null_or', 1, 'CHECK forces column title to stay null'),
         ('missing closed-value CHECK', 'closed', 1, 'closed-value column purpose lacks literal IN CHECK'),
         ('catalog drift', 'catalog', 1, 'name IN CHECK differs from current operation catalog'),
+        ('missing producer', 'producer', 1, 'no producer package'),
+        ('unknown producer', 'producer_unknown', 1, 'unknown producer packages'),
+        ('missing inherited producer', 'producer_inherited', 1, 'missing inherited producer packages'),
+        ('missing Person registration', 'person_registry', 1, 'Person reference registry differs'),
+        ('Person source placeholder', 'person_source', 1, 'closed-value column source lacks literal IN CHECK'),
     ]
     with tempfile.TemporaryDirectory(prefix='evf-schema-check-') as directory:
         fixture = Path(directory)
-        for folder in ['docs/schema', 'docs/catalog', 'docs/schema-proposal/capabilities']:
+        for folder in ['docs/schema', 'docs/catalog', 'docs/schema/capabilities', 'docs/plan']:
             (fixture / folder).mkdir(parents=True, exist_ok=True)
-        (fixture / 'docs/schema/target.json').write_text(json.dumps(current))
+        (fixture / 'docs/plan/dag.json').write_text(json.dumps(read(root / 'docs/plan/dag.json')))
         (fixture / 'docs/catalog/features.json').write_text(json.dumps(features))
         (fixture / 'docs/catalog/operations.json').write_text(json.dumps(read(root / 'docs/catalog/operations.json')))
         for label, fault, status, expected in cases:
             candidate, cap_files = copy.deepcopy(schema), copy.deepcopy(capabilities)
-            readme = (root / 'docs/schema-proposal/README.md').read_text(encoding='utf-8')
+            readme = (root / 'docs/schema/README.md').read_text(encoding='utf-8')
             auth_account = next(t for t in candidate['tables'] if t['name'] == 'auth_account')
             fk = auth_account['foreign_keys'][0]
             if fault == 'fk_table':
@@ -433,6 +461,8 @@ def self_test(root):
                     parent['scope_exception'] = 'Fixture cross-owner source requires explicit current entitlement.'
                     if fault == 'documented_exception':
                         readme += '\n- `' + scope_exception_name(table_name, parent) + '`: ' + parent['scope_exception'] + '\n'
+                        registered = next(r for r in candidate['person_references'] if r['table'] == 'mail')
+                        registered['columns'], registered['target_columns'] = [column], ['id']
             elif fault == 'missing_parent':
                 entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
                 entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'conversation']
@@ -452,29 +482,40 @@ def self_test(root):
             elif fault == 'catalog':
                 operation = next(t for t in candidate['tables'] if t['name'] == 'operation')
                 operation['checks'] = ["name in ('invented.command')" if c.startswith('name in') else c for c in operation['checks']]
-            (fixture / 'docs/schema-proposal/schema.json').write_text(json.dumps(candidate))
-            (fixture / 'docs/schema-proposal/README.md').write_text(readme)
+            elif fault == 'producer':
+                candidate['tables'][0]['producer_work_packages'] = []
+            elif fault == 'producer_unknown':
+                candidate['tables'][0]['producer_work_packages'].append('WP-999')
+            elif fault == 'producer_inherited':
+                candidate['tables'][0]['producer_work_packages'] = ['WP-004']
+            elif fault == 'person_registry':
+                candidate['person_references'].pop()
+            elif fault == 'person_source':
+                person = next(t for t in candidate['tables'] if t['name'] == 'person')
+                person['checks'] = [c for c in person['checks'] if not c.startswith('source in')]
+            (fixture / 'docs/schema/target.json').write_text(json.dumps(candidate))
+            (fixture / 'docs/schema/README.md').write_text(readme)
             for path, content in zip(capability_paths, cap_files):
-                (fixture / 'docs/schema-proposal/capabilities' / path.name).write_text(json.dumps(content))
+                (fixture / 'docs/schema/capabilities' / path.name).write_text(json.dumps(content))
             result = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--root', str(fixture)],
                                     capture_output=True, text=True, cwd=directory, timeout=30)
             if result.returncode != status or expected not in result.stdout:
-                print(f'FAIL: AC-schema-proposal {label}: {result.returncode}\n{result.stdout}{result.stderr}')
+                print(f'FAIL: INV-schema-authority {label}: {result.returncode}\n{result.stdout}{result.stderr}')
                 return 1
-            print(f'PASS: AC-schema-proposal {label}')
+            print(f'PASS: INV-schema-authority {label}')
     return 0
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT, help='repository root; defaults to the script location')
-    parser.add_argument('--proposal', type=Path, help='alternate proposal file for validation')
+    parser.add_argument('--schema', type=Path, help='alternate authority file for validation')
     parser.add_argument('--self-test', action='store_true', help='exercise CLI failure cases in temporary fixtures')
     args = parser.parse_args()
     try:
         if args.self_test:
             return self_test(args.root)
-        return run(args.root, args.proposal or args.root / 'docs/schema-proposal/schema.json')
+        return run(args.root, args.schema or args.root / 'docs/schema/target.json')
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f'FAIL: invalid input: {exc}', file=sys.stderr)
         return 1

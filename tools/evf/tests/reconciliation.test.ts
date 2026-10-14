@@ -7,20 +7,23 @@ import { buildBlocks } from '../plan.ts';
 import { loadDag, loadRegistry } from '../lib.ts';
 
 const source = resolve(import.meta.dirname, '../../..');
-test('BUG-workflow: preserve every selected dependency including 26 forward references', () => {
+test('BUG-workflow: preserve selected producer dependencies across forward references', () => {
  const dag = loadDag(source);
  const {blocks} = buildBlocks(source, dag.packages);
  const by = new Map(blocks.map(b => [b.wp, blocks.filter(x => x.wp === b.wp)]));
- let forward = 0;
- for (const [i, p] of dag.packages.entries()) for (const d of p.depends_on) {
-  if (dag.packages.findIndex(x => x.id === d) > i) forward++;
-  const finals = by.get(d)!.filter(b => b.part !== 'contract').map(b => b.key);
+ for (const p of dag.packages) for (const d of p.depends_on) {
+  const producer = by.get(d)!;
+  const finals = [producer.find(b => b.part === 'contract') ?? producer.find(b => b.part === 'api') ?? producer[0]].map(b => b.key);
   for (const b of by.get(p.id)!) for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
  }
- assert.equal(forward, 26);
 });
 test('INV-context: load current acceptance and fail when its required input is missing', () => {
- assert.equal(loadRegistry(source).length, 720);
+ const registry=loadRegistry(source);
+ assert.equal(registry.length, 720);
+ assert.deepEqual(registry.find(a=>a.id==='AC-EVR-001--EVR-001')?.required_test_layers,
+  ['domain/contract','PostgreSQL integration where writes/concurrency','browser/tool evaluation where surfaced']);
+ assert.deepEqual(registry.find(a=>a.id==='AC-DOC-016--DOC-016')?.required_test_layers,
+  ['unit parse/sanitization and strict scope contracts','integration private storage/document revisions/evidence','browser native editor and safe parsed rendering','Evry exact reviewed effects only if adapter supports a named operation']);
  const root=mkdtempSync(join(tmpdir(),'evf-context-'));
  try {
   cpSync(join(source,'docs'), join(root,'docs'), {recursive:true});
@@ -138,7 +141,8 @@ function qualifiedFixture(wp='WP-034') {
  const key=join(f.root,'fake-bin/key.pem'),signer=join(f.root,'fake-bin/attest.cjs');
  writeFileSync(key,privateKey.export({type:'pkcs8',format:'pem'}));
  writeFileSync(signer,`const fs=require('node:fs'),crypto=require('node:crypto');const r=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const p={actorId:r.role+'-actor',modelFamily:r.role==='author'?'Sol':(process.env.EVF_FIXTURE_FAMILY||'Opus'),task:r.task,role:r.role,mode:r.mode,sha:r.sha,baseSha:r.baseSha,fingerprint:r.fingerprint,casePortions:r.casePortions,gatePortions:r.gatePortions,checkDigest:r.checkDigest,passed:true,review:r.role==='verifier'&&process.env.EVF_FIXTURE_REVIEW!=='missing'?{verdict:'approved',reviewedSha:r.sha,risk:r.plan.risk}:null};process.stdout.write(JSON.stringify({payload:p,signature:crypto.sign(null,Buffer.from(JSON.stringify(p)),fs.readFileSync(${JSON.stringify(key)})).toString('base64')}));`);
- const plan={risk:'ordinary',gates:loadDag(f.root).packages.find(p=>p.id===wp)!.acceptance_gates.map((_,index)=>({index,requiredPortions:['domain'],deferred:[{portion:'native',ownerTask:'WP-035'}]})),stage:'producer',ownedPortion:'domain',requiresStack:false,cases:ctx.case_ids.map(id=>({id,requiredPortions:['domain'],deferred:id==='CASE-WIKI-001'?[{portion:'native',ownerTask:'WP-035'}]:[]}))};
+ const plan={risk:'ordinary',gates:loadDag(f.root).packages.find(p=>p.id===wp)!.acceptance_gates.map((_,index)=>({index,requiredPortions:['domain'],deferred:[{portion:'native',ownerTask:wp==='WP-001'?'WP-032':'WP-035'}]})),stage:'producer',ownedPortion:'domain',requiresStack:false,cases:ctx.case_ids.map(id=>({id,requiredPortions:['domain'],deferred:id==='CASE-WIKI-001'?[{portion:'native',ownerTask:'WP-035'}]:[]}))};
+ f.cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e',`require('node:fs').writeFileSync(process.env.EVF_TEST_REPORT,JSON.stringify({tests:[{name:${JSON.stringify(ctx.case_ids.map(id=>'AC:'+id).join(' '))},status:'passed'}]}))`]}];
  f.cfg.verification={kind:'application',applicationQualified:true,usesPaidProviders:false,publicKey:publicKey.export({type:'spki',format:'pem'}),attest:[process.execPath,signer,'{request}'],proofPlans:{[wp]:plan}};
  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();f.task(wp.toLowerCase());
  return {...f,wp,plan};
@@ -179,7 +183,34 @@ test('BUG-final-head: genuinely qualified historical full plus current quick is 
   assert.throws(()=>currentProof(f.root,task,'verifier'),/No current full/);
  }finally{f.close();}
 });
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+test('BUG-12b04b1: S0 privileged calls require authority despite false allowed result keys',()=>{
+ const root=mkdtempSync(join(tmpdir(),'evf-refusal-'));
+ try{
+  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
+  const check=()=>spawnSync('python3',[join(root,'docs/acceptance/check.py'),'--root',root],{encoding:'utf8'});
+  assert.equal(check().status,0);
+  for(const [file,id,operation] of [
+   ['reference-release','REFREL-001','reference.activateGeneration'],
+   ['operations','CASE-OPS-006','fixtures.resetOwnedEnvironment'],
+   ['operations','CASE-OPS-008','dev.createIsolatedPreview']
+  ]){
+   const path=join(root,`docs/acceptance/${file}.json`),bytes=readFileSync(path,'utf8');
+   const data=JSON.parse(bytes),example=data.cases.find((c:{id:string})=>c.id===id);
+   example.actor={account:'A',session:'session-A',context:'P'};
+   delete example.given['caller-capability'];
+   writeFileSync(path,JSON.stringify(data));
+   const refused=check();
+   assert.equal(refused.status,1,`${id}: false allowed result must not bypass caller authority`);
+   assert.match(refused.stderr,new RegExp(`${id}: actor lacks authority for ${operation.replaceAll('.','\\.')}`));
+   example.expected={state:{},result:{error_code:'access_denied'},event:null};
+   writeFileSync(path,JSON.stringify(data));
+   assert.equal(check().status,0,`${id}: an explicit denial permits an unauthorized caller`);
+   writeFileSync(path,bytes);
+  }
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
 const importGit=(cwd:string,...args:string[])=>execFileSync('git',['-C',cwd,...args],{encoding:'utf8'});
 test('INV-feedback-reservations: old reservation charges current budget, recovery stays visible and untrusted actor cannot close',()=>{
  const f=fixture();try{
@@ -200,9 +231,14 @@ test('INV-workflow-routing: Next server paths stay with implementor and presenta
  const {blocks}=buildBlocks(source,[pkg]);assert.equal(blocks[0].specialist,'implementor');
  const ui=loadDag(source).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
  assert.ok(buildBlocks(source,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
+ const design=loadDag(source).packages.find(p=>p.id==='WP-088')!;
+ const planned=buildBlocks(source,[design]).blocks;
+ assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/src/foundations/','packages/ui/src/shell/','tests/ui/foundations/','tests/ui/shell/']}]);
+ assert.equal(draftProofPlan(source,parseTask('WP-088')).ownedPortion,'native');
+ assert.equal(draftProofPlan(source,parseTask('WP-088')).requiresStack,true);
 });
 
-import { ship, listShipped } from '../ship.ts';
+import { ship, listShipped, prOpen } from '../ship.ts';
 import { requireImplementation, requireSpend } from '../policy.ts';
 test('INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated',()=>{
  const f=fixture();try{
@@ -248,15 +284,6 @@ test('INV-feedback-preservation: approved owner promotion, demand ranking and ex
   const state=f.getState();assert.equal(state.issues[2].state,'closed');assert.equal(state.calls.find((c:any)=>c.body===reply).body,reply);
  }finally{console.log=oldLog;f.close();}
 });
-test('INV-progress: clearing shipped inbox preserves split milestone and proof provenance without package completion',()=>{
- const f=fixture();try{
-  const dir=join(evfDataDir(f.root),'shipped');mkdirSync(dir,{recursive:true});
-  const path=join(dir,'wp-005-contract.json');writeFileSync(path,JSON.stringify({task:'WP-005/contract',part:'contract',package_completion:false,merge_commit:'verified-merge'}));
-  listShipped(f.root,['WP-005/contract']);assert.equal(JSON.parse(readFileSync(path,'utf8')).acknowledged,true);
-  assert.equal(JSON.parse(readFileSync(path,'utf8')).package_completion,false);assert.equal(loadProgress(f.root)['WP-005'].status,'not_started');
- }finally{f.close();}
-});
-
 test('INV-model-feedback: verified bot identity never authorizes arbitrary raw public text',()=>{
  const f=fixture();try{
   const s=f.getState();s.issues[0].title='Private PERSON name';s.issues[0].body='Private original or pastoral narrative';f.setState(s);
@@ -310,14 +337,242 @@ test('INV-sensitive-escalation: ordinary automatic merge does not authorize sens
 
 import { existsSync } from 'node:fs';
 import { stack } from '../task.ts';
+import { draftProofPlan } from '../proof-plan.ts';
+import { caseCoverage, caseGrep } from '../coverage.ts';
+import { producerReady, recordProgress, recordFastTrack } from '../progress.ts';
+import { contractFingerprint } from '../lib.ts';
+import { renderAc, renderBrief } from '../brief.ts';
+
+test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main',()=>{
+ const f=fixture();try{
+  // Deliberately do not call authorize(): its transitive done shortcut hid this escaped bug.
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  for(const g of gates.gates)if(g.id==='G-AUTH')g.status='authorized';else if(g.id==='G-WORKFLOW')g.status='reconciled-independent-review';
+  writeFileSync(path,JSON.stringify(gates));f.commit();
+  const commit=f.git('rev-parse','main'),progressPath=join(f.root,'docs/build-progress.json');
+  const evidence={commit,checks:[{command:'normal tests',result:'passed',evidence:'/operator/tests.log'}],author:{actor:'author',model_family:'Sol'},verifier:{actor:'verifier',model_family:'Opus',verdict:'approved',commit,evidence:'intent://verifier-review'},owner_go_live:{actor:'Sebastian',commit,evidence:'intent://owner-go-live'}};
+  assert.throws(()=>requireImplementation(f.root,'WP-087'),/Prerequisites need reviewed producer\/interface milestones: WP-097/);
+  const before=readFileSync(progressPath,'utf8');
+  for(const [wp,input,reason] of [
+   ['WP-087',evidence,/limited to the declared WP-097/],
+   ['WP-097',{},/nonempty strings/],
+   ['WP-097',{...evidence,commit:'0'.repeat(40)},/already on main/],
+   ['WP-097',{...evidence,checks:[]},/passing normal test/],
+   ['WP-097',{...evidence,checks:[{...evidence.checks[0],result:'failed'}]},/Every fast-track test must pass/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,commit:'0'.repeat(40)}},/approvals must name/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,model_family:'Sol'}},/distinct author\/verifier/],
+   ['WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,actor:'author'}},/declared owner/],
+  ] as const){assert.throws(()=>recordFastTrack(f.root,wp,input),reason);assert.equal(readFileSync(progressPath,'utf8'),before);}
+  f.git('checkout','-b','unmerged');writeFileSync(join(f.root,'candidate.txt'),'unmerged');f.git('add','candidate.txt');f.git('commit','-qm','Unmerged fixture commit');
+  const unmerged=f.git('rev-parse','HEAD');
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,commit:unmerged,verifier:{...evidence.verifier,commit:unmerged},owner_go_live:{...evidence.owner_go_live,commit:unmerged}}),/already on main/);
+  assert.equal(readFileSync(progressPath,'utf8'),before);f.git('checkout','main');
+  recordFastTrack(f.root,'WP-097',evidence);
+  const after=readFileSync(progressPath,'utf8'),progress=JSON.parse(after);
+  assert.equal(progress.packages['WP-097'].status,'done');
+  assert.deepEqual(progress.packages['WP-097'].fast_track,evidence);
+  requireImplementation(f.root,'WP-087');
+  assert.throws(()=>requireImplementation(f.root,'WP-001'),/WP-087/);
+  recordFastTrack(f.root,'WP-097',evidence);assert.equal(readFileSync(progressPath,'utf8'),after);
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,evidence:'different approval'}}),/already records different evidence/);
+  assert.equal(readFileSync(progressPath,'utf8'),after);
+ }finally{f.close();}
+});
+
+test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
+ const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
+ const context=packageContext(source,pkg.id),block=buildBlocks(source,[pkg]).blocks[0];
+ assert.equal(block.acceptanceCount,context.acceptance_ids.length);
+ assert.match(renderBrief(source,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
+ assert.equal(block.acceptanceCount,8);
+ const brief=renderBrief(source,parseTask('WP-002'),{});
+ assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
+ assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
+ assert.match(brief,/Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
+ assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
+ const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
+ const parts=buildBlocks(source,selected).blocks;
+ assert.deepEqual(parts.filter(b=>b.wp==='WP-005').map(b=>[b.part,b.dependsOn]),[
+  ['contract',[]],['api',['wp-005-contract']],['ui',['wp-088','wp-089','wp-090','wp-005-contract']]]);
+ const ui=renderBrief(source,parseTask('WP-005/ui'),{});
+ assert.match(ui,/Design prototype: design\/everyfield-ui\.html/);
+ assert.match(ui,/Screen map: design\/handoff\/screens\.md/);
+ assert.match(ui,/screens\.md#L\d+: Sign in, with an invitation notice/);
+ assert.match(renderBrief(source,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
+
+});
+
+test('INV-proof-draft: drafts account for each selected case and gate without installing authority',()=>{
+ const before=readFileSync(join(source,'evf.config.json'),'utf8');
+ for(const id of ['WP-001','WP-005/contract','WP-005/api','WP-005/ui','WP-057']){
+  const task=parseTask(id),context=packageContext(source,task.wp),draft=draftProofPlan(source,task);
+  assert.deepEqual(draft.cases.map(c=>c.id),context.case_ids);
+  assert.deepEqual(draft.gates.map(g=>g.index),loadDag(source).packages.find(p=>p.id===task.wp)!.acceptance_gates.map((_,i)=>i));
+ }
+ assert.deepEqual(draftProofPlan(source,parseTask('OPS-1')),{risk:'ordinary',stage:'maintenance',ownedPortion:'platform',requiresStack:false,cases:[],gates:[]});
+ assert.equal(readFileSync(join(source,'evf.config.json'),'utf8'),before);
+});
+
+test('INV-case-coverage: one passing test covers several cases by exact name or annotation, never a failed/skipped result',()=>{
+ const ids=['REF-CASE-001','CA017','ASMT-011'];
+ const report={tests:[{name:'AC:REF-CASE-001 AC:CA017 reference install',status:'passed',annotations:['AC:ASMT-011']}]};
+ assert.deepEqual(caseCoverage(ids,report),{missing:[],duplicates:[]});
+ assert.deepEqual(caseCoverage(ids,{tests:[...report.tests,{name:'AC:CA017 alternate projection',status:'passed'}]}).duplicates,[{caseId:'CA017',tests:[report.tests[0].name,'AC:CA017 alternate projection']}]);
+ for(const status of ['failed','skipped'])assert.deepEqual(caseCoverage(ids,{tests:[{...report.tests[0],status}]}).missing,ids);
+ const re=new RegExp(caseGrep(['CA017']));assert.equal(re.test('AC:CA017 install'),true);assert.equal(re.test('AC:CA017-extra'),false);assert.equal(re.test('CA017'),false);
+ assert.deepEqual(caseCoverage(['CA017'],{tests:[{name:'AC:CA017-extra',status:'passed'}]}).missing,['CA017']);
+});
+
+test('INV-proof-coverage: current application verification rejects missing reports and uncovered cases despite signed passing claims',()=>{
+ const f=qualifiedFixture();try{
+  const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug);
+  for(const report of [null,{tests:[{name:'AC:CASE-WIKI-001',status:'passed'}]},{tests:[{name:packageContext(f.root,f.wp).case_ids.map(id=>'AC:'+id).join(' '),status:'failed'}]}]){
+   f.cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e',report?`require('node:fs').writeFileSync(process.env.EVF_TEST_REPORT,${JSON.stringify(JSON.stringify(report))})`:'process.exit(0)']}];
+   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();importGit(wt,'merge','--ff-only','main');
+   const stale=join(evfDataDir(f.root),'evidence',task.slug,importGit(wt,'rev-parse','HEAD').trim(),'author-full');mkdirSync(stale,{recursive:true});
+   writeFileSync(join(stale,'tests.json'),JSON.stringify({tests:[{name:packageContext(f.root,f.wp).case_ids.map(id=>'AC:'+id).join(' '),status:'passed'}]}));
+   const p=verify(f.root,task,'author','full');assert.equal(p.checks.find(c=>c.name==='case-coverage')!.passed,false);assert.equal(p.passed,false);
+  }
+ }finally{f.close();}
+});
+
+test('INV-progress-milestones: ship and acknowledgement write once, preserve proof, unlock a dependent before package closure, reject forged records',()=>{
+ const f=qualifiedFixture('WP-001');const oldLog=console.log;try{
+  const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug);
+  const progressPath=join(f.root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
+  delete progress.packages['WP-001'];writeFileSync(progressPath,JSON.stringify(progress));f.commit();importGit(wt,'merge','--ff-only','main');
+  const output=join(wt,'packages/reference/fixture.txt');mkdirSync(join(wt,'packages/reference'),{recursive:true});writeFileSync(output,'Reviewed reference bundle');importGit(wt,'add','packages/reference/fixture.txt');importGit(wt,'commit','-qm','Substantive reference output');
+  const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
+  const state=f.getState();state.allowMerge=true;state.mergeBranch=task.branch;f.setState(state);
+  const author=verify(f.root,task,'author','full'),verifier=verify(f.root,task,'verifier','full');
+  console.log=()=>{};assert.equal(ship(f.root,task,{maxUpdates:0}),0);
+  const recordPath=join(evfDataDir(f.root),'shipped',task.slug+'.json'),record=JSON.parse(readFileSync(recordPath,'utf8'));
+  const shipped=JSON.parse(readFileSync(progressPath,'utf8'));assert.equal(shipped.packages[f.wp].status,'in_progress');assert.equal(shipped.packages[f.wp].milestones[task.id].acknowledged,false);
+  assert.equal(producerReady(f.root,f.wp),false);
+  const fingerprint=contractFingerprint(f.root);listShipped(f.root,[task.id]);const acknowledged=readFileSync(progressPath,'utf8');
+  assert.equal(contractFingerprint(f.root),fingerprint);assert.equal(producerReady(f.root,f.wp),true);requireImplementation(f.root,'WP-032');
+  writeFileSync(progressPath,JSON.stringify(shipped));assert.equal(producerReady(f.root,f.wp),true);requireImplementation(f.root,'WP-032');
+  writeFileSync(progressPath,acknowledged);
+  assert.equal(loadProgress(f.root)[f.wp].status,'in_progress');listShipped(f.root,[task.id]);assert.equal(readFileSync(progressPath,'utf8'),acknowledged);
+  const retained=JSON.parse(readFileSync(recordPath,'utf8'));assert.equal(retained.proof.sha,verifier.sha);assert.equal(retained.author_proof.sha,author.sha);
+  assert.throws(()=>recordProgress(f.root,{...record,proof:{...record.proof,task:'WP-002'}},true),/independently reviewed/);
+  // Only reviewed full-target integration may acknowledge package closure.
+  const integration=parseTask('WP-057'),draft=draftProofPlan(f.root,integration);
+  const closure={packageId:'WP-001',gateIndexes:loadDag(f.root).packages.find(p=>p.id==='WP-001')!.acceptance_gates.map((_,i)=>i)};
+  f.cfg.verification.proofPlans[integration.id]={...draft,requiresStack:false,packageClosures:[{...closure,gateIndexes:[]}]};
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  assert.throws(()=>proofPlan(f.root,integration,integration.wp,draft.cases.map(c=>c.id)),/every target package gate/);
+  f.cfg.verification.proofPlans[integration.id]={...draft,requiresStack:false,packageClosures:[closure]};
+  f.cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e',`require('node:fs').writeFileSync(process.env.EVF_TEST_REPORT,JSON.stringify({tests:[{name:${JSON.stringify(draft.cases.map(c=>'AC:'+c.id).join(' '))},status:'passed'}]}))`]}];
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();f.git('push','-q','origin','main');const integratedWt=f.task(integration.slug);
+  const integratedOutput=join(integratedWt,'tests/integration/target/wp-057/fixture.txt');mkdirSync(join(integratedWt,'tests/integration/target/wp-057'),{recursive:true});writeFileSync(integratedOutput,'Reviewed complete integration');importGit(integratedWt,'add','tests/integration/target/wp-057/fixture.txt');importGit(integratedWt,'commit','-qm','Integration output');
+  const integrationState=f.getState();integrationState.mergeBranch=integration.branch;f.setState(integrationState);
+  verify(f.root,integration,'author','full');verify(f.root,integration,'verifier','full');assert.equal(ship(f.root,integration,{maxUpdates:0}),0);
+  assert.equal(loadProgress(f.root)['WP-001'].status,'in_progress');
+  // Even a signed passing integration report cannot close a package with an impossible case.
+  const casePath=join(f.root,'docs/acceptance/meetings-follow-up.json'),caseBytes=readFileSync(casePath,'utf8');
+  const manifestPath=join(f.root,'docs/plan/context-manifest.json'),manifestBytes=readFileSync(manifestPath,'utf8');
+  const caseFile=JSON.parse(caseBytes),agenda=caseFile.cases.find((c:{id:string})=>c.id==='TARGET-MTG-005');
+  agenda.work_packages.push('WP-001');agenda.action.arguments.expected_answer=agenda.expected.result;
+  writeFileSync(casePath,JSON.stringify(caseFile));
+  execFileSync('python3',[join(f.root,'docs/package-context.py'),'--root',f.root,'--refresh-manifest']);
+  const beforeRejectedClosure=readFileSync(progressPath,'utf8');
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*expected answer|Closure requires runnable cases.*expected_answer/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  delete agenda.action.arguments.expected_answer;writeFileSync(casePath,JSON.stringify(caseFile));
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires available case actions.*WP-001\/TARGET-MTG-005/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  // A plant Admin cannot use an operator operation as an evidence reader.
+  agenda.action={operation:'engineering.inventoryTools',arguments:{}};
+  writeFileSync(casePath,JSON.stringify(caseFile));
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*actor lacks authority.*engineering.inventoryTools/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  writeFileSync(casePath,caseBytes);writeFileSync(manifestPath,manifestBytes);
+  // An owned requirement needs an owned case even with signed passing integration evidence.
+  const requirementPath=join(f.root,'docs/catalog/requirements/communications-notifications.json');
+  const requirementBytes=readFileSync(requirementPath,'utf8'),requirementFile=JSON.parse(requirementBytes);
+  requirementFile.requirements.find((r:{id:string})=>r.id==='REQ-NTF-004').work_packages.push('WP-001');
+  writeFileSync(requirementPath,JSON.stringify(requirementFile));
+  execFileSync('python3',[join(f.root,'docs/package-context.py'),'--root',f.root,'--refresh-manifest']);
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*WP-001\/REQ-NTF-004: owned requirement has no owned case/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  writeFileSync(requirementPath,requirementBytes);writeFileSync(manifestPath,manifestBytes);
+  listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
+  const closed=readFileSync(progressPath,'utf8');listShipped(f.root,[integration.id]);assert.equal(readFileSync(progressPath,'utf8'),closed);
+ }finally{console.log=oldLog;f.close();}
+});
+
+test('INV-maintenance: OPS uses tooling-only proof without global app gates or stack, and retains signed cross-model review',()=>{
+ const f=qualifiedFixture();try{
+  const task=parseTask('OPS-1');f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/','evf.config.json'],configChanges:['stack','checks'],checks:[{name:'tooling-upkeep',run:[process.execPath,'-e',`require('node:assert/strict').equal(require('node:fs').readFileSync('tools/evf/upkeep.txt','utf8'),'Reviewed tooling change')`]}]}};
+  f.cfg.verification.proofPlans[task.id]=draftProofPlan(f.root,task);
+  f.cfg.verification.attest=[process.execPath,'fake-bin/attest.cjs','{request}'];
+  f.cfg.maintenanceTasks[task.id].owningPaths=['packages/domain/','evf.config.json'];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/OPS cannot authorize application code/);assert.equal(f.git('branch','--list',task.branch),'');
+  f.cfg.maintenanceTasks[task.id].owningPaths=['tools/evf/','evf.config.json'];
+  const gatePath=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(gatePath,'utf8'));gates.gates.find((g:any)=>g.id==='G-AUTH').status='not-authorized';writeFileSync(gatePath,JSON.stringify(gates));
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+  assert.match(renderBrief(f.root,task,{}),/The reviewed maintenance proof plan is installed/);
+  taskStart(f.root,task,{allowUnready:false,noStack:false});
+  const wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/unreviewed-check');
+  mkdirSync(join(wt,'tools/evf'),{recursive:true});writeFileSync(join(wt,'tools/evf/upkeep.txt'),'Reviewed tooling change');
+  const candidate=structuredClone(f.cfg);
+  candidate.stack={usesPaidProviders:false,up:['scripts/stack','up'],status:['scripts/stack','status']};
+  candidate.checks=[{name:'future-check',run:[process.execPath,'-e',`require('node:fs').writeFileSync(${JSON.stringify(marker)},'ran')`]}];
+  writeFileSync(join(wt,'evf.config.json'),JSON.stringify(candidate));importGit(wt,'add','tools/evf/upkeep.txt','evf.config.json');importGit(wt,'commit','-qm','Wire candidate stack and checks with tooling change');
+  for(const field of ['publicKey','attest','proofPlans']){
+   const changed=structuredClone(candidate);changed.verification[field]=null;writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
+   assert.throws(()=>verify(f.root,task,'author','full'),/cannot change runner, keys/);
+  }
+  writeFileSync(join(wt,'evf.config.json'),JSON.stringify(candidate));
+  const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
+  const a=verify(f.root,task,'author','full'),v=verify(f.root,task,'verifier','full');assert.equal(a.kind,'tooling');assert.equal(v.passed,true);assert.deepEqual(v.checks.map(c=>c.name),['tooling-upkeep']);assert.deepEqual(v.expectedCases,[]);assert.deepEqual(v.expectedGates,[]);
+  assert.equal(currentProof(f.root,task,'verifier').sha,v.sha);assert.equal(prOpen(f.root,task),0);assert.equal(existsSync(marker),false);assert.throws(()=>stack(f.root,task,'up'),/no application stack/);
+  process.env.EVF_FIXTURE_FAMILY='Sol';verify(f.root,task,'verifier','full');assert.throws(()=>currentProof(f.root,task,'verifier'),/distinct trusted/);
+ }finally{delete process.env.EVF_FIXTURE_FAMILY;f.close();}
+});
+
 test('INV-execution-policy: worktree tooling/risk edits cannot run checks or stack before reviewed-root gates',()=>{
  const f=qualifiedFixture();try{
   const task=parseTask(f.wp),wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/executed.txt');
   f.cfg.stack={usesPaidProviders:false,up:[process.execPath,'-e',`require('node:fs').writeFileSync(${JSON.stringify(marker)},'ran')`],status:[process.execPath,'-e','process.exit(0)']};
   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();importGit(wt,'merge','--ff-only','main');
-  const changed=JSON.parse(readFileSync(join(wt,'evf.config.json'),'utf8'));changed.verification.kind='tooling';changed.verification.proofPlans[f.wp].risk='security';changed.checks=[{name:'unreviewed-check',run:f.cfg.stack.up}];writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
+  for(const key of ['publicKey','attest','proofPlans']){
+   const forbidden=structuredClone(f.cfg);forbidden.verification[key]=null;writeFileSync(join(wt,'evf.config.json'),JSON.stringify(forbidden));
+   assert.throws(()=>verify(f.root,task,'author','full'),/match the reviewed root before any check/);
+  }
+  const changed=structuredClone(f.cfg);changed.verification.kind='tooling';changed.verification.proofPlans[f.wp].risk='security';changed.checks=[{name:'unreviewed-check',run:f.cfg.stack.up}];writeFileSync(join(wt,'evf.config.json'),JSON.stringify(changed));
   assert.throws(()=>verify(f.root,task,'verifier','full'),/match the reviewed root before any check/);
   assert.throws(()=>stack(f.root,task,'up'),/match the reviewed root before runtime/);
   assert.equal(existsSync(marker),false);
+ }finally{f.close();}
+});
+
+import { bootstrapReadiness } from '../doctor.ts';
+test('BUG-bootstrap-reader: case and full brief preserve structured fixtures, actors, clock, actions, expected and groups',()=>{
+ const c=renderAc(source,'REF-CASE-001');
+ assert.match(c,/"timezone": "America\/Chicago"/);assert.match(c,/"accepted_original_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"/);
+ for(const field of ['given','actor','clock','action','expected'])assert.ok(c.includes(field+':\n```json\n'));
+ assert.doesNotMatch(c,/undefined|\[object Object\]/);
+ assert.match(renderAc(source,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
+ const subcases=renderAc(source,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
+ const full=renderBrief(source,parseTask('WP-001'),{full:true});
+ assert.ok(full.includes(c));assert.doesNotMatch(full,/fixture undefined|\[object Object\]/);
+ const catalog=loadRegistry(source);assert.ok(renderAc(source,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+});
+test('INV-bootstrap-readiness: missing owner setup lists each prerequisite without starting a runner',()=>{
+ const f=fixture();try{
+  const missing=bootstrapReadiness(f.root).filter(([ready])=>!ready).map(([,item])=>item);
+  assert.deepEqual(missing,[
+   'owner kickoff approval in G-AUTH','owner workflow approval in G-WORKFLOW','repository remote origin',
+   'trusted signed runner command with {request}; owner reviews its identity and review adapter',
+   'reviewed Ed25519 public key; private key stays outside agent worktrees',
+   'owner-reviewed bootstrap application qualification and assertion/report driver',
+   'reviewed WP-087 producer proof plan',
+   'owner-approved WP-097 fast-track completion on main; import reviewed evidence before WP-087',
+   'reviewed WP-001 proof plan',
+   'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring',
+   'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087']);
+  f.authorize();assert.equal(bootstrapReadiness(f.root)[0][0],true);assert.equal(bootstrapReadiness(f.root)[1][0],true);
  }finally{f.close();}
 });

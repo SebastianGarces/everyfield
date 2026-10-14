@@ -9,7 +9,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Use a separate private Tigris backup bucket, not a production prefix/directory. Production app credentials cannot access it; only dedicated bucket-scoped backup credentials in the restricted backup execution context do. Actual key delivery/isolation is implementation proof, not assumed from naming a key or adding an env variable.",
+      "text": "Before customer data, use a separate private Tigris backup bucket, not a production prefix/directory. Production app credentials cannot access it; only dedicated bucket-scoped backup credentials in the restricted backup execution context do. Actual key delivery/isolation is implementation proof, not assumed from naming a key or adding an env variable.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -26,7 +26,8 @@
         "WP-003",
         "WP-004",
         "WP-050"
-      ]
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-012",
@@ -36,7 +37,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Dated encrypted daily copies have actual DB/byte reference/checksum manifest and explicit seven-day artifact/deletion expiry/cleanup under . Key/control access is recoverable by authorized backup operators; no ordinary app/model/private-care leakage. Lifecycle expiry is not objectlock or prevention of earlier privileged deletion; old copy recopy cannot reset subject expiry.",
+      "text": "Before customer data, dated encrypted daily copies have actual DB/byte reference/checksum manifest and explicit seven-day artifact/deletion expiry and cleanup under the restricted backup execution context. Key/control access is recoverable by authorized backup operators; no ordinary app/model/private-care leakage. Lifecycle expiry is not object lock or prevention of earlier privileged deletion; old copy recopy cannot reset subject expiry.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -53,8 +54,9 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
-      ]
+        "WP-092"
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-013",
@@ -63,7 +65,7 @@
         "DOC-015",
         "OPS-007"
       ],
-      "text": "Same-provider/account outage/loss may affect both primary storage and backup; disclose accepted limitation and require no second provider as launch gate. Ordinary live-provider1hRPO/4hRTO remains measured target; daily24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish24h recovery, with no invented disaster RTO/SLA.",
+      "text": "Before customer data, same-provider/account outage/loss may affect both primary storage and backup; disclose accepted limitation and require no second provider as launch gate. Ordinary live-provider 1h RPO/4h RTO remains measured target; daily 24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish 24h recovery, with no invented disaster RTO/SLA.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -79,8 +81,9 @@
         "WP-003",
         "WP-050",
         "WP-049",
-        "WP-057"
-      ]
+        "WP-095"
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-014",
@@ -107,8 +110,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -138,11 +141,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
-        "WP-004",
-        "WP-005",
-        "WP-006",
-        "WP-007",
         "WP-010"
       ]
     },
@@ -154,7 +152,7 @@
         "IDN-010",
         "IDN-026"
       ],
-      "text": "During30days retain private affected data and identity proof solely for cancellation, while normal material stays hidden. Restricted native status/cancel authentication for original account or requesting workspace Owner exposes no ordinary content or another subject. Revoked ordinary sessions stay invalid; cancel uses fresh identity/current authority, not restored old tokens.",
+      "text": "During 30 days retain private affected data and identity proof solely for cancellation, while normal material stays hidden. Restricted native status/cancel authentication for original account or requesting workspace Owner exposes no ordinary content or another subject. Revoked ordinary sessions stay invalid; cancel uses fresh identity/current authority, not restored old tokens.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [],
       "acceptance_ids": [
@@ -168,8 +166,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-006",
         "WP-010"
       ]
     },
@@ -199,13 +195,10 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
-        "WP-031",
         "WP-035",
         "WP-047",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -249,7 +242,7 @@
         "WP-036",
         "WP-037",
         "WP-039",
-        "WP-056"
+        "WP-093"
       ]
     },
     {
@@ -284,14 +277,12 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
         "WP-035",
         "WP-037",
         "WP-039",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ]
     },
     {
@@ -319,9 +310,8 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-037",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -338,9 +328,11 @@
         "PI-040",
         "PI-041"
       ],
-      "text": "At deadline transition pending\u2192purging and purge eligible live DB/private object content with resumable scope/request fencing. livePurgedAt is recorded only after coherent eligible DB+file purge; failures remain hidden and retryable, not falsely complete. Existing shared-history references remain valid with minimal scrubbed attribution.",
+      "text": "At deadline transition pending→purging and purge eligible live DB/private object content with resumable scope/request fencing. livePurgedAt is recorded only after coherent eligible DB+file purge; failures remain hidden and retryable, not falsely complete. Existing shared-history references remain valid with minimal scrubbed attribution.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
-      "operations": [],
+      "operations": [
+        "documents.purgeOwnedForDeletion"
+      ],
       "acceptance_ids": [
         "AC-DOC-003--DOC-003",
         "AC-DOC-015--DOC-015",
@@ -365,7 +357,19 @@
         "WP-037",
         "WP-039",
         "WP-050",
-        "WP-056"
+        "WP-093"
+      ],
+      "operation_refs": [
+        {
+          "operation_id": "documents.purgeOwnedForDeletion",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "documents.purgeOwnedForDeletion",
+          "rule": "Deletion-only internal purge: actual owner pending-deletion deadline reached/current witness; revoke normal access immediately, coherent bytes/live rows, resumable fence. Not ordinary hard-delete/editor command."
+        }
       ]
     },
     {
@@ -376,7 +380,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Recovery-copy logical expiry is no later than completed livePurgedAt+7days and does not create a cancellation right after30days. All snapshots/restored branches/object versions/independent backup manifests apply the same subject expiry without clock reset. Restore uses known current deletion witnesses before access; uncertainty fails closed, and expired material is not resurrected.",
+      "text": "Recovery-copy logical expiry is no later than completed livePurgedAt+7 days and does not create a cancellation right after 30 days. All snapshots/restored branches/object versions/independent backup manifests apply the same subject expiry without clock reset. Restore uses known current deletion witnesses before access; uncertainty fails closed, and expired material is not resurrected.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [],
       "acceptance_ids": [
@@ -394,8 +398,8 @@
         "WP-010",
         "WP-037",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -407,7 +411,7 @@
         "ADM-007",
         "IDN-026"
       ],
-      "text": "Privacy policy explains30day private cancellation retention/live purge/7day recovery-copy policy, minimal shared attribution and actual asynchronous provider/external-copy limits. Native own-feedback status also respects suspended/deleted subject filters; no physical day37-erasure claim or silent public-copy recall.",
+      "text": "Privacy policy explains 30 day private cancellation retention/live purge/7 day recovery-copy policy, minimal shared attribution and actual asynchronous provider/external-copy limits. Native own-feedback status also respects suspended/deleted subject filters; no physical day 37-erasure claim or silent public-copy recall.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [],
       "acceptance_ids": [
@@ -423,8 +427,7 @@
       "work_packages": [
         "WP-010",
         "WP-049",
-        "WP-050",
-        "WP-057"
+        "WP-094"
       ]
     },
     {
@@ -434,7 +437,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Verify actual Neon7day PITR configuration and daily snapshots before real data; paid default1day is insufficient. Expire manual/scheduled/stale/latest-preserved snapshots and restored branches according to selected policy, not indefinite provider defaults. No paid-plan/spend or current provider call is approved.",
+      "text": "Verify actual Neon 7 day PITR configuration and daily snapshots before real data; paid default 1 day is insufficient. Expire manual/scheduled/stale/latest-preserved snapshots and restored branches according to selected policy, not indefinite provider defaults. No paid-plan/spend or current provider call is approved.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -461,7 +464,7 @@
         "IDN-006",
         "OPS-007"
       ],
-      "text": "Verify Tigris7day deleted-object recovery and corresponding billing/asynchronous cleanup. Soft-deleted buckets need explicit permanent cleanup; snapshot markers/earlier versions cannot silently retain accessible expired bytes. Native object soft delete is not separate-control disaster backup.",
+      "text": "Verify Tigris 7 day deleted-object recovery and corresponding billing/asynchronous cleanup. Soft-deleted buckets need explicit permanent cleanup; snapshot markers/earlier versions cannot silently retain accessible expired bytes. Native object soft delete is not separate-control disaster backup.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -489,7 +492,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Ordinary mistake restore proves coherent database reference/timepoint plus actual matching private bytes/checksums, including replaced/deleted files and failed upload finalization. Prefer existing immutable keys/references and minimal manifest; daily independent byte backup alone cannot establish1hour lost-work target.",
+      "text": "Ordinary mistake restore proves coherent database reference/timepoint plus actual matching private bytes/checksums, including replaced/deleted files and failed upload finalization. Prefer existing immutable keys/references and minimal manifest; daily independent byte backup alone cannot establish 1 hour lost-work target.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -508,7 +511,7 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -518,7 +521,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Demonstrate ordinary app/operator mistake restore with live provider access within4hours and at most1hour lost work; record observed results and limitations, not a customer SLA or unproven guarantee. Repeat only for material new changes; before-real-data release gates cannot close on docs/config assertions alone.",
+      "text": "Demonstrate ordinary app/operator mistake restore with live provider access within 4 hours and at most 1 hour lost work; record observed results and limitations, not a customer SLA or unproven guarantee. Repeat only for material new changes; before-real-data release gates cannot close on docs/config assertions alone.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -534,8 +537,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -547,7 +550,7 @@
         "OPS-006",
         "OPS-007"
       ],
-      "text": "Before real customer data, configure/verify selected private backup bucket, dedicated credential exclusion, daily encrypted copies/retention and coherent DB+files restore under current deletion barriers after actual cost approval. Destination no longer needs an owner vote; paid spend/provider setup are not authorized here. Do not install a second-provider resilience blocker or inspect the other worktree. Daily available-copy fallback is24hours; no independentlyhosted provider/accountdisaster claim or disasterRTO.",
+      "text": "Before real customer data, configure/verify selected private backup bucket, dedicated credential exclusion, daily encrypted copies/retention and coherent DB+files restore under current deletion barriers after actual cost approval. Destination no longer needs an owner vote; paid spend/provider setup are not authorized here. Do not install a second-provider resilience blocker or inspect the other worktree. Daily available-copy fallback is 24 hours; no independently hosted provider/account disaster claim or disaster RTO.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -564,7 +567,7 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-057",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -579,7 +582,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Isolated restore reapplies current deletion/access barriers and copy expiry, checks DB/object/manifests and reconciles accepted/scheduled/unknown email and issue receipts before reopening. Old backup recopy cannot restart subject expiry or resend accepted mail/recreate public issues. Verify artifact cleanup before truthful completion; no exact physicalday37 promise.",
+      "text": "Isolated restore reapplies current deletion/access barriers and copy expiry, checks DB/object/manifests and reconciles accepted/scheduled/unknown email and issue receipts before reopening. Old backup recopy cannot restart subject expiry or resend accepted mail/recreate public issues. Verify artifact cleanup before truthful completion; no exact physical day 37 promise.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -603,8 +606,8 @@
         "WP-037",
         "WP-049",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -617,7 +620,7 @@
         "NTF-002",
         "OPS-007"
       ],
-      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/claim generation. Deletion request immediately revokes affected normal access and holds privately30days solely for restricted native cancellation. DBclock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry\u2264livePurgedAt+7days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
+      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/claim generation. Deletion request immediately revokes affected normal access and holds privately 30 days solely for restricted native cancellation. DB clock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry≤livePurgedAt+7 days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [
         "maintenance.purgeEligibleSubject",
@@ -636,14 +639,34 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-036",
         "WP-037",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Coherent eligible owned DB/byte/cache/derived-copy purge after exact 30-day hold, respecting ownership detach/minimal attribution and current witness."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "No post-deadline user cancellation or deleted-subject resurrection; restore always current-witness fenced."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Current recovery/core/execution contract and root selected internal callback encoding; no invented source symbol."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Registered exact internal job/authorized restricted CLI proof, not general user/model approval."
+        },
+        {
+          "operation": "maintenance.purgeEligibleSubject",
+          "rule": "Verify current lifecycle/request/witness/operator and fencing state at each bounded checkpoint."
+        }
       ]
     },
     {
@@ -654,7 +677,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Verify Neon7dayPITR+daily expiring snapshots and Tigris7daydeletedobjects. Separate private Tigris backup bucket has dedicated scope and recoverable encryption keys absent ordinary app/build/preview. Same artifact operator-only CLI in a positively identified future restricted scheduled context creates verified dated daily DB+exact-byte/checksum manifests and current witness journal. Ordinary live-provider RPO1h/RTO4h is measured; surviving fresh daily fallback\u226424h only, shared-provider risk/no disasterRTO/SLA.",
+      "text": "Verify Neon 7 day PITR+daily expiring snapshots and Tigris 7 day deleted objects. Separate private Tigris backup bucket has dedicated scope and recoverable encryption keys absent ordinary app/build/preview. Same artifact operator-only CLI in a positively identified future restricted scheduled context creates verified dated daily DB+exact-byte/checksum manifests and current witness journal. Ordinary live-provider RPO 1h/RTO 4h is measured; surviving fresh daily fallback≤24h only, shared-provider risk/no disaster RTO/SLA.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [
         "maintenance.restoreWithCurrentManifest",
@@ -672,10 +695,15 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
         "WP-036",
         "WP-037",
         "WP-050"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "maintenance.restoreWithCurrentManifest",
+          "rule": "Restore consistent DB+matching bytes with authoritative current deletion/access barrier, immutable copy expiry and actual non-replayed external facts."
+        }
       ]
     }
   ]

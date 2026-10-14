@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "everyfield-acceptance-case",
+  "title": "Acceptance behavior example",
+  "description": "Fixture names are literal stable labels for synthetic rows. fixture_type describes the row, not a prescribed database/API shape. Actor selects authenticated account/session/context; null is anonymous or trusted internal execution. Clock is an explicit UTC instant and IANA zone. Action arguments describe domain values, not prescribed signatures. Expected state/result/event are literal observations; greater_than is a monotonic revision assertion, not an exact bump count. Error codes name semantic failure categories; builders choose their internal representation. Named subcases overlay parent given rows by name; an overridden row replaces the whole row, while other rows are inherited and are covered under the parent ID. Group is a proof organization hint, never a mandatory test count. Explicit sql/build/configuration inspection actions are proof operations, not application endpoints. A null event leaves event assertions to another example or linked requirement; an empty array asserts no events.",
+  "type": "object",
+  "required": [
+    "id",
+    "requirement",
+    "feature_ids",
+    "acceptance_ids",
+    "work_packages",
+    "status",
+    "given",
+    "actor",
+    "clock",
+    "action",
+    "expected"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requirement": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "feature_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "acceptance_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "work_packages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "operation_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "status": {
+      "enum": [
+        "future-not-run"
+      ]
+    },
+    "group": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coverage_notes": {
+      "type": "array"
+    },
+    "schema_tables": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "given": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "fixture_type"
+        ],
+        "properties": {
+          "fixture_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "minProperties": 2
+      }
+    },
+    "actor": {
+      "type": "object",
+      "required": [
+        "account",
+        "session",
+        "context"
+      ],
+      "properties": {
+        "account": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "clock": {
+      "type": "object",
+      "required": [
+        "now",
+        "zone"
+      ],
+      "properties": {
+        "now": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "zone": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected": {
+      "type": "object",
+      "required": [
+        "state",
+        "event"
+      ],
+      "properties": {
+        "state": {
+          "type": "object"
+        },
+        "result": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event": {
+          "type": [
+            "object",
+            "array",
+            "null"
+          ]
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "result"
+          ]
+        },
+        {
+          "required": [
+            "error_code"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "subcases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/subcase"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "subcase": {
+      "type": "object",
+      "required": [
+        "name",
+        "given",
+        "actor",
+        "clock",
+        "action",
+        "expected"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "given": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "fixture_type"
+            ],
+            "properties": {
+              "fixture_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "minProperties": 2
+          }
+        },
+        "actor": {
+          "type": "object",
+          "required": [
+            "account",
+            "session",
+            "context"
+          ],
+          "properties": {
+            "account": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "session": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "context": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "clock": {
+          "type": "object",
+          "required": [
+            "now",
+            "zone"
+          ],
+          "properties": {
+            "now": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "zone": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "action": {
+          "type": "object",
+          "required": [
+            "operation",
+            "arguments"
+          ],
+          "properties": {
+            "operation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "arguments": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "expected": {
+          "type": "object",
+          "required": [
+            "state",
+            "event"
+          ],
+          "properties": {
+            "state": {
+              "type": "object"
+            },
+            "result": {
+              "type": [
+                "object",
+                "array",
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "error_code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "event": {
+              "type": [
+                "object",
+                "array",
+                "null"
+              ]
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "result"
+              ]
+            },
+            {
+              "required": [
+                "error_code"
+              ]
+            }
+          ],
+          "additionalProperties": false
+        },
+        "subcases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/subcase"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

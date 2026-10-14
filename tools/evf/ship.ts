@@ -16,7 +16,8 @@ import {
   type Config,
   type TaskRef,
 } from "./lib.ts";
-import { requireImplementation, requireTaskRisk } from "./policy.ts";
+import { requireTaskScope } from "./policy.ts";
+import { recordProgress, type ShippedRecord } from './progress.ts';
 import { stack } from "./task.ts";
 import { cachedTriage, fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
 import { currentProof, type Proof } from "./verify.ts";
@@ -49,12 +50,14 @@ function prFor(wt: string, task: TaskRef): { number: number; url: string; state:
 }
 
 function taskTitle(root: string, task: TaskRef): string {
+  if(task.kind==='ops')return loadConfig(root).maintenanceTasks![task.id].title;
   if (task.kind === "fb") return feedbackTitle(root, task.issue!);
   const pkg = findPackage(loadDag(root), task.wp);
   return `${pkg.title}${task.part ? ` (${task.part})` : ""}`;
 }
 
 function taskPaths(root: string, task: TaskRef): string[] {
+  if(task.kind==='ops')return loadConfig(root).maintenanceTasks![task.id].owningPaths;
   return task.kind === "fb" ? fbOwningPaths(root, task) : pathsForPart(findPackage(loadDag(root), task.wp), task.part);
 }
 
@@ -79,7 +82,7 @@ function prBody(root: string, task: TaskRef, proof: Proof): string {
     "",
     `Evidence (local): \`${proof.evidenceDir}\``,
     "",
-    proto ? "" : "Ordinary build PRs merge automatically after final-head tests, independent approved review and applicable gates. Feedback implementation PRs additionally require human approval; sensitive work escalates through Intent.",
+    "Merge policy: `.agents/skills/ship/SKILL.md`.",
     "",
     "Rulings and shared changes made in this task:",
     "- (author: list them here, or write \"none\")",
@@ -88,7 +91,7 @@ function prBody(root: string, task: TaskRef, proof: Proof): string {
 
 export function prOpen(root: string, task: TaskRef): number {
   const cfg = loadConfig(root);
-  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);requireTaskRisk(root,task);
+  const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;requireTaskScope(root,task,wp);
   requireRemote(root, cfg);
   const wt = requireWorktree(root, cfg, task);
   if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
@@ -124,14 +127,14 @@ const BEHIND = /not up to date|behind|base branch|head branch was modified|updat
 
 export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }): number {
   const cfg = loadConfig(root);
-  const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail("Missing reviewed task scope.");requireImplementation(root,wp);requireTaskRisk(root,task);
+  const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;requireTaskScope(root,task,wp);
   requireRemote(root, cfg);
   const wt = requireWorktree(root, cfg, task);
   if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
   const pr = prFor(wt, task);
   if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
   const policy=(cfg as Config & {mergePolicy:{ordinary:string;feedback:string;humanActorIds:number[]}}).mergePolicy;
-  if(task.kind==='wp'&&policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
+  if(task.kind!=='fb'&&policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
   if(task.kind==='fb'&&(policy.feedback!=='human-reviewed'||!policy.humanActorIds.length)) fail('Configure explicitly verified human reviewer IDs before merging feedback PRs.');
 
 
@@ -140,6 +143,7 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
     const sha = git(wt, "rev-parse", "HEAD");
     git(root,"fetch","--quiet",cfg.remote,cfg.baseBranch);
     const proof = currentProof(root,task,"verifier");
+    const authorProof = currentProof(root,task,"author");
     const repo=nameWithOwner(wt);
     const protection=JSON.parse(gh(wt,["api",`repos/${repo}/branches/${cfg.baseBranch}/protection`]));
     if(protection.required_status_checks?.strict!==true || !Array.isArray(protection.required_status_checks?.contexts) || !protection.required_status_checks.contexts.includes(cfg.statusContext) || protection.enforce_admins?.enabled!==true)fail('Verified strict branch protection and enforced final-head checks are required before automatic merge. Protection configuration is a separate owner action.');
@@ -156,7 +160,7 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
     pushBranch(wt, cfg, task);
     postStatus(wt, cfg, sha, "success", `Verified ${proof.mode} by ${proof.role} at ${sha.slice(0, 10)}`);
     const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
-    if (merge.code === 0) return afterMerge(root, cfg, task, wt, pr.number, proof);
+    if (merge.code === 0) return afterMerge(root, cfg, task, wt, pr.number, proof,authorProof);
 
     const why = (merge.stderr || merge.stdout).trim();
     if (!BEHIND.test(why)) fail(`Merge refused: ${why}`);
@@ -170,7 +174,7 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
   return 1;
 }
 
-function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumber: number, proof: Proof): number {
+function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumber: number, proof: Proof,authorProof:Proof): number {
   const mergeSha = gh(wt, ["pr", "view", String(prNumber), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);
   const record = {
     task: task.id,
@@ -187,6 +191,7 @@ function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumb
     verified_head: proof.sha,
     contract_fingerprint: proof.fingerprint,
     proof,
+    author_proof: authorProof,
     evidence: {
       path: taskPaths(root, task)[0] ?? "",
       commit: mergeSha,
@@ -198,11 +203,13 @@ function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumb
   const dir = join(evfDataDir(root), "shipped");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${task.slug}.json`), `${JSON.stringify(record, null, 2)}\n`);
+  git(root,'fetch','--quiet',cfg.remote,cfg.baseBranch);
+  recordProgress(root,record,false);
   console.log(`ship: merged PR #${prNumber} as ${mergeSha.slice(0, 10)}.`);
   if (task.kind === "fb") onFeedbackShipped(root, task);
-  else console.log(`progress: record saved for the coordinator (evf shipped).`);
+  else console.log(`progress: recorded automatically; the coordinator reviews and acknowledges with evf shipped --clear ${task.id}.`);
 
-  stack(root, task, "down", true);
+  if(task.kind!=='ops')stack(root, task, "down", true);
   const removed = run("git", ["worktree", "remove", wt], { cwd: root });
   if (removed.code === 0) {
     run("git", ["branch", "-D", task.branch], { cwd: root });
@@ -218,10 +225,11 @@ export function listShipped(root: string, clear: string[]): number {
     console.log("[]");
     return 0;
   }
-  const records = readdirSync(dir).filter(f=>f.endsWith(".json")).map(f=>({path:join(dir,f),value:JSON.parse(readFileSync(join(dir,f),"utf8")) as {task:string;acknowledged?:boolean}}));
+  const records = readdirSync(dir).filter(f=>f.endsWith(".json")).map(f=>({path:join(dir,f),value:JSON.parse(readFileSync(join(dir,f),"utf8")) as ShippedRecord}));
   console.log(JSON.stringify(records.filter(r=>!r.value.acknowledged).map(r=>r.value),null,2));
   for(const id of clear) {
     const record=records.find(r=>r.value.task===id);if(!record)fail(`No retained shipped record for ${id}.`);
+    recordProgress(root,record.value,true);
     record.value.acknowledged=true;writeFileSync(record.path,JSON.stringify(record.value,null,2)+"\n");
   } // Acknowledgement clears the inbox, never removes proof/part provenance.
 

@@ -14,7 +14,7 @@ You own one task from start to merged PR, except the merge itself.
    `bin/evf verify <task>`, `bin/evf pr open <task>`.
 7. Report to the coordinator: PR URL, proof path, rulings made, anything left out and why.
 
-Never merge your own PR. Never edit `docs/build-progress.json` or the explorer HTML.
+Follow `ship` for merge authority. Never edit `docs/build-progress.json` or the explorer HTML.
 
 ## Principles to read in full at the start
 

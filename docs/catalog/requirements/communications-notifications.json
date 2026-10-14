@@ -6,13 +6,12 @@
       "feature_ids": [
         "COM-001"
       ],
-      "text": "Hub/history filters subject and safe body substring, linked context, lifecycle and reachable email channel; bounded page/limit \u2264100 and safe fallback for invalid read filters. Available filters reflect all authorized history. Totals distinguish selected, reachable, attempted, accepted, delivered, engaged, failed and unknown; zero denominator is safe. Load failure shows unavailable.",
+      "text": "Hub/history filters subject and safe body substring, linked context, lifecycle and reachable email channel; bounded page/limit ≤100 and safe fallback for invalid read filters. Available filters reflect all authorized history. Totals distinguish selected, reachable, attempted, accepted, delivered, engaged, failed and unknown; zero denominator is safe. Load failure shows unavailable.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.list",
-        "communication.historyFilters",
         "communication.deliveryTotals",
-        "communication.resolveDisplaySubjects"
+        "communication.get"
       ],
       "acceptance_ids": [
         "AC-COM-001--COM-001"
@@ -23,6 +22,37 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
+      ],
+      "title": "Communication hub, filtered history and delivery overview",
+      "behavior_rules": [
+        {
+          "feature": "COM-001",
+          "rule": "Supported statuses values: draft, scheduled, accepted, failed, unknown, cancelled, sent."
+        },
+        {
+          "operation": "communication.deliveryTotals",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: message id, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, as of."
+        },
+        {
+          "operation": "communication.deliveryTotals",
+          "rule": "Exact operation-specific parent IDs/joins and visible denominator; deliverability/lifecycle/best engagement remain distinct and unknown never counts as sent/contacted."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, visible count, as of, completeness."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Bounded scoped history/search; draft listing always enforces draft state server-side, filters cannot change it. State is aggregate projection over one mail ledger."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Supported states values: draft, scheduled, sending, sent, logged, cancelled, failed, unknown."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Supported provider outcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown."
+        }
       ]
     },
     {
@@ -48,6 +78,33 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
+      ],
+      "title": "Message detail, recipient and person/meeting communication histories",
+      "behavior_rules": [
+        {
+          "operation": "communication.forMeeting",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, meeting id."
+        },
+        {
+          "operation": "communication.forPerson",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, person id."
+        },
+        {
+          "operation": "communication.get",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: communication id, revision, state, subject, body, audience counts, attachment metadata, provider outcomes, source references, completeness."
+        },
+        {
+          "operation": "communication.get",
+          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution receipt selection."
+        },
+        {
+          "operation": "communication.listRecipients",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, completeness."
+        },
+        {
+          "operation": "communication.meetingRecipientTracking",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, meeting id, completeness."
+        }
       ]
     },
     {
@@ -55,7 +112,7 @@
       "feature_ids": [
         "COM-003"
       ],
-      "text": "Compose/preview subject 1\u2013500 characters, nonempty safe rendered body and at least one reachable reviewed recipient for sending. Sanitize stored HTML and derive plain text from it; merge Person/plant/meeting fields using the same renderer for preview and dispatch. Reject malformed JSON and foreign template/meeting IDs before persistence. No SMS/both dispatch.",
+      "text": "Compose/preview subject 1–500 characters, nonempty safe rendered body and at least one reachable reviewed recipient for sending. Sanitize stored HTML and derive plain text from it; merge Person/plant/meeting fields using the same renderer for preview and dispatch. Reject malformed JSON and foreign template/meeting IDs before persistence. No SMS/both dispatch.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.preview",
@@ -71,6 +128,33 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027"
+      ],
+      "title": "Compose and preview sanitized rich-text email with merge fields",
+      "behavior_rules": [
+        {
+          "operation": "communication.preview",
+          "rule": "Preview resolves current approved per-recipient merge fields and ready owned attachments; no intents/provider effects. Server freezes whole exact audience; batching≤100 per HTTP request, not total recipient truncation."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "Supported group values: core_group, launch_team, leaders, prospects, all."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "One current exact active plant Owner/Admin; every referenced parent/child same plant; lifecycle/revision rechecked at commit."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "Exact canonical actor/subject/purpose guard applies at call and commit; alias introduces no extra grant or stale scope."
+        },
+        {
+          "operation": "communication.sendReviewed",
+          "rule": "Review/execution binds server-frozen whole audience/per-recipient bytes/attachments/source versions, not arbitrary model addresses/bytes. Recheck current recipients/exclusions; one ledger commits all intents then bounded exact-scope batches."
+        },
+        {
+          "operation": "communication.sendReviewed",
+          "rule": "Aggregate current projection exposes sending/partial/accepted/delivered/failed/unknown truth; accepted is not delivery/contact."
+        }
       ]
     },
     {
@@ -94,6 +178,21 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027"
+      ],
+      "title": "Recipient search and closed quick-select groups",
+      "behavior_rules": [
+        {
+          "operation": "communication.listAudienceTeams",
+          "rule": "Only actual active/forming same-plant team selectors; no address list or generic nullable person/meeting selector."
+        },
+        {
+          "operation": "communication.resolveAudience",
+          "rule": "Resolve whole selected approved group/team/people set; unknown selector zero, never all; current exclusions/dedup/recruitment-account exclusions visible, no 100-total-audience cap."
+        },
+        {
+          "operation": "communication.searchRecipients",
+          "rule": "First 20 recipient search only, no implicit whole-audience truncation."
+        }
       ]
     },
     {
@@ -101,7 +200,7 @@
       "feature_ids": [
         "COM-005"
       ],
-      "text": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+      "text": "Dispatch exact frozen per-recipient payloads through one mail/mail_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.dispatchAttempt",
@@ -116,6 +215,29 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
+      ],
+      "title": "Bulk provider dispatch and per-recipient outcome correlation",
+      "behavior_rules": [
+        {
+          "feature": "COM-005",
+          "rule": "Supported provider outcomes values: accepted, delivered, rejected, bounced, suppressed, unknown."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Accepted/sent email cannot be recalled; unknown acceptance reconciled before retry; no duplicate replacement provider key."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Registered owning-domain adapter/job only, with verified source occurrence/receipt and exact typed scope. Fresh domain authorization remains evaluated; no model/direct HTTP invocation or arbitrary event/recipient/executor RPC."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Verified source receipt/current registered type and actual stored current authorization, never supplied actor/proof IDs."
+        }
       ]
     },
     {
@@ -126,8 +248,7 @@
       "text": "Compose and resend return confirmed zero-provider-acceptance as failure with saved communication ID and sentAt null; partial results show exact accepted/rejected/unknown counts. An all-unknown result is uncertain rather than success, and missing provider IDs remain reconcilable.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
-        "communication.sendReviewed.result",
-        "communication.resendReviewed.result"
+        "communication.getExecutionResult"
       ],
       "acceptance_ids": [
         "AC-COM-006--COM-006"
@@ -138,14 +259,15 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
-      ]
+      ],
+      "title": "Truthful provider rejection in the composer"
     },
     {
       "id": "REQ-COM-007",
       "feature_ids": [
         "COM-007"
       ],
-      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1\u2013255, description \u22641000, subject \u2264500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
+      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1–255, description ≤1000, subject ≤500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.templates.list",
@@ -164,7 +286,22 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "communication.templates.archiveOrDelete",
+          "rule": "Only own-plant fork/custom template; referenced historical template content stays available by saved frozen source/version and archived-name fallback."
+        },
+        {
+          "operation": "communication.templates.archiveOrDelete",
+          "rule": "Supported requested action values: archive, delete."
+        },
+        {
+          "operation": "communication.templates.create",
+          "rule": "Own-plant bounded email template create/edit/global-source fork, immutable global source and one preference by source identity; expected revision for edit, no caller-minted new ID."
+        }
+      ],
+      "title": "System and church message-template CRUD and copy-on-write forks"
     },
     {
       "id": "REQ-COM-008",
@@ -187,18 +324,28 @@
       "work_packages": [
         "WP-032",
         "WP-027"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "communication.templates.forMeeting",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: templates, source ids, versions, meeting type mappings, completeness."
+        },
+        {
+          "operation": "communication.templates.forMeeting",
+          "rule": "Stable global source identity and current own-plant fork preference; exact template or meeting/type selector, no all-null ambiguity/global source mutation."
+        }
+      ],
+      "title": "Canonical message-template bootstrap and meeting invitation selection"
     },
     {
       "id": "REQ-COM-009",
       "feature_ids": [
         "COM-009"
       ],
-      "text": "Resend proposal requires sent original, \u226524 elapsed hours, \u22651 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
+      "text": "Resend proposal requires sent original, ≥24 elapsed hours, ≥1 confirmed delivery and currently deliverable delivered non-openers. Click/open exclude; missing/deleted/suppressed recipients exclude. Present unreliable tracking caveat and exact exclusions. New communication retains frozen original delivery content and lineage; review current permitted recipient substitutions rather than silently remerge. Original remains unchanged.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.resendCandidates",
-        "communication.proposeResend",
         "communication.executeResend"
       ],
       "acceptance_ids": [
@@ -210,6 +357,21 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-029"
+      ],
+      "title": "Reviewed resend to delivered non-openers",
+      "behavior_rules": [
+        {
+          "operation": "communication.executeResend",
+          "rule": "Reviewed distinct deliberate resend/recovery operation rechecks source, ownership, confirmed delivery≥24h/nonopener or authoritative failure as applicable; never invent negative acceptance evidence or retry unknown with new key."
+        },
+        {
+          "operation": "communication.resendCandidates",
+          "rule": "Delivered-nonopener resend requires ≥24h after sent original, ≥1 confirmed delivery, no open/click and current deliverability. Proven failed recovery distinct; unknown not candidate."
+        },
+        {
+          "operation": "communication.resendCandidates",
+          "rule": "Supported selection values: delivered_nonopeners, proven_failed."
+        }
       ]
     },
     {
@@ -235,14 +397,21 @@
       "work_packages": [
         "WP-021",
         "WP-028"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meeting.createRsvpToken",
+          "rule": "Already included in exact reviewed invitation/send action"
+        }
+      ],
+      "title": "Public token RSVP and email engagement linkage"
     },
     {
       "id": "REQ-COM-012",
       "feature_ids": [
         "COM-012"
       ],
-      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within30days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [
         "communication.saveDraft",
@@ -264,18 +433,48 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
+      ],
+      "title": "Native drafts and reviewed scheduled email",
+      "behavior_rules": [
+        {
+          "operation": "communication.deleteDraft",
+          "rule": "Delete only unsent draft under expected revision; cannot cancel provider intent or erase sent history."
+        },
+        {
+          "operation": "communication.saveDraft",
+          "rule": "Native draft may be incomplete; closed create/edit revision path; saving never schedules/sends or creates mail attempt."
+        },
+        {
+          "operation": "communication.saveDraft",
+          "rule": "All composition fields may be empty/absent while draft; no provider intent"
+        },
+        {
+          "operation": "communication.cancelScheduledReviewed",
+          "rule": "Cancel each relevant original scheduled provider intent; sent/unknown remain factual, success only confirmed canceled. Cancel request alone is not cancellation proof."
+        },
+        {
+          "operation": "communication.replaceScheduledReviewed",
+          "rule": "Create reviewed replacement only after authoritative confirmed cancellation of every relevant original intent. Sent/partial/unknown blocks replacement; no duplicate delivery from uncertain cancel."
+        },
+        {
+          "operation": "communication.replaceScheduledReviewed",
+          "rule": "Supported dst choice values: unambiguous, earlier, later."
+        },
+        {
+          "operation": "communication.rescheduleReviewed",
+          "rule": "Time-only reschedule original frozen provider scheduled recipients; no content/audience replacement and no claim all changed on partial/unknown response."
+        },
+        {
+          "operation": "communication.scheduleReviewed",
+          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30 days, partial/unknown truthful."
+        }
       ]
     },
     {
       "id": "REQ-KNOW-001",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-004"
       ],
@@ -327,8 +526,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -352,8 +550,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -362,7 +559,7 @@
         "NTF-004",
         "NTF-007"
       ],
-      "text": "Planter weekly Sunday16:00 church-local email default, daily option and no duplicate inbox digest; existing date/time rules and one logical period are retained.",
+      "text": "Planter weekly Sunday 16:00 church-local email default, daily option and no duplicate inbox digest; existing date/time rules and one logical period are retained.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [],
       "acceptance_ids": [
@@ -398,9 +595,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-007",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -479,8 +674,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -510,11 +704,7 @@
     {
       "id": "REQ-KNOW-010",
       "feature_ids": [
-        "EVR-286",
-        "EVR-287",
-        "EVR-288",
-        "EVR-289",
-        "EVR-421",
+        "EVR-020",
         "NTF-003",
         "NTF-008"
       ],
@@ -602,8 +792,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -612,7 +801,7 @@
         "COM-005",
         "COM-012"
       ],
-      "text": "Schedule through Resend native API within30days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
+      "text": "Schedule through Resend native API within 30 days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [],
       "acceptance_ids": [
@@ -625,8 +814,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -650,8 +838,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -678,8 +865,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -705,8 +891,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -731,8 +916,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -740,13 +924,7 @@
       "feature_ids": [
         "COM-001",
         "COM-002",
-        "EVR-237",
-        "EVR-238",
-        "EVR-239",
-        "EVR-240",
-        "EVR-241",
-        "EVR-413",
-        "EVR-414"
+        "EVR-020"
       ],
       "text": "Communication detail/person/meeting/history reads expose actual draft/scheduled/cancel/reschedule receipts only to current authorized readers; no unrelated private-care or token leakage.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
@@ -785,8 +963,7 @@
       "feature_ids": [
         "COM-012",
         "EVR-015",
-        "EVR-242",
-        "EVR-247"
+        "EVR-020"
       ],
       "text": "Existing Evry composition/recipe adapters add draft save and reviewed schedule/reschedule/cancel/replacement through the same domain operations; each durable effect exactly reviewed and no autonomous send.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
@@ -809,7 +986,6 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-053",
         "WP-055",
         "WP-072"
@@ -841,9 +1017,8 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-035",
-        "WP-031",
-        "WP-030"
+        "WP-030",
+        "WP-035"
       ]
     },
     {
@@ -907,7 +1082,7 @@
         "NTF-010",
         "NTF-013"
       ],
-      "text": "One email_intent/email_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch\u2264100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before firstdispatch+23h55m within documented24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "text": "One mail/mail_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#mail-contract",
       "operations": [
         "communication.dispatchAttempt",
@@ -926,12 +1101,15 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-008",
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "mail.reconcileDeliveryState",
+          "rule": "Authoritative exact request/intent observation reconciles truthful unknown, preserves first-dispatch/cutoff and never silently resends uncertain accepted request."
+        }
       ]
     },
     {
@@ -954,6 +1132,17 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
+      ],
+      "title": "Tenant/organization anchored enqueue and deduplicated delivery intent",
+      "behavior_rules": [
+        {
+          "operation": "notifications.cancelForEntity",
+          "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant."
+        },
+        {
+          "operation": "notifications.enqueue",
+          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        }
       ]
     },
     {
@@ -961,7 +1150,7 @@
       "feature_ids": [
         "NTF-002"
       ],
-      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation and fairness follow execution; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.claimDue",
@@ -978,6 +1167,17 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
+      ],
+      "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation",
+      "behavior_rules": [
+        {
+          "operation": "notifications.claimDue",
+          "rule": "Bounded registered claim/dispatch/reconcile/recovery protocol, exact attempt/manifest/current generation; DB clock proves expired lease, no client outcome/provider key or unknown new-key resend."
+        },
+        {
+          "operation": "notifications.claimDue",
+          "rule": "Persisted job_state ready|claimed|retry_wait|reconcile|succeeded|failed|cancelled|superseded; pending/completed/blocked_unknown are projection aliases only."
+        }
       ]
     },
     {
@@ -985,13 +1185,14 @@
       "feature_ids": [
         "NTF-003"
       ],
-      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt,id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt, id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.feed",
         "notifications.unreadCount",
         "notifications.markRead",
-        "notifications.markAllVisibleRead"
+        "notifications.markAllVisibleRead",
+        "notifications.markSelectedRead"
       ],
       "acceptance_ids": [
         "AC-NTF-003--NTF-003"
@@ -1002,6 +1203,43 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
+      ],
+      "title": "In-app notification feed, unread filters, pagination and bell",
+      "operation_refs": [
+        {
+          "operation_id": "notifications.markSelectedRead",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "notifications.feed",
+          "rule": "Feed pure query of due/current eligible/uncanceled visible entries; keyset predicate identical to unread/mark commands, no implicit mark or successful business mutation."
+        },
+        {
+          "operation": "notifications.feed",
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        },
+        {
+          "operation": "notifications.markAllVisibleRead",
+          "rule": "Re-evaluate same due/current visibility predicate and reviewed cutoff; do not mark newly arrived/future/revoked entries implicitly."
+        },
+        {
+          "operation": "notifications.markRead",
+          "rule": "Mark only own due currently eligible visible entry; read does not complete linked work."
+        },
+        {
+          "operation": "notifications.markSelectedRead",
+          "rule": "Mark exact owned selected visible entries under current predicate, no foreign existence."
+        },
+        {
+          "operation": "notifications.unreadCount",
+          "rule": "Unread pure scalar count uses same due/current visibility predicate; no page/mark side effect or hidden foreign/future count."
+        },
+        {
+          "feature": "NTF-003",
+          "rule": "The notification recipient is the trusted authenticated account and cannot be selected by the caller."
+        }
       ]
     },
     {
@@ -1025,6 +1263,37 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
+      ],
+      "title": "User category/channel preferences with explicit-choice intent",
+      "behavior_rules": [
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Own planter digest frequency daily/weekly only for currently eligible actual plant recipient; OFF is own channel choice, not a cadence or arbitrary schedule builder."
+        },
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Supported cadence values: daily, weekly."
+        },
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Current exact actual plant recipient required for planter cadence; Discovery can change own categories but not fabricate planter digest."
+        },
+        {
+          "operation": "notifications.preferences.get",
+          "rule": "Authenticated own actual producer choices incl explicit equal-default choices; no phantom seat and no custom rule builder."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Supported channel values: email, in_app."
+        }
       ]
     },
     {
@@ -1048,7 +1317,8 @@
       "work_packages": [
         "WP-024",
         "WP-031"
-      ]
+      ],
+      "title": "Task due/overdue reminders and reminder cancellation/resync"
     },
     {
       "id": "REQ-NTF-006",
@@ -1071,6 +1341,17 @@
       "work_packages": [
         "WP-020",
         "WP-031"
+      ],
+      "title": "Meeting scheduled and day-offset reminders",
+      "behavior_rules": [
+        {
+          "operation": "notifications.meetingAudience",
+          "rule": "Internal actual meeting producer only: linked eligible account cohort/creator and live attendance/guest-list rules; not generic CRM-address fallback/model recipient-account lookup."
+        },
+        {
+          "operation": "notifications.meetingAudience",
+          "rule": "Supported reminder kind values: scheduled_announcement, day_7, day_3, day_1."
+        }
       ]
     },
     {
@@ -1094,6 +1375,25 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
+      ],
+      "title": "Planter open-items daily/weekly digest and church local send schedule",
+      "behavior_rules": [
+        {
+          "operation": "church.digestSchedule.set",
+          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
+        },
+        {
+          "operation": "church.digestSchedule.set",
+          "rule": "Expected-revision correction or explicit no-op history; unknown external effects require reconciliation."
+        },
+        {
+          "operation": "notifications.previewPlanterDigest",
+          "rule": "Preview actual currently eligible self planter current church-local period/owed catch-up, server interval/current assignment; never caller-selected recipient or send."
+        },
+        {
+          "operation": "notifications.previewPlanterDigest",
+          "rule": "Require actual current plant digest audience and exact current plant context; counts restricted by current assignment/read predicate."
+        }
       ]
     },
     {
@@ -1119,6 +1419,25 @@
         "WP-007",
         "WP-031",
         "WP-030"
+      ],
+      "title": "Oversight privacy-preserving daily activity digest",
+      "behavior_rules": [
+        {
+          "operation": "notifications.generateOwedOversightDigests",
+          "rule": "Actual exact recipient/context owed period computed server-side; consolidate uncovered periods into≤100 lines/current actionable authorized facts, coverage advances only matching committed intent/receipt; empty no send."
+        },
+        {
+          "operation": "notifications.oversightDigestCadence.set",
+          "rule": "Exact own-organization eligible self recipient changes cadence; never plant role, foreign org, arbitrary timezone/local schedule or reset independent channel preference."
+        },
+        {
+          "operation": "notifications.previewOversightDigest",
+          "rule": "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/default utc, no arbitrary interval/plant actor/names/notes/giving/body."
+        },
+        {
+          "operation": "notifications.previewOversightDigest",
+          "rule": "Supported period values: current, owed_catchup."
+        }
       ]
     },
     {
@@ -1146,14 +1465,15 @@
         "WP-038",
         "WP-045",
         "WP-031"
-      ]
+      ],
+      "title": "Relationship, sharing, phase and launch milestone fanout"
     },
     {
       "id": "REQ-NTF-010",
       "feature_ids": [
         "NTF-010"
       ],
-      "text": "Verify signed raw-body provider event before lookup, persist unique event ID and processing state before2xx, retry non2xx on storage failure, and apply out-of-order facts idempotently without regression. Unknown provider IDs are durably available for reconciliation; no public tenant selector. Soft bounce differs from hard/complaint, whose address suppression remains global.",
+      "text": "Verify signed raw-body provider event before lookup, persist unique event ID and processing state before 2xx, retry non 2xx on storage failure, and apply out-of-order facts idempotently without regression. Unknown provider IDs are durably available for reconciliation; no public tenant selector. Soft bounce differs from hard/complaint, whose address suppression remains global.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "mail.acceptWebhook",
@@ -1169,6 +1489,21 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028"
+      ],
+      "title": "Signed delivery webhooks for notifications and bulk communication",
+      "behavior_rules": [
+        {
+          "operation": "mail.acceptWebhook",
+          "rule": "Route verifies raw signature/timestamp before lookup; durable unique event/raw-body hash committed before 2xx, unknown message ID retained for reconciliation. Outbound payload hash is different."
+        },
+        {
+          "operation": "mail.acceptWebhook",
+          "rule": "Verified event insertion commits durably before success acknowledgement; storage failure returns retryable non-2xx. No provider-selected tenant authorization."
+        },
+        {
+          "operation": "mail.processDeliveryEvent",
+          "rule": "Read durable verified event and actual provider-message mapping; apply event facts idempotently by event time. No arbitrary supplied intent/outcome/provider key."
+        }
       ]
     },
     {
@@ -1193,6 +1528,17 @@
       "work_packages": [
         "WP-028",
         "WP-030"
+      ],
+      "title": "Global address suppression and self-service restoration history",
+      "behavior_rules": [
+        {
+          "operation": "mail.suppression.listForSelf",
+          "rule": "Only current authenticated self address state; no address search/list or another account existence."
+        },
+        {
+          "operation": "mail.suppression.recordProviderFact",
+          "rule": "Only verified provider hard-bounce/complaint fact; normalized address derives protected existing event/intent, not client selector."
+        }
       ]
     },
     {
@@ -1216,6 +1562,13 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030"
+      ],
+      "title": "Category email unsubscribe, one-click opt-out and bounded undo",
+      "behavior_rules": [
+        {
+          "operation": "notifications.applyEmailOptOut",
+          "rule": "Email opt-out requires an explicit native request bound to the opt-out purpose."
+        }
       ]
     },
     {
@@ -1237,10 +1590,18 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-008",
-        "WP-028",
-        "WP-031"
+        "WP-028"
+      ],
+      "title": "Shared transactional email transport and protected email templates",
+      "behavior_rules": [
+        {
+          "operation": "mail.renderTransactional",
+          "rule": "Pure internal rendering of registered-purpose frozen intent; secret tokens/addresses are protected operational payload, never model/log/audit output."
+        },
+        {
+          "operation": "mail.sendTransactional",
+          "rule": "Dispatch existing fenced immutable full request exactly once-logically under one shared provider key; no arbitrary template/recipient/key inputs or second transport ledger."
+        }
       ]
     },
     {
@@ -1264,7 +1625,8 @@
         "WP-030",
         "WP-031",
         "WP-035"
-      ]
+      ],
+      "title": "Declared notification producers and unused email helpers"
     },
     {
       "id": "REQ-NTF-015",
@@ -1288,6 +1650,17 @@
       "work_packages": [
         "WP-030",
         "WP-031"
+      ],
+      "title": "Discovery association postcommit transactional receipts",
+      "behavior_rules": [
+        {
+          "operation": "notifications.inspectAssociationReceipt",
+          "rule": "Internal association producer/authorized operator receipt inspection; no invented general plant-seat customer retry console or token/address exposure."
+        },
+        {
+          "operation": "notifications.retryAssociationReceipt",
+          "rule": "Fenced existing ledger retry only actual authoritative refusal or identical-key allowed window; unknown reconciles, caller cannot supply a new provider key/recipient."
+        }
       ]
     }
   ]

@@ -175,11 +175,11 @@
   "limitations": [
     "USD before taxes; not bill/forecast/all-in quote",
     "Actual region/account settings/credits/config/model/usage unknown",
-    "Next Pro gross rates omit20USDcredit intentionally; noHobby invocation allowance",
-    "Low Resend valid only within100daily limit; burst may require repricing",
-    "Seven full daily DBplusbyte copies; no unproven dedup/compression savings",
-    "Excludes extra seats/domain/build-transfer-observability/addon/maintenancehost cost",
-    "No cached/batch model discount,longcontext premium,webtool/container usage or unverifiedZDR assumed",
-    "Concrete paid costapproval and actual beforecustomerdata recovery/settings proof remain required"
+    "Next Pro gross rates omit 20 USD credit intentionally; no Hobby invocation allowance",
+    "Low Resend valid only within 100 daily limit; burst may require repricing",
+    "Seven full daily DB plus byte copies; no unproven dedup/compression savings",
+    "Excludes extra seats/domain/build-transfer-observability/addon/maintenance host cost",
+    "No cached/batch model discount, long context premium, webtool/container usage or unverified ZDR assumed",
+    "Concrete paid cost approval and actual before customer data recovery/settings proof remain required"
   ]
 }

@@ -1,13 +1,13 @@
 # Verifier additions (Intent `verifier`, the model that did not write the task)
 
-You independently verify one task and its reviewed stage. Human approval controls feedback PR merges; ordinary build PRs merge automatically after final-head tests and independent approved review. Start with the current packet and PR, without author narrative.
+You independently verify one task and its reviewed stage. Follow `ship` for merge authority. Start with the current packet and PR, without author narrative.
 
 - Inputs: the task note (brief) and the PR number. Do not read the author's report or chat.
 - Follow the `verify` skill, verifier section. Your own `bin/evf verify <task> --role verifier`
   must pass. Then read the diff against the acceptance criteria and try one case by hand.
-- Pass after all current policy/setup gates and approved independent review; feedback additionally requires final-head human review: `bin/evf ship <task>` (see `ship`). Fail: `gh pr comment` with the failing criterion IDs,
+- Pass after all current policy/setup gates and review requirements in `ship`: `bin/evf ship <task>` (see `ship`). Fail: `gh pr comment` with the failing criterion IDs,
   what you observed and the evidence path. Then report to the coordinator.
-- Never change the code. Never merge a task you wrote.
+- Never change the code. Follow `ship` for Git safety.
 
 ## Principles to read in full at the start
 
@@ -27,5 +27,7 @@ Report these as failures in your PR comment, the same as a failed criterion:
   (`principle-migrate-callers-then-delete-legacy-apis`).
 - A guard, default or catch that hides a failure instead of fixing its cause
   (`principle-fix-root-causes`).
-- A test with no `AC-`, `INV-` or `BUG-` name, or one that would still pass if every imported
+- A test with no `AC:`, `INV-` or `BUG-` name, or one that would still pass if every imported
   function returned `undefined` (`principle-test-behavior-not-implementation`, skill `test-standard`).
+
+Flag tests that duplicate the same behavior and case coverage; prefer another row or assertion in an existing test.

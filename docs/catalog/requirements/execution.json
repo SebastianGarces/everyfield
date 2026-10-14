@@ -39,7 +39,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate privateTigris encrypteddaily bucket and measured ordinary1hRPO/4hRTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
+      "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate private Tigris encrypted daily bucket and measured ordinary 1h RPO/4h RTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
       "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
       "operations": [],
       "acceptance_ids": [
@@ -57,8 +57,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -70,7 +70,7 @@
         "NTF-008",
         "OPS-001"
       ],
-      "text": "Selected same-app authenticated Next/Postgres executor uses unique durable occurrence job, SKIPLOCKED claim generation/default5min lease/30s heartbeat/checkpoint CAS. assessment.refresh explicitly overrides the default with120second job/attempt lease and individual provider call\u226445seconds. Tick budget remains270seconds,4concurrent,2pertenant,10pertenantpage with rotating type+tenant fairness and durable owed cursors. External uncertainty has handler-specific reconciliation; pure failures\u22643backoffs; safe operator reason/current scope recovery. No per-feature queue or workflow platform.",
+      "text": "The authenticated same-app Next/Postgres executor uses unique durable jobs, finite leases with a five-minute default, claim generations, heartbeat at most every 30 seconds and checkpoint comparisons. Assessment work uses the 120-second lease and 45-second provider-call bound in the assessment contract. Invocation duration, page size and concurrency must fit the measured deployment. Preserve owed scan tail work, idempotency, at most three backoffs for known retryable failures and handler-specific unknown-outcome reconciliation. Operator recovery rechecks current scope and records its reason and evidence. Per-tenant fairness, reserved slots and alert tuning close at G-LOAD after representative load measurements; they do not block building the base executor. No per-feature queue or separate workflow platform.",
       "spec": "docs/architecture/execution.md#claim-and-transaction-protocol",
       "operations": [
         "jobs.manualRun",
@@ -99,9 +99,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ]
     },
@@ -112,7 +110,7 @@
         "OPS-001",
         "OPS-007"
       ],
-      "text": "Development uses suitable existing free allowances; before paid plans/services/spend obtain explicit approval of concrete measured low/expected/high monthly envelope, recovery/model retry costs, operator load and limits. Before real customer data actual config/key-exclusion/retention/expiry/coherentDB+byte restore and external-effect reconciliation proof must pass. Documentation/prices/selected destination do not authorize setup/restore or certify recovery.",
+      "text": "Development uses suitable existing free allowances; before paid plans/services/spend obtain explicit approval of concrete measured low/expected/high monthly envelope, recovery/model retry costs, operator load and limits. Before real customer data actual config/key-exclusion/retention/expiry/coherent DB+byte restore and external-effect reconciliation proof must pass. Documentation/prices/selected destination do not authorize setup/restore or certify recovery.",
       "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
       "operations": [
         "engineering.validateRequirements",
@@ -128,7 +126,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050"
       ]

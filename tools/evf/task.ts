@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
-import { requireImplementation, requireSpend, requireTaskRisk } from "./policy.ts";
+import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
 import { validAttestation, shippable } from "./verify.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
@@ -47,11 +47,12 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
   const cfg = loadConfig(root);
-  if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp);requireTaskRisk(root,task);}
+  if(task.kind==='ops')fail('Maintenance tasks have no application stack.');
+  if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp,task.part);requireTaskRisk(root,task);}
   if(action==='up'&&cfg.stack) {if(typeof cfg.stack.usesPaidProviders!=='boolean')fail("Declare whether the stack uses paid providers before starting it.");if(cfg.stack.usesPaidProviders)requireSpend(root);}
   const argv = stackCmd(cfg, action);
   if (!argv) {
-    const msg = `No stack "${action}" command in evf.config.json yet. The runtime packages (WP-003, WP-004) define it.`;
+    const msg = `No stack "${action}" command in evf.config.json yet. The workflow bootstrap package defines the per-task stack command.`;
     if (optional) {
       console.log(`stack: skipped. ${msg}`);
       return 0;
@@ -79,14 +80,16 @@ export function debugCmd(root: string, task: TaskRef, name: "traces" | "logs", e
 
 export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean }): number {
   const cfg = loadConfig(root);
-  if(opts.allowUnready) fail("--allow-unready is removed. Use a read-only brief to investigate; implementation requires closed gates and completed prerequisites.");
+  if(opts.allowUnready) fail("--allow-unready is removed. Use a read-only brief to investigate; implementation requires closed action gates and reviewed producer milestones.");
   if (task.kind === "fb") {
     const r = startFeedbackTask(root, task, opts.overLimit === true);
     console.log(`feedback: FB-${task.issue} is ${r.class}; internal issue #${(r as { internalIssue?: number }).internalIssue}.`);
+  } else if(task.kind==='ops') {
+    requireTaskScope(root,task);renderBrief(root,task,{});
   } else {
     const pkg = findPackage(loadDag(root), task.wp);
     pathsForPart(pkg, task.part);
-    requireImplementation(root,task.wp);requireTaskRisk(root,task);
+    requireImplementation(root,task.wp,task.part);requireTaskRisk(root,task);
     renderBrief(root,task,{}); // Resolve all current context before any worktree/remote mutation.
     const parts=partsOf(pkg),anchor=task.part==='api'&&parts.includes('contract')?'contract':task.part==='ui'?(parts.includes('contract')?'contract':'api'):null;
     if(anchor){
@@ -119,7 +122,7 @@ export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boo
   console.log(`intent: call ws.git.registerRoot(${JSON.stringify(wt)}) so Intent shows this worktree.`);
   console.log("shell: your shell starts in the workspace root. evf commands find the worktree from the task ID; for other commands use `git -C` or the worktree path.");
 
-  if (!opts.noStack) stack(root, task, "up", true);
+  if (!opts.noStack && task.kind!=='ops') stack(root, task, "up", true);
   console.log("");
   console.log(renderBrief(root, task, { uiTier: opts.uiTier }));
   return 0;

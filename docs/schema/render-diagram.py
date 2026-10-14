@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Render schema-diagram.html, an offline interactive ER diagram of the proposed schema.
+"""Render schema-diagram.html, an offline interactive ER diagram of the adopted schema.
 
-The output embeds schema.json, the capability files and the check.py counts. The layout
+The output embeds target.json, the capability files and the check.py counts. The layout
 is computed in the page from the data alone, so a changed schema needs only a new run.
 The same inputs always produce the same bytes.
 """
@@ -23,25 +23,21 @@ def count_row(tables):
 
 
 def build_data(root):
-    schema_path = root / 'docs/schema-proposal/schema.json'
+    schema_path = root / 'docs/schema/target.json'
     raw = schema_path.read_bytes()
-    proposal = json.loads(raw)
-    current = check.read(root / 'docs/schema/target.json')
-    cap_paths = sorted((root / 'docs/schema-proposal/capabilities').glob('*.json'))
+    schema = json.loads(raw)
+    cap_paths = sorted((root / 'docs/schema/capabilities').glob('*.json'))
     cap_files = [check.read(path) for path in cap_paths]
     features = check.read(root / 'docs/catalog/features.json')
-
-    errors = check.validate_schema(current, 'current') + check.validate_schema(proposal, 'proposal', True)
-    coverage_errors, coverage_lines = check.coverage(cap_files, features, proposal)
+    readme = (root / 'docs/schema/README.md').read_text()
+    exceptions = set(check.re.findall(r'^- `([^`]+ -> [^`]+)`: .+', readme, check.re.M))
+    errors = check.validate_schema(schema, 'authority', True, exceptions)
+    errors += check.validate_catalog_sets(schema, check.read(root / 'docs/catalog/operations.json')['operations'])
+    errors += check.validate_metadata(schema, check.read(root / 'docs/plan/dag.json'), cap_files)
+    coverage_errors, coverage_lines = check.coverage(cap_files, features, schema)
     errors += coverage_errors
-
-    current_domain = {name: domain for domain, names in check.CURRENT_DOMAINS.items() for name in names.split()}
-    domains = {}
-    for domain in [d['id'] for d in proposal['domains']]:
-        domains[domain] = {
-            'current': count_row([t for t in current['tables'] if current_domain.get(t['name']) == domain]),
-            'proposal': count_row([t for t in proposal['tables'] if t['domain'] == domain]),
-        }
+    domains = {d['id']: count_row([t for t in schema['tables'] if t['domain'] == d['id']])
+               for d in schema['domains']}
 
     capabilities = {}
     for file in cap_files:
@@ -53,14 +49,13 @@ def build_data(root):
             }
 
     return {
-        'schema': proposal,
+        'schema': schema,
         'capabilities': capabilities,
-        'counts': {'current': count_row(current['tables']), 'proposal': count_row(proposal['tables']),
-                   'domains': domains},
+        'counts': {**count_row(schema['tables']), 'domains': domains},
         'coverage': [line for line in coverage_lines if line.split(':')[0] in
                      ('Active features covered', 'Persistent capabilities mapped')],
         'errors': errors,
-        'source': {'file': 'docs/schema-proposal/schema.json', 'sha256': hashlib.sha256(raw).hexdigest()},
+        'source': {'file': 'docs/schema/target.json', 'sha256': hashlib.sha256(raw).hexdigest()},
     }
 
 
@@ -72,13 +67,22 @@ def encoded(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--root', type=Path, default=HERE.parent.parent, help='repository root')
-    parser.add_argument('--out', type=Path, help='output file; defaults to schema-diagram.html beside schema.json')
+    parser.add_argument('--out', type=Path, help='output file; defaults to schema-diagram.html beside target.json')
+    parser.add_argument('--check', action='store_true', help='fail if the output differs from a fresh render; do not write')
     args = parser.parse_args()
     data = build_data(args.root)
     if TEMPLATE.count('__DATA__') != 1:
         raise ValueError('template must contain one __DATA__ token')
+    if data['errors']:
+        raise ValueError('Authority validation failed: ' + '; '.join(data['errors']))
     html = TEMPLATE.replace('__DATA__', encoded(data))
-    out = args.out or args.root / 'docs/schema-proposal/schema-diagram.html'
+    out = args.out or args.root / 'docs/schema/schema-diagram.html'
+    if args.check:
+        if not out.exists() or out.read_bytes() != html.encode('utf-8'):
+            print(f'Stale schema diagram: {out}. Run python3 docs/schema/render-diagram.py.', file=sys.stderr)
+            return 1
+        print(f'Schema diagram matches current inputs: {out}')
+        return 0
     out.write_bytes(html.encode('utf-8'))
     print(f'Wrote {out} ({len(data["schema"]["tables"])} tables, {len(data["errors"])} check problems)')
     return 0
@@ -90,7 +94,7 @@ TEMPLATE = r'''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Proposed schema: entity-relationship diagram</title>
+<title>Adopted schema: entity-relationship diagram</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -368,10 +372,10 @@ details.cap ul { margin: 4px 0 0; padding-inline-start: 18px; display: grid; gap
 <body>
 <header class="top">
   <div class="title">
-    <h1>Proposed schema</h1>
+    <h1>Adopted schema</h1>
     <p id="subtitle"></p>
   </div>
-  <dl class="stats" id="stats" aria-label="Current schema compared with the proposal"></dl>
+  <dl class="stats" id="stats" aria-label="Adopted schema counts"></dl>
   <div class="coverage" id="coverage"></div>
 </header>
 
@@ -502,11 +506,10 @@ const world = $("world"), viewport = $("viewport"), regionsEl = $("regions"), ed
 /* ---------- Header ---------- */
 (function renderHeader() {
   const c = DATA.counts;
-  $("subtitle").textContent = `${SCHEMA.database} · ${domains.length} domains · current schema compared with the proposal`;
+  $("subtitle").textContent = `${SCHEMA.database} · ${domains.length} domains · reviewed starting design`;
   const rows = [["Tables", "tables"], ["Columns", "columns"], ["Foreign keys", "fks"], ["JSONB columns", "jsonb"]];
   $("stats").innerHTML = rows.map(([label, key]) => {
-    const now = c.proposal[key], was = c.current[key];
-    return `<div class="stat"><dt>${label}</dt><dd><span class="now">${fmt(now)}</span><span class="was">from ${fmt(was)}</span><span class="delta" aria-label="change ${signed(now - was)}">${signed(now - was)}</span></dd></div>`;
+    return `<div class="stat"><dt>${label}</dt><dd><span class="now">${fmt(c[key])}</span></dd></div>`;
   }).join("");
   const cov = DATA.coverage.map((line) => { const [k, v] = line.split(": "); return `<span>${esc(k)}: <strong>${esc(v)}</strong></span>`; }).join("");
   const errs = DATA.errors;
@@ -525,10 +528,8 @@ const world = $("world"), viewport = $("viewport"), regionsEl = $("regions"), ed
 (function renderDomainFilters() {
   const dc = DATA.counts.domains;
   $("dom-list").innerHTML = domains.map((d) => {
-    const cur = dc[d.id] ? dc[d.id].current.tables : null;
-    const now = d.tables.length;
-    const label = cur === null ? `${now}` : `${cur} → ${now}`;
-    return `<li class="dom-row" style="--h:${d.hue}"><label><input type="checkbox" data-dom="${esc(d.id)}" checked><span class="swatch" aria-hidden="true"></span>${esc(d.name)}<span class="counts" aria-label="${cur === null ? "" : `current ${cur}, `}proposed ${now} tables">${label}</span></label><button type="button" class="only" data-only="${esc(d.id)}" aria-label="Show only ${esc(d.name)}">Only</button></li>`;
+    const now = dc[d.id].tables;
+    return `<li class="dom-row" style="--h:${d.hue}"><label><input type="checkbox" data-dom="${esc(d.id)}" checked><span class="swatch" aria-hidden="true"></span>${esc(d.name)}<span class="counts" aria-label="${now} tables">${now}</span></label><button type="button" class="only" data-only="${esc(d.id)}" aria-label="Show only ${esc(d.name)}">Only</button></li>`;
   }).join("");
   $("dom-list").addEventListener("change", (e) => {
     const id = e.target.dataset.dom;
@@ -884,7 +885,7 @@ function renderPanel(t) {
       <p class="p-meta">${t.columns.length} columns · ${t.foreign_keys.length} foreign keys · referenced by ${t.in.length}</p>
     </div>
     <div class="p-body">
-      <section><h3>Purpose</h3><p class="purpose">${esc(t.purpose)}</p><p class="replaces">${t.replaces.length ? `Replaces current tables: ${t.replaces.map((r) => `<code>${esc(r)}</code>`).join(", ")}` : "New table; replaces no current table."}</p></section>
+      <section><h3>Purpose</h3><p class="purpose">${esc(t.purpose)}</p><p class="replaces">${t.replaces.length ? `Replaces previous target tables: ${t.replaces.map((r) => `<code>${esc(r)}</code>`).join(", ")}` : "New table; replaces no previous target table."}</p></section>
       ${section(`Columns (${t.columns.length})`, `<table class="cols-t"><caption class="visually-hidden">Columns of ${esc(t.name)}</caption><thead><tr><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Null</th></tr></thead><tbody>${cols}</tbody></table>`)}
       ${section("Keys", `<ul class="plain"><li><span class="muted">Primary key</span> <code>(${t.primary_key.map(esc).join(", ")})</code></li>${uniques ? `<li class="muted">Unique keys</li>${uniques}` : ""}</ul>`)}
       ${section(`References (${t.foreign_keys.length})`, outs ? `<ul class="rel-list">${outs}</ul>` : "", "--out")}

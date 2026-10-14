@@ -9,6 +9,9 @@
   Prototype of the EveryField marketing site. One file, works offline from disk.
   Fonts load from Google Fonts when online and fall back to system fonts.
   Revision 2: Signal style only. Stories A and B only.
+  Review status (Fix 9, 2026-10-14): the look of every page is approved. The copy of home and
+  oversight (sending churches and networks) is approved. The copy of planters, trust, access,
+  privacy and terms is not yet reviewed. See review_status in design/marketing-copy.json.
 
   URL hash holds the full state:  #/<page>?story=<story>[&at=<section id>]
     page   home | planters | oversight | trust | access | privacy | terms
@@ -1480,6 +1483,16 @@ body.pbar-hidden { padding-bottom: 0; }
 {
   "version": 2,
   "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "review_status": {
+    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). The copy of the other pages is not yet reviewed.",
+    "home": "look approved, copy approved",
+    "oversight": "look approved, copy approved",
+    "planters": "look approved, copy not yet reviewed",
+    "trust": "look approved, copy not yet reviewed",
+    "access": "look approved, copy not yet reviewed",
+    "privacy": "look approved, copy not yet reviewed",
+    "terms": "look approved, copy not yet reviewed"
+  },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
@@ -1520,8 +1533,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "title": "Who it is for",
           "links": [
             "Planters",
-            "Sending churches and networks",
-            "Coaches"
+            "Sending churches and networks"
           ]
         },
         {
@@ -1589,7 +1601,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "items": [
           {
             "title": "Private means private",
-            "body": "Your weekly check-in is for you only. Evry, coaches and your sending church never see it."
+            "body": "Your weekly check-in is for you only. Evry and your sending church never see it."
           },
           {
             "title": "You see it first",
@@ -1784,11 +1796,6 @@ body.pbar-hidden { padding-bottom: 0; }
             "a": "Yes. A network can send a plant on its own and assign a sending church at any time."
           },
           {
-            "id": "coaches",
-            "q": "Can coaches use it?",
-            "a": "Yes. Coaches the planter invites can read the plant's records and cannot change anything."
-          },
-          {
             "id": "phase",
             "q": "Does EveryField move a plant to the next phase or rate the planter?",
             "a": "No. The planter sets the phase. EveryField does not change it or grade the planter."
@@ -1891,8 +1898,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "headline": "Stay close to the plant you sent.",
               "body": "See how your plant is doing without asking the planter for another report.",
               "points": [
-                "Phase, health and launch readiness for the plant, when the planter shares them",
-                "Coaches the planter invites can read that plant and change nothing",
+                "Phase, Plant Intelligence findings and launch readiness for the plant, when the planter shares them",
                 "No access to the planter's people or private notes"
               ],
               "cta": "See what sending churches and networks see"
@@ -1940,7 +1946,7 @@ body.pbar-hidden { padding-bottom: 0; }
       "sections": {
         "hero": {
           "headline": "See how every plant you send is doing.",
-          "subhead": "See the phase, health and launch readiness of each plant that shares with you. Never their people.",
+          "subhead": "See the phase, Plant Intelligence findings and launch readiness of each plant that shares with you. Never their people.",
           "cta_primary": "Talk to us about your network",
           "cta_secondary": "I am a planter"
         },
@@ -1969,8 +1975,8 @@ body.pbar-hidden { padding-bottom: 0; }
             },
             {
               "label": "Network",
-              "title": "Health summary",
-              "body": "Plant Intelligence reads each plant's records against the same rubric. You see a short, careful summary. The planter sees each concern first."
+              "title": "Network Intelligence",
+              "body": "Network Intelligence reads the Plant Intelligence findings your plants share and shows patterns across your network. You see a short, careful summary. The planter sees each concern first."
             },
             {
               "label": "Network",
@@ -1978,9 +1984,9 @@ body.pbar-hidden { padding-bottom: 0; }
               "body": "Find the plants within 30 days of launch that still have open leader roles or unfinished training."
             },
             {
-              "label": "Coaching",
-              "title": "Coach access",
-              "body": "A coach the planter invites can read that plant's records. Coaches cannot change anything."
+              "label": "Network",
+              "title": "By state or metro area",
+              "body": "Switch between all plants, one state or one metro area, and every number follows."
             },
             {
               "label": "Planter",
@@ -2003,7 +2009,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "headline": "Know where your coaching time matters most.",
               "body": "See every plant on one page and start each week with the ones that need you most.",
               "points": [
-                "Health status for each plant, from one shared rubric",
+                "A Network Intelligence status for each plant that shares, from one network rubric",
                 "Filter by phase, launch date or status",
                 "Sending churches in your network and their plants in one view"
               ],
@@ -2015,8 +2021,7 @@ body.pbar-hidden { padding-bottom: 0; }
               "headline": "Send a planter and stay close.",
               "body": "Your elders can see how the plant is doing without a monthly report.",
               "points": [
-                "Phase, launch date and health for the plants you send",
-                "Invite a coach or step back, as the plant needs",
+                "Phase, launch date and shared Plant Intelligence findings for the plants you send",
                 "Summaries only. The planter's people stay with the planter."
               ],
               "cta": "See what sending churches and networks see"
@@ -2106,7 +2111,7 @@ var PAGES = [
   { id: "privacy", name: "Privacy policy", path: "/privacy", story: "journey" },
   { id: "terms", name: "Terms", path: "/terms", story: "journey" }
 ];
-var LATER = ["Product tour", "Evry", "Pricing", "About", "Coaches", "What's new"];
+var LATER = ["Product tour", "Evry", "Pricing", "About", "What's new"];
 var PAGE = {}; PAGES.forEach(function (p) { PAGE[p.id] = p; });
 var STORY = {}; STORIES.forEach(function (s) { STORY[s.id] = s; });
 
@@ -2251,7 +2256,7 @@ function comingUpCard() {
   return '<div class="card"><div class="card-header"><div class="grow"><div class="card-title">Coming up</div><div class="card-description">This week and next</div></div></div>' +
     '<div class="list-row"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="list-title">Vision meeting #12</div><div class="list-sub">Sun Oct 12 · Reyes home · 38 RSVPs</div></div></div>' +
     '<div class="list-row"><span class="card-icon tone-violet">' + icon("users") + '</span><div class="grow"><div class="list-title">Worship team training</div><div class="list-sub">Wed Oct 15 · 8 of 9 confirmed</div></div></div>' +
-    '<div class="list-row"><span class="card-icon tone-blue">' + icon("compass") + '</span><div class="grow"><div class="list-title">Coach check-in</div><div class="list-sub">Fri Oct 17 · with Pastor Ruth Allen</div></div></div></div>';
+    '<div class="list-row"><span class="card-icon tone-blue">' + icon("task") + '</span><div class="grow"><div class="list-title">Interview David Kim</div><div class="list-sub">Fri Oct 17 · 4 pm at the Reyes home</div></div></div></div>';
 }
 /* Overview dashboard for "Here is what a Monday looks like". Layout follows the mockup's overview page. */
 function vMondayOverview() {
@@ -2746,11 +2751,11 @@ var CX_MARK = {
       '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the plants ' + icon("arrow") + "</span></div>";
   },
   share: function () {
-    var rows = [["Phase and launch date", 1, 0], ["Health summary", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]];
+    var rows = [["Phase and launch date", 1, 0], ["Plant Intelligence findings", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]];
     return cxHead(cxIcon("tone-violet", "eye"), "Sharing with Grace Church", "You choose what leaves your plant") +
       rows.map(function (r, i) { return '<div class="share-row" data-st>' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<span>" + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="cx-sw' + (i === 1 ? " cx-t0" : "") + '"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "><b></b><i></i></span></div>"; }).join("") +
       '<div class="cx-prev" data-st><div class="t-xs faint">What Grace Church sees</div><div class="row between"><span>Harvest Point · Phase 1</span>' +
-      cxSwap('<span class="badge" data-size="sm" data-status="unknown">Health not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
+      cxSwap('<span class="badge" data-size="sm" data-status="unknown">Findings not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
   },
   /* Revision 25 /oversight chapter panels (play once and hold). Sample data from the dashboard mockup pages Network and Network · Plant view. */
   invite: function () {
@@ -3773,7 +3778,7 @@ document.addEventListener("click", function (e) {
 document.addEventListener("visibilitychange", function () { if (OVS.root) ovsSched(); });
 window.addEventListener("resize", function () { if (OVS.root && OVS.root.isConnected) ovsSize(); });
 /* Revision 26: FAQ in place of the privacy section. Title left, accordion right (desktop). Each question is a button that opens its answer
-   with a 300 ms height and fade; several can be open at once; all closed by default. #faq-<id> in at= opens that item (footer Coaches link). */
+   with a 300 ms height and fade; several can be open at once; all closed by default. #faq-<id> in at= opens that item. */
 function ovFaq(f) {
   return '<section class="sec sec-ov-faq" id="faq"><div class="wrap"><div class="faq-grid"><h2 class="display h2 faq-title">' + t(f.headline) + '</h2><div class="faq-list">' + f.items.map(function (x) {
     var id = "faq-" + x.id, a = t(x.a);
@@ -3793,8 +3798,7 @@ function pageTrust() {
   var rows = [
     ["Owner", Y("Full"), Y("Full"), Y("Full"), Y("Own only"), Y("Yes")],
     ["Admin", Y("Full"), Y("Full"), Y("Full"), N("No"), Y("Yes")],
-    ["Member", Y("View"), Y("View"), Y("View"), N("No"), N("No")],
-    ["Coach the planter invites", Y("Read"), Y("Read"), Y("Read"), N("No"), N("No")],
+    ["Member", Y("View"), Y("View, own tasks"), Y("View"), N("No"), Y("Own tasks and duties")],
     ["Sending church or network", N("Never"), N("Counts only"), Y("Summary, when shared"), N("No"), N("No")]
   ];
   var groups = [["For planters", P.planter_rules], ["For sending churches and networks", B.trust]];
@@ -3862,7 +3866,7 @@ function navPill(force) {
   if (on) { pill.removeAttribute("inert"); pill.setAttribute("aria-hidden", "false"); } else { pill.setAttribute("inert", ""); pill.setAttribute("aria-hidden", "true"); }
 }
 window.addEventListener("scroll", function () { if (!NAVP.ticking) { NAVP.ticking = true; requestAnimationFrame(function () { navPill(); }); } }, { passive: true });
-var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["planters", "evry"], "Planters": ["planters", ""], "Sending churches and networks": ["oversight", ""], "Coaches": ["oversight", "faq-coaches"], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
+var FOOTMAP = { "Overview": ["home", ""], "Plant Intelligence": ["home", "intelligence"], "Evry": ["planters", "evry"], "Planters": ["planters", ""], "Sending churches and networks": ["oversight", ""], "Privacy and trust": ["trust", ""], "Contact": ["access", "network-form"], "Privacy policy": ["privacy", ""], "Terms": ["terms", ""] };
 function renderFooter() {
   var f = COPY.shared.footer;
   document.getElementById("site-footer").innerHTML = '<div class="ft-card"><div class="ft-lead"><span class="ft-mark">' + mark() + '</span><h2 class="display">' + t(f.headline) + "</h2>" + btn(f.cta) + "</div>" +

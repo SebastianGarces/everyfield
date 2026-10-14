@@ -6,12 +6,13 @@
       "feature_ids": [
         "TSK-001"
       ],
-      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sortkey+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.",
+      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sort key+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.",
       "spec": "docs/product/tasks.md#req-tsk-001",
       "operations": [
-        "tasks.listTasks",
-        "tasks.readCounts",
-        "tasks.listAssignments"
+        "tasks.list",
+        "tasks.count",
+        "tasks.followUpCoverage",
+        "tasks.get"
       ],
       "acceptance_ids": [
         "AC-TSK-001--TSK-001"
@@ -25,6 +26,35 @@
       ],
       "work_packages": [
         "WP-024"
+      ],
+      "title": "Task views, search, filters and counts",
+      "operation_refs": [
+        {
+          "operation_id": "tasks.get",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "feature": "TSK-001",
+          "rule": "Supported category values: vision_meeting, follow_up, training, facilities, promotion, administrative, ministry_team, launch_prep, recurring, general."
+        },
+        {
+          "feature": "TSK-001",
+          "rule": "Supported due kind values: undated, local_date, resolved_instant, any."
+        },
+        {
+          "operation": "tasks.count",
+          "rule": "Visible information for plant_member: top level total, by status, by priority, by category, child task total, child task complete."
+        },
+        {
+          "operation": "tasks.get",
+          "rule": "Visible information for plant_member: items, description, assignee account id, checklist, prerequisite ids, obligation id, occurrence id, revision."
+        },
+        {
+          "operation": "tasks.count",
+          "rule": "typed count/group projection with completeness; not arbitrary selected-row count"
+        }
       ]
     },
     {
@@ -35,9 +65,9 @@
       "text": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate/lock task, graph, series and related subjects; edit+status+prerequisites/history/receipt/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
       "spec": "docs/product/tasks.md#req-tsk-002",
       "operations": [
-        "tasks.createTask",
-        "tasks.updateTask",
-        "tasks.deleteTask"
+        "tasks.create",
+        "tasks.edit",
+        "tasks.delete"
       ],
       "acceptance_ids": [
         "AC-TSK-002--TSK-002"
@@ -51,6 +81,57 @@
       ],
       "work_packages": [
         "WP-025"
+      ],
+      "title": "Create, edit and delete tasks",
+      "behavior_rules": [
+        {
+          "operation": "tasks.create",
+          "rule": "Supported priority values: low, medium, high, urgent (default medium)."
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Required dated; must null undated."
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Required resolved_instant; must null local_date/undated."
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Required resolved_instant; must null local_date/undated; date-only church zone server context."
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "earlier|later|null (entered fold requires explicit choice; entered gap refuses; null for undated/local_date)"
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Server recomputes and checks equality; must null non-instant branch; never independent client authority."
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Exactly matching typed relation, no facility; managed source cannot change"
+        },
+        {
+          "operation": "tasks.create",
+          "rule": "Task+initial status effects+prerequisites+recurrence/real child tasks validate and commit together, no compensation orphan. Initial complete records server completion instant and actor through shared writer; initial no_longer_needed records waiver without successful completion/contact credit; no supplied contact assumed."
+        },
+        {
+          "operation": "tasks.delete",
+          "rule": "An existing soft-deleted prerequisite ceases actionable blocking; predecessor/edge history remains. It gives no success/task 48/contact credit. Hidden/foreign/unavailable IDs do not become a fabricated successful prerequisite; guarded update uses same current parent/graph checks."
+        },
+        {
+          "operation": "tasks.edit",
+          "rule": "Supported priority values: low, medium, high, urgent (default medium)?."
+        },
+        {
+          "operation": "tasks.edit",
+          "rule": "Omitted means unchanged; explicit null clears allowed nullable fields; managed origin/obligation immutable"
+        },
+        {
+          "operation": "tasks.edit",
+          "rule": "Edit+state effects+graph lock/cycle check+series invariant all-or-none."
+        }
       ]
     },
     {
@@ -61,9 +142,9 @@
       "text": "Recheck actual assignee/current authority inside transaction; Member completes/reopens only own duty, Owner/Admin any current same plant task. CAS completion stores effective completion Instant/actor, status history and required successor/outcome effects atomically. Same intent retry returns original receipt and no duplicate event. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
       "spec": "docs/product/tasks.md#req-tsk-003",
       "operations": [
-        "tasks.completeTask",
-        "tasks.reopenTask",
-        "tasks.setStatus"
+        "tasks.complete",
+        "tasks.reopen",
+        "tasks.changeStatus"
       ],
       "acceptance_ids": [
         "AC-TSK-003--TSK-003"
@@ -79,6 +160,49 @@
       ],
       "work_packages": [
         "WP-025"
+      ],
+      "title": "Complete and reopen tasks under own-duty authority",
+      "behavior_rules": [
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "A task assignee may change only the outcome and checklist of their own task."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Supported to status values: not_started, in_progress, blocked, complete, no_longer_needed."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Required complete; null other status."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "Same status writer effects as complete/reopen/waive: no_longer_needed never creates successful completion/contact credit, ordinary complete needs no contact declaration."
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "reject contact/outcome/occurred at fields; ordinary complete never creates a contact record"
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "Explicit actual occurred at required contacted; non-contact may use server completion Instant."
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "Exactly one branch selected by kind; no caller-created origin/obligation; no_longer_needed writes waiver without success credit"
+        },
+        {
+          "operation": "tasks.complete",
+          "rule": "no_longer_needed branch writes waiver state without completed at/success/contact credit and persistent regeneration suppression; contacted alone updates effective actual-contact evidence; other complete outcomes may fulfill task only. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects."
+        },
+        {
+          "operation": "tasks.reopen",
+          "rule": "Retain actual completion/contact history; restore current actionable state only. Reopen older recurrence refuses existing open-successor conflict; task reopening never erases a genuine prior contacted occurrence."
+        },
+        {
+          "operation": "tasks.changeStatus",
+          "rule": "current assignee account id=self on exact live task; no assignment/handoff/roster privilege"
+        }
       ]
     },
     {
@@ -89,7 +213,7 @@
       "text": "Retain no_longer_needed as closure distinct from complete. It suppresses open/overdue/due notices and actionable follow-up warnings but earns no successful task/48 h/contact credit. Generated immutable obligation records waiver permanently; edit/soft delete/replay/legacy fallback cannot regenerate waived task. Explicit reopen/correction with current revision changes current state while preserving waiver history and one active obligation task. No bulk complete implicitly converts waiver into success.",
       "spec": "docs/product/tasks.md#req-tsk-004",
       "operations": [
-        "tasks.markNoLongerNeeded"
+        "tasks.waive"
       ],
       "acceptance_ids": [
         "AC-TSK-004--TSK-004"
@@ -105,7 +229,18 @@
       ],
       "work_packages": [
         "WP-023"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.waive",
+          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completed at/success/contact credit; protected obligation and waiver survives task edits/deletion."
+        },
+        {
+          "operation": "tasks.waive",
+          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completed at/success/contact credit; protected obligation and waiver survives task edits/deletion. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        }
+      ],
+      "title": "Close a task as no longer needed"
     },
     {
       "id": "REQ-TSK-005",
@@ -116,7 +251,7 @@
       "spec": "docs/product/tasks.md#req-tsk-005",
       "operations": [
         "tasks.listSubtasks",
-        "tasks.addSubtask",
+        "tasks.createSubtask",
         "tasks.setSubtaskCompletion",
         "tasks.removeSubtask"
       ],
@@ -132,7 +267,86 @@
       ],
       "work_packages": [
         "WP-025"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "optional omitted inherits current parent. Owner/Admin explicit override only; Member must omit."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Serialize parent/child constraints: parent has no parent, child cannot self/nest/cycle, active parent and exact tenant; create real task row plus own status history, not bare checkbox."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact top-level parent."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Omitted inherits current parent assignee. Owner/Admin may explicitly choose valid eligible same-plant account or null. Member inherits actual own parent assignment and cannot override another account or explicitly null/unassign."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact child; parent assignment never substitutes."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "General assignment/removal Owner/Admin; parent never auto-completes."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "No child deadline, recurrence, source obligation or completion/contact hook; due date/time/Instant/zone and recurrence/source hook columns remain null. Fresh recurring successor children reset completion state/history facts without contact hooks."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Top-level task counts and actual child total/complete are separate; no bare-checkbox counters."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Persist each one-level child as a task row via parent_task_id with its own event history. Current same-plant Owner/Admin or Member currently assigned the exact top-level parent may create; omitted assignee inherits the current parent, only Owner/Admin may explicitly choose an eligible account or null, and Member must omit it and inherit its own assignment. Tick/reopen requires current Owner/Admin or the actual child-assignee Member; parent assignment never substitutes. Child deadline, recurrence, source-obligation and completion/contact hooks remain absent. A recurring parent copies fresh real child rows and resets completion facts; child state has one authoritative representation."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Actual task row and own event/receipt only. No child due/recurrence/source obligation/completion/contact hooks; required date/time/Instant/zone/recurrence/origin columns null. Child tick/reopen never acts by parent assignment, completes parent, earns task 48/contact credit or invokes generic follow-up hooks."
+        },
+        {
+          "operation": "tasks.listSubtasks",
+          "rule": "Visible information for plant_member: parent task id, items, next cursor, completeness."
+        },
+        {
+          "operation": "tasks.removeSubtask",
+          "rule": "Soft retire child task with retained own history; parent state unchanged; no competing checkbox completion record."
+        },
+        {
+          "operation": "tasks.setSubtaskCompletion",
+          "rule": "Child current task status/completion actor/history only; parent never auto-completes, no contact/completion hook solely from inherited relation; failed history rolls back child."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Each checklist child is an actual task with its own completion state and history, not a detached checklist item."
+        },
+        {
+          "operation": "tasks.createSubtask",
+          "rule": "Fresh current same-plant Owner/Admin OR Member currently assigned exact top-level parent. Lock/validate live parent and one-level integrity; Member inherits actual own parent assignment and cannot override/null it. Owner/Admin may choose actual eligible same-plant account/null; omitted inherits. Concurrent assignment/parent deletion/revision change requires safe refusal/new review."
+        },
+        {
+          "operation": "tasks.removeSubtask",
+          "rule": "retired child task and own preserved history"
+        },
+        {
+          "operation": "tasks.setSubtaskCompletion",
+          "rule": "child task completion/reopen receipt, no parent auto-finish/contact inference"
+        },
+        {
+          "operation": "tasks.setSubtaskCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual child task assignee; parent assignment does not substitute for child assignee; validate exact parent_task_id."
+        },
+        {
+          "operation": "tasks.setSubtaskCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual child task assignee; parent assignment does not substitute for child assignee; validate exact parent_task_id. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        }
+      ],
+      "title": "One-level subtasks and checklists"
     },
     {
       "id": "REQ-TSK-006",
@@ -142,9 +356,9 @@
       "text": "Top-level same-tenant tasks only, unique edges and composite FKs. Deny self/foreign/deleted candidate; serialize graph edits under tenant graph lock before longer cycle detection, so concurrent opposite edges cannot both commit. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
       "spec": "docs/product/tasks.md#req-tsk-006",
       "operations": [
-        "tasks.setPrerequisites",
+        "tasks.replacePrerequisites",
         "tasks.listPrerequisites",
-        "tasks.listPrerequisiteCandidates"
+        "tasks.prerequisiteCandidates"
       ],
       "acceptance_ids": [
         "AC-TSK-006--TSK-006"
@@ -158,14 +372,29 @@
       ],
       "work_packages": [
         "WP-025"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "feature": "TSK-006",
+          "rule": "Supported prerequisite state values: incomplete, complete, any."
+        },
+        {
+          "feature": "TSK-006",
+          "rule": "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task 48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task 48 actual typed originating task completion differs from actual contacted occurred at; raw checkbox/provider acceptance no typed contact proof."
+        },
+        {
+          "operation": "tasks.listPrerequisites",
+          "rule": "Visible information for plant_member: items, task id, evidence, next cursor, completeness."
+        }
+      ],
+      "title": "Task prerequisites and derived blocking"
     },
     {
       "id": "REQ-TSK-007",
       "feature_ids": [
         "TSK-007"
       ],
-      "text": "Daily/weekly/biweekly/monthly/quarterly/yearly rules retain interval and inclusive end LocalDate, series ID/source version and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completion+successor+all reset checklist items/history/reminder intent commit atomically, with unique one open series and predecessor\u2192successor identity as arbiters. Retry converges; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
+      "text": "Daily/weekly/biweekly/monthly/quarterly/yearly rules retain interval and inclusive end LocalDate, series ID/source version and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completion+successor+all reset checklist items/history/reminder intent commit atomically, with unique one open series and predecessor→successor identity as arbiters. Retry converges; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
       "spec": "docs/product/tasks.md#req-tsk-007",
       "operations": [
         "tasks.configureRecurrence",
@@ -184,6 +413,37 @@
       ],
       "work_packages": [
         "WP-025"
+      ],
+      "title": "Recurring tasks and fresh successor checklists",
+      "behavior_rules": [
+        {
+          "operation": "tasks.completeOccurrence",
+          "rule": "Completed occurrence+exact successor+fresh real child-task copies (current eligible reviewed/inherited assignment, reset status/completed facts, null deadline/recurrence/origin columns and no contact hook) commit together. Parent does not auto-complete; source one-level children/histories retained; one open series and predecessor successor unique. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects."
+        },
+        {
+          "operation": "tasks.configureRecurrence",
+          "rule": "Supported frequency values: daily, weekly, biweekly, monthly, quarterly, yearly."
+        },
+        {
+          "operation": "tasks.configureRecurrence",
+          "rule": "Required until, inclusive; must null none."
+        },
+        {
+          "operation": "tasks.configureRecurrence",
+          "rule": "reject count/total occurrences; count was an unapproved catalog invention, not retained source capability"
+        },
+        {
+          "operation": "tasks.configureRecurrence",
+          "rule": "One interval successor/clamp, inclusive until local date, unique one-open-series. count branch explicitly rejected as catalog invention; stop preserves history."
+        },
+        {
+          "operation": "tasks.findOpenOccurrence",
+          "rule": "Visible information for plant_member: series id, open task id, occurrence ordinal, predecessor task id, revision."
+        },
+        {
+          "operation": "tasks.completeOccurrence",
+          "rule": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        }
       ]
     },
     {
@@ -209,7 +469,26 @@
       ],
       "work_packages": [
         "WP-025"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.bulkComplete",
+          "rule": "One closed reviewed branch per selected task."
+        },
+        {
+          "operation": "tasks.bulkComplete",
+          "rule": "Bounded per-task complete+successor/checklist/history/intent transactions under one durable batch receipt; replay unsettled rows only, no hidden partial failure."
+        },
+        {
+          "operation": "tasks.bulkComplete",
+          "rule": "Owner/Admin same plant OR Member current actual assignee for each selected task; evaluate row independently and return exact moved/succeeded/noop/denied/stale/conflict/remaining result."
+        },
+        {
+          "operation": "tasks.bulkComplete",
+          "rule": "Owner/Admin same plant OR Member current actual assignee for each selected task; evaluate row independently and return exact moved/succeeded/noop/denied/stale/conflict/remaining result. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        }
+      ],
+      "title": "Bulk completion and rescheduling"
     },
     {
       "id": "REQ-TSK-009",
@@ -220,7 +499,7 @@
       "spec": "docs/product/tasks.md#req-tsk-009",
       "operations": [
         "tasks.listTemplates",
-        "tasks.previewTemplateImport",
+        "tasks.previewTemplate",
         "tasks.importTemplate"
       ],
       "acceptance_ids": [
@@ -235,7 +514,22 @@
       ],
       "work_packages": [
         "WP-026"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.listTemplates",
+          "rule": "Visible information for plant_member: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects."
+        },
+        {
+          "operation": "tasks.previewTemplate",
+          "rule": "Visible information for plant_owner: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects."
+        },
+        {
+          "operation": "tasks.previewTemplate",
+          "rule": "Visible information for plant_admin: template id, version, tasks, checklists, relative dates, existing offer status, exact copy effects."
+        }
+      ],
+      "title": "Browse, preview and import task templates"
     },
     {
       "id": "REQ-TSK-010",
@@ -245,8 +539,9 @@
       "text": "Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Lock unique answer/transition; selected tasks+answer/history/receipt commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.",
       "spec": "docs/product/tasks.md#req-tsk-010",
       "operations": [
-        "tasks.getPhaseOffer",
-        "tasks.answerPhaseOffer"
+        "tasks.readPhaseOffer",
+        "tasks.answerPhaseOffer",
+        "tasks.acceptPhaseOffer"
       ],
       "acceptance_ids": [
         "AC-TSK-010--TSK-010"
@@ -260,6 +555,31 @@
       ],
       "work_packages": [
         "WP-026"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.acceptPhaseOffer",
+          "rule": "Actual transition anchor from server, selected task set+answer+durable receipt atomic; no client forged date or partial claimed template list."
+        },
+        {
+          "operation": "tasks.acceptPhaseOffer",
+          "rule": "Checklist means actual one-level child Task rows with optional assignee and own status/history, no child deadlines/recurrence/obligation/contact hooks. No separate public bare checkbox command or competing completion state. Template/editor definitions are inert before reviewed instantiation; recurring parent creates fresh/reset real children only."
+        },
+        {
+          "operation": "tasks.answerPhaseOffer",
+          "rule": "Unique actual transition answer+selected tasks anchored to stored actual transition local date commit together; no client-selected false anchor, decline no tasks, no partial claim/cookie-only recovery."
+        },
+        {
+          "operation": "tasks.answerPhaseOffer",
+          "rule": "one durable answer+exact created task ids or rollback"
+        }
+      ],
+      "title": "Review a phase-transition task offer",
+      "operation_refs": [
+        {
+          "operation_id": "tasks.acceptPhaseOffer",
+          "catalog": "docs/catalog/operations.json"
+        }
       ]
     },
     {
@@ -291,7 +611,8 @@
       ],
       "work_packages": [
         "WP-023"
-      ]
+      ],
+      "title": "Vision follow-ups and managed evaluation tasks"
     },
     {
       "id": "REQ-TSK-012",
@@ -301,9 +622,11 @@
       "text": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates now under lock, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
       "spec": "docs/product/tasks.md#req-tsk-012",
       "operations": [
-        "followups.readAssignments",
-        "followups.assign",
-        "followups.createAndAssign"
+        "tasks.followUpCoverage",
+        "tasks.assignFollowUp",
+        "tasks.createFollowUp",
+        "tasks.eligibleAssignees",
+        "tasks.listFollowUpOwners"
       ],
       "acceptance_ids": [
         "AC-TSK-012--TSK-012"
@@ -319,6 +642,55 @@
       ],
       "work_packages": [
         "WP-023"
+      ],
+      "title": "Follow-up assignments and unowned contacts",
+      "operation_refs": [
+        {
+          "operation_id": "tasks.eligibleAssignees",
+          "catalog": "docs/catalog/operations.json"
+        },
+        {
+          "operation_id": "tasks.listFollowUpOwners",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.eligibleAssignees",
+          "rule": "Supported purpose values: ordinary_task, committed_follow_up."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Manual create is legitimately undated."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Server-derived from stored Person, or explicit reviewed custom title; no caller name authority"
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "Existing obligation origin protected; no client-provided origin meeting id can fabricate 48h lineage."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "A child Task cannot enter due/recurrence/source obligation/follow-up/contact branches or generic completion hooks. Eligible child tick/reopen delegates exact child-assignee guarded child-task completion; Owner/Admin ordinary child title/assignment/removal uses the closed child contract. Parent duty never substitutes for child completion authority."
+        },
+        {
+          "operation": "tasks.listFollowUpOwners",
+          "rule": "Visible information for plant_member: items, obligation id, task id, assignee account id, outcome, unassigned count, matched, completeness."
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "exact assignment receipt/current Needs owner"
+        },
+        {
+          "operation": "tasks.assignFollowUp",
+          "rule": "one active exact plant seat; row plant id matches trusted context"
+        },
+        {
+          "operation": "tasks.createFollowUp",
+          "rule": "distinct manual task receipt, excluded generated 48h metric"
+        }
       ]
     },
     {
@@ -326,11 +698,11 @@
       "feature_ids": [
         "TSK-013"
       ],
-      "text": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded\u2264100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
+      "text": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded≤100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
       "spec": "docs/product/tasks.md#req-tsk-013",
       "operations": [
-        "followups.previewHandoff",
-        "followups.handoff"
+        "tasks.planHandoff",
+        "tasks.executeHandoff"
       ],
       "acceptance_ids": [
         "AC-TSK-013--TSK-013"
@@ -344,7 +716,14 @@
       ],
       "work_packages": [
         "WP-023"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.planHandoff",
+          "rule": "exact actionable duty IDs+revisions/Needs owner, not status change"
+        }
+      ],
+      "title": "Follow-up handoff after authority loss"
     },
     {
       "id": "REQ-TSK-014",
@@ -354,8 +733,8 @@
       "text": "Schedule due notice and defined overdue notice from REQ-TSK-018; skip settled/deleted/unassigned/undated tasks. Unique logical task/revision/type/recipient delivery intent and notified occurrences avoid resend after retry/zone edit. Status/delete/reassign/reschedule cancels and version-replans pending intents atomically with task. Dispatch rechecks current task state/assignee/version/tenant/consent/suppression and deadline; stale queued notice cannot send to old owner. Failure has durable retry/reconcile outcome, no accepted/delivered claim from mere intent.",
       "spec": "docs/product/tasks.md#req-tsk-014",
       "operations": [
-        "tasks.planReminders",
-        "tasks.cancelReminders"
+        "notifications.syncTaskReminders",
+        "notifications.cancelTaskReminders"
       ],
       "acceptance_ids": [
         "AC-TSK-014--TSK-014"
@@ -369,7 +748,8 @@
       ],
       "work_packages": [
         "WP-024"
-      ]
+      ],
+      "title": "Task due and overdue notifications"
     },
     {
       "id": "REQ-TSK-015",
@@ -379,7 +759,7 @@
       "text": "All status writers(native/Evry/bulk/generated evaluation/recurrence/correction) append previous/new state, effective Instant, recorded Instant, actual actor or identified system cause, revision and receipt in same UoW. Preserve initial creation state and close/reopen/waiver lineage. No-op retry creates no fake history. Read history requires current owned task scope, retains soft-deleted receipt as allowed and never renders anonymous source trigger rows as full actor evidence. Shared audit is not universal public browser/export or retention exemption.",
       "spec": "docs/product/tasks.md#req-tsk-015",
       "operations": [
-        "tasks.listStatusHistory"
+        "tasks.statusHistory"
       ],
       "acceptance_ids": [
         "AC-TSK-015--TSK-015"
@@ -393,14 +773,21 @@
       ],
       "work_packages": [
         "WP-024"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.statusHistory",
+          "rule": "Visible information for plant_member: task id, items, next cursor, completeness."
+        }
+      ],
+      "title": "Durable task status history"
     },
     {
       "id": "REQ-TSK-016",
       "feature_ids": [
         "TSK-016"
       ],
-      "text": "Create/edit/template paths normalize bounded\u226450000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
+      "text": "Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
       "spec": "docs/product/tasks.md#req-tsk-016",
       "operations": [
         "tasks.normalizeDescription",
@@ -418,7 +805,14 @@
       ],
       "work_packages": [
         "WP-026"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.normalizeDescription",
+          "rule": "Pure bounded safe Markdown normalization/preview; no DB or durable artifact; content never tool instructions."
+        }
+      ],
+      "title": "Task description Markdown"
     },
     {
       "id": "REQ-TSK-017",
@@ -430,7 +824,7 @@
         "TSK-014",
         "TSK-015"
       ],
-      "text": "WP-024 owns a transaction-bound API accepting the caller's database connection: ensure immutable obligation key, ensure managed task, update current task/obligation state, append status history, audit/operation receipt and required reminder intent. It supplies uniqueness `(tenant, originKind, originMeeting, Person, obligationKind)`, protected source identity, one active managed task per obligation, current revision and explicit unowned state. Meeting evaluation tasks use separate meeting/kind identity and do not require Person. A no_longer_needed obligation persists even if its task is edited/soft-deleted and forbids regeneration; current source correction may mark applicability superseded with history. No outcome reporting, generic work flow interpreter, independent task transaction or provider call is required in this kernel. WP-022 invokes it in the same finalization UoW; direct dependency WP-024\u2192WP-022 is mandatory. WP-023 owns later typed outcomes/contact/eligible ownership/handoff. Kernel closure proves physical constraints/replay/fault rollback with actual WP-022 consumer at that consumer's closure, not only a stub or final regression.",
+      "text": "WP-024 owns a transaction-bound API accepting the caller's database connection: ensure immutable obligation key, ensure managed task, update current task/obligation state, append status history, audit/operation receipt and required reminder intent. It supplies uniqueness `(tenant, originKind, originMeeting, Person, obligationKind)`, protected source identity, one active managed task per obligation, current revision and explicit unowned state. Meeting evaluation tasks use separate meeting/kind identity and do not require Person. A no_longer_needed obligation persists even if its task is edited/soft-deleted and forbids regeneration; current source correction may mark applicability superseded with history. No outcome reporting, generic work flow interpreter, independent task transaction or provider call is required in this kernel. WP-022 invokes it in the same finalization UoW; direct dependency WP-024→WP-022 is mandatory. WP-023 owns later typed outcomes/contact/eligible ownership/handoff. Kernel closure proves physical constraints/replay/fault rollback with actual WP-022 consumer at that consumer's closure, not only a stub or final regression.",
       "spec": "docs/product/tasks.md#req-tsk-017",
       "operations": [
         "tasks.ensureObligation",
@@ -453,6 +847,24 @@
         "WP-024",
         "WP-022",
         "WP-023"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.applyManagedStatus",
+          "rule": "Effects already included in outer exact-reviewed finalize/evaluation command"
+        },
+        {
+          "operation": "tasks.applyManagedStatus",
+          "rule": "A managed evaluation task has no person target."
+        },
+        {
+          "operation": "tasks.applyManagedStatus",
+          "rule": "Supported obligation kind values: first_vision_follow_up, meeting_evaluation."
+        },
+        {
+          "operation": "tasks.applyManagedStatus",
+          "rule": "Caller same transaction only; unique tenant/origin meeting/person/kind, one active managed task; protected origin and persistent waiver prevent replay regeneration, no separate postcommit producer."
+        }
       ]
     },
     {

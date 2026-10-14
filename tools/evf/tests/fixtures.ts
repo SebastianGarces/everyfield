@@ -7,6 +7,10 @@ export function fixture() {
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
  cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
+ const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
+ const progressPath=join(root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
+ progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,progress.packages[p.id]??{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
+ writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
  cfg.feedback={...cfg.feedback,repo:'test/feedback',botAuthor:'app-bot',botAuthorId:101,triageActorIds:[202],publicAreas:['Documents'],publicTemplates:[{category:'bug',title:'Bug report — {area}',body:'A product bug report was submitted for {area}. Private details are retained for authorized triage. Reference: {marker}.'}]};
@@ -36,8 +40,15 @@ if(a[0]==='api') {
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
-else if(a[0]==='pr'&&a[1]==='view')result=s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
-else if(a[0]==='pr'&&a[1]==='merge'){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
+else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='edit')result='';
+else if(a[0]==='pr'&&a[1]==='merge'){
+ if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
+ const cp=require('node:child_process'),cwd=fs.realpathSync(process.cwd()+'/../..');
+ cp.execFileSync('git',['-C',cwd,'merge','--no-ff','-m','Fixture reviewed merge',s.mergeBranch]);
+ s.mergeCommit=cp.execFileSync('git',['-C',cwd,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
+ cp.execFileSync('git',['-C',cwd,'push','-q','origin','main']);result='';
+}
 else if(a[0]==='issue') {
  const n=Number(a[2]);
  if(a[1]==='comment'){(s.comments[n]??=[]).push({body,user:s.user});result='https://github.com/test/feedback/issues/'+n+'#comment';}
@@ -56,7 +67,14 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
  return {root,cfg,git,
   getState:()=>JSON.parse(readFileSync(statePath,'utf8')),
   setState:(s:unknown)=>writeFileSync(statePath,JSON.stringify(s)),
-  authorize:()=>{const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...Array.from({length:86},(_,i)=>'WP-'+String(i+1).padStart(3,'0')),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
+  authorize:(wp='WP-001')=>{const progress=JSON.parse(readFileSync(progressPath,'utf8'));
+   const prerequisites=new Set<string>();
+   const visit=(id:string)=>{const pkg=dag.packages.find(p=>p.id===id)!;
+    for(const dep of [...pkg.depends_on,...(pkg.ui_depends_on??[])])if(!prerequisites.has(dep)){prerequisites.add(dep);visit(dep);}
+   };
+   visit(wp);
+   for(const id of prerequisites)progress.packages[id].status='done';
+   writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...dag.packages.map(p=>p.id),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
   close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}

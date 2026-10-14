@@ -6,7 +6,7 @@
       "feature_ids": [
         "PHASE-001"
       ],
-      "text": "One attributed idempotent existing-journey initial declaration per plant is distinct from actual new plant creation Phase 1 entry. No synthesized prior phases; retry returns original. Owner/Admin current exact plant authority. Declared phase is a number/integer0..6; no caller reason/kind. Server stores exact reserved initial-declaration sentence and kind, independent of creation.",
+      "text": "One attributed idempotent existing-journey initial declaration per plant is distinct from actual new plant creation Phase 1 entry. No synthesized prior phases; retry returns original. Owner/Admin current exact plant authority. Declared phase is a number/integer 0..6; no caller reason/kind. Server stores exact reserved initial-declaration sentence and kind, independent of creation.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.declare"
@@ -27,14 +27,21 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.declare",
+          "rule": "One existing-journey declaration under locked plant/unique slot. Caller cannot choose church_creation kind. Unsure/discerning/skip is no declaration; initial declaration emits no reached-new-phase consequence."
+        }
+      ],
+      "title": "One-time midjourney initial phase declaration"
     },
     {
       "id": "REQ-PHASE-002",
       "feature_ids": [
         "PHASE-002"
       ],
-      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer0..6; reason is string trimmed1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
+      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.transition"
@@ -53,7 +60,18 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.transition",
+          "rule": "String trimmed length 1..2000; exact reserved initial-declaration reason rejected after trim"
+        },
+        {
+          "operation": "phases.transition",
+          "rule": "Derive from phase from locked current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+        }
+      ],
+      "title": "Reasoned forward/backward/skipping/correcting phase transition"
     },
     {
       "id": "REQ-PHASE-003",
@@ -80,7 +98,18 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "phases.classifyChange",
+          "rule": "JSON number, integer, 0<=value<=6; strings/null/fractions/out-of-range rejected; no coercion"
+        },
+        {
+          "operation": "phases.classifyChange",
+          "rule": "Stored typed kind is authoritative; reason sentence is display copy and reserved, never a substituted kind test."
+        }
+      ],
+      "title": "Direction classification and same-phase behavior"
     },
     {
       "id": "REQ-PHASE-004",
@@ -105,7 +134,8 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "title": "Advisory ready/approaching/not_ready/unknown phase control"
     },
     {
       "id": "REQ-PHASE-005",
@@ -132,7 +162,22 @@
       "work_packages": [
         "WP-026",
         "WP-038"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.appendAssessmentConsequences",
+          "rule": "Assessment consequences run only through the bounded registered internal protocol."
+        },
+        {
+          "operation": "intelligence.appendAssessmentConsequences",
+          "rule": "Append typed bounded required intent inside publication transaction; no bus callback decides durability or broad private/raw output."
+        },
+        {
+          "operation": "phases.appendConsequences",
+          "rule": "Local phase offer coordination and required bounded notice intents share mutation transaction. Initial declaration/creation does not fake advancement. No model/client invocation or after-commit integrity dependency."
+        }
+      ],
+      "title": "Typed phase.changed and assessment.created events"
     },
     {
       "id": "REQ-PHASE-006",
@@ -159,7 +204,18 @@
       "work_packages": [
         "WP-026",
         "WP-038"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "tasks.readPhaseOffer",
+          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous answer receipt."
+        },
+        {
+          "operation": "wiki.recommendForPhase",
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phase id, authorized recommendations, source references."
+        }
+      ],
+      "title": "Phase-driven task-template prompt and Wiki recommendations"
     },
     {
       "id": "REQ-PHASE-007",
@@ -186,7 +242,8 @@
       ],
       "work_packages": [
         "WP-038"
-      ]
+      ],
+      "title": "Phase transition audit and journey chronology"
     },
     {
       "id": "REQ-PHASE-008",
@@ -213,9 +270,9 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-032",
         "WP-038"
-      ]
+      ],
+      "title": "Seven church-planting phases and Playbook criteria catalog"
     },
     {
       "id": "REQ-PI-001",
@@ -241,6 +298,69 @@
       ],
       "work_packages": [
         "WP-040"
+      ],
+      "title": "Deterministic fact-snapshot assembly",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Consistent read-only capture with one fixed as of; caller persists immutable run inside the same snapshot transaction. Private care structurally absent."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "allow: operational attendance/serving/assignment and exact cited facts, dated human-record presence/count/date."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "remove: raw interview criterion judgments, raw 4Cs scores, human qualification result, human notes or testimony, private care body, private care existence, private care calendar, private support nudge metadata."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Fact snapshots must not summarize sources removed from the caller's authorized evidence."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Separately authorized native human-record reads remain their own domain purpose; no PI/tool access inheritance."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "actual immutable originating occurrence Instant; not recorded at or storage-created at proxy"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "effective actual successful originating-task completion Instant >=start and <=as of"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "valid measured completion enters early; unresolved nonwaived enters at age>=48h; late valid completion is measured miss"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "The timeliness numerator includes only eligible valid task completions no later than 48 elapsed hours after the actual originating occurrence."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "excluded reasons: immature_pending, waived, future_actual_origin, future_actual_completion, completion_before_origin, missing_or_invalid_origin, missing_actual_completion."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Retain valid immutable source occurrence history"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Keep occurrence/effective completion separate from recorded at/database created at; later recording does not invalidate valid backdated evidence"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Originating-obligation TASK completion timeliness; never actual-contact success rate"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Actual effective originating-task completion event under its approved branch; attempted_no_contact/administrative_completion can fulfill task; no_longer_needed remains waiver; never infer contacted from checkbox/provider acceptance"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Only explicitly recorded typed contacted outcome and actual occurred at changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not"
+        }
       ]
     },
     {
@@ -271,6 +391,17 @@
       ],
       "work_packages": [
         "WP-040"
+      ],
+      "title": "Committed adult growth, first commitments and flat streak",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "null=current deterministic consistent snapshot at server clock"
+        },
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "The exact current section alias returns the complete cited authorized fact section with completeness and evidence envelope with only its named data branch. It does not perform additional live reads or accept client as of."
+        }
       ]
     },
     {
@@ -297,14 +428,15 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Growth source composition and unknown source counts"
     },
     {
       "id": "REQ-PI-004",
       "feature_ids": [
         "PI-004"
       ],
-      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly overmeeting warning.",
+      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm, 21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -323,7 +455,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Vision meeting cadence, completed attendance and trend"
     },
     {
       "id": "REQ-PI-005",
@@ -348,7 +481,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Core group cohesion and leader disengagement pattern"
     },
     {
       "id": "REQ-PI-006",
@@ -381,7 +515,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Eight ministry coverage readings"
     },
     {
       "id": "REQ-PI-007",
@@ -408,7 +543,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Leadership candidate signals and human interview/4Cs references"
     },
     {
       "id": "REQ-PI-008",
@@ -438,14 +574,15 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Training program/member completion readings"
     },
     {
       "id": "REQ-PI-009",
       "feature_ids": [
         "PI-009"
       ],
-      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0\u201328 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
+      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0–28 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -466,7 +603,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Launch countdown, status, milestones and outcome facts"
     },
     {
       "id": "REQ-PI-010",
@@ -491,7 +629,8 @@
       ],
       "work_packages": [
         "WP-040"
-      ]
+      ],
+      "title": "Legacy person-record follow-up staleness facts"
     },
     {
       "id": "REQ-PI-011",
@@ -519,14 +658,15 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "Measured task follow-up ownership"
     },
     {
       "id": "REQ-PI-012",
       "feature_ids": [
         "PI-012"
       ],
-      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48elapsedhours as measured misses and valid successful completion at/after source-start and by source-start+48hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
+      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -548,7 +688,8 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "48-hour originating-meeting follow-up task metric"
     },
     {
       "id": "REQ-PI-013",
@@ -578,7 +719,8 @@
       "work_packages": [
         "WP-023",
         "WP-040"
-      ]
+      ],
+      "title": "Actual contact freshness independent of task completion"
     },
     {
       "id": "REQ-PI-014",
@@ -610,7 +752,8 @@
       "work_packages": [
         "WP-039",
         "WP-040"
-      ]
+      ],
+      "title": "Eight-lens measured/attested/unknown evidence profile"
     },
     {
       "id": "REQ-PI-015",
@@ -645,6 +788,37 @@
       "work_packages": [
         "WP-039",
         "WP-040"
+      ],
+      "title": "Seven manual attestation toggles and reaffirmation",
+      "behavior_rules": [
+        {
+          "feature": "PI-015",
+          "rule": "signal key: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested."
+        },
+        {
+          "feature": "PI-015",
+          "rule": "Only three prayer/giving legacy keys have source 30 day reaffirmation. Funding/values/systems/prayer leader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them."
+        },
+        {
+          "operation": "signals.correct",
+          "rule": "Supported action values: correct, retract."
+        },
+        {
+          "operation": "signals.correct",
+          "rule": "Correcting signal evidence requires replacement evidence; other signal actions do not require it."
+        },
+        {
+          "operation": "signals.getHistory",
+          "rule": "approved attestation key|authorized evidence selection|null; null=permitted plant human-evidence history"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "boolean; must equal the exactly reviewed existing answer"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "Explicit human reaffirmation of one existing eligible prayer/giving answer; no inferred testimony, arbitrary new expiry or automatic other-signal refresh. Model cannot supply confirmation; exact review required."
+        }
       ]
     },
     {
@@ -672,7 +846,14 @@
       ],
       "work_packages": [
         "WP-041"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.readRubric",
+          "rule": "v0|v1|null; null=active pinned plant version"
+        }
+      ],
+      "title": "Active and historical rubric version registry"
     },
     {
       "id": "REQ-PI-017",
@@ -700,7 +881,18 @@
       ],
       "work_packages": [
         "WP-041"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.retrieveMethodology",
+          "rule": "Worker-only retrieval of complete activated global corpus; dense phase/null restriction and sparse FTS phase boost/RRF. Provider embedding lookup shares authorized run budget; no interactive generation on read."
+        },
+        {
+          "operation": "reference.embedQuery",
+          "rule": "Bounded worker provider read derived from allowed operational reference query only; no Person/private-care/raw payload; exact activated embedding model/dimensions."
+        }
+      ],
+      "title": "Phase-filtered dense/sparse methodology retrieval"
     },
     {
       "id": "REQ-PI-018",
@@ -727,7 +919,14 @@
       ],
       "work_packages": [
         "WP-042"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.validateDraft",
+          "rule": "Pure validation; no provider call, publish, raw body trace or durable write."
+        }
+      ],
+      "title": "Typed dual-audience judge and product-rule validation"
     },
     {
       "id": "REQ-PI-019",
@@ -754,7 +953,14 @@
       "work_packages": [
         "WP-042",
         "WP-043"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.evaluateAssessment",
+          "rule": "Provider work outside DB locks; at most 3 output drafts/4 provider attempts per draft under one deadline/token reservation. Run/attempt metadata checkpointed by current claim; no publish from evaluation alone."
+        }
+      ],
+      "title": "Bounded corrective draft retries"
     },
     {
       "id": "REQ-PI-020",
@@ -781,18 +987,30 @@
       ],
       "work_packages": [
         "WP-043"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.callProvider",
+          "rule": "Only registered adapter loads pinned allowed prompt; max retries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
+        },
+        {
+          "operation": "intelligence.callProvider",
+          "rule": "Single cumulative reservation and invocation deadline; charge/reconcile every actual dispatch including 429/5xx; no hidden SDK ladder"
+        }
+      ],
+      "title": "Provider throttling, backoff and learned token pacing"
     },
     {
       "id": "REQ-PI-021",
       "feature_ids": [
         "PI-021"
       ],
-      "text": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with fairness. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
+      "text": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with bounded scan/checkpoint recovery. Fairness tuning belongs to G-LOAD. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.selectAssessmentCandidates",
-        "intelligence.runAssessmentBatch"
+        "intelligence.runAssessmentBatch",
+        "intelligence.requestRefresh"
       ],
       "acceptance_ids": [
         "AC-PI-021--PI-021"
@@ -809,6 +1027,27 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.requestRefresh",
+          "rule": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one atomic transaction; exact replay no duplicate."
+        },
+        {
+          "operation": "intelligence.runAssessmentBatch",
+          "rule": "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferred unattempted. No independent worker deployment."
+        },
+        {
+          "operation": "intelligence.selectAssessmentCandidates",
+          "rule": "SQL latest-complete-per-subject selection; no domain mutation, all inactive/deletion roots excluded. Never-assessed active newly created plant has no reading/readiness gate."
+        }
+      ],
+      "title": "Dirty-or-seven-day-stale assessment scheduling",
+      "operation_refs": [
+        {
+          "operation_id": "intelligence.requestRefresh",
+          "catalog": "docs/catalog/operations.json"
+        }
       ]
     },
     {
@@ -816,7 +1055,7 @@
       "feature_ids": [
         "PI-022"
       ],
-      "text": "Separate demand, job lease generation, immutable run and publication pointer. Capture fixed snapshot before model work; pending/deferred/failed/superseded/complete recovery preserves prior valid complete results. Claim expiry/reclaim does not grant stale publication.",
+      "text": "The assessment row carries demand identity, captured snapshot, attempt state and publication availability; job owns lease generation. Capture fixed facts before model work. Pending, deferred, failed or superseded attempts preserve prior valid complete results. Current reads derive the latest authorized complete assessment ordered by available_at and ID, without a separately mutable publication pointer. Claim expiry or reclaim never grants stale publication.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.executeDemand",
@@ -845,6 +1084,21 @@
       ],
       "work_packages": [
         "WP-043"
+      ],
+      "title": "Pending/complete/failed/deferred snapshots and recovery",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.executeDemand",
+          "rule": "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/as of creates a new immutable run/demand where needed; old worker fenced."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. Only safe deferred/failed/superseded attempt status; a complete prior assessment is never demoted or replaced."
+        }
       ]
     },
     {
@@ -852,7 +1106,7 @@
       "feature_ids": [
         "PI-023"
       ],
-      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and current pointer atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
+      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.publishAssessment",
@@ -882,7 +1136,34 @@
       ],
       "work_packages": [
         "WP-043"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "derive constrained root kind/id from protected run"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "One CAS transaction persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision."
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source revisions without advancing organization material revision for a source-only change. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "reserved; never emitted by ordinary mapping"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "stable priority only within one result; original label semantics preserved in historical rows"
+        },
+        {
+          "operation": "intelligence.publishAssessment",
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/current claim/current grant CAS and pointer publication are indivisible; never a raw insight insert."
+        }
+      ],
+      "title": "Insight persistence, severity/rank and snapshot deltas"
     },
     {
       "id": "REQ-PI-024",
@@ -911,6 +1192,13 @@
       ],
       "work_packages": [
         "WP-044"
+      ],
+      "title": "Cached assessment reads, as-of and seen marker",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.markAssessmentSeen",
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Only affiliation and sharing changes advance organization material revision."
+        }
       ]
     },
     {
@@ -936,7 +1224,8 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "title": "Primary focus, two supplements, separate positive surface"
     },
     {
       "id": "REQ-PI-026",
@@ -963,7 +1252,18 @@
       "work_packages": [
         "WP-041",
         "WP-044"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.formatCitedFact",
+          "rule": "Format an already authorized resolved fact without changing its observation or quality"
+        },
+        {
+          "operation": "intelligence.formatCitedFact",
+          "rule": "Pure deterministic validation/formatting of trusted bound inputs; no storage, provider call or extra authorization."
+        }
+      ],
+      "title": "Human-readable citations and exact snapshot drill-down"
     },
     {
       "id": "REQ-PI-027",
@@ -990,14 +1290,15 @@
       "work_packages": [
         "WP-040",
         "WP-044"
-      ]
+      ],
+      "title": "CSF scorecard eight evidence-aware lens standings"
     },
     {
       "id": "REQ-PI-028",
       "feature_ids": [
         "PI-028"
       ],
-      "text": "Preserve 19 stable criterion keys,18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
+      "text": "Preserve 19 stable criterion keys, 18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readExitCriteria",
@@ -1070,7 +1371,8 @@
       "work_packages": [
         "WP-038",
         "WP-044"
-      ]
+      ],
+      "title": "Phase exit criteria cluster, measured progress and evidence"
     },
     {
       "id": "REQ-PI-029",
@@ -1096,7 +1398,8 @@
       "work_packages": [
         "WP-040",
         "WP-044"
-      ]
+      ],
+      "title": "Persisted historical trends with engine-derived alerts"
     },
     {
       "id": "REQ-PI-030",
@@ -1123,7 +1426,8 @@
         "WP-038",
         "WP-046",
         "WP-044"
-      ]
+      ],
+      "title": "Milestone timeline of declared/moved phases and launch"
     },
     {
       "id": "REQ-PI-031",
@@ -1150,6 +1454,25 @@
       "work_packages": [
         "WP-047",
         "WP-044"
+      ],
+      "title": "Oversight privacy-safe four-valued health rollup",
+      "behavior_rules": [
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Visible information for organization_member: plant identity, released assessment ref, classification, shared structured concerns, allowed aggregate evidence, as of, sharing status, authorized canonical plant link, next cursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Omitting a plant selection restricts the health read to the caller's authorized portfolio."
+        },
+        {
+          "operation": "oversight.readLaunchReadiness",
+          "rule": "Visible information for organization_member: plant identity, shared launch state, near date plus known gap reading, allowed coverage training aggregates, limited visibility, as of, authorized link, next cursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Current exact constrained organization(id, kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content."
+        }
       ]
     },
     {
@@ -1177,7 +1500,22 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.validateConcernPairing",
+          "rule": "Verify matching concern identity and evidence across planter and oversight versions"
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Supported release cause values: eligible_human_opened, elapsed_72_hours."
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation."
+        }
+      ],
+      "title": "Planter-paired concerns and seen-or-72-hour release"
     },
     {
       "id": "REQ-PI-033",
@@ -1203,7 +1541,14 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.submitFeedback",
+          "rule": "Supported rating values: useful, not_useful."
+        }
+      ],
+      "title": "Per-insight feedback rating and optional comment"
     },
     {
       "id": "REQ-PI-034",
@@ -1229,7 +1574,8 @@
       ],
       "work_packages": [
         "WP-044"
-      ]
+      ],
+      "title": "Cold-start queued/quiet guidance"
     },
     {
       "id": "REQ-PI-035",
@@ -1255,8 +1601,15 @@
       ],
       "work_packages": [
         "WP-042",
-        "WP-050"
-      ]
+        "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.recordAttemptTelemetry",
+          "rule": "Optional metadata/usage sink only; no raw prompt/output/private care/protected manifest. Sink failure cannot fail or demote the assessment."
+        }
+      ],
+      "title": "Judge observability and graceful optional tracing"
     },
     {
       "id": "REQ-PI-036",
@@ -1284,17 +1637,27 @@
       "work_packages": [
         "WP-042",
         "WP-050"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.requestOperatorRefresh",
+          "rule": "Operator creates one shared demand under explicit grant/purpose, not user-role inference; no autonomous direct publish or model call."
+        },
+        {
+          "operation": "intelligence.runEvaluation",
+          "rule": "Explicit scoped operator evaluation only in isolated synthetic environment and bounded reserved model budget; no customer/private care input or shared-source destructive seed. Actual results, never file-presence pass."
+        }
+      ],
+      "title": "Offline fleet eval, assessment trigger and language audit tooling"
     },
     {
       "id": "REQ-PI-037",
       "feature_ids": [
         "PI-037"
       ],
-      "text": "Every registered material producer commits domain mutation/history/audit/required intents/receipt and synchronous source revision in one DomainTransaction. Correction/merge/attendance/contact/role/training/phase/date/geography/reference/sharing are covered; after-commit wake-up only, private care excluded.",
+      "text": "Database triggers on every assessment input table advance plant.material_revision in the same transaction as the relevant fact mutation. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Revisions are monotonic freshness fences; multiple changed rows may advance them more than once. Organization material revision advances only on affiliation and sharing changes, including category grants. Other plant input changes are fenced by contributor source revisions at organization publication. Reference activation is a separate monotonic fence. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry or caller revision helper is required.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
-        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates"
       ],
@@ -1346,9 +1709,22 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
+        "WP-002",
         "WP-040",
-        "WP-043"
-      ]
+        "WP-043",
+        "WP-044"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Supported demand kind values: material, reference, time_refresh."
+        },
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Create idempotent demand only; no as of forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source."
+        }
+      ],
+      "title": "Assessment input triggers and revision freshness"
     },
     {
       "id": "REQ-PI-038",
@@ -1375,6 +1751,21 @@
       ],
       "work_packages": [
         "WP-039"
+      ],
+      "title": "Private weekly four-dimension planter check-in",
+      "behavior_rules": [
+        {
+          "feature": "PI-038",
+          "rule": "native private-care original-author only; no existence/content in model/shared audit/logs"
+        },
+        {
+          "feature": "PI-038",
+          "rule": "Native current exact Owner/Admin original-author conjunction, stable week/calendar CAS, private-only receipt/history; no model/audit/log/PI/organization existence path."
+        },
+        {
+          "operation": "privateCare.readCurrent",
+          "rule": "Read native author-private projection only; no shared audit/telemetry/model/org/PI output."
+        }
       ]
     },
     {
@@ -1400,7 +1791,8 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "title": "Private 12-week strip and three-consecutive-struggling nudge"
     },
     {
       "id": "REQ-PI-040",
@@ -1424,7 +1816,8 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "title": "Full private check-in history with preserved revisions"
     },
     {
       "id": "REQ-PI-041",
@@ -1451,7 +1844,42 @@
       ],
       "work_packages": [
         "WP-039"
-      ]
+      ],
+      "behavior_rules": [
+        {
+          "operation": "privateCare.correct",
+          "rule": "Native author save/correction; no Evry proposal"
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported spiritually values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported marriage family values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported financially values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported pace values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Serialize native author calendar rollover/edit/save under calendar CAS; atomically own entry+private correction+private receipt only; preserve original week/zone/author, unchanged save no-op; no shared audit/material revision/telemetry/model/org/PI input."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Prior revision retained privately; no model/audit/log content or existence."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Native authenticated current exact plant Owner/Admin AND immutable original account author; no Evry/model, organization, broad audit/log/export/private existence access."
+        }
+      ],
+      "title": "Correct existing check-in without deleting history"
     },
     {
       "id": "REQ-PI-042",
@@ -1477,7 +1905,8 @@
       ],
       "work_packages": [
         "WP-043"
-      ]
+      ],
+      "title": "Accurate final-draft assessment failure diagnostics"
     },
     {
       "id": "REQ-PI-043",
@@ -1576,20 +2005,79 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
-        "WP-007",
-        "WP-032",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-044",
         "WP-047",
+        "WP-058",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
-        "WP-058"
+        "WP-093",
+        "WP-096"
+      ],
+      "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
+      "behavior_rules": [
+        {
+          "feature": "PI-043",
+          "rule": "Database constrained root plus trusted current same-org context; no plant FK or unchecked kind/id."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "forbidden: raw contributor manifest, raw plant assessment, individual person, private care, street address, per plant metric table, ranking."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Integer>=2 exact distinct eligible contributors for this pattern at this geographic level"
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Integer>=support count or explicit Unknown; no unsupported denominator/proportion"
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Shared reads never substitute zero for unavailable or unmeasured data."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Shared reads recheck current permission before returning data."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Visible information for organization_member: organization, assessment id, run id, status, as of, material revision, reference activation number, rubric, group scope, available evidence coverage, supported findings, bounded plant lens rows, own feedback only, safe failure code, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Omitting an organization assessment selection returns the latest valid complete assessment."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Network Intelligence purpose strips all individual Person/profile/interview/lead-directory content from current reads AND older retained messages/citations before model input. An allowed ordinary directory lead display-name read remains a separate operation/purpose; it never feeds NI."
+        },
+        {
+          "operation": "organizationIntelligence.readHistory",
+          "rule": "Visible information for organization_member: organization, historical assessments with current grant projection, as of and original grouping reference, withheld patterns, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "The requested organization view affects presentation only and grants no refresh authority."
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "Exactly reviewed Owner/Admin request creates one org-wide shared demand. Regional views are slices of the same run; requested view does not create an independent engine/job/cohort or accept contributor IDs."
+        },
+        {
+          "operation": "organizationIntelligence.submitFeedback",
+          "rule": "Visible information for organization_member: feedback id, organization, assessment id, finding id, rubric version, rating, comment, revision, recorded at, replayed, assessment or rubric changed."
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "Published organization launch summaries contain only bounded oversight and shared Network Intelligence evidence."
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "Visible information for organization_member: exact published summary, publication date, source version, current consent status, source references."
+        }
       ]
     },
     {
@@ -1655,19 +2143,42 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-002",
-        "WP-004",
-        "WP-010",
-        "WP-032",
         "WP-042",
         "WP-043",
         "WP-044",
         "WP-047",
+        "WP-058",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
-        "WP-058"
+        "WP-093",
+        "WP-096"
+      ],
+      "title": "Location Insights: Regions, state/province, Country and Whole portfolio",
+      "behavior_rules": [
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "Reporting-region candidates use current launch-progress evidence for the authorized plant."
+        },
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "Read official pinned county/place relationships only; no street/coordinates/geocoding, first-county or nearest-city guess. This plant-settings read supplies no organization plant-editor grant."
+        },
+        {
+          "operation": "organizationIntelligence.readLocationHistory",
+          "rule": "Visible information for organization_member: organization, historical grouped slices, original reference and association revisions, separately labeled current placement, withheld patterns, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "Visible information for organization_member: organization, assessment id, as of, geography reference version, region slices, state province slices, country slices, whole portfolio slice, unknown geography coverage, bounded named lens rows, safe status."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "region|state_province|country|whole_portfolio|null; null=all available grouped slices"
+        },
+        {
+          "operation": "organizations.correctReportingLocation",
+          "rule": "One native settings correction of primary association; current plant Owner/Admin only. Validate official reference and ambiguity selection; effective commit instant, immutable old reports. No org editing power, chosen-area attestation or phase effect."
+        }
       ]
     },
     {
@@ -1731,6 +2242,20 @@
         "WP-018",
         "WP-019",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.health",
+          "rule": "Visible information for plant_member: filled roles, role denominator, distinct people, distinct teams, required training completed pairs, required training applicable pairs, Unknown, source references."
+        },
+        {
+          "operation": "teams.health",
+          "rule": "Authenticated server server-verified actor and current context/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant."
+        },
+        {
+          "operation": "teams.importRoles",
+          "rule": "Previewed ministry/role selection only, team parent for every role exact. Preserve customizations/occupied leaders, canonical template identity immutable, fail entire import on stale destination/role conflict; read never initializes."
+        }
       ]
     },
     {
@@ -1825,6 +2350,12 @@
         "WP-035",
         "WP-038",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "documents.useForChurch",
+          "rule": "Copy one selected private account-native revision into exact newly/current owned plant; require source self ownership AND target plant Owner/Admin, preserve original and provenance. No bulk transfer or owner mutation."
+        }
       ]
     }
   ]

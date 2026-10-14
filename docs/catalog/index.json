@@ -21,18 +21,28 @@
     "docs/catalog/requirements/teams-training.json"
   ],
   "case_files": [
+    "docs/acceptance/communications-notifications.json",
     "docs/acceptance/evry.json",
+    "docs/acceptance/execution.json",
+    "docs/acceptance/identity-access.json",
     "docs/acceptance/intelligence.json",
     "docs/acceptance/knowledge.json",
+    "docs/acceptance/launch.json",
+    "docs/acceptance/meetings-follow-up.json",
+    "docs/acceptance/operations.json",
     "docs/acceptance/people.json",
-    "docs/acceptance/schema.json"
+    "docs/acceptance/recovery.json",
+    "docs/acceptance/reference-release.json",
+    "docs/acceptance/schema.json",
+    "docs/acceptance/tasks.json",
+    "docs/acceptance/teams-training.json"
   ],
   "counts": {
-    "active_features": 494,
+    "active_features": 275,
     "active_acceptance_bundles": 720,
-    "requirements": 715,
+    "requirements": 496,
     "future_cases": 1086
   },
   "implementation_tests_run": 0,
-  "current_alias_source": "docs/catalog/current-operation-aliases.json"
+  "generated_evry_tool_source": "docs/catalog/evry-tools.json"
 }
