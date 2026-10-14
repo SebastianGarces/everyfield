@@ -10579,8 +10579,8 @@
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
+        "account": null,
+        "session": null,
         "context": null
       },
       "clock": {
@@ -10588,8 +10588,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "onboarding.getResume",
-        "arguments": {}
+        "operation": "sql.inspectEventRows",
+        "arguments": {
+          "account": "A",
+          "scope": "precreation-state-and-own-reading"
+        }
       },
       "expected": {
         "state": {},
@@ -10611,7 +10614,15 @@
             ],
             "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
           }
+        },
+        {
+          "correction_round": {
+            "reason": "Seatless Discovery scope has no created Owner onboarding resume. Registered SQL inspection observes account-private precreation state and completed reading without creating phantom tenant/phase rows."
+          }
         }
+      ],
+      "layers": [
+        "sql"
       ]
     },
     {
@@ -12360,7 +12371,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -12766,7 +12777,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -13389,8 +13400,8 @@
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
+        "account": null,
+        "session": null,
         "context": null
       },
       "clock": {
@@ -13398,8 +13409,11 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "onboarding.getResume",
-        "arguments": {}
+        "operation": "sql.inspectEventRows",
+        "arguments": {
+          "account": "A",
+          "scope": "precreation-state-and-own-reading"
+        }
       },
       "expected": {
         "state": {},
@@ -13419,7 +13433,15 @@
             ],
             "reason": "Corrected action exercises onboarding.getResume; these owners cannot supply it. Retained the actual producer and downstream integration owners."
           }
+        },
+        {
+          "correction_round": {
+            "reason": "Seatless Discovery scope has no created Owner onboarding resume. Registered SQL inspection observes account-private precreation state and completed reading without creating phantom tenant/phase rows."
+          }
         }
+      ],
+      "layers": [
+        "sql"
       ]
     },
     {
@@ -13548,7 +13570,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -13621,6 +13643,13 @@
             "execution": {
               "fixture_type": "test_execution",
               "repeat": 1
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Owner",
+              "active": true
             }
           },
           "actor": {
@@ -13654,6 +13683,13 @@
             "execution": {
               "fixture_type": "test_execution",
               "repeat": 1
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Owner",
+              "active": true
             }
           },
           "actor": {
@@ -13807,7 +13843,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {

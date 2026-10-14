@@ -1140,7 +1140,7 @@
     {
       "name": "admission_attempt",
       "domain": "identity",
-      "purpose": "Exact expiring reservations for rolling authentication, invitation and public-mail budgets.",
+      "purpose": "Exact expiring reservations for rolling authentication and invitation budgets.",
       "library_owned": false,
       "columns": [
         {
@@ -1199,7 +1199,7 @@
       "unique_keys": [],
       "foreign_keys": [],
       "checks": [
-        "kind in ('login', 'password_change', 'registration', 'reset', 'email_change', 'public_invite', 'seat_invite', 'relationship_invite')",
+        "kind in ('login', 'password_change', 'registration', 'reset', 'email_change', 'seat_invite', 'relationship_invite')",
         "state in ('reserved', 'failed', 'counted', 'cleared')",
         "num_nonnulls(identifier_hash, trusted_ip_hash, workspace_key) >= 1",
         "expires_at > reserved_at"
@@ -1208,8 +1208,7 @@
       "capabilities": [
         "CAP-A-002",
         "CAP-A-006",
-        "CAP-A-009",
-        "CAP-A-048"
+        "CAP-A-009"
       ],
       "replaces": [
         "auth_throttle"
@@ -1225,7 +1224,6 @@
         "rule": "Union of producer packages of replaced tables."
       },
       "feature_ids": [
-        "ADM-006",
         "IDN-001",
         "IDN-002",
         "IDN-007",
@@ -1237,7 +1235,6 @@
         "IDN-027"
       ],
       "acceptance_ids": [
-        "AC-ADM-006--ADM-006",
         "AC-IDN-001--IDN-001",
         "AC-IDN-002--IDN-002",
         "AC-IDN-007--IDN-007",
@@ -1282,7 +1279,6 @@
         "AUTH-005",
         "AUTH-008",
         "B01-022",
-        "CASE-ADM-006",
         "DEL58-001",
         "DEL58-002",
         "DEL58-003",
@@ -1326,14 +1322,11 @@
         "Every endpoint kind matches its actual plant, Discovery account or organization kind; pair links cannot duplicate current accepted relationships.",
         "No duplicate pending subject/address intent; exact receiving organization alone approves its side.",
         "Multiple independent affiliations may coexist and ending one cannot end another or grant a seat.",
-        "A revoked/ended link has no current body entitlement even if historical events survive.",
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation."
+        "A revoked/ended link has no current body entitlement even if historical events survive."
       ],
       "revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
-      "deletion": "Keep attempt times only as needed to enforce the declared windows and recover live reservations; no permanent identifiable attempt history is required. Token authority ends at expiry, revocation, replacement or consumption. Keep dated accepted invitation provenance for roster/history; private recipient data follows deletion ownership, and no indefinite token-secret retention is needed. Keep minimal legitimate counterpart relationship history after source deletion, without retained private plant bodies or contacts. Discovery-owned private association content follows account deletion. Token authority expires and ordinary rejoin never resets existing consent. Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected.",
+      "deletion": "Keep attempt times only as needed to enforce the declared windows and recover live reservations; no permanent identifiable attempt history is required. Token authority ends at expiry, revocation, replacement or consumption. Keep dated accepted invitation provenance for roster/history; private recipient data follows deletion ownership, and no indefinite token-secret retention is needed. Keep minimal legitimate counterpart relationship history after source deletion, without retained private plant bodies or contacts. Discovery-owned private association content follows account deletion. Token authority expires and ordinary rejoin never resets existing consent.",
       "physical_verified": false
     },
     {
@@ -4320,7 +4313,7 @@
           "name": "name",
           "type": "text",
           "nullable": false,
-          "note": "Trim leading/trailing spaces; 1\u2013100 characters. Internal spaces remain significant."
+          "note": "Trim leading/trailing spaces; 1–100 characters. Internal spaces remain significant."
         },
         {
           "name": "normalized_name",
@@ -21235,7 +21228,7 @@
     {
       "name": "mail",
       "domain": "communication",
-      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Public-invite purpose alone permits a restricted global variant under the global tenant. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for public_invite payload or body-free outcome stubs; a literal CHECK prevents ordinary global payloads.",
+      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for body-free outcome stubs; a literal CHECK prevents ordinary global payloads.",
       "library_owned": false,
       "columns": [
         {
@@ -21581,8 +21574,8 @@
         "(frozen_payload is null) = (recipient_address_encrypted is null)",
         "frozen_payload is not null or state in ('unknown','refused','accepted','scheduled','sent','cancelled','failed')",
         "(frozen_payload is null) = (address_hash is null)",
-        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'public_invite', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
-        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or purpose = 'public_invite' or frozen_payload is null"
+        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
+        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or frozen_payload is null"
       ],
       "jsonb_keys": {
         "frozen_payload": [
@@ -21594,7 +21587,6 @@
       },
       "capabilities": [
         "CAP-A-003",
-        "CAP-A-048",
         "CAP-B-037",
         "CAP-B-039",
         "CAP-B-040",
@@ -21616,7 +21608,6 @@
         "rule": "Union of producer packages of replaced tables."
       },
       "feature_ids": [
-        "ADM-006",
         "COM-005",
         "COM-006",
         "COM-009",
@@ -21638,7 +21629,6 @@
         "TSK-014"
       ],
       "acceptance_ids": [
-        "AC-ADM-006--ADM-006",
         "AC-COM-005--COM-005",
         "AC-COM-006--COM-006",
         "AC-COM-009--COM-009",
@@ -21677,7 +21667,6 @@
         "B03-015",
         "B03-017",
         "B03-018",
-        "CASE-ADM-006",
         "CASE-COM-005",
         "CASE-COM-006",
         "CASE-COM-009",
@@ -21771,9 +21760,6 @@
         "Token use is purpose-bound, serialized and single-use; credential/email change invalidates outstanding reset/email proofs.",
         "Email-change target remains globally unique; login-email changes leave independently editable CRM email unchanged.",
         "Cancellation proof never creates ordinary content access.",
-        "At most one purpose-mail intent per normalized email in the twenty-four-hour dedupe window.",
-        "No account, CRM Person, marketing lead, newsletter subscription or double-opt-in record is created.",
-        "Honeypot fake success creates no invitation grant; provider failure cannot be recorded as issued invitation.",
         "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
         "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
         "One ledger serves communication, notification and transactional mail; inbox read/task state cannot become provider delivery truth.",
@@ -21797,13 +21783,13 @@
       ],
       "revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
-      "deletion": "Expire or consume secret proofs at their purpose deadlines; cancellation proof cannot outlive its request deadline. Account deletion purges private proofs; shared security receipts retain minimal attribution. Retain dedupe and abuse-budget facts for their declared windows, with delivery intent/receipt only as needed for bounded completion/reconciliation. No permanent marketing-contact retention or extra TTL is selected. Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+      "deletion": "Expire or consume secret proofs at their purpose deadlines; cancellation proof cannot outlive its request deadline. Account deletion purges private proofs; shared security receipts retain minimal attribution. Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
       "physical_verified": false
     },
     {
       "name": "mail_request",
       "domain": "communication",
-      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin. Public-invite purpose alone permits a restricted global variant under the global tenant.",
+      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin.",
       "library_owned": false,
       "columns": [
         {
@@ -21978,7 +21964,7 @@
     {
       "name": "mail_request_member",
       "domain": "communication",
-      "purpose": "Exact ordered intent membership in a provider request. Public-invite purpose alone permits a restricted global variant without an owner.",
+      "purpose": "Exact ordered intent membership in a provider request.",
       "library_owned": false,
       "columns": [
         {
@@ -22169,7 +22155,7 @@
     {
       "name": "mail_attempt",
       "domain": "communication",
-      "purpose": "Truthful provider request attempt with generation-fenced safe outcome. Public-invite purpose alone permits a restricted global variant without an owner.",
+      "purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
       "library_owned": false,
       "columns": [
         {
@@ -24688,7 +24674,7 @@
         "reserved_input between 0 and 128000",
         "reserved_output between 0 and 16000",
         "num_nonnulls(actor_id,actor_tombstone) <= 1",
-        "name in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.getHistory', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.classifyPublicPreview', 'auth.getSession', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'calendar.getContext', 'calendar.resolve', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.getDeletionStatus', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.deliveryTotals', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.searchRecipients', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.forMeeting', 'communication.templates.fork', 'communication.templates.get', 'communication.templates.list', 'communication.templates.update', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.inspectPreviewProvenance', 'dev.switchFixtureIdentity', 'discovery.convertToPlant', 'discovery.create', 'discovery.getProfile', 'documents.archive', 'documents.designateCoreValues', 'documents.download', 'documents.generate', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.importTextOrWord', 'documents.listOwned', 'documents.preview', 'documents.purgeOwnedForDeletion', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.reconcileOrphans', 'documents.resolveContext', 'documents.saveNative', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.auditProofCoverage', 'engineering.installChosenHooks', 'engineering.inventoryTools', 'engineering.trackWork', 'engineering.validateRequirements', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.askClarification', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.classifyRequest', 'evry.cleanupAttachments', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.recordEffectResult', 'evry.resolveReferences', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.admin.list', 'feedback.createConfiguredIssue', 'feedback.getOwnStatus', 'feedback.listOwn', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.listContactHistory', 'followups.readObligations', 'followups.recordOutcome', 'geography.listReportingRegionCandidates', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.buildFactSnapshot', 'intelligence.callProvider', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.formatCitedFact', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.selectAssessmentCandidates', 'intelligence.settleRun', 'intelligence.submitFeedback', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.renderTransactional', 'mail.sendTransactional', 'mail.suppression.listForSelf', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.requestInvitation', 'marketing.sitemap', 'marketing.terms', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.addAttendeeNote', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.captureAttendanceBatch', 'meetings.cardBreakdown', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.finalizeAttendance', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.inviteGuest', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.summaryStats', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.describeEmailOptOut', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.feed', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.inspectAssociationReceipt', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.meetingAudience', 'notifications.oversightDigestCadence.set', 'notifications.preferences.get', 'notifications.preferences.set', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'notifications.unreadCount', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'onboarding.getResume', 'ops.applyVersionedMigration', 'ops.errorCorrelation', 'ops.flushTelemetry', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.reportError', 'ops.schemaValidate', 'ops.traceModelAttempt', 'ops.traceOperation', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizationLaunchSummary.readPublished', 'organizations.correctReportingLocation', 'organizations.getProfile', 'organizations.updateProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.checkForDuplicates', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergePeople', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.propagateAddress', 'people.reactivateCommitment', 'people.readPipelineMetrics', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.classifyChange', 'phases.declare', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'phases.transition', 'plant.previewTimezoneChange', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'platformAdmin.authorize', 'privacy.getSharing', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.auditLanguage', 'reference.bootstrapApprovedBundle', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'reference.validateBundle', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.getHistory', 'signals.listDefinitions', 'signals.reaffirm', 'storage.createAuthorizedDownload', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'storage.readAuthorizedObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.count', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.eligibleAssignees', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.importTemplate', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.statusHistory', 'tasks.waive', 'teams.addResponsibility', 'teams.aggregateHealth', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.importRoles', 'teams.initialize', 'teams.leaderCandidates', 'teams.leadershipEffects', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.offerResponsibilities', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.reactivateMembership', 'teams.readRequiredTrainingParticipants', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.searchMembers', 'teams.setRequiredTrainingParticipants', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.get', 'venues.history', 'venues.list', 'venues.restore', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.bookmarks.set', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.feedback.setMine', 'wiki.navigation', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.getDraft', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.recordView', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.reading.updateProgress', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.setSourceOrder', 'wiki.tableOfContents')",
+        "name in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.getHistory', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.classifyPublicPreview', 'auth.getSession', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'calendar.getContext', 'calendar.resolve', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.getDeletionStatus', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.deliveryTotals', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.searchRecipients', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.forMeeting', 'communication.templates.fork', 'communication.templates.get', 'communication.templates.list', 'communication.templates.update', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.inspectPreviewProvenance', 'dev.switchFixtureIdentity', 'discovery.convertToPlant', 'discovery.create', 'discovery.getProfile', 'documents.archive', 'documents.designateCoreValues', 'documents.download', 'documents.generate', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.importTextOrWord', 'documents.listOwned', 'documents.preview', 'documents.purgeOwnedForDeletion', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.reconcileOrphans', 'documents.resolveContext', 'documents.saveNative', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.auditProofCoverage', 'engineering.installChosenHooks', 'engineering.inventoryTools', 'engineering.trackWork', 'engineering.validateRequirements', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.askClarification', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.classifyRequest', 'evry.cleanupAttachments', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.recordEffectResult', 'evry.resolveReferences', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.admin.list', 'feedback.createConfiguredIssue', 'feedback.getOwnStatus', 'feedback.listOwn', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.listContactHistory', 'followups.readObligations', 'followups.recordOutcome', 'geography.listReportingRegionCandidates', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.buildFactSnapshot', 'intelligence.callProvider', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.formatCitedFact', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.selectAssessmentCandidates', 'intelligence.settleRun', 'intelligence.submitFeedback', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.renderTransactional', 'mail.sendTransactional', 'mail.suppression.listForSelf', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.requestInvitation', 'marketing.sitemap', 'marketing.terms', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.addAttendeeNote', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.captureAttendanceBatch', 'meetings.cardBreakdown', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.finalizeAttendance', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.inviteGuest', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.summaryStats', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.describeEmailOptOut', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.feed', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.inspectAssociationReceipt', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.meetingAudience', 'notifications.oversightDigestCadence.set', 'notifications.preferences.get', 'notifications.preferences.set', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'notifications.unreadCount', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'onboarding.getResume', 'ops.applyVersionedMigration', 'ops.errorCorrelation', 'ops.flushTelemetry', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.reportError', 'ops.schemaValidate', 'ops.traceModelAttempt', 'ops.traceOperation', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizationLaunchSummary.readPublished', 'organizations.correctReportingLocation', 'organizations.getProfile', 'organizations.updateProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.checkForDuplicates', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergePeople', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.propagateAddress', 'people.reactivateCommitment', 'people.readPipelineMetrics', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.classifyChange', 'phases.declare', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'phases.transition', 'plant.previewTimezoneChange', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'platformAdmin.authorize', 'privacy.getSharing', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.auditLanguage', 'reference.bootstrapApprovedBundle', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'reference.validateBundle', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.getHistory', 'signals.listDefinitions', 'signals.reaffirm', 'storage.createAuthorizedDownload', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'storage.readAuthorizedObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.count', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.eligibleAssignees', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.importTemplate', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.statusHistory', 'tasks.waive', 'teams.addResponsibility', 'teams.aggregateHealth', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.importRoles', 'teams.initialize', 'teams.leaderCandidates', 'teams.leadershipEffects', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.offerResponsibilities', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.reactivateMembership', 'teams.readRequiredTrainingParticipants', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.searchMembers', 'teams.setRequiredTrainingParticipants', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.get', 'venues.history', 'venues.list', 'venues.restore', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.bookmarks.set', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.feedback.setMine', 'wiki.navigation', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.getDraft', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.recordView', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.reading.updateProgress', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.setSourceOrder', 'wiki.tableOfContents')",
         "stop_reason in ('budget_limit', 'cancelled', 'completed', 'deadline', 'expired_approval', 'input_token_limit', 'output_token_limit', 'permission_denied', 'provider_error', 'read_timeout', 'revision_conflict', 'tool_limit', 'unavailable', 'validation_failed')"
       ],
       "jsonb_keys": {},
@@ -25321,7 +25307,7 @@
         "revision >= 1",
         "num_nonnulls(operation_id,review_id) >= 1",
         "state in ('unstarted', 'claimed', 'completed', 'skipped', 'failed', 'unknown', 'cancelled')",
-        "kind in ('account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.fork', 'communication.templates.update', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.switchFixtureIdentity', 'discovery.convertToPlant', 'discovery.create', 'documents.archive', 'documents.designateCoreValues', 'documents.generate', 'documents.importTextOrWord', 'documents.purgeOwnedForDeletion', 'documents.reconcileOrphans', 'documents.saveNative', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.installChosenHooks', 'engineering.trackWork', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.cleanupAttachments', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.recordEffectResult', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.createConfiguredIssue', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.recordOutcome', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.callProvider', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.settleRun', 'intelligence.submitFeedback', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.sendTransactional', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.requestInvitation', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meetings.addAttendeeNote', 'meetings.captureAttendanceBatch', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.finalizeAttendance', 'meetings.inviteGuest', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.oversightDigestCadence.set', 'notifications.preferences.set', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'ops.applyVersionedMigration', 'ops.flushTelemetry', 'ops.reportError', 'ops.traceModelAttempt', 'ops.traceOperation', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizations.correctReportingLocation', 'organizations.updateProfile', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.mergePeople', 'people.propagateAddress', 'people.reactivateCommitment', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.declare', 'phases.transition', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.bootstrapApprovedBundle', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.reaffirm', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.importTemplate', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.waive', 'teams.addResponsibility', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.importRoles', 'teams.initialize', 'teams.leadershipEffects', 'teams.offerResponsibilities', 'teams.reactivateMembership', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.setRequiredTrainingParticipants', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.restore', 'wiki.bookmarks.set', 'wiki.feedback.setMine', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.reading.recordView', 'wiki.reading.updateProgress', 'wiki.setSourceOrder')"
+        "kind in ('account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.fork', 'communication.templates.update', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.switchFixtureIdentity', 'discovery.convertToPlant', 'discovery.create', 'documents.archive', 'documents.designateCoreValues', 'documents.generate', 'documents.importTextOrWord', 'documents.purgeOwnedForDeletion', 'documents.reconcileOrphans', 'documents.saveNative', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.installChosenHooks', 'engineering.trackWork', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.cleanupAttachments', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.recordEffectResult', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.createConfiguredIssue', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.recordOutcome', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.callProvider', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.settleRun', 'intelligence.submitFeedback', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.sendTransactional', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.requestInvitation', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meetings.addAttendeeNote', 'meetings.captureAttendanceBatch', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.finalizeAttendance', 'meetings.inviteGuest', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.oversightDigestCadence.set', 'notifications.preferences.set', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'ops.applyVersionedMigration', 'ops.flushTelemetry', 'ops.reportError', 'ops.traceModelAttempt', 'ops.traceOperation', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizations.correctReportingLocation', 'organizations.updateProfile', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.mergePeople', 'people.propagateAddress', 'people.reactivateCommitment', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.declare', 'phases.transition', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.bootstrapApprovedBundle', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.reaffirm', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.importTemplate', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.waive', 'teams.addResponsibility', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.importRoles', 'teams.initialize', 'teams.leadershipEffects', 'teams.offerResponsibilities', 'teams.reactivateMembership', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.setRequiredTrainingParticipants', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.restore', 'wiki.bookmarks.set', 'wiki.feedback.setMine', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.reading.recordView', 'wiki.reading.updateProgress', 'wiki.setSourceOrder')"
       ],
       "jsonb_keys": {
         "arguments": [
@@ -29260,7 +29246,7 @@
         "completeness in ('complete', 'partial', 'unavailable')",
         "num_nonnulls(event_id, consumer_record_id) = 1",
         "projection in ('AdvisoryReadiness', 'AllowedCapabilityMetadata', 'ApplicationPolicyDecision', 'ApprovedDocumentTemplate', 'ApprovedDocumentTemplatePage', 'ApprovedMethodologyReference', 'ApprovedPhaseCatalog', 'ApprovedWikiBundle', 'AssessmentCandidateBatch', 'AssessmentDeltaDTO', 'AssessmentTrendPage', 'AssociationReceiptDeliveryStatus', 'AttestationHistory', 'AudienceTeamList', 'AuthorizedArticleExport', 'AuthorizedCommunicationDetail', 'AuthorizedCsvExport', 'AuthorizedDocumentContent', 'AuthorizedDocumentDownload', 'AuthorizedDuplicateHintPairs', 'AuthorizedFeedbackTriagePage', 'AuthorizedHouseholdPage', 'AuthorizedMeetingList', 'AuthorizedMessageTemplateResult', 'AuthorizedOrgChart', 'AuthorizedPeopleDirectory', 'AuthorizedPersonHistoryPage', 'AuthorizedPersonPage', 'AuthorizedPersonRedirect', 'AuthorizedPrivateFile', 'AuthorizedPrivateRecordPage', 'AuthorizedProjection', 'AuthorizedReadResult', 'AuthorizedSettingsSection', 'AuthorizedTagPage', 'AuthorizedTaskCounts', 'AuthorizedTaskList', 'AuthorizedTeamList', 'AuthorizedVenuePage', 'AuthorizedWikiArticle', 'AuthorizedWikiArticlePage', 'AuthorizedWikiExcerpt', 'AuthorizedWikiGuide', 'AuthorizedWikiSearchPage', 'AuthorizedWorkflowHint', 'BoundedHistoryContinuation', 'BoundedJobLag', 'BoundedOversightProjection', 'BoundedParallelReadResults', 'BoundedPlantHealthProjection', 'BoundedPortfolioLaunchReadiness', 'CalendarResolution', 'ChildTaskPage', 'ClarificationCard', 'ColdStartGuidanceDTO', 'CommittedAdultCohortDTO', 'CommunicationExecutionResult', 'CommunicationMergeFieldPreview', 'CommunicationPage', 'CommunicationPreview', 'ConcernPairingValidation', 'CoreValuesEvidence', 'CriterionEvidenceDTO', 'CsfScorecardDTO', 'CsvTemplate', 'CurrentAccountHome', 'CurrentActorContext', 'CurrentPlantDashboard', 'DatedOversightDigestPreview', 'DatedPlanterDigestPreview', 'DocumentMergeContext', 'DraftValidationResult', 'DuplicateHintPage', 'EightLensEvidence', 'EligibleAssigneePage', 'EmailOptOutView', 'EvaluationCorrectionHistory', 'ExactOrganizationAssessment', 'ExitCriteriaDTO', 'FactSectionResult', 'FactSnapshot', 'FeedbackOwnStatus', 'FollowUpCoverage', 'FollowUpObligationPage', 'FormattedCitedFact', 'GeneratedDocumentHistoryPage', 'HandoffPreview', 'HistoricalCitedFact', 'HouseholdProjection', 'HumanFourCsHistory', 'HumanInterviewHistory', 'HumanVisionEvaluation', 'ImportReceipt', 'InternalAccountPersonBinding', 'InternalPipelineMetrics', 'InvitationPage', 'JourneyHistory', 'LaunchDebriefNativeOrEvidence', 'LocationHistoryPage', 'LocationInsightsDTO', 'ManualSignalCatalog', 'MeasuredTeamHealthAggregate', 'MeetingAgenda', 'MeetingAnalytics', 'MeetingDetails', 'MeetingHistoryPresence', 'MeetingRelatedPage', 'MeetingRosterPreview', 'MergeReview', 'MigrationProvenance', 'NetworkOrganizationDirectory', 'NonpersistentDocumentPreview', 'OnboardingResume', 'OpenTaskOccurrence', 'OrdinaryPersonActivityPage', 'OrganizationAssessmentHistoryPage', 'OwnAccountPerson', 'OwnCandidateDraft', 'OwnConversationPage', 'OwnConversationState', 'OwnCurrentMembership', 'OwnDiscoveryProfile', 'OwnExactReview', 'OwnFeedbackStatusPage', 'OwnGetmineResult', 'OwnInsightFeedback', 'OwnListResult', 'OwnNotificationPage', 'OwnNotificationPreferences', 'OwnNotificationUnreadCount', 'OwnOrganizationProfile', 'OwnOrganizationWikiDraft', 'OwnRecentResult', 'OwnRegistrationStatus', 'OwnResumeResult', 'OwnRsvpOutcome', 'OwnStatsResult', 'OwnSuppressionState', 'OwnUsageSummary', 'OwnedDocumentPage', 'PeopleImportPreview', 'PeopleImportReceipt', 'PerOrganizationSharing.organization_relationship_status', 'PerOrganizationSharing.plant_relationship_status', 'PerOrganizationSharing.plant_settings', 'PermissionDecision', 'PersonLinkedQueryPage', 'PersonTeamCounts', 'PersonalCalendarPreview', 'PhaseChangeClassification', 'PhaseHistory', 'PhaseTaskOffer', 'PipelineProjection', 'PlantAssessmentView', 'PlantCalendarPreview', 'PlantFocusView', 'PlatformPermissionDecision', 'PracticeOccurrences', 'PrerequisiteCandidatePage', 'PrivateAvatarOutcome', 'PrivateCorrectionHistory', 'PrivilegedReadiness', 'ProtectedAuthorizedDownload', 'ProtectedAuthorizedObject', 'ProtectedMeetingReminderAudience', 'ProtectedRenderedEmail', 'PublicContent', 'PublicGlobalWikiPreview', 'PublicLiveness', 'PublicRouteDecision', 'PublicRsvpProjection', 'PublicSafeError', 'PublicWikiMetadata', 'QualifiedModelSelection', 'ReadOnlySourceEvidence', 'RecipientSearchPage', 'RecordedMeetingMetric', 'RecruitmentWarnings', 'ReferenceComponentBundle', 'ReferenceLanguageAudit', 'ReferenceQueryVector', 'ReferenceValidationReport', 'RegionCandidates', 'RelationshipHistoryPage', 'RequestBoundaryDecision', 'ResendCandidatePreview', 'ResolvedAudiencePreview', 'ResponsibilityOfferPreview', 'RestrictedDeletionStatus', 'RetrievedMethodology', 'RoleSlotPage', 'RubricManifest', 'RunFailureDiagnostic', 'SafeAssessmentRunStatus', 'SafeErrorCorrelation', 'SafeInvitationContext', 'SafeRegistrationOptions', 'SafeReturnPath', 'SafeSessionResult', 'SafeTaskDescription', 'SavedRunObservation', 'SavedTrainingApplicability', 'SchemaValidationReport', 'SeatRoster', 'SharedPublishedLaunchSummary', 'SnapshotDelta', 'SourceBoundResultCard', 'TaskDetails', 'TaskRelatedPage', 'TaskRelationCandidatePage', 'TaskStatusHistoryPage', 'TaskTemplatePreview', 'TeamDetails', 'TeamFacts', 'TeamPersonRelations', 'TeamRelatedPage', 'TeamTemplatePreview', 'TrainingApplicabilityPreview', 'TrainingAssignmentMatrix', 'TrustedCurrentCalendarContext', 'TypedContactHistoryPage', 'UnmergeReview', 'VenueProjection', 'VerifiedBoundedContext', 'VisionKit', 'articleNeighborsResult', 'auditProofCoverageReport', 'deliveryTotalsResult', 'forMeetingResult', 'forPersonResult', 'inspectPreviewProvenanceReport', 'inventoryToolsReport', 'listRecipientsResult', 'meetingRecipientTrackingResult', 'navigationResult', 'readCountdownResult', 'readJournalResult', 'readMilestoneHistoryResult', 'readWorkspaceResult', 'recommendForPhaseResult', 'tableOfContentsResult', 'validateRequirementsReport')",
-        "source_purpose in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'associations.getHistory', 'auth.classifyPublicPreview', 'auth.getSession', 'calendar.getContext', 'calendar.resolve', 'churches.getDeletionStatus', 'communication.deliveryTotals', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.searchRecipients', 'communication.templates.forMeeting', 'communication.templates.get', 'communication.templates.list', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.inspectPreviewProvenance', 'discovery.getProfile', 'documents.download', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.listOwned', 'documents.preview', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.resolveContext', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'engineering.auditProofCoverage', 'engineering.inventoryTools', 'engineering.validateRequirements', 'evry.askClarification', 'evry.classifyRequest', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.resolveReferences', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'feedback.admin.list', 'feedback.getOwnStatus', 'feedback.listOwn', 'followups.listContactHistory', 'followups.readObligations', 'geography.listReportingRegionCandidates', 'intelligence.buildFactSnapshot', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.formatCitedFact', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.selectAssessmentCandidates', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'mail.renderTransactional', 'mail.suppression.listForSelf', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.sitemap', 'marketing.terms', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.cardBreakdown', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.summaryStats', 'notifications.describeEmailOptOut', 'notifications.feed', 'notifications.inspectAssociationReceipt', 'notifications.meetingAudience', 'notifications.preferences.get', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.unreadCount', 'onboarding.getResume', 'ops.errorCorrelation', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.schemaValidate', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationLaunchSummary.readPublished', 'organizations.getProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.checkForDuplicates', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.readPipelineMetrics', 'phases.classifyChange', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'plant.previewTimezoneChange', 'platformAdmin.authorize', 'privacy.getSharing', 'reference.auditLanguage', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.validateBundle', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'signals.getHistory', 'signals.listDefinitions', 'storage.createAuthorizedDownload', 'storage.readAuthorizedObject', 'tasks.count', 'tasks.eligibleAssignees', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.statusHistory', 'teams.aggregateHealth', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.leaderCandidates', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.readRequiredTrainingParticipants', 'teams.searchMembers', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.get', 'venues.history', 'venues.list', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.navigation', 'wiki.organizationArticles.getDraft', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.tableOfContents')",
+        "source_purpose in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'associations.getHistory', 'auth.classifyPublicPreview', 'auth.getSession', 'calendar.getContext', 'calendar.resolve', 'churches.getDeletionStatus', 'communication.deliveryTotals', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.searchRecipients', 'communication.templates.forMeeting', 'communication.templates.get', 'communication.templates.list', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.inspectPreviewProvenance', 'discovery.getProfile', 'documents.download', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.listOwned', 'documents.preview', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.resolveContext', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'engineering.auditProofCoverage', 'engineering.inventoryTools', 'engineering.validateRequirements', 'evry.askClarification', 'evry.classifyRequest', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.resolveReferences', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'feedback.admin.list', 'feedback.getOwnStatus', 'feedback.listOwn', 'followups.listContactHistory', 'followups.readObligations', 'geography.listReportingRegionCandidates', 'intelligence.buildFactSnapshot', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.formatCitedFact', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.selectAssessmentCandidates', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'mail.renderTransactional', 'mail.suppression.listForSelf', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.sitemap', 'marketing.terms', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.cardBreakdown', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.summaryStats', 'notifications.describeEmailOptOut', 'notifications.feed', 'notifications.inspectAssociationReceipt', 'notifications.meetingAudience', 'notifications.preferences.get', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.unreadCount', 'onboarding.getResume', 'ops.errorCorrelation', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.schemaValidate', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationLaunchSummary.readPublished', 'organizations.getProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.checkForDuplicates', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.readPipelineMetrics', 'phases.classifyChange', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'plant.previewTimezoneChange', 'platformAdmin.authorize', 'privacy.getSharing', 'reference.auditLanguage', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.validateBundle', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'signals.getHistory', 'signals.listDefinitions', 'storage.createAuthorizedDownload', 'storage.readAuthorizedObject', 'tasks.count', 'tasks.eligibleAssignees', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.statusHistory', 'teams.aggregateHealth', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.leaderCandidates', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.readRequiredTrainingParticipants', 'teams.searchMembers', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.get', 'venues.history', 'venues.list', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.navigation', 'wiki.organizationArticles.getDraft', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.tableOfContents')",
         "purpose in ('acknowledgment', 'author', 'citation', 'debrief', 'grant', 'inverse_move', 'launch_seed', 'prior_output', 'selection', 'source')",
         "purpose <> 'source' or category is not null",
         "purpose <> 'citation' or (projection is not null and source_purpose is not null and completeness is not null)",
@@ -31040,14 +31026,303 @@
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
       "deletion": "Keep original merge and inverse receipts plus necessary owned snapshots/reference/photo facts under plant lifecycle. No unlimited undo or blanket permanent private snapshot exemption exists; deleted private account data cannot survive in merge payloads. Retain frozen reviewed rows/digests and outcomes while resumable work and its receipt require them, following plant lifecycle. No permanent duplicate of all imported raw contact bytes or separate backup archive is required; no explicit import TTL is specified. Keep active/unknown work and bounded recovery receipts until settled or properly canceled; delete private payloads according to actual subject ownership. No arbitrary permanent full payload archive or separate universal workflow event store is required. Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Retain attempts/event lineage needed for reconciliation and interpretable shared delivery history under the subject deletion policy. Operational token payload is secret, excluded from ordinary audit/model/logs. Deletion requests cancellation; unknown effects remain explicit and restore cannot replay canceled effects. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Preserve original snapshot versions and source attribution for historical trends; the twelve-result view is not a deletion horizon. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Historical results never preserve an expired contributor grant; protected lineage remains server-only. Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Referenced tenant results retain their own retention policy and current rights. Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Completed domain receipt/audit identity persists under the native shared-record lifecycle. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Private review/messages follow account privacy lifecycle; exact minimal receipt/effect attribution is retained with the tenant fact.",
       "physical_verified": false
+    },
+    {
+      "name": "early_access_request",
+      "domain": "operations",
+      "purpose": "Private early access requests and frozen owner-mail payloads, independent of product accounts and tenants.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "note": "Independent request identity and origin of the stable provider idempotency key.",
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "Creation instant, duplicate/retry age and retention origin.",
+          "default": "clock_timestamp()"
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false,
+          "note": "Planter or network access form."
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "note": "Trimmed, lowercase requester email."
+        },
+        {
+          "name": "data",
+          "type": "jsonb",
+          "nullable": false,
+          "note": "Validated submitted fields; required fields and phases are checked by the shared form contract, not invented SQL checks."
+        },
+        {
+          "name": "ip_address",
+          "type": "inet",
+          "nullable": true,
+          "note": "Trusted IP, or NULL when unavailable; scheduled clearing only when strictly older than 30 days."
+        },
+        {
+          "name": "mail_payload",
+          "type": "jsonb",
+          "nullable": false,
+          "note": "Original owner email, reused unchanged on retry; private addresses and text, never credentials."
+        },
+        {
+          "name": "mail_id",
+          "type": "text",
+          "nullable": true,
+          "note": "Recorded provider mail receipt. NULL with mailed_at means pending, including failed or unresolved delivery."
+        },
+        {
+          "name": "mailed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "note": "Receipt recording instant; NULL exactly when mail_id is NULL."
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [
+        "kind in ('planter', 'network')",
+        "email = lower(btrim(email))",
+        "(mail_id is null) = (mailed_at is null)"
+      ],
+      "jsonb_keys": {
+        "data": [
+          "name: trimmed requester name",
+          "email: trimmed lowercase email",
+          "plant_name, city, phase: planter required fields; phase is one approved public choice",
+          "sending: optional planter sending church or network",
+          "organization, role: network required fields",
+          "plants: optional nonnegative integer count, parsed from up to four decimal digits",
+          "message: optional network message; empty optional text is omitted; website honeypot is not stored"
+        ],
+        "mail_payload": [
+          "from: configured sender",
+          "to: exactly one configured owner recipient",
+          "reply_to: normalized requester email",
+          "subject: original early access subject",
+          "text: original rendering of every declared submitted field"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "Rate limits take precedence over duplicate suppression and pending retry; admitted valid duplicates/retries add one limiter attempt.",
+        "Concurrent same-email/kind admission preserves one request; repeated provider calls use the same original payload and key and send one email.",
+        "Only a recorded mail receipt suppresses a duplicate within 24 hours; pending is inferred from NULL mail_id and mailed_at.",
+        "No request, limiter attempt or mail for a filled honeypot or invalid input. A rate refusal creates no effects.",
+        "Private operator CSV only; no public export endpoint, tenant-seat, generic record or model access.",
+        "Provider or receipt-storage failure returns unavailable and leaves the request pending; no false success."
+      ],
+      "revision": "Submitted fields and original mail payload remain immutable; mail receipt recording and scheduled IP clearing update retained rows.",
+      "idempotency": "Admitted sent duplicates within 24 hours return received. Admitted pending requests less than 23 hours old retry the same row, original payload and provider key and return received only after the receipt is saved. Pending requests at least 23 hours old allow a new admitted request with a new key and new fields; retain the old row and permit a second owner email if its earlier delivery was unresolved. Rate limits apply first.",
+      "deletion": "Delete only when strictly older than 12 calendar months; clear IP only when strictly older than 30 days. Exact cutoffs retain the request or IP. These periods cover the request store, not external mailbox retention.",
+      "physical_verified": false,
+      "indexes": [
+        {
+          "name": "early_access_request_duplicate",
+          "columns": [
+            "email",
+            "kind",
+            "created_at"
+          ],
+          "order": {
+            "created_at": "desc"
+          }
+        },
+        {
+          "name": "early_access_request_retention",
+          "columns": [
+            "created_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "early_access_attempt",
+      "domain": "operations",
+      "purpose": "Short-lived admitted valid attempt facts, including duplicate submissions and pending retries.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "Admitted attempt instant and rolling-window origin.",
+          "default": "clock_timestamp()"
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "note": "Normalized requester email."
+        },
+        {
+          "name": "ip_key",
+          "type": "text",
+          "nullable": false,
+          "note": "Trusted IP string, or the shared unknown key when unavailable."
+        }
+      ],
+      "primary_key": [],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [],
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "WP-097 owns the applied migration 0001 limiter table, without an invented primary key."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "The applied migration has no primary key or uniqueness constraint; each admitted attempt is a distinct append-only row.",
+        "Admission uses five attempts per email in rolling 24 hours and twenty per IP key in a rolling hour; it checks limits before duplicates.",
+        "Invalid or honeypot input, unusable mail configuration and limited submissions add no attempt."
+      ],
+      "revision": "Append-only until scheduled deletion.",
+      "idempotency": "Every admitted valid attempt, including duplicate receipts and pending retries, counts once; it is not deduplicated.",
+      "deletion": "Scheduled deletion only when strictly older than 24 hours; exact cutoff attempts remain.",
+      "physical_verified": false,
+      "indexes": [
+        {
+          "name": "early_access_attempt_email",
+          "columns": [
+            "email",
+            "created_at"
+          ]
+        },
+        {
+          "name": "early_access_attempt_ip",
+          "columns": [
+            "ip_key",
+            "created_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "schema_migration",
+      "domain": "operations",
+      "purpose": "Private migration-name ledger used by the early access migration runner.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "note": "Applied migration file name and physical primary key."
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "Committed migration receipt time.",
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "name"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [],
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "WP-097 installs the migration runner ledger with its physical text primary key."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "A migration name is recorded only in the transaction that applies its SQL.",
+        "Repeat-equal migration execution finds the existing name and performs no second installation."
+      ],
+      "revision": "Append-only committed migration receipts.",
+      "idempotency": "The text primary key on name prevents a second receipt for the same migration; the runner serializes installation.",
+      "deletion": "Retain committed migration receipts for safe repeat execution; they contain no requester contact data.",
+      "physical_verified": false,
+      "indexes": []
     }
   ],
   "format_version": 2,
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-14",
   "implementation_authorized": false,
-  "table_count": 100,
-  "column_count": 1246,
+  "table_count": 103,
+  "column_count": 1260,
   "foreign_key_count": 408,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -31083,7 +31358,6 @@
       "registration",
       "reset",
       "email_change",
-      "public_invite",
       "seat_invite",
       "relationship_invite"
     ],
@@ -31683,7 +31957,6 @@
       "oversight_digest",
       "password_reset",
       "planter_digest",
-      "public_invite",
       "relationship_invitation",
       "relationship_receipt",
       "seat_invitation"
@@ -32053,6 +32326,8 @@
       "mail.suppression.restoreReviewed",
       "maintenance.purgeEligibleSubject",
       "maintenance.restoreWithCurrentManifest",
+      "marketing.expireAccessRequests",
+      "marketing.exportAccessRequests",
       "marketing.privacyPolicy",
       "marketing.readProductExamples",
       "marketing.requestInvitation",
@@ -32628,6 +32903,7 @@
       "mail.suppression.restoreReviewed",
       "maintenance.purgeEligibleSubject",
       "maintenance.restoreWithCurrentManifest",
+      "marketing.expireAccessRequests",
       "marketing.requestInvitation",
       "meeting.answerRsvpToken",
       "meeting.createRsvpToken",
@@ -33346,6 +33622,7 @@
       "launch.readWorkspace",
       "mail.renderTransactional",
       "mail.suppression.listForSelf",
+      "marketing.exportAccessRequests",
       "marketing.privacyPolicy",
       "marketing.readProductExamples",
       "marketing.sitemap",
@@ -33728,6 +34005,19 @@
     "feedback.theme": [
       "light",
       "dark"
+    ],
+    "early_access_request.kind": [
+      "planter",
+      "network"
+    ],
+    "early_access_request.data.phase": [
+      "0 · Discovery",
+      "1 · Core group",
+      "2 · Launch team",
+      "3 · Training",
+      "4 · Pre-launch",
+      "5 · Launch Sunday",
+      "6 · Post-launch"
     ]
   },
   "auth_adapter_configuration": {
@@ -35013,6 +35303,11 @@
     {
       "id": "FIX2-JOB",
       "reason": "Add document_render to job.kind for the already required durable render handler; restricted backup/expiry remain outside ordinary job dispatch."
+    },
+    {
+      "id": "E1-ACCESS-REQUEST",
+      "ruling_date": "2026-10-14",
+      "reason": "Align WP-097 with applied E4 migration 0001 and its runner: early_access_request with validated data/frozen mail payload and nullable receipt fields, keyless early_access_attempt limiter facts, and schema_migration with its text key. Strict retention cutoffs and the approved E3 field/phase contract apply; no tenant or product tables are consumed."
     }
   ]
 }

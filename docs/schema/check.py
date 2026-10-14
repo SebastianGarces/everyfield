@@ -22,6 +22,8 @@ CLOSED_VALUE_COLUMNS = {
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 OWNER_ROOTS = {'account', 'plant', 'organization'}
+# Applied early-access migration and its runner use these exact physical keys.
+PHYSICAL_KEY_EXCEPTIONS = {'early_access_attempt': (), 'schema_migration': ('name',)}
 
 
 def read(path):
@@ -124,9 +126,13 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
         if len(columns) != len(table['columns']):
             errors.append(f'{prefix}: duplicate column name')
         pk = table['primary_key']
-        if not pk or len(pk) != len(set(pk)):
+        key_exception = authority and name in PHYSICAL_KEY_EXCEPTIONS
+        if key_exception and tuple(pk) != PHYSICAL_KEY_EXCEPTIONS[name]:
+            errors.append(f'{prefix}: primary key differs from applied early-access schema')
+        if (not pk and not key_exception) or len(pk) != len(set(pk)):
             errors.append(f'{prefix}: empty or repeated primary key')
-        for key in [pk] + [k['columns'] for k in table['unique_keys']]:
+        keys = ([] if key_exception and not pk else [pk]) + [k['columns'] for k in table['unique_keys']]
+        for key in keys:
             if not key or len(key) != len(set(key)):
                 errors.append(f'{prefix}: empty or repeated key columns {key}')
             missing = sorted(set(key) - columns.keys())
@@ -150,7 +156,11 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
                     errors.append(f'{prefix}: incomplete column definition {column.get("name")}')
                 if not isinstance(column['nullable'], bool):
                     errors.append(f'{prefix}: nullable must be boolean')
-            if len(pk) == 1 and columns.get(pk[0], {}).get('type') != 'uuid':
+            migration_key = (name == 'schema_migration' and pk == ['name']
+                             and columns.get('name', {}).get('type') == 'text')
+            if name == 'schema_migration' and not migration_key:
+                errors.append(f'{prefix}: migration ledger needs its applied text primary key')
+            if len(pk) == 1 and columns.get(pk[0], {}).get('type') != 'uuid' and not migration_key:
                 errors.append(f'{prefix}: single-column PK must be UUID')
             json_columns = {c['name'] for c in table['columns'] if c['type'].lower() == 'jsonb'}
             if json_columns != table['jsonb_keys'].keys():

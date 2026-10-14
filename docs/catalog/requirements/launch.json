@@ -624,7 +624,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-011",
         "WP-012",
         "WP-020",
         "WP-053",
@@ -653,7 +652,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-011",
         "WP-012",
         "WP-020",
         "WP-053",
@@ -782,20 +780,16 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
-        "WP-007",
-        "WP-010",
-        "WP-032",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-044",
         "WP-047",
-        "WP-093",
-        "WP-096",
         "WP-058",
         "WP-073",
-        "WP-074"
+        "WP-074",
+        "WP-093",
+        "WP-096"
       ]
     },
     {

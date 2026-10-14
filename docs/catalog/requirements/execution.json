@@ -99,9 +99,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-007",
         "WP-030",
-        "WP-031",
         "WP-050"
       ]
     },
@@ -128,7 +126,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050"
       ]

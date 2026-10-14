@@ -343,12 +343,32 @@
           "plant": "P",
           "status": "cancelled",
           "type": "vision_meeting"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.reconcileUnknownOutcome"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1748,12 +1768,32 @@
           "fixture_type": "reference_file",
           "path": "docs/reference/communication-system-templates.ts",
           "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.installMessageTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2370,12 +2410,32 @@
           "id": "event-1",
           "plant": "P",
           "meeting": "M"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.enqueue"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2508,12 +2568,32 @@
           "plant": "P",
           "status": "cancelled",
           "type": "vision_meeting"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.claimDue"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2962,12 +3042,32 @@
           "last_period": "2026-10-09",
           "cadence": "daily",
           "local_time": "16:00"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.generateOwedPlanterDigests"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3086,12 +3186,32 @@
           "status": "completed",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 5
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.syncMeetingReminders"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3236,12 +3356,32 @@
           "last_period": "2026-10-09",
           "cadence": "weekly",
           "local_time": "16:00"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.generateOwedPlanterDigests"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3364,12 +3504,32 @@
           "organization": "N1",
           "active": true,
           "share_activity": false
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.generateOwedOversightDigests"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3513,12 +3673,32 @@
           "plant": "P",
           "organization": "N1",
           "active": true
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.emitPhaseMilestone"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -3549,12 +3729,32 @@
               "from_phase": 2,
               "to_phase": 1,
               "kind": "declaration"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-registered_scoped_internal_caller",
+              "authority": "registered_scoped_internal_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "notifications.emitPhaseMilestone"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -3585,12 +3785,32 @@
               "from_phase": 2,
               "to_phase": 1,
               "kind": "backward"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-registered_scoped_internal_caller",
+              "authority": "registered_scoped_internal_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "notifications.emitPhaseMilestone"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -4202,12 +4422,32 @@
           "parent": "g1",
           "customized": true,
           "body": "S1 guidance."
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.emitWikiUpstreamReview"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -4326,12 +4566,32 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.sendDiscoveryAssociationReceipt"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "S1"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "S1"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8143,12 +8403,32 @@
           "local_weekly": "2026-10-18T16:00:00",
           "zone": "America/Chicago",
           "repeat": 2
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.generateOwedPlanterDigests"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8374,12 +8654,32 @@
           "last_period": "2026-10-09",
           "cadence": "daily",
           "local_time": "16:00"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.generateOwedPlanterDigests"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8496,12 +8796,32 @@
             "T2",
             "T3"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.cancelForEntity"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8636,7 +8956,8 @@
         "AC-NTF-015--NTF-015"
       ],
       "work_packages": [
-        "WP-050"
+        "WP-030",
+        "WP-031"
       ],
       "status": "future-not-run",
       "description": "Category/helper catalog contains unused team health/training/assessment helpers plus live milestones.",
@@ -8679,17 +9000,20 @@
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "engineering.inventoryTools",
-        "arguments": {}
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "catalog": "docs/catalog/operations.json",
+          "case_scope": "NOTIFY47-009"
+        }
       },
       "expected": {
         "state": {},
@@ -8702,21 +9026,16 @@
       },
       "coverage_notes": [
         {
-          "round_2_4": {
-            "removed_owners": [
-              "WP-031"
-            ],
-            "reason": "The original scenario exercises engineering.inventoryTools and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
-          }
-        },
-        {
-          "round_2_4": {
-            "removed_owners": [
-              "WP-030"
-            ],
-            "reason": "Corrected action exercises engineering.inventoryTools; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          "correction_round": {
+            "reason": "The original record is a target catalog exclusion/key inspection, not the separate operator source inventory. Registered build inspection reads the target catalog under the declared build proof layer. Restored its product owners.",
+            "previous_owners": [
+              "WP-050"
+            ]
           }
         }
+      ],
+      "layers": [
+        "build"
       ]
     },
     {

@@ -3007,7 +3007,10 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-050"
+        "WP-020",
+        "WP-038",
+        "WP-044",
+        "WP-046"
       ],
       "status": "future-not-run",
       "description": "Current generated operation catalog includes native practice/debrief while source facts unchanged.",
@@ -3041,21 +3044,26 @@
         },
         "catalog": {
           "fixture_type": "operation_inventory",
-          "path": "docs/catalog/operations.json"
+          "path": "docs/catalog/operations.json",
+          "criterion_contract": "docs/catalog/requirements/launch.json"
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "engineering.inventoryTools",
-        "arguments": {}
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "catalog": "docs/catalog/operations.json",
+          "case_scope": "B02-032",
+          "criterion_contract": "docs/catalog/requirements/launch.json"
+        }
       },
       "expected": {
         "state": {},
@@ -3071,16 +3079,16 @@
       },
       "coverage_notes": [
         {
-          "round_2_4": {
-            "removed_owners": [
-              "WP-020",
-              "WP-038",
-              "WP-044",
-              "WP-046"
-            ],
-            "reason": "Corrected action exercises engineering.inventoryTools; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          "correction_round": {
+            "reason": "The original record is a target catalog exclusion/key inspection, not the separate operator source inventory. Registered build inspection reads the target catalog under the declared build proof layer. Restored its product owners.",
+            "previous_owners": [
+              "WP-050"
+            ]
           }
         }
+      ],
+      "layers": [
+        "build"
       ]
     },
     {

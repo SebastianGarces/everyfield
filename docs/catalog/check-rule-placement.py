@@ -86,7 +86,11 @@ def check(root, write=False):
     ops_path = root / 'docs/catalog/operations.json'
     operations = json.loads(ops_path.read_text())
     old_operations = {o['id']: o for o in old_inventory['operations']}
+    added_ids = {a['id'] for a in mapping.get('operation_additions', [])}
+    assert {o['id'] for o in operations['operations']} - old_operations.keys() == added_ids, 'Unreviewed operation addition'
     for op in operations['operations']:
+        if op['id'] in added_ids:
+            continue
         old_rules = old_operations[op['id']]['authority']
         assert len(op['authority']) == len(old_rules), f"Lost authority: {op['id']}"
         for now, old in zip(op['authority'], old_rules):

@@ -2,14 +2,14 @@
   "version": 2,
   "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
-    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). E2 (2026-10-14) drafted the copy of access, privacy and terms in shared.access_page, shared.privacy_page and shared.terms_page; Sebastian must review it and confirm the assumptions in the E2 task note before go-live. The copy of planters and trust is not yet reviewed.",
+    "note": "Sebastian approved the look of every page and the home and sending churches and networks copy. On 2026-10-14 he approved the access, privacy and terms copy as drafted. Planters and trust copy is not yet reviewed.",
     "home": "look approved, copy approved",
     "oversight": "look approved, copy approved",
     "planters": "look approved, copy not yet reviewed",
     "trust": "look approved, copy not yet reviewed",
-    "access": "draft, owner review required",
-    "privacy": "draft, owner review required",
-    "terms": "draft, owner review required"
+    "access": "approved",
+    "privacy": "approved",
+    "terms": "approved"
   },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
@@ -326,7 +326,7 @@
       }
     },
     "access_page": {
-      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
+      "note": "E2 (2026-10-14): copy for /access, approved by Sebastian on 2026-10-14. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
       "hero": {
         "eyebrow": "Early access",
         "headline": "Request early access",
@@ -462,7 +462,7 @@
       }
     },
     "privacy_page": {
-      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data. Unresolved publication items (owner): the provider that hosts the owner inbox (EARLY_ACCESS_EMAIL_TO), how long email copies of requests stay in that inbox and how they are deleted, and any reply deadline. Add the confirmed duration and deletion wording to 'How long we keep it' before go-live.",
+      "note": "E2 (2026-10-14): Sebastian approved this privacy policy as drafted on 2026-10-14. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
       "title": "Privacy policy",
       "updated": "October 14, 2026",
       "intro": [
@@ -548,7 +548,7 @@
       ]
     },
     "terms_page": {
-      "note": "E2 (2026-10-14): draft terms for /terms, owner review required. Short terms for the marketing site during early access. Product terms come later.",
+      "note": "E2 (2026-10-14): terms for /terms, approved by Sebastian on 2026-10-14. Short terms for the marketing site during early access. Product terms come later.",
       "title": "Terms",
       "updated": "October 14, 2026",
       "intro": [

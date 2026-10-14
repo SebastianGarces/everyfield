@@ -1,6 +1,7 @@
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
-import { EvfError, git, homeRoot, parseTask, run } from "./lib.ts";
+import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
+import { recordFastTrack } from './progress.ts';
 import { join } from 'node:path';
 import { draftProofPlan } from './proof-plan.ts';
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
@@ -17,6 +18,7 @@ Planning (coordinator)
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
   evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
   evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
+  evf shipped --fast-track WP-097 --evidence <file>           record owner-approved completion on main
   evf proof draft <task>                                     print a proof plan for operator review
 
 Task loop (implementor, ui-designer)
@@ -124,6 +126,16 @@ function main(argv: string[]): number {
       console.log((args.length?args:[" "]).map(id=>renderAc(root,id)).join("\n\n"));
       return 0;
     case "shipped": {
+      const fastTrack=option(args,'--fast-track');
+      if(fastTrack){
+        const evidence=option(args,'--evidence');
+        if(!evidence||args.length)throw new EvfError('Use evf shipped --fast-track WP-097 --evidence <file>.');
+        const cfg=loadConfig(root);
+        const fetch=run('git',['fetch',cfg.remote,cfg.baseBranch],{cwd:root});
+        if(fetch.code!==0)throw new EvfError('Cannot confirm current main before fast-track completion.');
+        recordFastTrack(root,fastTrack,readJson<unknown>(evidence));
+        console.log('WP-097 fast-track completion recorded. Commit the evf-generated progress through reviewed maintenance.');return 0;
+      }
       const clear: string[] = [];
       for (let v = option(args, "--clear"); v; v = option(args, "--clear")) clear.push(v);
       return listShipped(root, clear);

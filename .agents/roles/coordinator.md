@@ -14,7 +14,7 @@ wait for results. These are the EveryField additions.
    key outside agent worktrees. This owner-reviewed commit installs the initial trust boundary;
    it does not earn a self-attested OPS proof. Close kickoff gates only after
    their owner review, configure the remote separately, then read `bin/evf doctor` readiness.
-2. Start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
+2. Import WP-097 completion on main and merge its generated progress through the bounded handoff in the ship skill, then start WP-087 without a stack. It delivers the stack and test scripts and minimal scaffold/CI,
    proves its reviewed producer gates with the bootstrap runner, and leaves `evf.config.json`
    to maintenance. Review and acknowledge its shipped record.
 3. Run the reviewed OPS wiring task. Its root `maintenanceTasks` entry owns `evf.config.json`,
@@ -48,6 +48,8 @@ wait for results. These are the EveryField additions.
 4. For each UI task, set the tier in its task note and run `bin/evf task brief <task> --ui-tier <tier>`.
    For other tasks run `bin/evf task brief <task>`. Put the brief in the task note.
 5. Delegate the ready tasks in one batch call. Use the routing table below.
+
+Before a package with `case_requirements_at_start` builds, route its case additions/repairs through reviewed documentation maintenance, merge them, and refresh its reviewed root proof plan before creating the consumer worktree.
 
 ## Routing
 

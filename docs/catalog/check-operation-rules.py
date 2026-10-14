@@ -358,7 +358,12 @@ def audit(base, report):
     inventory = json.loads((ROOT / catalog['operation_source']).read_text())['operations']
     assert len(inventory) == len({o['id'] for o in inventory}), 'Duplicate inventory operation'
     assert (ROOT / catalog['operation_source']).stat().st_size < 500 * 1024, 'Inventory exceeds the roughly 500 KB budget'
-    assert {o['id'] for o in inventory} == {o['id'] for o in before['operations']}, 'Operation lost'
+    additions = json.loads((ROOT / 'docs/catalog/rule-placement.json').read_text()).get('operation_additions', [])
+    added_ids = {a['id'] for a in additions}
+    assert len(added_ids) == len(additions), 'Duplicate operation addition'
+    assert not added_ids & {o['id'] for o in before['operations']}, 'Addition already in baseline'
+    assert all(a['reason'].strip() for a in additions), 'Operation addition needs a ruling'
+    assert {o['id'] for o in inventory} == {o['id'] for o in before['operations']} | added_ids, 'Operation lost or unreviewed addition'
     assert all(set(o) in [INVENTORY_KEYS, INVENTORY_KEYS - {'changes'}] for o in inventory), 'Unexpected inventory contract field'
     tables = {t['name'] for t in json.loads((ROOT / 'docs/schema/target.json').read_text())['tables']}
     omitted = []
@@ -379,6 +384,13 @@ def audit(base, report):
     by_id = {o['id']: o for o in before['operations']}
     replace, _ = canonicalizer(aliases, before)
     for op in inventory:
+        if op['id'] in added_ids:
+            addition = next(a for a in additions if a['id'] == op['id'])
+            requirement = next(r for path in catalog['requirement_files'] for r in json.loads((ROOT / path).read_text())['requirements'] if r['id'] == addition['requirement'])
+            assert op['id'] in requirement['operations'] and op['owning_package'] in requirement['work_packages'], 'Addition lacks owning requirement'
+            assert op['authority'] and all(r['actors'] and r['rule'].strip() for r in op['authority']), 'Addition lacks caller authority'
+            assert op['durable_write'] == (op['kind'] == 'command'), 'Wrong added write classification'
+            continue
         original = by_id[op['id']]
         # Fix 6 consolidated per-operation Evry rows into the shared exposure rule.
         expected_features = list(dict.fromkeys(
@@ -410,7 +422,7 @@ def audit(base, report):
             for req in json.loads(p.read_text()).get('requirements', []):
                 ids = req.get('operations', [])
                 assert len(ids) == len(set(ids)), 'Duplicate requirement operation: ' + req['id']
-                assert set(ids) <= set(by_id), 'Unknown requirement operation: ' + req['id']
+                assert set(ids) <= set(by_id) | added_ids, 'Unknown requirement operation: ' + req['id']
                 for rule in req.get('behavior_rules', []):
                     assert rule['rule'] not in RULE_REWRITES, 'Context-free rule survives: ' + req['id']
                     assert not re.search(r': (true|false)\.', rule['rule']), 'Mechanical boolean rule: ' + req['id']

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate short package briefs, on-demand details and checked planning projections."""
 import argparse
+from functools import cache
 import json
 import math
 import re
@@ -56,6 +57,7 @@ def selected_features(scope, pid, features):
 
 def compile_manifest(root):
     dag = read(root, 'docs/plan/dag.json')
+    ancestry = package_ancestry(dag)
     catalog = read(root, 'docs/catalog/index.json')
     features = read(root, catalog['feature_source'])
     acceptance = load_acceptance(root, catalog['acceptance_source'])
@@ -146,17 +148,21 @@ def compile_manifest(root):
             cs |= {cid for rid in rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
         if not cs <= cases.keys():
             raise ValueError('Unknown case selector for ' + pid)
-        tables = {t['name'] for t in schema if scope['schema'] == 'all' or
-                  (scope['schema'] == 'produced' and pid in t['producer_work_packages'])}
+        context_cs = {cid for cid in cs if not any(
+            owner == pid or owner in ancestry(pid) or pid in ancestry(owner)
+            for owner in cases[cid]['record']['work_packages'])}
+        cs -= context_cs
+        tables = {t['name'] for t in schema if scope['schema'] != 'none' and pid in t['producer_work_packages']}
         result.append(dict(
             id=pid, feature_ids=sorted(fs), own_requirement_ids=sorted(own_rs), own_case_ids=sorted(own_cs),
-            own_operation_ids=sorted(own_ops), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
+            own_operation_ids=sorted(own_ops),
+            case_requirements_at_start=sorted(scope.get('case_requirements_at_start', [])), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
             consumed_acceptance_requirement_ids=sorted(consumed_ac_rs), consumed_acceptance_operation_ids=sorted(consumed_ac_ops),
-            acceptance_ids=sorted(acs), case_ids=sorted(cs), operation_ids=sorted(ops), shared_operation_ids=sorted(ops - own_ops),
+            acceptance_ids=sorted(acs), case_ids=sorted(cs), context_case_ids=sorted(context_cs), operation_ids=sorted(ops), shared_operation_ids=sorted(ops - own_ops),
             shared_contract_ids=sorted(shared_symbols), unresolved_current_operation_references=unresolved,
             direct_prerequisites=p['depends_on'], ui_prerequisites=p.get('ui_depends_on', []),
             producer_table_names=sorted(tables), consumer_table_names=sorted(
-                t['name'] for t in schema if fs & set(t['feature_ids']) and t['name'] not in tables),
+                t['name'] for t in schema if (scope['schema'] == 'all' or fs & set(t['feature_ids'])) and t['name'] not in tables),
             proof_stage=scope['proof_stage'],
             contract_consumption_rule='Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership.'))
     return dict(
@@ -218,7 +224,7 @@ def ui_design_links(root, package):
             cells = [cell.strip() for cell in line.strip('|').split('|')]
             label = cells[1] if cells[0].startswith('`#/') else cells[0]
             rows.append(dict(line=number, screen=label, source=f'design/handoff/screens.md#L{number}'))
-    return dict(prototype='design/everyfield-ui.html', screen_map='design/handoff/screens.md', rows=rows,
+    return dict(prototype='design/everyfield-marketing.html' if package['id'] == 'WP-097' else 'design/everyfield-ui.html', screen_map='design/handoff/screens.md', rows=rows,
                 reading='Open the matching prototype screen and handoff row on demand; compose undrawn flows from the shared components.')
 
 
@@ -232,15 +238,29 @@ def brief(root, manifest, package):
         if f['id'] in selected:
             links.add(f['spec_file'].split('#')[0] if own['context_scope']['features'] == 'all' else f['spec_file'])
     links.update(own['context_scope'].get('chapter_links', []))
+    requirements = {r['id']: r for path in set(manifest['requirement_locations'][rid]
+                    for rid in package['own_requirement_ids']) for r in read(root, path)['requirements']}
+    cases = {c['id']: c for path in set(manifest['case_locations'][cid]
+             for cid in package['own_case_ids']) for c in read(root, path)['cases']}
+    missing = [rid for rid in package['own_requirement_ids'] if not any(
+        cid in requirements[rid].get('case_ids', []) or
+        rid in [cases[cid]['requirement']] + cases[cid].get('requirement_ids', [])
+        for cid in package['own_case_ids'])]
     return dict(
         id=own['id'], title=own['title'], goal=own['goal'], outputs=own['outputs'], owning_paths=own['owning_paths'],
         root_outputs=own.get('root_outputs', []),
+        acceptance_gates=own['acceptance_gates'], proof_stage=package['proof_stage'],
+        integration_rule=own['integration_rule'], fast_track=own.get('fast_track'),
+        ui_specialist=own.get('ui_specialist'), ui_model=own.get('ui_model'),
         own_requirement_ids=package['own_requirement_ids'], own_case_ids=package['own_case_ids'],
+        own_operation_ids=package['own_operation_ids'], context_case_ids=package['context_case_ids'],
+        case_requirements_at_start=package['case_requirements_at_start'],
+        owned_requirements_without_cases=missing,
         chapter_links=sorted(links),
         schema_links={'source': 'docs/schema/target.json', 'producer_tables': package['producer_table_names'],
                       'consumer_tables': package['consumer_table_names']},
         direct_prerequisites=own['depends_on'], ui_prerequisites=own.get('ui_depends_on', []),
-        design_links=ui_design_links(root, package) if own.get('ui_composition_rule') or own['lane'] == 'ui' else None,
+        design_links=ui_design_links(root, package) if own.get('ui_composition_rule') or own.get('ui_specialist') or own['lane'] == 'ui' else None,
         requirement_portions=own['context_scope'].get('requirement_portions', {}),
         ui_composition_rule=own.get('ui_composition_rule'),
         details=f"python3 docs/package-context.py {own['id']} --part requirements|cases|operations|schema",
@@ -270,6 +290,18 @@ def graph_order(dag):
     return order
 
 
+def package_ancestry(dag):
+    graph_order(dag)
+    by = {p['id']: p for p in dag['packages']}
+
+    @cache
+    def ancestors(pid):
+        deps = by[pid]['depends_on'] + by[pid].get('ui_depends_on', [])
+        return set(deps) | {ancestor for dep in deps for ancestor in ancestors(dep)}
+
+    return ancestors
+
+
 def check_plan(root, manifest):
     dag = read(root, 'docs/plan/dag.json')
     by = {p['id']: p for p in dag['packages']}
@@ -280,15 +312,20 @@ def check_plan(root, manifest):
         raise ValueError('Retired package ID reused')
     contexts = {p['id']: p for p in manifest['packages']}
 
-    def ancestors(pid):
-        result = set()
-        for dep in by[pid]['depends_on'] + by[pid].get('ui_depends_on', []):
-            result.add(dep)
-            result |= ancestors(dep)
-        return result
+    ancestors = package_ancestry(dag)
+    catalog = read(root, 'docs/catalog/index.json')
+    cases = {c['id']: c for path in catalog['case_files'] for c in read(root, path)['cases']}
 
     for p in dag['packages']:
         c = contexts[p['id']]
+        if 'fast_track' in p and p['id'] != 'WP-097':
+            raise ValueError('Only WP-097 may declare fast_track: ' + p['id'])
+        if set(c['case_ids']) & set(c['context_case_ids']):
+            raise ValueError('Context-only cases cannot be proof obligations: ' + p['id'])
+        for cid in c['case_ids']:
+            if not any(owner == p['id'] or owner in ancestors(p['id']) or p['id'] in ancestors(owner)
+                       for owner in cases[cid]['work_packages']):
+                raise ValueError(p['id'] + ' cannot prove or defer selected case ' + cid + '; keep it context-only')
         if not p['goal'] or not p['outputs'] or not p['acceptance_gates'] or not p['owning_paths']:
             raise ValueError('Empty package scope ' + p['id'])
         if any(not x.endswith('/') for x in p['owning_paths']):
@@ -301,7 +338,7 @@ def check_plan(root, manifest):
             raise ValueError('Duplicated DAG state: ' + p['id'])
         if len(encode(brief(root, manifest, c)).encode()) > manifest['max_brief_bytes']:
             raise ValueError('Default brief exceeds byte budget: ' + p['id'])
-        if p.get('ui_composition_rule'):
+        if p.get('ui_composition_rule') and not p.get('fast_track'):
             design = {x['id'] for x in dag['packages'] if x['domain'] == 'design-system'}
             if not design <= set(p.get('ui_depends_on', [])) or design & set(p['depends_on']):
                 raise ValueError('Feature UI lacks design-system dependency: ' + p['id'])

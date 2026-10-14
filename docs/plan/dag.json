@@ -1,7 +1,7 @@
 {
   "version": 2,
   "as_of": "2026-10-14",
-  "scope": "Documentation-only full approved target with 95 active packages. WP-086 is retired into WP-085. Implementation state is owned solely by docs/build-progress.json.",
+  "scope": "Documentation-only full approved target with 96 active packages. WP-086 is retired into WP-085. Implementation state is owned solely by docs/build-progress.json.",
   "resource_assumptions": {
     "engineers": 4,
     "qa_engineers": 1,
@@ -11,6 +11,89 @@
     "external_waits": "Actual spend/account/configuration authorization and externally merged owner development workflow excluded. Re-estimate after C0/runtime and first vertical slice."
   },
   "packages": [
+    {
+      "id": "WP-097",
+      "title": "Early access site",
+      "goal": "Publish the five-page early access site and receive, retain and export access requests.",
+      "lane": "web",
+      "domain": "admin",
+      "depends_on": [],
+      "estimate_engineer_days": 3.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-097; linked details on demand.",
+        "Owner early access ruling, 2026-10-14; approved marketing prototype and reviewed access/privacy/terms copy."
+      ],
+      "outputs": [
+        "E3: Real apps/web scaffold and shared packages; home, /oversight, /access, /privacy and /terms, responsive and accessible, with live-page navigation, sitemap and robots.",
+        "E4: Shared packages/db and packages/domain package.json and tsconfig files; the DB client, early_access_request and early_access_attempt schemas with their migration ledger and early-access migration; packages/domain/src/early-access/ request logic; two validated access forms, one stored request and one email to EARLY_ACCESS_EMAIL_TO per admitted submission, rate-limit-first sent-only duplicate suppression and bounded pending retry with the same mail idempotency key, abuse limits, truthful failure/contact fallback, operator CSV export and scheduled request/IP retention.",
+        "E5: Preview on the owner Vercel project everyfield with the new everyfield-v3 Neon database and Resend; approved production on everyfield.app and www.everyfield.app, leaving v2 data separate."
+      ],
+      "owning_paths": [
+        "apps/web/",
+        "packages/db/",
+        "packages/domain/",
+        "scripts/early-access/",
+        "tests/integration/access-requests/"
+      ],
+      "interfaces": [
+        "Existing app scaffold consumed and extended by WP-087; static public pages are separate from product authentication.",
+        "Access submission returns received, invalid with field errors, rate_limited by email or IP, or unavailable with contact fallback; no email-existence disclosure."
+      ],
+      "acceptance_gates": [
+        "Five approved pages work on phone and desktop, with keyboard and screen-reader basics; links, sitemap and robots include only live pages.",
+        "Both forms preserve every field; accepted requests store one row and send one email; duplicate, honeypot, validation, rate limits and storage/provider failures meet REQ-ADM-006.",
+        "Private operator CSV export includes all retained fields and safe fully quoted data; the scheduled job deletes requests strictly older than 12 calendar months, clears IPs strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours.",
+        "Owner reviews access, privacy and terms copy, the preview and the actual Vercel/Neon/Resend configuration before go-live."
+      ],
+      "spec_paths": [
+        "docs/product/operations.md",
+        "docs/architecture/core.md",
+        "docs/plan/release-gates.json"
+      ],
+      "specialist": "implementor",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [
+          "ADM-006"
+        ],
+        "requirements": "owned",
+        "cases": "owned",
+        "operations": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [
+          "AC-ADM-006--ADM-006"
+        ],
+        "schema": "produced",
+        "proof_stage": "early access site only; product privacy update belongs to WP-049",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.025,
+        "operation_days": 0.015,
+        "case_days": 0.006,
+        "table_days": 0.025,
+        "gate_days": 0.3
+      },
+      "root_outputs": [
+        "package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "tsconfig.base.json",
+        ".gitignore"
+      ],
+      "integration_rule": "Only the early access site is delivered here. Shared packages/db and packages/domain ownership is limited to their package.json and tsconfig files, the DB client, early access request/attempt schemas, migration and receipt ledger, and src/early-access/. Later packages retain their owning paths and extend those shared packages after WP-097 under the existing prerequisite ordering rule. WP-087 extends the scaffold and WP-049 adds feedback, planters/trust pages, product sign-in links and the before-customer-data privacy update. Preserve existing source/reference bytes and v2 data.",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "fast_track": {
+        "owner": "Sebastian",
+        "ruling_date": "2026-10-14",
+        "scope": "WP-097 early access site only",
+        "checks": "Normal tests and cross-model review; owner approval of the preview before go-live.",
+        "signed_evf_proof_required": false
+      },
+      "ui_composition_rule": "Reuse the approved E3 public pages and marketing handoff; any remaining page work goes to ui-designer on Opus 5.5. Do not wait for the later product AppShell design milestones."
+    },
     {
       "id": "WP-001",
       "title": "Verify current source authority/version/hash",
@@ -57,7 +140,8 @@
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_prefixes": [
           "REF-"
-        ]
+        ],
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -151,6 +235,12 @@
           "docs/product/tasks.md#req-tsk-018",
           "docs/product/identity-access.md#req-idn-029",
           "docs/product/people.md#req-ppl-024"
+        ],
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-OPS-004",
+          "REQ-PI-037",
+          "REQ-PPL-024"
         ]
       },
       "estimate_factors": {
@@ -215,7 +305,20 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-013",
+          "REQ-KNOW-014",
+          "REQ-KNOW-078",
+          "REQ-KNOW-080",
+          "REQ-KNOW-081",
+          "REQ-KNOW-082",
+          "REQ-KNOW-083",
+          "REQ-KNOW-084",
+          "REQ-KNOW-086",
+          "REQ-KNOW-087",
+          "REQ-KNOW-088"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -240,12 +343,13 @@
         "WP-003 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "Fresh adopted 100-table baseline from docs/schema/target.json with record subtype integrity, event history, operation receipts and same-tenant foreign keys; no customer import.",
+        "Extend the scaffold to the current target baseline from docs/schema/target.json with record subtype integrity, event history, operation receipts and same-tenant foreign keys; no customer import.",
         "document/document_revision authorization and owner integrity for private native documents, separate from generated artifacts.",
         "plant_creation_transition once-per-plant journal and phase-entry integrity under the adopted schema.",
         "assessment/run storage, reference versions and current sharing/affiliation relationships; reader_feedback stores assessment/finding feedback while feedback stores private application feedback.",
         "launch_guest same-plant Launch-to-Person relation, interview responses and published summary projections with typed event history.",
-        "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks."
+        "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks.",
+        "Preserve existing early_access_request, early_access_attempt and schema_migration tables and the already applied 0001_early_access.sql migration; do not recreate migration 0001 or its ledger."
       ],
       "owning_paths": [
         "packages/db/src/schema/",
@@ -256,7 +360,7 @@
         "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports."
       ],
       "acceptance_gates": [
-        "The adopted 100-table baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
+        "The current target baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
         "rollback and same-tenant FKs",
         "no v2 ledger/customer import",
         "notification/Wiki evidence model reviewed before first schema migration",
@@ -269,14 +373,33 @@
         "docs/product/scope.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Install the adopted 100-table PostgreSQL baseline, tenant integrity and private object namespaces. Domain producers add their reviewed behavior and later migrations.",
+      "goal": "Extend the scaffold to the current target PostgreSQL baseline, tenant integrity and private object namespaces. Domain producers add their reviewed behavior and later migrations.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "all",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-KNOW-012",
+          "REQ-KNOW-014",
+          "REQ-KNOW-069",
+          "REQ-KNOW-072",
+          "REQ-KNOW-073",
+          "REQ-KNOW-078",
+          "REQ-KNOW-081",
+          "REQ-KNOW-082",
+          "REQ-KNOW-083",
+          "REQ-KNOW-084",
+          "REQ-KNOW-085",
+          "REQ-KNOW-086",
+          "REQ-KNOW-087",
+          "REQ-KNOW-088",
+          "REQ-KNOW-089",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -338,7 +461,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-069",
+          "REQ-KNOW-072"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -403,7 +530,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-KNOW-116"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -469,7 +600,10 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-112"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -540,7 +674,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -610,7 +745,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -682,7 +818,13 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-012",
+          "REQ-KNOW-069",
+          "REQ-KNOW-072",
+          "REQ-KNOW-073"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -747,7 +889,12 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-069",
+          "REQ-KNOW-098",
+          "REQ-KNOW-099"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2056,7 +2203,7 @@
       "depends_on": [
         "WP-004"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-031; linked details on demand.",
         "WP-004 reviewed producer/interface milestone"
@@ -2099,7 +2246,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-072",
+          "REQ-KNOW-089"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2162,7 +2313,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -3333,7 +3485,7 @@
     },
     {
       "id": "WP-049",
-      "title": "Feedback admin public waitlist/legal/marketing",
+      "title": "Feedback and later public marketing",
       "lane": "web",
       "domain": "admin",
       "depends_on": [
@@ -3347,24 +3499,29 @@
         "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "feedback lifecycle/GitHub convenience/waitlist/public surfaces",
+        "Extend the WP-097 public site with reviewed planters and trust pages, product sign-in links and the later before-customer-data privacy/terms update; initial five pages and access request storage/mail/export/retention belong to WP-097.",
         "Safe automatic public feedback serializer, private originals and own-user native status; truthful issue/triage reconciliation. Consume externally merged workflow when supplied, no competing rubric."
       ],
       "owning_paths": [
         "packages/domain/src/admin/",
         "packages/contracts/src/admin/",
         "apps/web/src/features/admin/",
-        "tests/integration/admin/"
+        "tests/integration/admin/",
+        "apps/web/src/marketing/",
+        "apps/web/src/app/planters/",
+        "apps/web/src/app/trust/",
+        "apps/web/src/app/privacy/",
+        "apps/web/src/app/terms/"
       ],
       "interfaces": [
-        "feedback lifecycle/GitHub convenience/waitlist/public surfaces",
+        "Existing WP-097 public pages and request module; later product privacy/terms disclosures and reviewed planters/trust copy.",
         "feedback.listOwn/getOwnStatus bounded authenticated-original-user DTO; separate public feedback repo sanitized title/body + actual repo/issue locator + truthful publication/triage outcomes, no admin DTO or roadmap."
       ],
       "acceptance_gates": [
         "published description disclosure",
         "private attached identity",
         "platform admin denied",
-        "prototype versus production",
+        "Reviewed planters/trust pages and product sign-in links; before-customer-data privacy update matches actual product access, vendors and recovery limits.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -3373,7 +3530,7 @@
         "docs/product/operations.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Feedback admin public waitlist/legal/marketing. Prove only the owned producer or adapter portion; later integration closes the whole target.",
+      "goal": "Deliver feedback, reviewed planters/trust pages, product sign-in links and the before-customer-data privacy update on the WP-097 site.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
@@ -3409,7 +3566,7 @@
         "WP-004",
         "WP-031"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-050; linked details on demand.",
         "WP-003 reviewed producer/interface milestone",
@@ -3451,7 +3608,13 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-012",
+          "REQ-KNOW-078",
+          "REQ-OPS-004",
+          "REQ-PI-036"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -6467,23 +6630,27 @@
       "goal": "Local workflow and repository bootstrap.",
       "lane": "platform",
       "domain": "workflow",
-      "depends_on": [],
+      "depends_on": [
+        "WP-097"
+      ],
       "estimate_engineer_days": 3.0,
       "inputs": [
-        "Short brief from docs/package-context.py WP-087; linked details on demand."
+        "Short brief from docs/package-context.py WP-087; linked details on demand.",
+        "WP-097 existing early access scaffold"
       ],
       "outputs": [
-        "Repository root scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
+        "Extend the existing WP-097 repository scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
         "Working isolated per-task local app stack and assertion/report scripts with start/stop and preview instructions; a reviewed OPS task wires stack/checks into evf.config.json after this producer ships.",
         "Minimal CI for lint/types and the small regression suite; retain existing verification and cross-model review."
       ],
       "owning_paths": [
         "scripts/",
         ".github/workflows/",
-        "tests/workflow/"
+        "tests/workflow/",
+        "apps/web/"
       ],
       "interfaces": [
-        "Repository root scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
+        "Extend the existing WP-097 repository scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
         "Working isolated per-task local app stack and assertion/report scripts with start/stop and preview instructions; a reviewed OPS task wires stack/checks into evf.config.json after this producer ships.",
         "Minimal CI for lint/types and the small regression suite; retain existing verification and cross-model review."
       ],
@@ -6510,7 +6677,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2,
@@ -6522,9 +6690,11 @@
       },
       "root_outputs": [
         "package.json",
-        "tsconfig.json"
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "tsconfig.base.json"
       ],
-      "integration_rule": "Bootstrap supplies scripts and minimal scaffold before feature work; only the reviewed OPS wiring task changes evf.config.json. Preserve existing source/docs/reference bytes.",
+      "integration_rule": "Extend the scaffold from WP-097 with isolated stacks, assertion scripts and minimal CI before product feature work; only the reviewed OPS wiring task changes evf.config.json. Preserve the working early access site and existing source/docs/reference bytes.",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5"
     },
@@ -6580,7 +6750,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2,
@@ -6646,7 +6817,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2.8,
@@ -6714,7 +6886,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 3.4,
@@ -7148,8 +7321,9 @@
       }
     }
   ],
-  "edge_count": 479,
+  "edge_count": 480,
   "topological_merge_order": [
+    "WP-097",
     "WP-087",
     "WP-001",
     "WP-002",
@@ -7247,6 +7421,7 @@
     "WP-058"
   ],
   "critical_path": [
+    "WP-097",
     "WP-087",
     "WP-001",
     "WP-002",
@@ -7275,8 +7450,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 94.0,
-  "total_engineer_days": 253.0,
+  "critical_path_unconstrained_days": 96.5,
+  "total_engineer_days": 255.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -7305,6 +7480,7 @@
     {
       "id": "S0",
       "required_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7325,6 +7501,7 @@
         "WP-090"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7368,6 +7545,7 @@
         "WP-060"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7423,6 +7601,7 @@
         "WP-037"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7491,6 +7670,7 @@
         "WP-049"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7586,6 +7766,7 @@
         "WP-085"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7690,6 +7871,7 @@
         "WP-096"
       ],
       "cumulative_packages": [
+        "WP-097",
         "WP-001",
         "WP-002",
         "WP-003",
@@ -7807,9 +7989,9 @@
     }
   ],
   "build_plan_notes": {
-    "foundation": "WP-087 delivers local stack/assertion scripts and minimal scaffold/CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.",
+    "foundation": "WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed commit on main and owner go-live approval before WP-087 starts.",
     "milestones": "C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.",
-    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the 100-table baseline; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
+    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
   },
   "package_splits": [
     {

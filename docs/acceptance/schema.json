@@ -1283,6 +1283,12 @@
           "fixture_type": "invitation_proof",
           "account": "A",
           "invitation": "I"
+        },
+        "addressed-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I",
+          "verified": true
         }
       },
       "actor": {
@@ -1790,7 +1796,8 @@
         "session-A": {
           "fixture_type": "session",
           "account": "A",
-          "expires_at": "2026-11-12T16:00:00Z"
+          "expires_at": "2026-11-12T16:00:00Z",
+          "revoked": true
         },
         "Q": {
           "fixture_type": "plant",
@@ -1839,12 +1846,25 @@
           "requested_at": "2026-10-13T16:00:00Z",
           "cancel_until": "2026-11-12T16:00:00Z",
           "revision": 2
+        },
+        "restricted-proof": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "verified": true,
+          "purpose": "status_cancel",
+          "subject": "A"
+        },
+        "restricted-session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "purpose": "status_cancel",
+          "proof": "restricted-proof"
         }
       },
       "actor": {
         "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "session": "restricted-session-A",
+        "context": null
       },
       "clock": {
         "now": "2026-11-12T15:59:59.999Z",
@@ -1888,8 +1908,8 @@
           },
           "actor": {
             "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "session": "restricted-session-A",
+            "context": null
           },
           "clock": {
             "now": "2026-11-12T16:00:00Z",
@@ -1921,8 +1941,8 @@
           },
           "actor": {
             "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "session": "restricted-session-A",
+            "context": null
           },
           "clock": {
             "now": "2026-11-12T16:00:00.001Z",
@@ -2246,12 +2266,32 @@
           "fixture_type": "reference_file",
           "path": "docs/reference/playbook.md",
           "sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packagePlaybook"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2594,12 +2634,32 @@
           "fixture_type": "reference_file",
           "path": "docs/reference/task-templates.ts",
           "sha256": "d3c0a4703694b77e3cb3169e4d5a2bd66c535e894ac427df82c33652b42b0851"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packageTaskTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2725,12 +2785,32 @@
           "fixture_type": "reference_file",
           "path": "docs/reference/ministry-role-templates.ts",
           "sha256": "b07e4cc0ed82362521943bf00dbf339fd90f2003afec22408a2440bdc512f70f"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packageTeamTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2842,12 +2922,32 @@
           "fixture_type": "reference_file",
           "path": "docs/reference/communication-system-templates.ts",
           "sha256": "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.installMessageTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -7885,12 +7985,32 @@
             "stream",
             "file"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_internal_application_caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.projectRead"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8145,12 +8265,32 @@
           "owner": "P",
           "status": "ready",
           "bytes_utf8": "Welcome Alex."
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_scoped_internal_caller",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "storage.createAuthorizedDownload"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8276,6 +8416,12 @@
           "fixture_type": "invitation_proof",
           "account": "A",
           "invitation": "I"
+        },
+        "addressed-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I",
+          "verified": true
         }
       },
       "actor": {

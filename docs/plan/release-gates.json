@@ -36,7 +36,7 @@
       "id": "G-WORKFLOW",
       "title": "Merged development workflow",
       "owner": "Owner-provided external handoff",
-      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric. Install the real qualified runner and authenticated Intent identity/review receipt adapter; independently review its public verification key and keep the signing key outside agent/worktree access. Configure and verify the main repository remote and required protection. Through one owner-reviewed bootstrap commit, switch evf.config.json from tooling-only verification to the qualified application runner and install the approved first-task proof plans and stack wiring. Independently prove the bootstrap before application workflow execution; simulated local tooling receipts cannot close this gate.",
+      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric. Install the real qualified runner and authenticated Intent identity/review receipt adapter; independently review its public verification key and keep the signing key outside agent/worktree access. Configure and verify the main repository remote and required protection. Through one owner-reviewed bootstrap commit, switch evf.config.json from tooling-only verification to the qualified application runner and install the approved first-task proof plans and stack wiring. Independently prove the bootstrap before application workflow execution; simulated local tooling receipts cannot close this gate. Before WP-087 starts, import the reviewed WP-097 completion on main through the bounded fast-track path in the ship skill.",
       "status": "received-reconciliation-required",
       "source": {
         "repository": "/Users/sebastian/dev/everyfield_v3",
@@ -110,6 +110,18 @@
         "WP-050"
       ],
       "stage": "before-production-schedules"
+    },
+    {
+      "id": "G-EARLY-ACCESS",
+      "title": "Early access site go-live",
+      "owner": "Owner and cross-model verifier",
+      "closure": "WP-097 only: normal tests, cross-model review, reviewed access/privacy/terms copy and Sebastian approval of the Vercel preview before production. No signed evf proof. Owner ruling 2026-10-14; product workflow and before-customer-data gates remain separate. Use Vercel everyfield, new Neon everyfield-v3 and Resend; never v2 database values.",
+      "status": "owner-preview-approval-required",
+      "work_packages": [
+        "WP-097"
+      ],
+      "stage": "early-access-go-live",
+      "owner_ruling_date": "2026-10-14"
     }
   ],
   "owner_product_questions": [
@@ -181,15 +193,16 @@
     {
       "id": "Q-MARKETING-COPY",
       "title": "Marketing copy review",
-      "slice": "S3",
+      "slice": "S0/S3",
       "work_packages": [
+        "WP-097",
         "WP-049"
       ],
       "owner": "Owner",
       "status": "owner-review-required",
-      "question": "Review the five public marketing pages for product claims, privacy, recovery limits and tone before WP-049.",
-      "recommendation": "Approve the bounded copy before WP-049 in S3; keep Help outside v3 and describe actual access and recovery limits.",
-      "decision_before": "WP-049, S3"
+      "question": "Review access, privacy and terms copy before WP-097 go-live. Review planters and trust copy before WP-049 publishes those pages; home and oversight copy is already approved.",
+      "recommendation": "Approve the initial collection, retention, vendor and contact disclosures before WP-097 go-live. Keep planters/trust links hidden until their WP-049 copy review, and update product privacy before customer data.",
+      "decision_before": "WP-097 go-live for access/privacy/terms; WP-049 publication for planters/trust; product privacy update before customer data."
     }
   ],
   "implementation_tests_run": 0,

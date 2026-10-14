@@ -25,6 +25,7 @@ export function bootstrapReadiness(root:string):Array<[boolean,string]> {
   [key,'reviewed Ed25519 public key; private key stays outside agent worktrees'],
   [v?.kind==='application'&&v.applicationQualified===true,'owner-reviewed bootstrap application qualification and assertion/report driver'],
   [planReady('WP-087'),'reviewed WP-087 producer proof plan'],
+  [producerReady(root,'WP-097'),'owner-approved WP-097 fast-track completion on main; import reviewed evidence before WP-087'],
   [planReady('WP-001'),'reviewed WP-001 proof plan'],
   [wiring,'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring'],
   [producerReady(root,'WP-087'),'acknowledged WP-087 stack and test scripts milestone'],

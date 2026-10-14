@@ -125,6 +125,26 @@
               "registered_schedule": "notifications",
               "forged_subject": "Q",
               "forged_operation": "people.deletePerson"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-verified_exact_scheduler_capability",
+              "authority": "verified_exact_scheduler_capability",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "jobs.tickNotifications"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -234,6 +254,26 @@
           ],
           "concurrent": true,
           "job": "J"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-verified_exact_scheduler_capability",
+          "authority": "verified_exact_scheduler_capability",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.tickNotifications"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -299,6 +339,26 @@
               "job": "J",
               "claim_generation": 4,
               "checkpoint": "complete"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-verified_exact_scheduler_capability",
+              "authority": "verified_exact_scheduler_capability",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "jobs.tickNotifications"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -430,12 +490,32 @@
           "id": "digest-Q",
           "status": "pending",
           "kind": "digest"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -551,6 +631,26 @@
           "elapsed_seconds": 70,
           "route_budget_seconds": 90,
           "cursor": "page-2"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-verified_exact_scheduler_capability",
+          "authority": "verified_exact_scheduler_capability",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.tickNotifications"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -690,12 +790,32 @@
           "id": "retry-J",
           "status": "pending",
           "kind": "mail"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -841,12 +961,32 @@
           "id": "oversight-digest-J",
           "status": "pending",
           "kind": "digest"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -984,12 +1124,32 @@
           "id": "assessment-J",
           "status": "pending",
           "kind": "assessment"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1117,12 +1277,32 @@
           "id": "reference-J",
           "status": "pending",
           "kind": "reference_generation"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1246,12 +1426,32 @@
           "id": "render-J",
           "status": "pending",
           "kind": "document_render"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1361,12 +1561,32 @@
           "fixture_type": "test_execution",
           "repository_id": 10,
           "marker": "feedback-occurrence-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "jobs.manualRun"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1473,6 +1693,26 @@
           "fixture_type": "cancellation_receipt",
           "request": "R1",
           "request_revision": 1
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_deletion_purge_job",
+          "authority": "registered_deletion_purge_job",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -1550,6 +1790,26 @@
               "fixture_type": "cancellation_receipt",
               "request": "R1",
               "request_revision": 1
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-registered_deletion_purge_job",
+              "authority": "registered_deletion_purge_job",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "maintenance.purgeEligibleSubject"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -1677,12 +1937,32 @@
           "subject": "P",
           "schedule_configured": false,
           "paid_tier_approved": false
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "ops.readiness"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",

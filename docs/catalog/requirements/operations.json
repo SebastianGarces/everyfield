@@ -211,11 +211,13 @@
       "feature_ids": [
         "ADM-006"
       ],
-      "text": "Public landing/examples are static synthetic illustrations with claims matching actual target. Invitation request validates normalized email and honeypot; it neither registers nor creates CRM/lead rows. Durable limited purpose-mail intent dedupes normalized email for a 24-hour window; bounded server rate limit 5 requests/address/day plus 20 trusted-IP requests/hour and global provider budget. Honeypot gets fake success; missing recipient/provider error gives contact fallback, not claimed invitation. No newsletter/double-opt-in/lead-management scope.",
+      "text": "The public early access site serves home, oversight, access, privacy and terms. Examples are static synthetic illustrations with claims matching the actual target. Only live pages appear in navigation, sitemap and robots; planters/trust pages and product sign-in links wait for WP-049. Initial reviewed privacy copy names Vercel, Neon and Resend, collection purpose, retention and how to ask for deletion. Two public access forms collect a kind and the declared fields with trimmed, normalized email. The planter form requires name, email, plant_name, city and phase; sending is optional. The network form requires name, email, organization and role; plants and message are optional. The plants field accepts an empty value or up to four decimal digits and stores a supplied count as a number. Optional empty text is omitted. The approved phase choices are 0 · Discovery, 1 · Core group, 2 · Launch team, 3 · Training, 4 · Pre-launch, 5 · Launch Sunday and 6 · Post-launch. A filled website honeypot returns received before field validation without a request, attempt or mail. Invalid fields return invalid with field errors and create no effects. Mail configuration, including the recipient, must be usable before admission. Admission permits five valid attempts per normalized email in a rolling 24-hour window and twenty per IP in a rolling hour. Admitted duplicates and pending retries count as attempts. An unavailable trusted IP uses a shared unknown-IP budget rather than bypassing that axis. Rate limits are checked before duplicate suppression or retry; email is the reason when both limits apply. A refusal stores no request or attempt and sends no mail. An admitted submission stores one early access request with the validated fields and original owner-mail payload. Only an earlier request with a recorded mail receipt suppresses a duplicate within 24 hours for the same normalized email and kind, returning received without another request or email. Provider rejection, timeout, missing provider receipt or failure to save that receipt returns unavailable and leaves the stored request pending. Pending means both mail receipt fields are empty; a stored receipt supplies the provider mail ID and mail time. A pending retry less than 23 elapsed hours old reuses the same row, original payload and provider idempotency key, and returns received only after the mail receipt is saved. At exactly 23 elapsed hours or later, an admitted submission creates a new request with a new provider key and the newly submitted fields; the old pending row remains for retention. A second owner email is acceptable if the earlier delivery was unresolved. Rate limits still apply before this new request. Concurrent callers may repeat HTTP delivery attempts with that same key and payload, but the provider sends one email. Storage or mail failure returns unavailable; the visitor sees the contact fallback and no false success. Operator CSV export is a private command requiring database credentials, with no public export endpoint. It includes every retained request ordered by creation instant and ID, all submitted fields and mail receipt fields. The header has sixteen columns: id, created_at, kind, name, email, plant_name, city, phase, sending, organization, role, plants, message, ip_address, mail_id, mailed_at. Every data cell is quoted, embedded quotes are doubled, rows use CRLF and cells beginning with optional whitespace then =, +, @ or - are prefixed with an apostrophe to prevent spreadsheet formulas. A file export creates a new private file with mode 0600 and refuses to overwrite an existing file. The restricted scheduled job deletes requests strictly older than 12 calendar months, clears stored IP addresses strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours. Exact cutoff rows are retained; a twelve-month boundary request can still have its older IP cleared. No account, CRM record, newsletter or double opt-in is created. The result uses status received, invalid with `fieldErrors`, rate_limited with reason email or ip, or unavailable. Field error codes are required, email, number and too_long. Retention reports `deleted` and `clearedIps`.",
       "spec": "docs/product/operations.md#dashboard-and-public-surfaces",
       "operations": [
         "marketing.requestInvitation",
-        "marketing.readProductExamples"
+        "marketing.readProductExamples",
+        "marketing.exportAccessRequests",
+        "marketing.expireAccessRequests"
       ],
       "acceptance_ids": [
         "AC-ADM-006--ADM-006"
@@ -225,15 +227,15 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049"
+        "WP-097"
       ],
       "behavior_rules": [
         {
           "operation": "marketing.requestInvitation",
-          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20 IP hour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
+          "rule": "Two public access forms collect a kind and the declared fields with trimmed, normalized email. The planter form requires name, email, plant_name, city and phase; sending is optional. The network form requires name, email, organization and role; plants and message are optional. The plants field accepts an empty value or up to four decimal digits and stores a supplied count as a number. Optional empty text is omitted. The approved phase choices are 0 · Discovery, 1 · Core group, 2 · Launch team, 3 · Training, 4 · Pre-launch, 5 · Launch Sunday and 6 · Post-launch. A filled website honeypot returns received before field validation without a request, attempt or mail. Invalid fields return invalid with field errors and create no effects. Mail configuration, including the recipient, must be usable before admission. Admission permits five valid attempts per normalized email in a rolling 24-hour window and twenty per IP in a rolling hour. Admitted duplicates and pending retries count as attempts. An unavailable trusted IP uses a shared unknown-IP budget rather than bypassing that axis. Rate limits are checked before duplicate suppression or retry; email is the reason when both limits apply. A refusal stores no request or attempt and sends no mail. An admitted submission stores one early access request with the validated fields and original owner-mail payload. Only an earlier request with a recorded mail receipt suppresses a duplicate within 24 hours for the same normalized email and kind, returning received without another request or email. Provider rejection, timeout, missing provider receipt or failure to save that receipt returns unavailable and leaves the stored request pending. Pending means both mail receipt fields are empty; a stored receipt supplies the provider mail ID and mail time. A pending retry less than 23 elapsed hours old reuses the same row, original payload and provider idempotency key, and returns received only after the mail receipt is saved. At exactly 23 elapsed hours or later, an admitted submission creates a new request with a new provider key and the newly submitted fields; the old pending row remains for retention. A second owner email is acceptable if the earlier delivery was unresolved. Rate limits still apply before this new request. Concurrent callers may repeat HTTP delivery attempts with that same key and payload, but the provider sends one email. Storage or mail failure returns unavailable; the visitor sees the contact fallback and no false success. Operator CSV export is a private command requiring database credentials, with no public export endpoint. It includes every retained request ordered by creation instant and ID, all submitted fields and mail receipt fields. The header has sixteen columns: id, created_at, kind, name, email, plant_name, city, phase, sending, organization, role, plants, message, ip_address, mail_id, mailed_at. Every data cell is quoted, embedded quotes are doubled, rows use CRLF and cells beginning with optional whitespace then =, +, @ or - are prefixed with an apostrophe to prevent spreadsheet formulas. A file export creates a new private file with mode 0600 and refuses to overwrite an existing file. The restricted scheduled job deletes requests strictly older than 12 calendar months, clears stored IP addresses strictly older than 30 days, and deletes limiter attempts strictly older than 24 hours. Exact cutoff rows are retained; a twelve-month boundary request can still have its older IP cleared. No account, CRM record, newsletter or double opt-in is created."
         }
       ],
-      "title": "Public product landing, interactive examples and invite-request form"
+      "title": "Early access site and two access-request forms"
     },
     {
       "id": "REQ-ADM-007",
@@ -325,7 +327,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050"
       ]
@@ -348,7 +349,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
         "WP-049"
       ]
     },
@@ -372,9 +372,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -398,7 +396,6 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049",
-        "WP-050",
         "WP-091"
       ]
     },
@@ -424,7 +421,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050",
         "WP-091"
@@ -477,8 +473,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -548,10 +543,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-031",
         "WP-049",
-        "WP-050",
         "WP-053",
         "WP-055",
         "WP-091"
@@ -578,7 +570,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-050"
       ],
       "title": "External schedules and bounded HTTP job ticks",

@@ -67,7 +67,14 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
  return {root,cfg,git,
   getState:()=>JSON.parse(readFileSync(statePath,'utf8')),
   setState:(s:unknown)=>writeFileSync(statePath,JSON.stringify(s)),
-  authorize:()=>{const progress=JSON.parse(readFileSync(progressPath,'utf8'));for(const pkg of dag.packages)if(!pkg.depends_on.length)progress.packages[pkg.id].status='done';writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...dag.packages.map(p=>p.id),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
+  authorize:(wp='WP-001')=>{const progress=JSON.parse(readFileSync(progressPath,'utf8'));
+   const prerequisites=new Set<string>();
+   const visit=(id:string)=>{const pkg=dag.packages.find(p=>p.id===id)!;
+    for(const dep of [...pkg.depends_on,...(pkg.ui_depends_on??[])])if(!prerequisites.has(dep)){prerequisites.add(dep);visit(dep);}
+   };
+   visit(wp);
+   for(const id of prerequisites)progress.packages[id].status='done';
+   writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...dag.packages.map(p=>p.id),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
   close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}

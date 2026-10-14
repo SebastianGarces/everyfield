@@ -255,7 +255,6 @@
         "REQ-IDN-032"
       ],
       "work_packages": [
-        "WP-004",
         "WP-010"
       ],
       "title": "Account avatar upload, replacement, removal and authenticated delivery",
@@ -298,7 +297,6 @@
         "REQ-IDN-029"
       ],
       "work_packages": [
-        "WP-005",
         "WP-010"
       ],
       "title": "Email change request, proof, confirmation and security notice"
@@ -324,7 +322,6 @@
         "REQ-IDN-029"
       ],
       "work_packages": [
-        "WP-005",
         "WP-010"
       ],
       "behavior_rules": [
@@ -504,7 +501,6 @@
         "REQ-IDN-033"
       ],
       "work_packages": [
-        "WP-007",
         "WP-010"
       ],
       "title": "Church profile, locality, timezone, inactivity and digest schedule",
@@ -719,7 +715,6 @@
         "REQ-IDN-030"
       ],
       "work_packages": [
-        "WP-007",
         "WP-009"
       ],
       "behavior_rules": [
@@ -1353,8 +1348,7 @@
       ],
       "work_packages": [
         "WP-005",
-        "WP-006",
-        "WP-050"
+        "WP-006"
       ],
       "behavior_rules": [
         {
@@ -1442,7 +1436,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-003",
         "WP-005",
         "WP-006",
         "WP-008"
@@ -1476,7 +1469,6 @@
         "WP-006",
         "WP-010",
         "WP-039",
-        "WP-050",
         "WP-052",
         "WP-053",
         "WP-091"
@@ -1515,15 +1507,12 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-006",
         "WP-010",
         "WP-037",
         "WP-039",
-        "WP-050",
+        "WP-058",
         "WP-091",
-        "WP-094",
-        "WP-058"
+        "WP-094"
       ],
       "behavior_rules": [
         {
@@ -1589,7 +1578,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-010",
         "WP-039"
       ],
       "behavior_rules": [

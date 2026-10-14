@@ -4,7 +4,8 @@
 Reads the :root and [data-theme="dark"] token blocks and the gradient-card
 tones from design/everyfield-ui.html and writes design/handoff/tokens.css.
 Also writes the brand mark and wordmark to design/handoff/assets/ as SVG,
-and components.md from the prototype's Inventory table. The --check mode also
+components.md from the prototype's Inventory table, and fills empty screen-map
+ownership cells from the feature catalog. The --check mode also
 confirms that every prototype route is listed in screens.md, that every feature
 with a route in docs/catalog/features.json has a status in the screen-to-feature
 map, and that each not-drawn row names only packages that own one of its features.
@@ -241,6 +242,24 @@ def expand(text):
     return ids
 
 
+def screen_owners(screens):
+    """Fill missing owners from the catalog, preserving annotated owner cells."""
+    features = {f["id"]: f for f in json.loads(FEATURES.read_text(encoding="utf-8"))}
+    start, end = screens.find("## Screen-to-feature map"), screens.find("## Design system pages")
+    if start < 0 or end < 0:
+        return screens
+    rows = []
+    for line in screens[start:end].splitlines(keepends=True):
+        cells = line.split("|")
+        if line.startswith("|") and len(cells) == 6 and not cells[3].strip():
+            ids = [i for i in expand(cells[2]) if i in features]
+            owners = sorted({wp for i in ids for wp in features[i]["work_packages"]})
+            cells[3] = " " + (", ".join(owners) if owners else "none in v3") + " "
+            line = "|".join(cells)
+        rows.append(line)
+    return screens[:start] + "".join(rows) + screens[end:]
+
+
 def feature_map(screens):
     """Return problems in the screen-to-feature map compared with the catalog."""
     features = {f["id"]: f for f in json.loads(FEATURES.read_text(encoding="utf-8"))}
@@ -277,9 +296,10 @@ def main():
     html = SOURCE.read_text(encoding="utf-8")
     comp_md, comp_count = components(html)
     outputs = {TARGET: render(html), **symbols(html), COMPONENTS: comp_md}
+    screens = SCREENS.read_text(encoding="utf-8") if SCREENS.exists() else ""
+    outputs[SCREENS] = screen_owners(screens)
     if "--check" in sys.argv:
         stale = [p.name for p, text in outputs.items() if not p.exists() or p.read_text(encoding="utf-8") != text]
-        screens = SCREENS.read_text(encoding="utf-8") if SCREENS.exists() else ""
         missing = [r for r in routes(html) if f"`{r}`" not in screens]
         map_problems = feature_map(screens)
         if stale or missing or map_problems:

@@ -47,6 +47,11 @@ export type Package = {
   interfaces: string[];
   acceptance_gates: string[];
   integration_rule: string;
+  context_scope: { proof_stage: string };
+  ui_specialist?: 'ui-designer';
+  ui_model?: string;
+  ui_composition_rule?: string;
+  fast_track?: { owner: string; scope: string; checks: string; signed_evf_proof_required: boolean };
 };
 
 export type Dag = {
@@ -137,6 +142,7 @@ export function loadConfig(root: string): Config {
 
 export function loadDag(root: string): Dag {
   const dag = readJson<Dag>(join(root, "docs/plan/dag.json"));
+  if(dag.packages.some(p=>p.fast_track!==undefined&&p.id!=='WP-097'))fail('Only WP-097 may declare fast_track.');
   const by = new Map(dag.packages.map(p => [p.id, p]));
   const visiting = new Set<string>(), done = new Set<string>();
   const visit = (id: string) => {

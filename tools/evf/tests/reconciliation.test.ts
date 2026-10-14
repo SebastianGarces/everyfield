@@ -183,7 +183,34 @@ test('BUG-final-head: genuinely qualified historical full plus current quick is 
   assert.throws(()=>currentProof(f.root,task,'verifier'),/No current full/);
  }finally{f.close();}
 });
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+test('BUG-12b04b1: S0 privileged calls require authority despite false allowed result keys',()=>{
+ const root=mkdtempSync(join(tmpdir(),'evf-refusal-'));
+ try{
+  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
+  const check=()=>spawnSync('python3',[join(root,'docs/acceptance/check.py'),'--root',root],{encoding:'utf8'});
+  assert.equal(check().status,0);
+  for(const [file,id,operation] of [
+   ['reference-release','REFREL-001','reference.activateGeneration'],
+   ['operations','CASE-OPS-006','fixtures.resetOwnedEnvironment'],
+   ['operations','CASE-OPS-008','dev.createIsolatedPreview']
+  ]){
+   const path=join(root,`docs/acceptance/${file}.json`),bytes=readFileSync(path,'utf8');
+   const data=JSON.parse(bytes),example=data.cases.find((c:{id:string})=>c.id===id);
+   example.actor={account:'A',session:'session-A',context:'P'};
+   delete example.given['caller-capability'];
+   writeFileSync(path,JSON.stringify(data));
+   const refused=check();
+   assert.equal(refused.status,1,`${id}: false allowed result must not bypass caller authority`);
+   assert.match(refused.stderr,new RegExp(`${id}: actor lacks authority for ${operation.replaceAll('.','\\.')}`));
+   example.expected={state:{},result:{error_code:'access_denied'},event:null};
+   writeFileSync(path,JSON.stringify(data));
+   assert.equal(check().status,0,`${id}: an explicit denial permits an unauthorized caller`);
+   writeFileSync(path,bytes);
+  }
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
 const importGit=(cwd:string,...args:string[])=>execFileSync('git',['-C',cwd,...args],{encoding:'utf8'});
 test('INV-feedback-reservations: old reservation charges current budget, recovery stays visible and untrusted actor cannot close',()=>{
  const f=fixture();try{
@@ -312,9 +339,45 @@ import { existsSync } from 'node:fs';
 import { stack } from '../task.ts';
 import { draftProofPlan } from '../proof-plan.ts';
 import { caseCoverage, caseGrep } from '../coverage.ts';
-import { producerReady, recordProgress } from '../progress.ts';
+import { producerReady, recordProgress, recordFastTrack } from '../progress.ts';
 import { contractFingerprint } from '../lib.ts';
 import { renderAc, renderBrief } from '../brief.ts';
+
+test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main',()=>{
+ const f=fixture();try{
+  // Deliberately do not call authorize(): its transitive done shortcut hid this escaped bug.
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  for(const g of gates.gates)if(g.id==='G-AUTH')g.status='authorized';else if(g.id==='G-WORKFLOW')g.status='reconciled-independent-review';
+  writeFileSync(path,JSON.stringify(gates));f.commit();
+  const commit=f.git('rev-parse','main'),progressPath=join(f.root,'docs/build-progress.json');
+  const evidence={commit,checks:[{command:'normal tests',result:'passed',evidence:'/operator/tests.log'}],author:{actor:'author',model_family:'Sol'},verifier:{actor:'verifier',model_family:'Opus',verdict:'approved',commit,evidence:'intent://verifier-review'},owner_go_live:{actor:'Sebastian',commit,evidence:'intent://owner-go-live'}};
+  assert.throws(()=>requireImplementation(f.root,'WP-087'),/Prerequisites need reviewed producer\/interface milestones: WP-097/);
+  const before=readFileSync(progressPath,'utf8');
+  for(const [wp,input,reason] of [
+   ['WP-087',evidence,/limited to the declared WP-097/],
+   ['WP-097',{},/nonempty strings/],
+   ['WP-097',{...evidence,commit:'0'.repeat(40)},/already on main/],
+   ['WP-097',{...evidence,checks:[]},/passing normal test/],
+   ['WP-097',{...evidence,checks:[{...evidence.checks[0],result:'failed'}]},/Every fast-track test must pass/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,commit:'0'.repeat(40)}},/approvals must name/],
+   ['WP-097',{...evidence,verifier:{...evidence.verifier,model_family:'Sol'}},/distinct author\/verifier/],
+   ['WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,actor:'author'}},/declared owner/],
+  ] as const){assert.throws(()=>recordFastTrack(f.root,wp,input),reason);assert.equal(readFileSync(progressPath,'utf8'),before);}
+  f.git('checkout','-b','unmerged');writeFileSync(join(f.root,'candidate.txt'),'unmerged');f.git('add','candidate.txt');f.git('commit','-qm','Unmerged fixture commit');
+  const unmerged=f.git('rev-parse','HEAD');
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,commit:unmerged,verifier:{...evidence.verifier,commit:unmerged},owner_go_live:{...evidence.owner_go_live,commit:unmerged}}),/already on main/);
+  assert.equal(readFileSync(progressPath,'utf8'),before);f.git('checkout','main');
+  recordFastTrack(f.root,'WP-097',evidence);
+  const after=readFileSync(progressPath,'utf8'),progress=JSON.parse(after);
+  assert.equal(progress.packages['WP-097'].status,'done');
+  assert.deepEqual(progress.packages['WP-097'].fast_track,evidence);
+  requireImplementation(f.root,'WP-087');
+  assert.throws(()=>requireImplementation(f.root,'WP-001'),/WP-087/);
+  recordFastTrack(f.root,'WP-097',evidence);assert.equal(readFileSync(progressPath,'utf8'),after);
+  assert.throws(()=>recordFastTrack(f.root,'WP-097',{...evidence,owner_go_live:{...evidence.owner_go_live,evidence:'different approval'}}),/already records different evidence/);
+  assert.equal(readFileSync(progressPath,'utf8'),after);
+ }finally{f.close();}
+});
 
 test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
  const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
@@ -325,6 +388,7 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
  const brief=renderBrief(source,parseTask('WP-002'),{});
  assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
  assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
+ assert.match(brief,/Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
  assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
  const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
  const parts=buildBlocks(source,selected).blocks;
@@ -418,7 +482,21 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
   delete agenda.action.arguments.expected_answer;writeFileSync(casePath,JSON.stringify(caseFile));
   assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires available case actions.*WP-001\/TARGET-MTG-005/s);
   assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  // A plant Admin cannot use an operator operation as an evidence reader.
+  agenda.action={operation:'engineering.inventoryTools',arguments:{}};
+  writeFileSync(casePath,JSON.stringify(caseFile));
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*actor lacks authority.*engineering.inventoryTools/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
   writeFileSync(casePath,caseBytes);writeFileSync(manifestPath,manifestBytes);
+  // An owned requirement needs an owned case even with signed passing integration evidence.
+  const requirementPath=join(f.root,'docs/catalog/requirements/communications-notifications.json');
+  const requirementBytes=readFileSync(requirementPath,'utf8'),requirementFile=JSON.parse(requirementBytes);
+  requirementFile.requirements.find((r:{id:string})=>r.id==='REQ-NTF-004').work_packages.push('WP-001');
+  writeFileSync(requirementPath,JSON.stringify(requirementFile));
+  execFileSync('python3',[join(f.root,'docs/package-context.py'),'--root',f.root,'--refresh-manifest']);
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*WP-001\/REQ-NTF-004: owned requirement has no owned case/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  writeFileSync(requirementPath,requirementBytes);writeFileSync(manifestPath,manifestBytes);
   listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
   const closed=readFileSync(progressPath,'utf8');listShipped(f.root,[integration.id]);assert.equal(readFileSync(progressPath,'utf8'),closed);
  }finally{console.log=oldLog;f.close();}
@@ -490,7 +568,9 @@ test('INV-bootstrap-readiness: missing owner setup lists each prerequisite witho
    'trusted signed runner command with {request}; owner reviews its identity and review adapter',
    'reviewed Ed25519 public key; private key stays outside agent worktrees',
    'owner-reviewed bootstrap application qualification and assertion/report driver',
-   'reviewed WP-087 producer proof plan','reviewed WP-001 proof plan',
+   'reviewed WP-087 producer proof plan',
+   'owner-approved WP-097 fast-track completion on main; import reviewed evidence before WP-087',
+   'reviewed WP-001 proof plan',
    'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring',
    'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087']);
   f.authorize();assert.equal(bootstrapReadiness(f.root)[0][0],true);assert.equal(bootstrapReadiness(f.root)[1][0],true);
