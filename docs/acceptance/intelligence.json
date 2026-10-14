@@ -8680,7 +8680,7 @@
     },
     {
       "id": "CA019",
-      "requirement": "At 2026-10-13, valid acquisition October 8 then withdrawal October 12 decreases current size but last genuine acquisition remainsOctober 8(5 days), so withdrawal cannot create a false stalled clock. Correcting invalidOctober 8 evidence removes/recomputes that acquisition with history; an existing person rejoining keeps their original valid first occurrence and is not a new acquisition.",
+      "requirement": "At 2026-10-13, valid acquisition October 8 then withdrawal October 12 decreases current size but last genuine acquisition remains October 8(5 days), so withdrawal cannot create a false stalled clock. Correcting invalid October 8 evidence removes/recomputes that acquisition with history; an existing person rejoining keeps their original valid first occurrence and is not a new acquisition.",
       "requirement_ids": [
         "REQ-PPL-026"
       ],
@@ -8699,7 +8699,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "At asOf 2026-10-13 genuine first adult acquisition October 8 then withdrawal October 12; separately correct invalidOctober 8 source and reactivate an older adult.",
+      "description": "At asOf 2026-10-13 genuine first adult acquisition October 8 then withdrawal October 12; separately correct invalid October 8 source and reactivate an older adult.",
       "given": {
         "P": {
           "fixture_type": "plant",

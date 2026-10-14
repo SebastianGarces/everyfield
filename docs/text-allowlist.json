@@ -1,8 +1,6 @@
 {
   "purpose": "Reviewed technical tokens for check-text.py; exceptions are exact, never prose-wide.",
   "tokens": {
-    "4Cs": "Canonical methodology name.",
-    "e2e": "Established end-to-end test abbreviation.",
     "sha256": "Hash algorithm and manifest field name.",
     "python3": "Interpreter command.",
     "utf8CsvBytes": "Existing result field name, not prose.",

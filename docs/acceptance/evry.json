@@ -22750,7 +22750,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "10000 People; independent matched count 10000; pages 100; finite 24 tool/128 kinput/16 koutput/180s budgets",
+      "description": "10000 People; independent matched count 10000; pages 100; finite 24 tool/128k input/16k output/180s budgets",
       "given": {
         "P": {
           "fixture_type": "plant",

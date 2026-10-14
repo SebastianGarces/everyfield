@@ -6838,7 +6838,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Stored S 1 hide,S 2 edit,N 1 edit,global; source browse S2; later S 1 ends and rejoining recognition unranked.",
+      "description": "Stored S1 hide, S2 edit, N1 edit,global; source browse S2; later S1 ends and rejoining recognition unranked.",
       "given": {
         "P": {
           "fixture_type": "plant",

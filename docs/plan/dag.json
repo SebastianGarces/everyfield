@@ -2663,7 +2663,7 @@
       ],
       "outputs": [
         "Everyfield authors/tests a separate versioned portfolio rubric v1, records content hashes and fixtures, then collects user feedback; original SME PI is unchanged.",
-        "Exact preserved SME rubric plus approved evidence overlay, immutable rubric/reference manifests, current citations/entitlement and separate Network rubricv 1."
+        "Exact preserved SME rubric plus approved evidence overlay, immutable rubric/reference manifests, current citations/entitlement and separate Network rubric v1."
       ],
       "owning_paths": [
         "packages/domain/src/intelligence/",

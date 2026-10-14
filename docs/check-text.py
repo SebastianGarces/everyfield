@@ -20,7 +20,7 @@ SPLIT_WORDS = {
 }
 # Observed corruptions, deliberately not a spellchecker or a compound-word ban.
 JOINED_WORDS = {
-    'notan': 'not an', 'nothheld': 'not held', 'remainnot_started': 'remain not_started',
+    'rubricv': 'rubric v', 'notan': 'not an', 'nothheld': 'not held', 'remainnot_started': 'remain not_started',
     'physicalday': 'physical day', 'elapsedhours': 'elapsed hours',
     'elapsedhour': 'elapsed hour', 'pertenantpage': 'per tenant page',
     'pertenant': 'per tenant', 'millionchars': 'million chars',
@@ -334,6 +334,11 @@ BAD = re.compile(r'(?<![\w])(?:' + '|'.join(re.escape(x).replace(r'\ ', r'[ \t]+
                  sorted(SPLIT_WORDS | JOINED_WORDS, key=len, reverse=True)) + r')(?![\w])')
 TOKEN = re.compile(r'\b[A-Za-z0-9]+\b')
 NUMBER_JOIN = re.compile(r'[a-z]\d|\d[a-z]{3,}')
+# Units may touch the number, but must be separated from following prose.
+UNIT_WORD = re.compile(r'\b(?:\d+(?:MiB|[hk])[a-z]{3,}|\d+[ \t]+(?:k(?:input|output)|hcontact))\b')
+MONTH_JOIN = re.compile(
+    r'\b[a-z]+(?:January|February|March|April|May|June|July|August|September|October|November|December)\b')
+SPLIT_LABEL = re.compile(r'\b[SN][ \t]+\d+(?=[ \t]+(?:hide|edit|ends)\b)')
 DECIMAL = re.compile(r'\b\d+\. +\d+\b')
 # Mask complete technical units, never individual word fragments within prose.
 TECHNICAL = re.compile(
@@ -354,6 +359,11 @@ def problems(text, allowed):
     cleaned = prose(text)
     for match in BAD.finditer(cleaned):
         yield match.start(), match.group(), 'damaged word spacing'
+    for pattern, reason in ((UNIT_WORD, 'unit joined to word'),
+                            (MONTH_JOIN, 'word joined to month'),
+                            (SPLIT_LABEL, 'split fixture label')):
+        for match in pattern.finditer(cleaned):
+            yield match.start(), match.group(), reason
     for match in DECIMAL.finditer(cleaned):
         yield match.start(), match.group(), 'split decimal'
     for match in TOKEN.finditer(cleaned):

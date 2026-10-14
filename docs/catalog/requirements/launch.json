@@ -99,7 +99,7 @@
         "PI-009",
         "PI-032"
       ],
-      "text": "Calendar launch-window clocks never substitute for 72 elapsed release hours or 48 hcontact performance.",
+      "text": "Calendar launch-window clocks never substitute for 72 elapsed release hours or 48h contact performance.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
