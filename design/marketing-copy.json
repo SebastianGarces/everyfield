@@ -462,7 +462,7 @@
       }
     },
     "privacy_page": {
-      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data. Unresolved publication items (owner): the provider that hosts the sebastian@everyfield.app mailbox, how long email copies of requests stay in that inbox and how they are deleted, and any reply deadline. Add the confirmed duration and deletion wording to 'How long we keep it' before go-live.",
+      "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data. Unresolved publication items (owner): the provider that hosts the owner inbox (EARLY_ACCESS_EMAIL_TO), how long email copies of requests stay in that inbox and how they are deleted, and any reply deadline. Add the confirmed duration and deletion wording to 'How long we keep it' before go-live.",
       "title": "Privacy policy",
       "updated": "October 14, 2026",
       "intro": [

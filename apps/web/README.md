@@ -9,7 +9,7 @@ Copy `apps/web/.env.example` to `apps/web/.env.local`. Keep values outside Git a
 - `DATABASE_URL`: v3 PostgreSQL connection string.
 - `RESEND_API_KEY`: Resend send permission for the verified sender domain.
 - `EMAIL_FROM`: verified sender, including an optional display name.
-- `EARLY_ACCESS_EMAIL_TO`: the single owner inbox. Production uses sebastian@everyfield.app.
+- `EARLY_ACCESS_EMAIL_TO`: the single owner inbox. Production sets it in Vercel; the address is not kept in the repository.
 - `CRON_SECRET`: a random secret for the retention route. Set it in Vercel before deployment.
 - `EARLY_ACCESS_EMAIL_SUBJECT_PREFIX`: optional prefix for approved real-mail checks, such as `[EveryField test] `. Leave empty in production.
 
