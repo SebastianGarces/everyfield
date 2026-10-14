@@ -16850,8 +16850,9 @@
       "WIKI52-003"
     ],
     "work_packages": [
-      "WP-036",
-      "WP-037"
+      "WP-037",
+      "WP-079",
+      "WP-080"
     ],
     "routes": [
       "proposed Discovery document editor",

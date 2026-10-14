@@ -482,8 +482,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-006",
         "interface_owner_work_package": "WP-006",
@@ -636,8 +635,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-006",
         "interface_owner_work_package": "WP-006",
@@ -774,8 +772,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-006",
         "interface_owner_work_package": "WP-006",
@@ -914,7 +911,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -1043,7 +1039,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -1153,7 +1148,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -1265,7 +1259,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -1386,8 +1379,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -1514,8 +1506,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -1666,8 +1657,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -1788,7 +1778,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -1915,7 +1904,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -2049,7 +2037,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -2187,7 +2174,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -2308,7 +2294,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -2429,8 +2414,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-005",
         "interface_owner_work_package": "WP-005",
@@ -2542,8 +2526,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-005",
         "interface_owner_work_package": "WP-005",
@@ -2665,7 +2648,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -2788,7 +2770,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -2967,7 +2948,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -3172,7 +3152,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -3388,7 +3367,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -3636,8 +3614,7 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-007",
         "interface_owner_work_package": "WP-007",
@@ -3839,7 +3816,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -4051,7 +4027,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -4267,7 +4242,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -4482,7 +4456,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -4623,8 +4596,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-005",
         "interface_owner_work_package": "WP-005",
@@ -4737,8 +4709,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-005",
         "interface_owner_work_package": "WP-005",
@@ -4859,7 +4830,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -4969,7 +4939,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -5087,7 +5056,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -5191,7 +5159,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -5303,7 +5270,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -5413,7 +5379,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-005",
@@ -5788,7 +5753,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -5937,7 +5901,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -6069,8 +6032,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -6206,7 +6168,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -6349,7 +6310,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -6527,7 +6487,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-029",
@@ -6643,7 +6602,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -6809,8 +6767,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -6943,7 +6900,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -7100,7 +7056,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -7226,8 +7181,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -7354,8 +7308,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -7504,8 +7457,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -7646,8 +7598,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -7795,8 +7746,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -7935,8 +7885,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -8057,8 +8006,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -8190,8 +8138,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -8328,8 +8275,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -8463,8 +8409,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -8638,8 +8583,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -8776,7 +8720,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -8922,7 +8865,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-029",
@@ -9055,7 +8997,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -9214,7 +9155,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -9363,8 +9303,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-028",
         "interface_owner_work_package": "WP-028",
@@ -9509,8 +9448,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -9670,8 +9608,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -9813,7 +9750,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -9984,7 +9920,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -10145,7 +10080,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -10285,8 +10219,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -10432,7 +10365,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -10570,7 +10502,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -10706,7 +10637,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -10842,8 +10772,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-029",
         "interface_owner_work_package": "WP-029",
@@ -10986,7 +10915,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -11112,8 +11040,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -11240,8 +11167,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-027",
         "interface_owner_work_package": "WP-027",
@@ -11379,7 +11305,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/commands.ts",
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-027",
@@ -11535,8 +11460,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -11671,8 +11595,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -11819,8 +11742,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -11955,8 +11877,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -12091,8 +12012,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -12227,8 +12147,7 @@
         "native_entry": "apps/web/src/features/dashboard/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-048",
         "interface_owner_work_package": "WP-048",
@@ -12869,7 +12788,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -12987,7 +12905,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -13099,8 +13016,7 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-009",
         "interface_owner_work_package": "WP-009",
@@ -13237,7 +13153,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -13420,7 +13335,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -13614,8 +13528,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -13802,7 +13715,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -13976,8 +13888,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -14169,8 +14080,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -14306,8 +14216,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -14485,7 +14394,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -14661,8 +14569,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -14877,8 +14784,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-036",
         "interface_owner_work_package": "WP-036",
@@ -15033,7 +14939,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -15243,8 +15148,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -15387,8 +15291,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-037",
         "interface_owner_work_package": "WP-037",
@@ -15552,7 +15455,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -15715,8 +15617,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-036",
         "interface_owner_work_package": "WP-036",
@@ -15902,7 +15803,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -16078,8 +15978,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-036",
         "interface_owner_work_package": "WP-036",
@@ -16207,8 +16106,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-036",
         "interface_owner_work_package": "WP-036",
@@ -16343,8 +16241,7 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/reads.ts",
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-036",
         "interface_owner_work_package": "WP-036",
@@ -16485,7 +16382,6 @@
         "native_entry": "apps/web/src/features/documents/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/documents/commands.ts#documents_useForChurch",
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-037",
@@ -16770,7 +16666,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -23180,7 +23075,6 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -23398,8 +23292,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -23544,7 +23437,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -23693,8 +23585,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -23828,8 +23719,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -23962,7 +23852,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -24121,7 +24010,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -24277,7 +24165,6 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/platform/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -24422,7 +24309,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -24892,7 +24778,6 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-023",
@@ -25071,8 +24956,7 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-023",
         "interface_owner_work_package": "WP-023",
@@ -25238,8 +25122,7 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-023",
         "interface_owner_work_package": "WP-023",
@@ -25420,7 +25303,6 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-023",
@@ -25584,8 +25466,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -25749,7 +25630,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -25878,7 +25758,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -26011,7 +25890,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -26136,8 +26014,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -26322,7 +26199,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -26463,8 +26339,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -26630,8 +26505,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -26797,8 +26671,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -26982,7 +26855,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-042",
@@ -27148,7 +27020,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -27298,8 +27169,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -27479,7 +27349,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -27602,7 +27471,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-040",
@@ -27767,7 +27635,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-043",
@@ -27979,8 +27846,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -28122,8 +27988,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -28269,8 +28134,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -28427,8 +28291,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -28569,8 +28432,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -28758,8 +28620,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-040",
         "interface_owner_work_package": "WP-040",
@@ -28930,8 +28791,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -29221,8 +29081,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-040",
         "interface_owner_work_package": "WP-040",
@@ -29493,8 +29352,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-040",
         "interface_owner_work_package": "WP-040",
@@ -29767,8 +29625,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -29963,8 +29820,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -30111,8 +29967,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -30247,8 +30102,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-041",
         "interface_owner_work_package": "WP-041",
@@ -30387,8 +30241,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-040",
         "interface_owner_work_package": "WP-040",
@@ -30517,7 +30370,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -30639,7 +30491,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-043",
@@ -30773,7 +30624,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-043",
@@ -30911,7 +30761,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-043",
@@ -31068,8 +30917,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-041",
         "interface_owner_work_package": "WP-041",
@@ -31195,8 +31043,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-041",
         "interface_owner_work_package": "WP-041",
@@ -31323,7 +31170,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -31466,7 +31312,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-042",
@@ -31598,7 +31443,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-043",
@@ -31731,8 +31575,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -31906,7 +31749,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -32074,7 +31916,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-044",
@@ -32186,8 +32027,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -32376,8 +32216,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-044",
         "interface_owner_work_package": "WP-044",
@@ -32558,8 +32397,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-005",
         "interface_owner_work_package": "WP-005",
@@ -33297,7 +33135,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -33465,7 +33302,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -33638,7 +33474,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -33818,7 +33653,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -33995,7 +33829,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -34145,7 +33978,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -34292,7 +34124,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -34433,7 +34264,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -34581,7 +34411,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -34738,8 +34567,7 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/reads.ts",
         "evry_work_packages": [
-          "WP-075",
-          "WP-076"
+          "WP-075"
         ],
         "producer_work_package": "WP-045",
         "interface_owner_work_package": "WP-045",
@@ -34994,8 +34822,7 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/reads.ts",
         "evry_work_packages": [
-          "WP-075",
-          "WP-076"
+          "WP-075"
         ],
         "producer_work_package": "WP-046",
         "interface_owner_work_package": "WP-046",
@@ -35152,8 +34979,7 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/reads.ts",
         "evry_work_packages": [
-          "WP-075",
-          "WP-076"
+          "WP-075"
         ],
         "producer_work_package": "WP-045",
         "interface_owner_work_package": "WP-045",
@@ -35279,8 +35105,7 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/reads.ts",
         "evry_work_packages": [
-          "WP-075",
-          "WP-076"
+          "WP-075"
         ],
         "producer_work_package": "WP-045",
         "interface_owner_work_package": "WP-045",
@@ -35427,8 +35252,7 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/reads.ts",
         "evry_work_packages": [
-          "WP-075",
-          "WP-076"
+          "WP-075"
         ],
         "producer_work_package": "WP-045",
         "interface_owner_work_package": "WP-045",
@@ -35572,7 +35396,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -35744,7 +35567,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -35907,7 +35729,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -36091,7 +35912,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -36275,7 +36095,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -36451,7 +36270,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-045",
@@ -36601,7 +36419,6 @@
         "native_entry": "apps/web/src/features/launch/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/launch/commands.ts",
         "evry_work_packages": [
-          "WP-075",
           "WP-076"
         ],
         "producer_work_package": "WP-046",
@@ -36760,7 +36577,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -36899,7 +36715,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -37040,7 +36855,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -37179,8 +36993,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-028",
         "interface_owner_work_package": "WP-028",
@@ -37318,7 +37131,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -37449,8 +37261,7 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/communication/reads.ts",
         "evry_work_packages": [
-          "WP-071",
-          "WP-072"
+          "WP-071"
         ],
         "producer_work_package": "WP-028",
         "interface_owner_work_package": "WP-028",
@@ -37571,7 +37382,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -37700,7 +37510,6 @@
         "native_entry": "apps/web/src/features/communication/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-071",
           "WP-072"
         ],
         "producer_work_package": "WP-028",
@@ -38200,8 +38009,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -38313,8 +38121,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -38428,7 +38235,6 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-049",
@@ -38542,8 +38348,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -38657,8 +38462,7 @@
         "native_entry": "apps/web/src/features/admin/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -38775,7 +38579,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -38881,7 +38684,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -38988,8 +38790,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -39097,8 +38898,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -39237,7 +39037,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -39375,8 +39174,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -39515,8 +39313,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -39669,7 +39466,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -39809,8 +39605,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -39949,7 +39744,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -40121,7 +39915,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -40279,7 +40072,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -40424,7 +40216,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -40557,8 +40348,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -40695,8 +40485,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -40832,7 +40621,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -40989,7 +40777,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -41128,7 +40915,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -41272,7 +41058,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -41431,7 +41216,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -41592,7 +41376,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -41741,7 +41524,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -41889,7 +41671,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -42032,7 +41813,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -42200,7 +41980,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -42356,8 +42135,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -42494,8 +42272,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -42651,7 +42428,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -42801,8 +42577,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -42974,8 +42749,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -43108,8 +42882,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -43262,8 +43035,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -43400,8 +43172,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -43540,7 +43311,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -43677,8 +43447,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -43893,8 +43662,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -44046,8 +43814,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -44196,8 +43963,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -44327,8 +44093,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -44494,8 +44259,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -44643,8 +44407,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-020",
         "interface_owner_work_package": "WP-020",
@@ -44765,7 +44528,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -44903,7 +44665,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -45042,8 +44803,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -45191,8 +44951,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-020",
         "interface_owner_work_package": "WP-020",
@@ -45338,8 +45097,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -45450,8 +45208,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-021",
         "interface_owner_work_package": "WP-021",
@@ -45603,7 +45360,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -45722,7 +45478,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -45864,7 +45619,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -46005,7 +45759,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -46146,7 +45899,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -46285,7 +46037,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -46392,7 +46143,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -46542,7 +46292,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-021",
@@ -46692,7 +46441,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -46875,7 +46623,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -47016,7 +46763,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -47160,8 +46906,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-022",
         "interface_owner_work_package": "WP-022",
@@ -47282,7 +47027,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-022",
@@ -47429,7 +47173,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -47540,7 +47283,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -47667,7 +47409,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -47816,7 +47557,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -47964,7 +47704,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -48113,8 +47852,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -48235,7 +47973,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -48374,7 +48111,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -48532,7 +48268,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -48671,7 +48406,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -48808,7 +48542,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -48945,7 +48678,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -49085,7 +48817,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -49232,7 +48963,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -49402,8 +49132,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -49552,7 +49281,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -49721,7 +49449,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -49874,8 +49601,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -50005,7 +49731,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -50135,7 +49860,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -50263,7 +49987,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -50382,8 +50105,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -50530,7 +50252,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -50673,8 +50394,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/reads.ts",
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -50811,7 +50531,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -50949,8 +50668,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/reads.ts",
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -51096,8 +50814,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/reads.ts",
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -51248,7 +50965,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -51411,7 +51127,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -51568,7 +51283,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -51709,7 +51423,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -51858,7 +51571,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -51985,7 +51697,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -52130,7 +51841,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-031",
@@ -52272,7 +51982,6 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-081",
           "WP-082"
         ],
         "producer_work_package": "WP-030",
@@ -52392,8 +52101,7 @@
         "native_entry": "apps/web/src/features/notifications/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/notifications/commands.ts",
         "evry_work_packages": [
-          "WP-081",
-          "WP-082"
+          "WP-081"
         ],
         "producer_work_package": "WP-030",
         "interface_owner_work_package": "WP-030",
@@ -52523,7 +52231,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -52649,7 +52356,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -52783,7 +52489,6 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-009",
@@ -52898,8 +52603,7 @@
         "native_entry": "apps/web/src/features/onboarding/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-009",
         "interface_owner_work_package": "WP-009",
@@ -54532,8 +54236,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -54753,8 +54456,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -54979,8 +54681,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -55194,8 +54895,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -55381,7 +55081,6 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-047",
@@ -55639,7 +55338,6 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-047",
@@ -55862,8 +55560,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -56139,7 +55836,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-007",
@@ -56299,8 +55995,7 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-007",
         "interface_owner_work_package": "WP-007",
@@ -56458,7 +56153,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -56652,8 +56346,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -56813,8 +56506,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -56974,8 +56666,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -57131,8 +56822,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -57292,8 +56982,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -57449,8 +57138,7 @@
         "native_entry": "apps/web/src/features/oversight/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/organization-intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-047",
         "interface_owner_work_package": "WP-047",
@@ -57593,7 +57281,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-011",
@@ -57739,7 +57426,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -57880,7 +57566,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -57998,7 +57683,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -58142,7 +57826,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -58287,7 +57970,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -58430,8 +58112,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -58569,7 +58250,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -58721,7 +58401,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -58936,7 +58615,6 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-015",
@@ -59101,7 +58779,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -59246,7 +58923,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -59405,7 +59081,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -59571,7 +59246,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -59724,7 +59398,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -59867,7 +59540,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -60008,7 +59680,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -60148,7 +59819,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-011",
@@ -60292,7 +59962,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -60434,7 +60103,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -60575,7 +60243,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-011",
@@ -60701,7 +60368,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -60850,7 +60516,6 @@
         "native_entry": "apps/web/src/features/people/import-export/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-013",
@@ -61038,8 +60703,7 @@
         "native_entry": "apps/web/src/features/people/import-export/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-013",
         "interface_owner_work_package": "WP-013",
@@ -61172,8 +60836,7 @@
         "native_entry": "apps/web/src/features/people/import-export/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-013",
         "interface_owner_work_package": "WP-013",
@@ -61281,8 +60944,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -61442,8 +61104,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -61609,8 +61270,7 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/reads.ts",
         "evry_work_packages": [
-          "WP-061",
-          "WP-062"
+          "WP-061"
         ],
         "producer_work_package": "WP-014",
         "interface_owner_work_package": "WP-014",
@@ -61742,8 +61402,7 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/reads.ts",
         "evry_work_packages": [
-          "WP-061",
-          "WP-062"
+          "WP-061"
         ],
         "producer_work_package": "WP-014",
         "interface_owner_work_package": "WP-014",
@@ -61917,8 +61576,7 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/reads.ts",
         "evry_work_packages": [
-          "WP-061",
-          "WP-062"
+          "WP-061"
         ],
         "producer_work_package": "WP-014",
         "interface_owner_work_package": "WP-014",
@@ -62078,8 +61736,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -62225,8 +61882,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -62369,8 +62025,7 @@
         "native_entry": "apps/web/src/features/people/import-export/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-013",
         "interface_owner_work_package": "WP-013",
@@ -62516,8 +62171,7 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/reads.ts",
         "evry_work_packages": [
-          "WP-061",
-          "WP-062"
+          "WP-061"
         ],
         "producer_work_package": "WP-014",
         "interface_owner_work_package": "WP-014",
@@ -62659,8 +62313,7 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-015",
         "interface_owner_work_package": "WP-015",
@@ -62781,8 +62434,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -62940,8 +62592,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -63110,8 +62761,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -63255,8 +62905,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -63412,8 +63061,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -63567,8 +63215,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -63719,8 +63366,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -63874,8 +63520,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -64025,8 +63670,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -64165,8 +63809,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -64333,8 +63976,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -64499,8 +64141,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -64752,8 +64393,7 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -64930,8 +64570,7 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/reads.ts",
         "evry_work_packages": [
-          "WP-061",
-          "WP-062"
+          "WP-061"
         ],
         "producer_work_package": "WP-015",
         "interface_owner_work_package": "WP-015",
@@ -65096,8 +64735,7 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/reads.ts",
         "evry_work_packages": [
-          "WP-063",
-          "WP-064"
+          "WP-063"
         ],
         "producer_work_package": "WP-012",
         "interface_owner_work_package": "WP-012",
@@ -65235,7 +64873,6 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-015",
@@ -65372,8 +65009,7 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-015",
         "interface_owner_work_package": "WP-015",
@@ -65535,8 +65171,7 @@
         "native_entry": "apps/web/src/features/people/import-export/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-013",
         "interface_owner_work_package": "WP-013",
@@ -65689,8 +65324,7 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/reads.ts",
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-015",
         "interface_owner_work_package": "WP-015",
@@ -65840,7 +65474,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -65979,7 +65612,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -66120,8 +65752,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-059",
-          "WP-060"
+          "WP-059"
         ],
         "producer_work_package": "WP-011",
         "interface_owner_work_package": "WP-011",
@@ -66259,7 +65890,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -66402,7 +66032,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -66541,7 +66170,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -66684,7 +66312,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -66824,7 +66451,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -66965,7 +66591,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -67103,7 +66728,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -67242,7 +66866,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -67387,7 +67010,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -67529,7 +67151,6 @@
         "native_entry": "apps/web/src/features/people/corrections/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-015",
@@ -67682,7 +67303,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -67833,7 +67453,6 @@
         "native_entry": "apps/web/src/features/people/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people/commands.ts",
         "evry_work_packages": [
-          "WP-059",
           "WP-060"
         ],
         "producer_work_package": "WP-011",
@@ -67982,7 +67601,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -68123,7 +67741,6 @@
         "native_entry": "apps/web/src/features/people/fields/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-organization/commands.ts",
         "evry_work_packages": [
-          "WP-063",
           "WP-064"
         ],
         "producer_work_package": "WP-012",
@@ -68262,7 +67879,6 @@
         "native_entry": "apps/web/src/features/people/assessments/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/people-assessments/commands.ts",
         "evry_work_packages": [
-          "WP-061",
           "WP-062"
         ],
         "producer_work_package": "WP-014",
@@ -68392,7 +68008,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-038",
@@ -68496,8 +68111,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-038",
         "interface_owner_work_package": "WP-038",
@@ -68689,7 +68303,6 @@
         "native_entry": "apps/web/src/features/phases/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-038",
@@ -68820,8 +68433,7 @@
         "native_entry": "apps/web/src/features/phases/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-038",
         "interface_owner_work_package": "WP-038",
@@ -68976,8 +68588,7 @@
         "native_entry": "apps/web/src/features/phases/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-038",
         "interface_owner_work_package": "WP-038",
@@ -69122,8 +68733,7 @@
         "native_entry": "apps/web/src/features/phases/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-038",
         "interface_owner_work_package": "WP-038",
@@ -69277,7 +68887,6 @@
         "native_entry": "apps/web/src/features/phases/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-038",
@@ -69443,8 +69052,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -69590,7 +69198,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -69735,7 +69342,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -69882,7 +69488,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -69999,8 +69604,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-049",
         "interface_owner_work_package": "WP-049",
@@ -70283,8 +69887,7 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-007",
         "interface_owner_work_package": "WP-007",
@@ -70441,7 +70044,6 @@
         "native_entry": "apps/web/src/features/organizations/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-007",
@@ -72047,7 +71649,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-032",
@@ -72166,8 +71767,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-032",
         "interface_owner_work_package": "WP-032",
@@ -72443,8 +72043,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-032",
         "interface_owner_work_package": "WP-032",
@@ -73627,8 +73226,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-032",
         "interface_owner_work_package": "WP-032",
@@ -73935,7 +73533,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-032",
@@ -74189,7 +73786,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -74358,7 +73954,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -74533,7 +74128,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -74711,7 +74305,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -74887,7 +74480,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -75086,8 +74678,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-008",
         "interface_owner_work_package": "WP-008",
@@ -75253,8 +74844,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-008",
         "interface_owner_work_package": "WP-008",
@@ -75368,8 +74958,7 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-008",
         "interface_owner_work_package": "WP-008",
@@ -75551,7 +75140,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -75724,7 +75312,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -75894,7 +75481,6 @@
         "native_entry": "apps/web/src/features/identity/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-008",
@@ -76004,8 +75590,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-006",
         "interface_owner_work_package": "WP-006",
@@ -76105,8 +75690,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-006",
         "interface_owner_work_package": "WP-006",
@@ -76291,8 +75875,7 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/reads.ts",
         "evry_work_packages": [
-          "WP-083",
-          "WP-084"
+          "WP-083"
         ],
         "producer_work_package": "WP-010",
         "interface_owner_work_package": "WP-010",
@@ -76564,7 +76147,6 @@
         "native_entry": "apps/web/src/features/settings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/identity/commands.ts",
         "evry_work_packages": [
-          "WP-083",
           "WP-084"
         ],
         "producer_work_package": "WP-010",
@@ -76768,7 +76350,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-039",
@@ -76936,7 +76517,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-039",
@@ -77089,8 +76669,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-039",
         "interface_owner_work_package": "WP-039",
@@ -77219,8 +76798,7 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/reads.ts",
         "evry_work_packages": [
-          "WP-073",
-          "WP-074"
+          "WP-073"
         ],
         "producer_work_package": "WP-039",
         "interface_owner_work_package": "WP-039",
@@ -77414,7 +76992,6 @@
         "native_entry": "apps/web/src/features/intelligence/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/intelligence/commands.ts",
         "evry_work_packages": [
-          "WP-073",
           "WP-074"
         ],
         "producer_work_package": "WP-039",
@@ -77545,8 +77122,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-004",
         "interface_owner_work_package": "WP-004",
@@ -77708,7 +77284,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-004",
@@ -77885,7 +77460,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
           "WP-080"
         ],
         "producer_work_package": "WP-004",
@@ -78043,8 +77617,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-079",
-          "WP-080"
+          "WP-079"
         ],
         "producer_work_package": "WP-004",
         "interface_owner_work_package": "WP-004",
@@ -78226,7 +77799,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-026",
@@ -78367,7 +77939,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-026",
@@ -78508,7 +78079,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -78677,7 +78247,6 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-023",
@@ -78837,7 +78406,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -78977,7 +78545,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -79139,7 +78706,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -79313,7 +78879,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -79485,7 +79050,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-025",
@@ -79635,7 +79199,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-025",
@@ -79813,8 +79376,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -80005,7 +79567,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -80159,7 +79720,6 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-023",
@@ -80319,7 +79879,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -80475,7 +80034,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-026",
@@ -80616,7 +80174,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -80806,7 +80363,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -80952,8 +80508,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -81090,7 +80645,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -81234,7 +80788,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -81379,7 +80932,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -81547,7 +81099,6 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-023",
@@ -81716,8 +81267,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-025",
         "interface_owner_work_package": "WP-025",
@@ -81862,8 +81412,7 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-023",
         "interface_owner_work_package": "WP-023",
@@ -82031,8 +81580,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -82166,8 +81714,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -82310,7 +81857,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-026",
@@ -82551,8 +82097,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -82723,8 +82268,7 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-023",
         "interface_owner_work_package": "WP-023",
@@ -82867,8 +82411,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-025",
         "interface_owner_work_package": "WP-025",
@@ -83017,8 +82560,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -83187,8 +82729,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-026",
         "interface_owner_work_package": "WP-026",
@@ -83293,8 +82834,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -83425,8 +82965,7 @@
         "native_entry": "apps/web/src/features/followups/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-023",
         "interface_owner_work_package": "WP-023",
@@ -83556,8 +83095,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-025",
         "interface_owner_work_package": "WP-025",
@@ -83663,8 +83201,7 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -83820,8 +83357,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-026",
         "interface_owner_work_package": "WP-026",
@@ -83972,8 +83508,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-026",
         "interface_owner_work_package": "WP-026",
@@ -84108,8 +83643,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/reads.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -84254,7 +83788,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -84429,7 +83962,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -84587,7 +84119,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -84727,7 +84258,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-025",
@@ -84884,7 +84414,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -85018,7 +84547,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -85176,8 +84704,7 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
-          "WP-068"
+          "WP-067"
         ],
         "producer_work_package": "WP-024",
         "interface_owner_work_package": "WP-024",
@@ -85330,7 +84857,6 @@
         "native_entry": "apps/web/src/features/tasks/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/tasks/commands.ts",
         "evry_work_packages": [
-          "WP-067",
           "WP-068"
         ],
         "producer_work_package": "WP-024",
@@ -85489,7 +85015,6 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-018",
@@ -85634,8 +85159,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -85785,7 +85309,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -85921,7 +85444,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -86079,7 +85601,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -86239,7 +85760,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -86374,7 +85894,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -86531,7 +86050,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -86696,7 +86214,6 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-018",
@@ -86840,7 +86357,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -86985,7 +86501,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -87132,7 +86647,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -87298,7 +86812,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -87470,7 +86983,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -87635,7 +87147,6 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-018",
@@ -87782,7 +87293,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -87946,7 +87456,6 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-018",
@@ -88111,7 +87620,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -88277,7 +87785,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -88424,8 +87931,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -88564,8 +88070,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -88729,8 +88234,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -88885,8 +88389,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -89032,7 +88535,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -89195,7 +88697,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -89357,8 +88858,7 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-017",
         "interface_owner_work_package": "WP-017",
@@ -89471,7 +88971,6 @@
         "native_entry": null,
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -89681,8 +89180,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -89829,8 +89327,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -89998,8 +89495,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -90151,8 +89647,7 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-018",
         "interface_owner_work_package": "WP-018",
@@ -90297,8 +89792,7 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-017",
         "interface_owner_work_package": "WP-017",
@@ -90462,8 +89956,7 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-019",
         "interface_owner_work_package": "WP-019",
@@ -90621,8 +90114,7 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-017",
         "interface_owner_work_package": "WP-017",
@@ -90768,7 +90260,6 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-018",
@@ -90911,8 +90402,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -91062,8 +90552,7 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-017",
         "interface_owner_work_package": "WP-017",
@@ -91202,8 +90691,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -91359,8 +90847,7 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-019",
         "interface_owner_work_package": "WP-019",
@@ -91521,8 +91008,7 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-019",
         "interface_owner_work_package": "WP-019",
@@ -91676,8 +91162,7 @@
         "native_entry": "apps/web/src/features/teams/responsibilities/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-018",
         "interface_owner_work_package": "WP-018",
@@ -91832,8 +91317,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -92003,7 +91487,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -92144,8 +91627,7 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-019",
         "interface_owner_work_package": "WP-019",
@@ -92308,7 +91790,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -92464,7 +91945,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -92608,7 +92088,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -92766,7 +92245,6 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-017",
@@ -92930,7 +92408,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -93096,7 +92573,6 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-016",
@@ -93243,8 +92719,7 @@
         "native_entry": "apps/web/src/features/teams/roster-roles/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-017",
         "interface_owner_work_package": "WP-017",
@@ -93390,7 +92865,6 @@
         "native_entry": "apps/web/src/features/teams/training/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/commands.ts",
         "evry_work_packages": [
-          "WP-069",
           "WP-070"
         ],
         "producer_work_package": "WP-019",
@@ -93555,8 +93029,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -93711,8 +93184,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -93867,8 +93339,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -94036,8 +93507,7 @@
         "native_entry": "apps/web/src/features/teams/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/teams/reads.ts",
         "evry_work_packages": [
-          "WP-069",
-          "WP-070"
+          "WP-069"
         ],
         "producer_work_package": "WP-016",
         "interface_owner_work_package": "WP-016",
@@ -94183,7 +93653,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -94328,7 +93797,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -94476,7 +93944,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -94624,7 +94091,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -94798,8 +94264,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-020",
         "interface_owner_work_package": "WP-020",
@@ -94970,8 +94435,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-020",
         "interface_owner_work_package": "WP-020",
@@ -95137,8 +94601,7 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/reads.ts",
         "evry_work_packages": [
-          "WP-065",
-          "WP-066"
+          "WP-065"
         ],
         "producer_work_package": "WP-020",
         "interface_owner_work_package": "WP-020",
@@ -95275,7 +94738,6 @@
         "native_entry": "apps/web/src/features/meetings/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/meetings/commands.ts",
         "evry_work_packages": [
-          "WP-065",
           "WP-066"
         ],
         "producer_work_package": "WP-020",
@@ -95399,8 +94861,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -95540,8 +95001,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -95680,8 +95140,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -95863,8 +95322,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -96076,8 +95534,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -96266,8 +95723,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -96393,7 +95849,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-034",
@@ -96530,8 +95985,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -96660,8 +96114,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-035",
         "interface_owner_work_package": "WP-035",
@@ -96794,7 +96247,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-035",
@@ -96935,8 +96387,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -97092,7 +96543,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-035",
@@ -97314,7 +96764,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-035",
@@ -97528,8 +96977,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts#wiki_organizationArticles_getDraft",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-035",
         "interface_owner_work_package": "WP-035",
@@ -97662,7 +97110,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-035",
@@ -97873,7 +97320,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-035",
@@ -98073,8 +97519,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -98189,8 +97634,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -98338,7 +97782,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-034",
@@ -98478,8 +97921,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -98610,8 +98052,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -98761,7 +98202,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-034",
@@ -98910,8 +98350,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -99049,8 +98488,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -99180,8 +98618,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": null,
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -99327,8 +98764,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",
@@ -99470,7 +98906,6 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/commands.ts#wiki_setSourceOrder",
         "evry_work_packages": [
-          "WP-077",
           "WP-078"
         ],
         "producer_work_package": "WP-034",
@@ -99662,8 +99097,7 @@
         "native_entry": "apps/web/src/features/wiki/operations.ts",
         "evry_adapter": "packages/evry/src/adapters/wiki/reads.ts",
         "evry_work_packages": [
-          "WP-077",
-          "WP-078"
+          "WP-077"
         ],
         "producer_work_package": "WP-034",
         "interface_owner_work_package": "WP-034",

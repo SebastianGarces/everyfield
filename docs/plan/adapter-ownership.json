@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "status": "current-target-design; future-not-run",
   "kernel": {
     "owner": "evry-kernel-integrator",
@@ -10,222 +10,77 @@
       "WP-054",
       "WP-055"
     ],
-    "owning_files_by_package": {
+    "integration_rule": "The designated integrator reviews and composes kernel/adapter exports; domain producers own persistence. Coordinate shared interfaces before changing them.",
+    "boundary": "Kernel packages own the listed cohesive directories; read and command adapters own disjoint domain subdirectories. Builders choose filenames and exports.",
+    "owning_paths_by_package": {
       "WP-051": [
-        "packages/evry/src/runtime/loop.ts",
-        "packages/evry/src/runtime/run-protocol.ts",
-        "packages/evry/src/conversations/service.ts",
-        "packages/evry/src/context/compiler.ts",
-        "apps/web/src/features/evry/conversation-controller.ts",
-        "tests/evry/runtime/run-cases.ts"
+        "packages/evry/src/runtime/",
+        "packages/evry/src/conversations/",
+        "packages/evry/src/context/",
+        "apps/web/src/features/evry/conversation/",
+        "tests/evry/runtime/"
       ],
       "WP-052": [
-        "packages/evry/src/catalog/compose.ts",
-        "packages/evry/src/catalog/validate-manifests.ts",
-        "packages/evry/src/catalog/model-projection.ts",
-        "tests/evry/catalog/composition-cases.ts"
+        "packages/evry/src/catalog/",
+        "tests/evry/catalog/"
       ],
       "WP-053": [
-        "packages/evry/src/proposals/service.ts",
-        "packages/evry/src/proposals/review-projection.ts",
-        "packages/evry/src/execution/coordinator.ts",
-        "apps/web/src/features/evry/review-controller.ts",
-        "tests/evry/execution/approval-replay-cases.ts"
+        "packages/evry/src/proposals/",
+        "packages/evry/src/execution/",
+        "apps/web/src/features/evry/review/",
+        "tests/evry/execution/"
       ],
       "WP-054": [
-        "packages/evry/src/artifacts/service.ts",
-        "packages/evry/src/attachments/service.ts",
-        "apps/web/src/features/evry/artifact-controller.ts",
-        "tests/evry/artifacts/recovery-cases.ts"
+        "packages/evry/src/artifacts/",
+        "packages/evry/src/attachments/",
+        "apps/web/src/features/evry/artifacts/",
+        "tests/evry/artifacts/"
       ],
       "WP-055": [
-        "packages/evry/src/policy/boundaries.ts",
-        "tests/evry/evaluation/corpus-manifest.ts",
-        "tests/evry/evaluation/runner.ts",
-        "tests/evry/evaluation/release-contract.ts"
+        "packages/evry/src/policy/",
+        "tests/evry/evaluation/"
       ]
-    },
-    "integration_rule": "One designated integrator serially reviews/composes exports, catalog and UI/runtime. Domain adapters cannot change kernel files or each others files. Shared contract/domain migrations remain owned by their actual producers; integrator consumes them, never duplicates SQL.",
-    "boundary": "No package owns packages/evry/, packages/contracts/, application feature roots or all evaluation files wholesale.",
-    "owning_functions": [
-      {
-        "path": "packages/evry/src/runtime/loop.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/runtime/run-protocol.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/conversations/service.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/context/compiler.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "apps/web/src/features/evry/conversation-controller.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/runtime/run-cases.ts",
-        "producer_work_package": "WP-051",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/catalog/compose.ts",
-        "producer_work_package": "WP-052",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/catalog/validate-manifests.ts",
-        "producer_work_package": "WP-052",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/catalog/model-projection.ts",
-        "producer_work_package": "WP-052",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/catalog/composition-cases.ts",
-        "producer_work_package": "WP-052",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/proposals/service.ts",
-        "producer_work_package": "WP-053",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/proposals/review-projection.ts",
-        "producer_work_package": "WP-053",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/execution/coordinator.ts",
-        "producer_work_package": "WP-053",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "apps/web/src/features/evry/review-controller.ts",
-        "producer_work_package": "WP-053",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/execution/approval-replay-cases.ts",
-        "producer_work_package": "WP-053",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/artifacts/service.ts",
-        "producer_work_package": "WP-054",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/attachments/service.ts",
-        "producer_work_package": "WP-054",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "apps/web/src/features/evry/artifact-controller.ts",
-        "producer_work_package": "WP-054",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/artifacts/recovery-cases.ts",
-        "producer_work_package": "WP-054",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "packages/evry/src/policy/boundaries.ts",
-        "producer_work_package": "WP-055",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/evaluation/corpus-manifest.ts",
-        "producer_work_package": "WP-055",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/evaluation/runner.ts",
-        "producer_work_package": "WP-055",
-        "integration_owner": "evry-kernel-integrator"
-      },
-      {
-        "path": "tests/evry/evaluation/release-contract.ts",
-        "producer_work_package": "WP-055",
-        "integration_owner": "evry-kernel-integrator"
-      }
-    ]
+    }
   },
   "adapter_packages": [
     {
       "work_package": "WP-059",
       "domain": "people",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/people/reads.ts",
-        "packages/evry/src/adapters/people/read-manifest.ts",
-        "tests/evry/adapters/people/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-011..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
         "WP-013",
         "WP-014",
-        "WP-015"
+        "WP-015",
+        "WP-023"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people/reads.ts",
-          "producer_work_package": "WP-059"
-        },
-        {
-          "path": "packages/evry/src/adapters/people/read-manifest.ts",
-          "producer_work_package": "WP-059"
-        },
-        {
-          "path": "tests/evry/adapters/people/read-cases.ts",
-          "producer_work_package": "WP-059"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/people/reads/",
+        "tests/evry/adapters/people/reads/"
       ]
     },
     {
       "work_package": "WP-060",
       "domain": "people",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/people/commands.ts",
-        "packages/evry/src/adapters/people/command-manifest.ts",
-        "tests/evry/adapters/people/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-011..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -233,516 +88,310 @@
         "WP-014",
         "WP-015"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people/commands.ts",
-          "producer_work_package": "WP-060"
-        },
-        {
-          "path": "packages/evry/src/adapters/people/command-manifest.ts",
-          "producer_work_package": "WP-060"
-        },
-        {
-          "path": "tests/evry/adapters/people/command-cases.ts",
-          "producer_work_package": "WP-060"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/people/commands/",
+        "tests/evry/adapters/people/commands/"
       ]
     },
     {
       "work_package": "WP-061",
       "domain": "people-assessments",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/people-assessments/reads.ts",
-        "packages/evry/src/adapters/people-assessments/read-manifest.ts",
-        "tests/evry/adapters/people-assessments/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-014..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-014",
         "WP-015"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people-assessments/reads.ts",
-          "producer_work_package": "WP-061"
-        },
-        {
-          "path": "packages/evry/src/adapters/people-assessments/read-manifest.ts",
-          "producer_work_package": "WP-061"
-        },
-        {
-          "path": "tests/evry/adapters/people-assessments/read-cases.ts",
-          "producer_work_package": "WP-061"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/people-assessments/reads/",
+        "tests/evry/adapters/people-assessments/reads/"
       ]
     },
     {
       "work_package": "WP-062",
       "domain": "people-assessments",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/people-assessments/commands.ts",
-        "packages/evry/src/adapters/people-assessments/command-manifest.ts",
-        "tests/evry/adapters/people-assessments/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-014..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-014",
         "WP-015"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people-assessments/commands.ts",
-          "producer_work_package": "WP-062"
-        },
-        {
-          "path": "packages/evry/src/adapters/people-assessments/command-manifest.ts",
-          "producer_work_package": "WP-062"
-        },
-        {
-          "path": "tests/evry/adapters/people-assessments/command-cases.ts",
-          "producer_work_package": "WP-062"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/people-assessments/commands/",
+        "tests/evry/adapters/people-assessments/commands/"
       ]
     },
     {
       "work_package": "WP-063",
       "domain": "people-organization",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/people-organization/reads.ts",
-        "packages/evry/src/adapters/people-organization/read-manifest.ts",
-        "tests/evry/adapters/people-organization/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-012..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-011",
         "WP-012",
         "WP-013",
         "WP-014",
         "WP-015"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people-organization/reads.ts",
-          "producer_work_package": "WP-063"
-        },
-        {
-          "path": "packages/evry/src/adapters/people-organization/read-manifest.ts",
-          "producer_work_package": "WP-063"
-        },
-        {
-          "path": "tests/evry/adapters/people-organization/read-cases.ts",
-          "producer_work_package": "WP-063"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/people-organization/reads/",
+        "tests/evry/adapters/people-organization/reads/"
       ]
     },
     {
       "work_package": "WP-064",
       "domain": "people-organization",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/people-organization/commands.ts",
-        "packages/evry/src/adapters/people-organization/command-manifest.ts",
-        "tests/evry/adapters/people-organization/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-012..015",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-011",
         "WP-012",
         "WP-013",
         "WP-014",
         "WP-015"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/people-organization/commands.ts",
-          "producer_work_package": "WP-064"
-        },
-        {
-          "path": "packages/evry/src/adapters/people-organization/command-manifest.ts",
-          "producer_work_package": "WP-064"
-        },
-        {
-          "path": "tests/evry/adapters/people-organization/command-cases.ts",
-          "producer_work_package": "WP-064"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/people-organization/commands/",
+        "tests/evry/adapters/people-organization/commands/"
       ]
     },
     {
       "work_package": "WP-065",
       "domain": "meetings",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/meetings/reads.ts",
-        "packages/evry/src/adapters/meetings/read-manifest.ts",
-        "tests/evry/adapters/meetings/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-020..023",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-020",
         "WP-021",
         "WP-022",
         "WP-023"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/meetings/reads.ts",
-          "producer_work_package": "WP-065"
-        },
-        {
-          "path": "packages/evry/src/adapters/meetings/read-manifest.ts",
-          "producer_work_package": "WP-065"
-        },
-        {
-          "path": "tests/evry/adapters/meetings/read-cases.ts",
-          "producer_work_package": "WP-065"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/meetings/reads/",
+        "tests/evry/adapters/meetings/reads/"
       ]
     },
     {
       "work_package": "WP-066",
       "domain": "meetings",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/meetings/commands.ts",
-        "packages/evry/src/adapters/meetings/command-manifest.ts",
-        "tests/evry/adapters/meetings/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-020..023",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-020",
         "WP-021",
         "WP-022",
         "WP-023"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/meetings/commands.ts",
-          "producer_work_package": "WP-066"
-        },
-        {
-          "path": "packages/evry/src/adapters/meetings/command-manifest.ts",
-          "producer_work_package": "WP-066"
-        },
-        {
-          "path": "tests/evry/adapters/meetings/command-cases.ts",
-          "producer_work_package": "WP-066"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/meetings/commands/",
+        "tests/evry/adapters/meetings/commands/"
       ]
     },
     {
       "work_package": "WP-067",
       "domain": "tasks",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/tasks/reads.ts",
-        "packages/evry/src/adapters/tasks/read-manifest.ts",
-        "tests/evry/adapters/tasks/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-024..026",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-023",
         "WP-024",
         "WP-025",
         "WP-026"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/tasks/reads.ts",
-          "producer_work_package": "WP-067"
-        },
-        {
-          "path": "packages/evry/src/adapters/tasks/read-manifest.ts",
-          "producer_work_package": "WP-067"
-        },
-        {
-          "path": "tests/evry/adapters/tasks/read-cases.ts",
-          "producer_work_package": "WP-067"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/tasks/reads/",
+        "tests/evry/adapters/tasks/reads/"
       ]
     },
     {
       "work_package": "WP-068",
       "domain": "tasks",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/tasks/commands.ts",
-        "packages/evry/src/adapters/tasks/command-manifest.ts",
-        "tests/evry/adapters/tasks/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-024..026",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-023",
         "WP-024",
         "WP-025",
         "WP-026"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/tasks/commands.ts",
-          "producer_work_package": "WP-068"
-        },
-        {
-          "path": "packages/evry/src/adapters/tasks/command-manifest.ts",
-          "producer_work_package": "WP-068"
-        },
-        {
-          "path": "tests/evry/adapters/tasks/command-cases.ts",
-          "producer_work_package": "WP-068"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/tasks/commands/",
+        "tests/evry/adapters/tasks/commands/"
       ]
     },
     {
       "work_package": "WP-069",
       "domain": "teams",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/teams/reads.ts",
-        "packages/evry/src/adapters/teams/read-manifest.ts",
-        "tests/evry/adapters/teams/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-016..019",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-016",
         "WP-017",
         "WP-018",
         "WP-019"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/teams/reads.ts",
-          "producer_work_package": "WP-069"
-        },
-        {
-          "path": "packages/evry/src/adapters/teams/read-manifest.ts",
-          "producer_work_package": "WP-069"
-        },
-        {
-          "path": "tests/evry/adapters/teams/read-cases.ts",
-          "producer_work_package": "WP-069"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/teams/reads/",
+        "tests/evry/adapters/teams/reads/"
       ]
     },
     {
       "work_package": "WP-070",
       "domain": "teams",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/teams/commands.ts",
-        "packages/evry/src/adapters/teams/command-manifest.ts",
-        "tests/evry/adapters/teams/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-016..019",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-016",
         "WP-017",
         "WP-018",
         "WP-019"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/teams/commands.ts",
-          "producer_work_package": "WP-070"
-        },
-        {
-          "path": "packages/evry/src/adapters/teams/command-manifest.ts",
-          "producer_work_package": "WP-070"
-        },
-        {
-          "path": "tests/evry/adapters/teams/command-cases.ts",
-          "producer_work_package": "WP-070"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/teams/commands/",
+        "tests/evry/adapters/teams/commands/"
       ]
     },
     {
       "work_package": "WP-071",
       "domain": "communication",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/communication/reads.ts",
-        "packages/evry/src/adapters/communication/read-manifest.ts",
-        "tests/evry/adapters/communication/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-027..029",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-027",
         "WP-028",
         "WP-029"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/communication/reads.ts",
-          "producer_work_package": "WP-071"
-        },
-        {
-          "path": "packages/evry/src/adapters/communication/read-manifest.ts",
-          "producer_work_package": "WP-071"
-        },
-        {
-          "path": "tests/evry/adapters/communication/read-cases.ts",
-          "producer_work_package": "WP-071"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/communication/reads/",
+        "tests/evry/adapters/communication/reads/"
       ]
     },
     {
       "work_package": "WP-072",
       "domain": "communication",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/communication/commands.ts",
-        "packages/evry/src/adapters/communication/command-manifest.ts",
-        "tests/evry/adapters/communication/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-027..029",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-027",
         "WP-028",
         "WP-029"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/communication/commands.ts",
-          "producer_work_package": "WP-072"
-        },
-        {
-          "path": "packages/evry/src/adapters/communication/command-manifest.ts",
-          "producer_work_package": "WP-072"
-        },
-        {
-          "path": "tests/evry/adapters/communication/command-cases.ts",
-          "producer_work_package": "WP-072"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/communication/commands/",
+        "tests/evry/adapters/communication/commands/"
       ]
     },
     {
       "work_package": "WP-073",
       "domain": "intelligence",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/intelligence/reads.ts",
-        "packages/evry/src/adapters/intelligence/read-manifest.ts",
-        "tests/evry/adapters/intelligence/read-cases.ts",
-        "packages/evry/src/adapters/organization-intelligence/reads.ts",
-        "packages/evry/src/adapters/organization-intelligence/read-manifest.ts",
-        "tests/evry/adapters/organization-intelligence/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-038..044 + WP-047",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-032",
         "WP-038",
         "WP-039",
         "WP-040",
@@ -752,56 +401,29 @@
         "WP-044",
         "WP-047"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/intelligence/reads.ts",
-          "producer_work_package": "WP-073"
-        },
-        {
-          "path": "packages/evry/src/adapters/intelligence/read-manifest.ts",
-          "producer_work_package": "WP-073"
-        },
-        {
-          "path": "tests/evry/adapters/intelligence/read-cases.ts",
-          "producer_work_package": "WP-073"
-        },
-        {
-          "path": "packages/evry/src/adapters/organization-intelligence/reads.ts",
-          "producer_work_package": "WP-073"
-        },
-        {
-          "path": "packages/evry/src/adapters/organization-intelligence/read-manifest.ts",
-          "producer_work_package": "WP-073"
-        },
-        {
-          "path": "tests/evry/adapters/organization-intelligence/read-cases.ts",
-          "producer_work_package": "WP-073"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/intelligence/reads/",
+        "tests/evry/adapters/intelligence/reads/",
+        "packages/evry/src/adapters/organization-intelligence/reads/",
+        "tests/evry/adapters/organization-intelligence/reads/"
       ]
     },
     {
       "work_package": "WP-074",
       "domain": "intelligence",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/intelligence/commands.ts",
-        "packages/evry/src/adapters/intelligence/command-manifest.ts",
-        "tests/evry/adapters/intelligence/command-cases.ts",
-        "packages/evry/src/adapters/organization-intelligence/commands.ts",
-        "packages/evry/src/adapters/organization-intelligence/command-manifest.ts",
-        "tests/evry/adapters/organization-intelligence/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-038..044 + WP-047",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-007",
+        "WP-032",
         "WP-038",
         "WP-039",
         "WP-040",
@@ -811,359 +433,204 @@
         "WP-044",
         "WP-047"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/intelligence/commands.ts",
-          "producer_work_package": "WP-074"
-        },
-        {
-          "path": "packages/evry/src/adapters/intelligence/command-manifest.ts",
-          "producer_work_package": "WP-074"
-        },
-        {
-          "path": "tests/evry/adapters/intelligence/command-cases.ts",
-          "producer_work_package": "WP-074"
-        },
-        {
-          "path": "packages/evry/src/adapters/organization-intelligence/commands.ts",
-          "producer_work_package": "WP-074"
-        },
-        {
-          "path": "packages/evry/src/adapters/organization-intelligence/command-manifest.ts",
-          "producer_work_package": "WP-074"
-        },
-        {
-          "path": "tests/evry/adapters/organization-intelligence/command-cases.ts",
-          "producer_work_package": "WP-074"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/intelligence/commands/",
+        "tests/evry/adapters/intelligence/commands/",
+        "packages/evry/src/adapters/organization-intelligence/commands/",
+        "tests/evry/adapters/organization-intelligence/commands/"
       ]
     },
     {
       "work_package": "WP-075",
       "domain": "launch",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/launch/reads.ts",
-        "packages/evry/src/adapters/launch/read-manifest.ts",
-        "tests/evry/adapters/launch/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-045..046",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-045",
         "WP-046"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/launch/reads.ts",
-          "producer_work_package": "WP-075"
-        },
-        {
-          "path": "packages/evry/src/adapters/launch/read-manifest.ts",
-          "producer_work_package": "WP-075"
-        },
-        {
-          "path": "tests/evry/adapters/launch/read-cases.ts",
-          "producer_work_package": "WP-075"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/launch/reads/",
+        "tests/evry/adapters/launch/reads/"
       ]
     },
     {
       "work_package": "WP-076",
       "domain": "launch",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/launch/commands.ts",
-        "packages/evry/src/adapters/launch/command-manifest.ts",
-        "tests/evry/adapters/launch/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-045..046",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-045",
         "WP-046"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/launch/commands.ts",
-          "producer_work_package": "WP-076"
-        },
-        {
-          "path": "packages/evry/src/adapters/launch/command-manifest.ts",
-          "producer_work_package": "WP-076"
-        },
-        {
-          "path": "tests/evry/adapters/launch/command-cases.ts",
-          "producer_work_package": "WP-076"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/launch/commands/",
+        "tests/evry/adapters/launch/commands/"
       ]
     },
     {
       "work_package": "WP-077",
       "domain": "wiki",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/wiki/reads.ts",
-        "packages/evry/src/adapters/wiki/read-manifest.ts",
-        "tests/evry/adapters/wiki/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-034..035",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-034",
         "WP-035"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/wiki/reads.ts",
-          "producer_work_package": "WP-077"
-        },
-        {
-          "path": "packages/evry/src/adapters/wiki/read-manifest.ts",
-          "producer_work_package": "WP-077"
-        },
-        {
-          "path": "tests/evry/adapters/wiki/read-cases.ts",
-          "producer_work_package": "WP-077"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/wiki/reads/",
+        "tests/evry/adapters/wiki/reads/"
       ]
     },
     {
       "work_package": "WP-078",
       "domain": "wiki",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/wiki/commands.ts",
-        "packages/evry/src/adapters/wiki/command-manifest.ts",
-        "tests/evry/adapters/wiki/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-034..035",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-034",
         "WP-035"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/wiki/commands.ts",
-          "producer_work_package": "WP-078"
-        },
-        {
-          "path": "packages/evry/src/adapters/wiki/command-manifest.ts",
-          "producer_work_package": "WP-078"
-        },
-        {
-          "path": "tests/evry/adapters/wiki/command-cases.ts",
-          "producer_work_package": "WP-078"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/wiki/commands/",
+        "tests/evry/adapters/wiki/commands/"
       ]
     },
     {
       "work_package": "WP-079",
       "domain": "documents",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/documents/reads.ts",
-        "packages/evry/src/adapters/documents/read-manifest.ts",
-        "tests/evry/adapters/documents/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-036..037",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-004",
         "WP-036",
         "WP-037"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/documents/reads.ts",
-          "producer_work_package": "WP-079"
-        },
-        {
-          "path": "packages/evry/src/adapters/documents/read-manifest.ts",
-          "producer_work_package": "WP-079"
-        },
-        {
-          "path": "tests/evry/adapters/documents/read-cases.ts",
-          "producer_work_package": "WP-079"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/documents/reads/",
+        "tests/evry/adapters/documents/reads/"
       ]
     },
     {
       "work_package": "WP-080",
       "domain": "documents",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/documents/commands.ts",
-        "packages/evry/src/adapters/documents/command-manifest.ts",
-        "tests/evry/adapters/documents/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-036..037",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
+        "WP-004",
         "WP-036",
         "WP-037"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/documents/commands.ts",
-          "producer_work_package": "WP-080"
-        },
-        {
-          "path": "packages/evry/src/adapters/documents/command-manifest.ts",
-          "producer_work_package": "WP-080"
-        },
-        {
-          "path": "tests/evry/adapters/documents/command-cases.ts",
-          "producer_work_package": "WP-080"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/documents/commands/",
+        "tests/evry/adapters/documents/commands/"
       ]
     },
     {
       "work_package": "WP-081",
       "domain": "notifications",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/notifications/reads.ts",
-        "packages/evry/src/adapters/notifications/read-manifest.ts",
-        "tests/evry/adapters/notifications/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-030..031",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-030",
         "WP-031"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/notifications/reads.ts",
-          "producer_work_package": "WP-081"
-        },
-        {
-          "path": "packages/evry/src/adapters/notifications/read-manifest.ts",
-          "producer_work_package": "WP-081"
-        },
-        {
-          "path": "tests/evry/adapters/notifications/read-cases.ts",
-          "producer_work_package": "WP-081"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/notifications/reads/",
+        "tests/evry/adapters/notifications/reads/"
       ]
     },
     {
       "work_package": "WP-082",
       "domain": "notifications",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/notifications/commands.ts",
-        "packages/evry/src/adapters/notifications/command-manifest.ts",
-        "tests/evry/adapters/notifications/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-030..031",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-030",
         "WP-031"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/notifications/commands.ts",
-          "producer_work_package": "WP-082"
-        },
-        {
-          "path": "packages/evry/src/adapters/notifications/command-manifest.ts",
-          "producer_work_package": "WP-082"
-        },
-        {
-          "path": "tests/evry/adapters/notifications/command-cases.ts",
-          "producer_work_package": "WP-082"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/notifications/commands/",
+        "tests/evry/adapters/notifications/commands/"
       ]
     },
     {
       "work_package": "WP-083",
       "domain": "platform",
       "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/platform/reads.ts",
-        "packages/evry/src/adapters/platform/read-manifest.ts",
-        "tests/evry/adapters/platform/read-cases.ts",
-        "packages/evry/src/adapters/identity/reads.ts",
-        "packages/evry/src/adapters/identity/read-manifest.ts",
-        "tests/evry/adapters/identity/read-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-005..010 + WP-048..050",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -1175,55 +642,26 @@
         "WP-049",
         "WP-050"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/platform/reads.ts",
-          "producer_work_package": "WP-083"
-        },
-        {
-          "path": "packages/evry/src/adapters/platform/read-manifest.ts",
-          "producer_work_package": "WP-083"
-        },
-        {
-          "path": "tests/evry/adapters/platform/read-cases.ts",
-          "producer_work_package": "WP-083"
-        },
-        {
-          "path": "packages/evry/src/adapters/identity/reads.ts",
-          "producer_work_package": "WP-083"
-        },
-        {
-          "path": "packages/evry/src/adapters/identity/read-manifest.ts",
-          "producer_work_package": "WP-083"
-        },
-        {
-          "path": "tests/evry/adapters/identity/read-cases.ts",
-          "producer_work_package": "WP-083"
-        }
+      "operation_kind": "query",
+      "owning_paths": [
+        "packages/evry/src/adapters/platform/reads/",
+        "tests/evry/adapters/platform/reads/",
+        "packages/evry/src/adapters/identity/reads/",
+        "tests/evry/adapters/identity/reads/"
       ]
     },
     {
       "work_package": "WP-084",
       "domain": "platform",
       "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/platform/commands.ts",
-        "packages/evry/src/adapters/platform/command-manifest.ts",
-        "tests/evry/adapters/platform/command-cases.ts",
-        "packages/evry/src/adapters/identity/commands.ts",
-        "packages/evry/src/adapters/identity/command-manifest.ts",
-        "tests/evry/adapters/identity/command-cases.ts"
-      ],
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "WP-005..010 + WP-048..050",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -1235,109 +673,38 @@
         "WP-049",
         "WP-050"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/platform/commands.ts",
-          "producer_work_package": "WP-084"
-        },
-        {
-          "path": "packages/evry/src/adapters/platform/command-manifest.ts",
-          "producer_work_package": "WP-084"
-        },
-        {
-          "path": "tests/evry/adapters/platform/command-cases.ts",
-          "producer_work_package": "WP-084"
-        },
-        {
-          "path": "packages/evry/src/adapters/identity/commands.ts",
-          "producer_work_package": "WP-084"
-        },
-        {
-          "path": "packages/evry/src/adapters/identity/command-manifest.ts",
-          "producer_work_package": "WP-084"
-        },
-        {
-          "path": "tests/evry/adapters/identity/command-cases.ts",
-          "producer_work_package": "WP-084"
-        }
+      "operation_kind": "command",
+      "owning_paths": [
+        "packages/evry/src/adapters/platform/commands/",
+        "tests/evry/adapters/platform/commands/",
+        "packages/evry/src/adapters/identity/commands/",
+        "tests/evry/adapters/identity/commands/"
       ]
     },
     {
       "work_package": "WP-085",
       "domain": "helpers",
-      "kind": "authorized_reads",
-      "owning_files": [
-        "packages/evry/src/adapters/helpers/reads.ts",
-        "packages/evry/src/adapters/helpers/read-manifest.ts",
-        "tests/evry/adapters/helpers/read-cases.ts"
-      ],
+      "kind": "authorized_reads_and_candidate_preparation",
       "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
+        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
+        "Kernel proposal/receipt interface; builder chooses concrete export shape."
       ],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "registered contracts only",
+      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-002"
       ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/helpers/reads.ts",
-          "producer_work_package": "WP-085"
-        },
-        {
-          "path": "packages/evry/src/adapters/helpers/read-manifest.ts",
-          "producer_work_package": "WP-085"
-        },
-        {
-          "path": "tests/evry/adapters/helpers/read-cases.ts",
-          "producer_work_package": "WP-085"
-        }
-      ]
-    },
-    {
-      "work_package": "WP-086",
-      "domain": "helpers",
-      "kind": "candidate_preparation",
-      "owning_files": [
-        "packages/evry/src/adapters/helpers/commands.ts",
-        "packages/evry/src/adapters/helpers/command-manifest.ts",
-        "tests/evry/adapters/helpers/command-cases.ts"
-      ],
-      "consumes": [
-        "frozen domain operation input/output schemas",
-        "current actor/purpose/projection authorization",
-        "shared CommandContext/withDomainTransaction/command_receipt",
-        "one runtime proposal/receipt interface"
-      ],
-      "may_modify_shared_root": false,
-      "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "registered contracts only",
-      "domain_producers": [
-        "WP-002"
-      ],
-      "owning_functions": [
-        {
-          "path": "packages/evry/src/adapters/helpers/commands.ts",
-          "producer_work_package": "WP-086"
-        },
-        {
-          "path": "packages/evry/src/adapters/helpers/command-manifest.ts",
-          "producer_work_package": "WP-086"
-        },
-        {
-          "path": "tests/evry/adapters/helpers/command-cases.ts",
-          "producer_work_package": "WP-086"
-        }
+      "operation_kind": "query_or_candidate",
+      "owning_paths": [
+        "packages/evry/src/adapters/helpers/reads/",
+        "tests/evry/adapters/helpers/reads/",
+        "packages/evry/src/adapters/helpers/commands/",
+        "tests/evry/adapters/helpers/commands/"
       ]
     }
   ],
-  "disjoint_files_checked": true,
   "shared_domain_rule": "Each native action and assistant adapter invokes the same authorized owning domain function. Only domain owner owns mutation/history/revision/receipt/audit/effect intent transaction.",
   "contract_producers": [
     "WP-002 ActorContext/CommandContext/errors/receipts",
@@ -1346,5 +713,6 @@
     "WP-046 actual published summary producer before WP-047",
     "WP-015 Person registration protocol then each later consumer"
   ],
-  "no_new_framework": "Static typed manifests plus one composition function. No plugin bus, general policy/workflow engine, source-helper service factory or generic coding agent."
+  "no_new_framework": "Static typed manifests plus one composition function. No plugin bus, general policy/workflow engine, source-helper service factory or generic coding agent.",
+  "disjoint_paths_checked": true
 }
