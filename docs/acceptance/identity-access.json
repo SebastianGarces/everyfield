@@ -6890,6 +6890,26 @@
         "execution": {
           "fixture_type": "test_execution",
           "repeat": 2
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_deletion_purge_job",
+          "authority": "registered_deletion_purge_job",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -6998,6 +7018,26 @@
               "fixture_type": "test_execution",
               "repeat": 2,
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-registered_deletion_purge_job",
+              "authority": "registered_deletion_purge_job",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "maintenance.purgeEligibleSubject"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -7100,6 +7140,26 @@
           "jobs_enabled": false,
           "mail_enabled": false,
           "issue_publishers_enabled": false
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -7182,6 +7242,26 @@
               "jobs_enabled": false,
               "mail_enabled": false,
               "issue_publishers_enabled": false
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_restricted_recovery_operator",
+              "authority": "authorized_restricted_recovery_operator",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "maintenance.restoreWithCurrentManifest"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -7286,6 +7366,26 @@
             "execution": {
               "fixture_type": "test_execution",
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_restricted_recovery_operator",
+              "authority": "authorized_restricted_recovery_operator",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "maintenance.restoreWithCurrentManifest"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              }
             }
           },
           "actor": {
@@ -8279,12 +8379,32 @@
         "delete-A": {
           "fixture_type": "deletion_request",
           "id": "delete-A"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_deletion_purge_job",
+          "authority": "registered_deletion_purge_job",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -8372,7 +8492,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -8417,10 +8537,7 @@
       "expected": {
         "state": {},
         "result": {
-          "allowed": [
-            true,
-            false
-          ],
+          "allowed": true,
           "self_service_transfer": false
         },
         "event": null
@@ -8435,6 +8552,42 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises churches.requestWorkspaceDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "admin-cannot-delete-workspace",
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "churches.requestWorkspaceDeletion",
+            "arguments": {
+              "plant": "P",
+              "confirmation": "Delete P",
+              "expected_revision": 7
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
           }
         }
       ]
@@ -8510,12 +8663,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -9949,12 +10122,32 @@
             "foreign_Owner",
             "revoked_Admin"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_internal_application_caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.checkOperation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -9984,12 +10177,32 @@
               "tenant": "P",
               "role": "Admin",
               "active": true
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -10395,12 +10608,32 @@
           "person": "Alex",
           "concurrent_requests": 2,
           "repeat": 2
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_identity_provisioning_caller",
+          "authority": "registered_identity_provisioning_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "identity.ensureOwnerPerson"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -10469,7 +10702,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -10562,7 +10795,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -10621,6 +10854,13 @@
             "execution": {
               "fixture_type": "test_execution",
               "repeat": 1
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Owner",
+              "active": true
             }
           },
           "actor": {
@@ -10923,6 +11163,12 @@
           "fixture_type": "invitation_proof",
           "account": "A",
           "invitation": "I"
+        },
+        "addressed-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I",
+          "verified": true
         }
       },
       "actor": {
@@ -11948,7 +12194,9 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-050"
+        "WP-006",
+        "WP-008",
+        "WP-010"
       ],
       "status": "future-not-run",
       "description": "Inspect native and tool catalog for excluded ownership claim/designation/transfer/special-rejoin/former-lead panels.",
@@ -12000,17 +12248,20 @@
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "engineering.inventoryTools",
-        "arguments": {}
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "catalog": "docs/catalog/operations.json",
+          "case_scope": "ROLE43-017"
+        }
       },
       "expected": {
         "state": {},
@@ -12029,7 +12280,18 @@
             ],
             "reason": "The original scenario exercises engineering.inventoryTools and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "correction_round": {
+            "reason": "The original record is a target catalog exclusion/key inspection, not the separate operator source inventory. Registered build inspection reads the target catalog under the declared build proof layer. Restored its product owners.",
+            "previous_owners": [
+              "WP-050"
+            ]
+          }
         }
+      ],
+      "layers": [
+        "build"
       ]
     },
     {
@@ -14041,7 +14303,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -14129,7 +14391,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -14359,6 +14621,12 @@
           "fixture_type": "invitation_proof",
           "account": "A",
           "invitation": "I"
+        },
+        "addressed-proof": {
+          "fixture_type": "invitation_proof",
+          "account": "A",
+          "invitation": "I",
+          "verified": true
         }
       },
       "actor": {
@@ -15248,12 +15516,32 @@
           "fixture_type": "test_execution",
           "route": "/coaches",
           "assistant_request": "Read coach assignment"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_internal_application_caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.checkOperation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -16203,12 +16491,32 @@
           "fixture_type": "session",
           "account": "B",
           "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_internal_application_caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.checkOperation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "B",
+            "session": "session-B",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "B",
-        "session": "session-B",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",

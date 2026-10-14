@@ -1615,6 +1615,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-090",
         "REQ-REF-001",
@@ -1761,6 +1762,12 @@
         "calendar.getContext",
         "calendar.resolve"
       ],
+      "case_requirements_at_start": [
+        "REQ-IDN-029",
+        "REQ-OPS-004",
+        "REQ-PI-037",
+        "REQ-PPL-024"
+      ],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-OPS-004",
@@ -1817,7 +1824,6 @@
       "id": "WP-003",
       "feature_ids": [],
       "own_requirement_ids": [
-        "REQ-IDN-030",
         "REQ-KNOW-011",
         "REQ-KNOW-013",
         "REQ-KNOW-014",
@@ -1841,8 +1847,20 @@
         "TEN-009"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [
+        "REQ-KNOW-013",
+        "REQ-KNOW-014",
+        "REQ-KNOW-078",
+        "REQ-KNOW-080",
+        "REQ-KNOW-081",
+        "REQ-KNOW-082",
+        "REQ-KNOW-083",
+        "REQ-KNOW-084",
+        "REQ-KNOW-086",
+        "REQ-KNOW-087",
+        "REQ-KNOW-088"
+      ],
       "requirement_ids": [
-        "REQ-IDN-030",
         "REQ-KNOW-011",
         "REQ-KNOW-013",
         "REQ-KNOW-014",
@@ -1878,7 +1896,6 @@
         "SCHEMA-013",
         "SEC-01",
         "SEC-10",
-        "TARGET-IDN-030",
         "TEN-009"
       ],
       "operation_ids": [],
@@ -1907,13 +1924,10 @@
       ],
       "own_requirement_ids": [
         "REQ-DOC-015",
-        "REQ-IDN-006",
         "REQ-IDN-029",
         "REQ-KNOW-011",
         "REQ-KNOW-012",
         "REQ-KNOW-014",
-        "REQ-KNOW-062",
-        "REQ-KNOW-066",
         "REQ-KNOW-069",
         "REQ-KNOW-072",
         "REQ-KNOW-073",
@@ -1928,12 +1942,7 @@
         "REQ-KNOW-087",
         "REQ-KNOW-088",
         "REQ-KNOW-089",
-        "REQ-OPS-013",
-        "REQ-OPS-014",
-        "REQ-PI-043",
-        "REQ-PI-044",
-        "REQ-PPL-024",
-        "REQ-TEAM-016"
+        "REQ-PPL-024"
       ],
       "own_case_ids": [
         "AUDIT-001",
@@ -1972,6 +1981,25 @@
         "storage.putPrivateObject",
         "storage.readAuthorizedObject"
       ],
+      "case_requirements_at_start": [
+        "REQ-IDN-029",
+        "REQ-KNOW-012",
+        "REQ-KNOW-014",
+        "REQ-KNOW-069",
+        "REQ-KNOW-072",
+        "REQ-KNOW-073",
+        "REQ-KNOW-078",
+        "REQ-KNOW-081",
+        "REQ-KNOW-082",
+        "REQ-KNOW-083",
+        "REQ-KNOW-084",
+        "REQ-KNOW-085",
+        "REQ-KNOW-086",
+        "REQ-KNOW-087",
+        "REQ-KNOW-088",
+        "REQ-KNOW-089",
+        "REQ-PPL-024"
+      ],
       "requirement_ids": [
         "REQ-DOC-015",
         "REQ-IDN-006",
@@ -2008,30 +2036,43 @@
         "REQ-OPS-014",
         "REQ-PI-043",
         "REQ-PI-044",
-        "REQ-PPL-024",
-        "REQ-TEAM-016"
+        "REQ-PPL-024"
       ],
       "shared_requirement_ids": [
+        "REQ-IDN-006",
         "REQ-IDN-032",
         "REQ-KNOW-013",
+        "REQ-KNOW-062",
+        "REQ-KNOW-066",
         "REQ-KNOW-070",
         "REQ-KNOW-071",
         "REQ-KNOW-080",
         "REQ-KNOW-112",
         "REQ-KNOW-113",
         "REQ-KNOW-114",
-        "REQ-KNOW-119"
+        "REQ-KNOW-119",
+        "REQ-OPS-013",
+        "REQ-OPS-014",
+        "REQ-PI-043",
+        "REQ-PI-044"
       ],
       "consumed_acceptance_requirement_ids": [
+        "REQ-IDN-006",
         "REQ-IDN-032",
         "REQ-KNOW-013",
+        "REQ-KNOW-062",
+        "REQ-KNOW-066",
         "REQ-KNOW-070",
         "REQ-KNOW-071",
         "REQ-KNOW-080",
         "REQ-KNOW-112",
         "REQ-KNOW-113",
         "REQ-KNOW-114",
-        "REQ-KNOW-119"
+        "REQ-KNOW-119",
+        "REQ-OPS-013",
+        "REQ-OPS-014",
+        "REQ-PI-043",
+        "REQ-PI-044"
       ],
       "consumed_acceptance_operation_ids": [
         "account.finalizeAvatar",
@@ -2228,15 +2269,10 @@
         "SEC-04",
         "SEC-08",
         "SEC-10",
-        "SME53-001",
-        "SME53-002",
-        "SME53-003",
-        "SME53-004",
         "TARGET-IDN-006",
         "TARGET-IDN-029",
         "TARGET-IDN-032",
         "TARGET-PPL-024",
-        "TARGET-TEAM-016",
         "TEN-001",
         "TEN-003",
         "TEN-004",
@@ -2272,10 +2308,7 @@
         "storage.createAuthorizedDownload",
         "storage.deleteUnreferencedObject",
         "storage.putPrivateObject",
-        "storage.readAuthorizedObject",
-        "teams.previewRequiredTrainingParticipants",
-        "teams.readRequiredTrainingParticipants",
-        "teams.setRequiredTrainingParticipants"
+        "storage.readAuthorizedObject"
       ],
       "shared_operation_ids": [
         "account.cancelDeletion",
@@ -2302,10 +2335,7 @@
         "organizationIntelligence.submitFeedback",
         "organizationLaunchSummary.readPublished",
         "organizations.correctReportingLocation",
-        "qa.verifyVerticalSlices",
-        "teams.previewRequiredTrainingParticipants",
-        "teams.readRequiredTrainingParticipants",
-        "teams.setRequiredTrainingParticipants"
+        "qa.verifyVerticalSlices"
       ],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
@@ -2437,18 +2467,11 @@
       "own_requirement_ids": [
         "REQ-IDN-001",
         "REQ-IDN-002",
-        "REQ-IDN-007",
-        "REQ-IDN-008",
         "REQ-IDN-009",
         "REQ-IDN-028",
         "REQ-IDN-030",
-        "REQ-IDN-032",
-        "REQ-KNOW-066",
-        "REQ-KNOW-067",
         "REQ-KNOW-069",
-        "REQ-KNOW-072",
-        "REQ-MAIL-001",
-        "REQ-NTF-013"
+        "REQ-KNOW-072"
       ],
       "own_case_ids": [
         "AUTH-001",
@@ -2478,6 +2501,10 @@
         "auth.signOut",
         "invitations.describeRegistrationContext"
       ],
+      "case_requirements_at_start": [
+        "REQ-KNOW-069",
+        "REQ-KNOW-072"
+      ],
       "requirement_ids": [
         "REQ-IDN-001",
         "REQ-IDN-002",
@@ -2498,14 +2525,28 @@
         "REQ-NTF-013"
       ],
       "shared_requirement_ids": [
+        "REQ-IDN-007",
+        "REQ-IDN-008",
         "REQ-IDN-029",
+        "REQ-IDN-032",
         "REQ-KNOW-003",
-        "REQ-KNOW-008"
+        "REQ-KNOW-008",
+        "REQ-KNOW-066",
+        "REQ-KNOW-067",
+        "REQ-MAIL-001",
+        "REQ-NTF-013"
       ],
       "consumed_acceptance_requirement_ids": [
+        "REQ-IDN-007",
+        "REQ-IDN-008",
         "REQ-IDN-029",
+        "REQ-IDN-032",
         "REQ-KNOW-003",
-        "REQ-KNOW-008"
+        "REQ-KNOW-008",
+        "REQ-KNOW-066",
+        "REQ-KNOW-067",
+        "REQ-MAIL-001",
+        "REQ-NTF-013"
       ],
       "consumed_acceptance_operation_ids": [
         "account.changePassword",
@@ -2662,14 +2703,6 @@
         "REQ-IDN-029",
         "REQ-IDN-030",
         "REQ-IDN-031",
-        "REQ-IDN-032",
-        "REQ-KNOW-029",
-        "REQ-KNOW-030",
-        "REQ-KNOW-066",
-        "REQ-KNOW-067",
-        "REQ-KNOW-068",
-        "REQ-KNOW-070",
-        "REQ-KNOW-096",
         "REQ-KNOW-116"
       ],
       "own_case_ids": [
@@ -2679,6 +2712,7 @@
         "AUTH-004",
         "ROLE43-001",
         "ROLE43-006",
+        "ROLE43-017",
         "SCHEMA-002",
         "SCHEMA-008",
         "SEC-02",
@@ -2696,6 +2730,10 @@
         "security.checkRequestOrigin",
         "security.safeReturn"
       ],
+      "case_requirements_at_start": [
+        "REQ-IDN-029",
+        "REQ-KNOW-116"
+      ],
       "requirement_ids": [
         "REQ-IDN-005",
         "REQ-IDN-018",
@@ -2706,22 +2744,29 @@
         "REQ-IDN-030",
         "REQ-IDN-031",
         "REQ-IDN-032",
-        "REQ-KNOW-029",
-        "REQ-KNOW-030",
         "REQ-KNOW-066",
         "REQ-KNOW-067",
         "REQ-KNOW-068",
         "REQ-KNOW-070",
-        "REQ-KNOW-096",
         "REQ-KNOW-116"
       ],
       "shared_requirement_ids": [
         "REQ-IDN-018",
-        "REQ-IDN-025"
+        "REQ-IDN-025",
+        "REQ-IDN-032",
+        "REQ-KNOW-066",
+        "REQ-KNOW-067",
+        "REQ-KNOW-068",
+        "REQ-KNOW-070"
       ],
       "consumed_acceptance_requirement_ids": [
         "REQ-IDN-018",
-        "REQ-IDN-025"
+        "REQ-IDN-025",
+        "REQ-IDN-032",
+        "REQ-KNOW-066",
+        "REQ-KNOW-067",
+        "REQ-KNOW-068",
+        "REQ-KNOW-070"
       ],
       "consumed_acceptance_operation_ids": [
         "auth.recoverInvalidSession",
@@ -2753,7 +2798,6 @@
         "DEL58-005",
         "EVRY-FAMILY-IDENTITY-PLATFORM",
         "EVRY-ORG-CONTEXT",
-        "FDB56-004",
         "INH-EDGES-01",
         "INH-EDGES-03",
         "INH-EDGES-04",
@@ -2772,8 +2816,6 @@
         "INH-REGRESSION-SANDBOX-ESCAPE",
         "LAUNCH46-020",
         "ORG55-001",
-        "PUB57-002",
-        "PUB57-003",
         "ROLE43-001",
         "ROLE43-002",
         "ROLE43-006",
@@ -2890,23 +2932,14 @@
         "PI-043"
       ],
       "own_requirement_ids": [
-        "REQ-IDN-011",
-        "REQ-IDN-016",
         "REQ-IDN-020",
         "REQ-IDN-021",
         "REQ-IDN-022",
         "REQ-IDN-026",
         "REQ-IDN-027",
-        "REQ-KNOW-005",
-        "REQ-KNOW-062",
-        "REQ-KNOW-066",
-        "REQ-KNOW-068",
-        "REQ-KNOW-070",
         "REQ-KNOW-112",
         "REQ-NTF-008",
-        "REQ-NTF-009",
-        "REQ-OPS-012",
-        "REQ-PI-043"
+        "REQ-NTF-009"
       ],
       "own_case_ids": [
         "AF-001",
@@ -2970,6 +3003,9 @@
         "privacy.getSharing",
         "privacy.setSharing"
       ],
+      "case_requirements_at_start": [
+        "REQ-KNOW-112"
+      ],
       "requirement_ids": [
         "REQ-IDN-011",
         "REQ-IDN-016",
@@ -3008,16 +3044,23 @@
         "REQ-TSK-018"
       ],
       "shared_requirement_ids": [
+        "REQ-IDN-011",
+        "REQ-IDN-016",
         "REQ-IDN-029",
         "REQ-IDN-030",
         "REQ-IDN-031",
         "REQ-IDN-032",
         "REQ-IDN-033",
+        "REQ-KNOW-005",
         "REQ-KNOW-006",
         "REQ-KNOW-009",
         "REQ-KNOW-010",
+        "REQ-KNOW-062",
+        "REQ-KNOW-066",
         "REQ-KNOW-067",
+        "REQ-KNOW-068",
         "REQ-KNOW-069",
+        "REQ-KNOW-070",
         "REQ-KNOW-072",
         "REQ-KNOW-073",
         "REQ-KNOW-074",
@@ -3025,19 +3068,28 @@
         "REQ-KNOW-113",
         "REQ-KNOW-114",
         "REQ-KNOW-119",
+        "REQ-OPS-012",
+        "REQ-PI-043",
         "REQ-TSK-018"
       ],
       "consumed_acceptance_requirement_ids": [
+        "REQ-IDN-011",
+        "REQ-IDN-016",
         "REQ-IDN-029",
         "REQ-IDN-030",
         "REQ-IDN-031",
         "REQ-IDN-032",
         "REQ-IDN-033",
+        "REQ-KNOW-005",
         "REQ-KNOW-006",
         "REQ-KNOW-009",
         "REQ-KNOW-010",
+        "REQ-KNOW-062",
+        "REQ-KNOW-066",
         "REQ-KNOW-067",
+        "REQ-KNOW-068",
         "REQ-KNOW-069",
+        "REQ-KNOW-070",
         "REQ-KNOW-072",
         "REQ-KNOW-073",
         "REQ-KNOW-074",
@@ -3045,6 +3097,8 @@
         "REQ-KNOW-113",
         "REQ-KNOW-114",
         "REQ-KNOW-119",
+        "REQ-OPS-012",
+        "REQ-PI-043",
         "REQ-TSK-018"
       ],
       "consumed_acceptance_operation_ids": [
@@ -3512,9 +3566,7 @@
         "REQ-IDN-017",
         "REQ-IDN-019",
         "REQ-IDN-020",
-        "REQ-IDN-030",
-        "REQ-MAIL-001",
-        "REQ-NTF-013"
+        "REQ-IDN-030"
       ],
       "own_case_ids": [
         "AF-001",
@@ -3546,6 +3598,7 @@
         "ROLE43-006",
         "ROLE43-007",
         "ROLE43-009",
+        "ROLE43-017",
         "SCHEMA-002",
         "SEC-02",
         "SEC-03",
@@ -3570,6 +3623,7 @@
         "seats.resendInvitation",
         "seats.revokeInvitation"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-002",
         "REQ-IDN-003",
@@ -3588,13 +3642,17 @@
         "REQ-IDN-029",
         "REQ-IDN-031",
         "REQ-KNOW-003",
-        "REQ-KNOW-008"
+        "REQ-KNOW-008",
+        "REQ-MAIL-001",
+        "REQ-NTF-013"
       ],
       "consumed_acceptance_requirement_ids": [
         "REQ-IDN-029",
         "REQ-IDN-031",
         "REQ-KNOW-003",
-        "REQ-KNOW-008"
+        "REQ-KNOW-008",
+        "REQ-MAIL-001",
+        "REQ-NTF-013"
       ],
       "consumed_acceptance_operation_ids": [
         "accounts.getRegistrationOptions",
@@ -3828,6 +3886,7 @@
         "onboarding.declareJourney",
         "onboarding.getResume"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-003",
         "REQ-IDN-013",
@@ -4048,8 +4107,6 @@
         "REQ-IDN-026",
         "REQ-IDN-031",
         "REQ-IDN-032",
-        "REQ-IDN-033",
-        "REQ-KNOW-062",
         "REQ-KNOW-066",
         "REQ-KNOW-067",
         "REQ-KNOW-068",
@@ -4060,7 +4117,6 @@
         "REQ-KNOW-074",
         "REQ-KNOW-079",
         "REQ-KNOW-080",
-        "REQ-PI-044",
         "REQ-TSK-018"
       ],
       "own_case_ids": [
@@ -4085,6 +4141,7 @@
         "PROVIDER48-003",
         "ROLE43-002",
         "ROLE43-005",
+        "ROLE43-017",
         "ROLE43-018",
         "SCHEMA-007",
         "SEC-07",
@@ -4121,6 +4178,12 @@
         "plant.updateProfile",
         "settings.getSection",
         "settings.saveSection"
+      ],
+      "case_requirements_at_start": [
+        "REQ-IDN-012",
+        "REQ-KNOW-069",
+        "REQ-KNOW-072",
+        "REQ-KNOW-073"
       ],
       "requirement_ids": [
         "REQ-IDN-006",
@@ -4163,8 +4226,10 @@
       "shared_requirement_ids": [
         "REQ-IDN-022",
         "REQ-IDN-029",
+        "REQ-IDN-033",
         "REQ-KNOW-011",
         "REQ-KNOW-014",
+        "REQ-KNOW-062",
         "REQ-KNOW-082",
         "REQ-KNOW-083",
         "REQ-KNOW-084",
@@ -4173,12 +4238,15 @@
         "REQ-KNOW-089",
         "REQ-KNOW-112",
         "REQ-KNOW-114",
-        "REQ-KNOW-119"
+        "REQ-KNOW-119",
+        "REQ-PI-044"
       ],
       "consumed_acceptance_requirement_ids": [
         "REQ-IDN-029",
+        "REQ-IDN-033",
         "REQ-KNOW-011",
         "REQ-KNOW-014",
+        "REQ-KNOW-062",
         "REQ-KNOW-082",
         "REQ-KNOW-083",
         "REQ-KNOW-084",
@@ -4187,7 +4255,8 @@
         "REQ-KNOW-089",
         "REQ-KNOW-112",
         "REQ-KNOW-114",
-        "REQ-KNOW-119"
+        "REQ-KNOW-119",
+        "REQ-PI-044"
       ],
       "consumed_acceptance_operation_ids": [
         "auth.revokeOtherSessions",
@@ -4501,8 +4570,6 @@
       ],
       "own_requirement_ids": [
         "REQ-IDN-013",
-        "REQ-KNOW-056",
-        "REQ-KNOW-057",
         "REQ-KNOW-069",
         "REQ-KNOW-098",
         "REQ-KNOW-099",
@@ -4563,6 +4630,11 @@
         "people.setPersonPhoto",
         "people.updatePerson"
       ],
+      "case_requirements_at_start": [
+        "REQ-KNOW-069",
+        "REQ-KNOW-098",
+        "REQ-KNOW-099"
+      ],
       "requirement_ids": [
         "REQ-IDN-013",
         "REQ-IDN-029",
@@ -4590,6 +4662,8 @@
         "REQ-IDN-029",
         "REQ-IDN-030",
         "REQ-IDN-032",
+        "REQ-KNOW-056",
+        "REQ-KNOW-057",
         "REQ-MTG-022",
         "REQ-PPL-024",
         "REQ-PPL-025"
@@ -4598,6 +4672,8 @@
         "REQ-IDN-029",
         "REQ-IDN-030",
         "REQ-IDN-032",
+        "REQ-KNOW-056",
+        "REQ-KNOW-057",
         "REQ-MTG-022",
         "REQ-PPL-024",
         "REQ-PPL-025"
@@ -4865,6 +4941,7 @@
         "people.updateSkill",
         "people.updateTag"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-056",
@@ -5028,6 +5105,7 @@
         "people.getImportReceipt",
         "people.previewImport"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-PPL-018",
@@ -5152,6 +5230,7 @@
         "people.reactivateCommitment",
         "people.withdrawCommitment"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-079",
@@ -5409,6 +5488,7 @@
         "people.previewUnmerge",
         "people.unmergePeople"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-100",
@@ -5645,6 +5725,7 @@
         "teams.trainingHistory",
         "teams.trainingMatrix"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-TEAM-002"
@@ -5835,6 +5916,7 @@
         "teams.retireRole",
         "teams.searchMembers"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-014",
         "REQ-IDN-019",
@@ -6127,6 +6209,7 @@
         "teams.offerResponsibilities",
         "teams.previewResponsibilities"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-049",
@@ -6290,6 +6373,7 @@
         "teams.revokeCompletion",
         "teams.setRequiredTrainingParticipants"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-018",
@@ -6556,6 +6640,7 @@
         "B02-013",
         "B02-014",
         "B02-015",
+        "B02-032",
         "B03-008",
         "B03-009",
         "B03-010",
@@ -6596,6 +6681,7 @@
         "venues.list",
         "venues.restore"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-006",
@@ -6816,6 +6902,7 @@
         "meetings.resolveTokenRsvp",
         "meetings.saveOwnRsvp"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-010",
         "REQ-IDN-029",
@@ -7057,6 +7144,7 @@
         "meetings.summaryStats",
         "meetings.syncNotifications"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-040",
@@ -7383,6 +7471,7 @@
         "tasks.listFollowUpOwners",
         "tasks.planHandoff"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-011",
         "REQ-IDN-029",
@@ -7695,6 +7784,7 @@
         "tasks.statusHistory",
         "tasks.waive"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-019",
         "REQ-IDN-029",
@@ -7959,6 +8049,7 @@
         "tasks.prerequisiteCandidates",
         "tasks.replacePrerequisites"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-KNOW-115",
@@ -8161,6 +8252,7 @@
         "tasks.previewTemplate",
         "tasks.readPhaseOffer"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-029",
         "REQ-PHASE-005",
@@ -8349,6 +8441,7 @@
         "communication.templates.list",
         "communication.templates.update"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-003",
         "REQ-COM-004",
@@ -8593,6 +8686,7 @@
         "mail.suppression.recordProviderFact",
         "mail.suppression.restoreReviewed"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-005",
         "REQ-COM-006",
@@ -8830,6 +8924,7 @@
         "communication.recordContactFromTask",
         "communication.templates.forMeeting"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-001",
         "REQ-COM-002",
@@ -9095,6 +9190,7 @@
         "NOTIFY47-002",
         "NOTIFY47-004",
         "NOTIFY47-005",
+        "NOTIFY47-009",
         "NOTIFY47-010",
         "ORG55-002",
         "ORG55-003",
@@ -9123,6 +9219,7 @@
         "notifications.undoEmailOptOut",
         "notifications.unreadCount"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-012",
         "REQ-IDN-022",
@@ -9356,32 +9453,13 @@
         "OPS-001"
       ],
       "own_requirement_ids": [
-        "REQ-COM-012",
-        "REQ-KNOW-002",
-        "REQ-KNOW-003",
         "REQ-KNOW-004",
-        "REQ-KNOW-005",
         "REQ-KNOW-006",
         "REQ-KNOW-007",
-        "REQ-KNOW-008",
         "REQ-KNOW-009",
-        "REQ-KNOW-020",
-        "REQ-KNOW-021",
-        "REQ-KNOW-022",
-        "REQ-KNOW-023",
-        "REQ-KNOW-024",
-        "REQ-KNOW-025",
-        "REQ-KNOW-027",
-        "REQ-KNOW-028",
-        "REQ-KNOW-032",
-        "REQ-KNOW-068",
-        "REQ-KNOW-071",
         "REQ-KNOW-072",
-        "REQ-KNOW-075",
         "REQ-KNOW-076",
         "REQ-KNOW-089",
-        "REQ-KNOW-096",
-        "REQ-MAIL-001",
         "REQ-NTF-001",
         "REQ-NTF-002",
         "REQ-NTF-005",
@@ -9389,13 +9467,8 @@
         "REQ-NTF-007",
         "REQ-NTF-008",
         "REQ-NTF-009",
-        "REQ-NTF-013",
         "REQ-NTF-014",
         "REQ-NTF-015",
-        "REQ-OPS-001",
-        "REQ-OPS-012",
-        "REQ-OPS-013",
-        "REQ-OPS-015",
         "REQ-TSK-018"
       ],
       "own_case_ids": [
@@ -9415,6 +9488,7 @@
         "NOTIFY47-004",
         "NOTIFY47-006",
         "NOTIFY47-007",
+        "NOTIFY47-009",
         "SCHEMA-013",
         "TARGET-TSK-018",
         "WIKI52-002"
@@ -9438,6 +9512,10 @@
         "notifications.syncMeetingReminders",
         "notifications.syncTaskReminders"
       ],
+      "case_requirements_at_start": [
+        "REQ-KNOW-072",
+        "REQ-KNOW-089"
+      ],
       "requirement_ids": [
         "REQ-COM-012",
         "REQ-KNOW-002",
@@ -9454,18 +9532,13 @@
         "REQ-KNOW-021",
         "REQ-KNOW-022",
         "REQ-KNOW-023",
-        "REQ-KNOW-024",
         "REQ-KNOW-025",
         "REQ-KNOW-027",
-        "REQ-KNOW-028",
-        "REQ-KNOW-032",
-        "REQ-KNOW-068",
         "REQ-KNOW-071",
         "REQ-KNOW-072",
         "REQ-KNOW-075",
         "REQ-KNOW-076",
         "REQ-KNOW-089",
-        "REQ-KNOW-096",
         "REQ-MAIL-001",
         "REQ-NTF-001",
         "REQ-NTF-002",
@@ -9484,12 +9557,50 @@
         "REQ-TSK-018"
       ],
       "shared_requirement_ids": [
+        "REQ-COM-012",
+        "REQ-KNOW-002",
+        "REQ-KNOW-003",
+        "REQ-KNOW-005",
+        "REQ-KNOW-008",
         "REQ-KNOW-010",
-        "REQ-KNOW-019"
+        "REQ-KNOW-019",
+        "REQ-KNOW-020",
+        "REQ-KNOW-021",
+        "REQ-KNOW-022",
+        "REQ-KNOW-023",
+        "REQ-KNOW-025",
+        "REQ-KNOW-027",
+        "REQ-KNOW-071",
+        "REQ-KNOW-075",
+        "REQ-MAIL-001",
+        "REQ-NTF-013",
+        "REQ-OPS-001",
+        "REQ-OPS-012",
+        "REQ-OPS-013",
+        "REQ-OPS-015"
       ],
       "consumed_acceptance_requirement_ids": [
+        "REQ-COM-012",
+        "REQ-KNOW-002",
+        "REQ-KNOW-003",
+        "REQ-KNOW-005",
+        "REQ-KNOW-008",
         "REQ-KNOW-010",
-        "REQ-KNOW-019"
+        "REQ-KNOW-019",
+        "REQ-KNOW-020",
+        "REQ-KNOW-021",
+        "REQ-KNOW-022",
+        "REQ-KNOW-023",
+        "REQ-KNOW-025",
+        "REQ-KNOW-027",
+        "REQ-KNOW-071",
+        "REQ-KNOW-075",
+        "REQ-MAIL-001",
+        "REQ-NTF-013",
+        "REQ-OPS-001",
+        "REQ-OPS-012",
+        "REQ-OPS-013",
+        "REQ-OPS-015"
       ],
       "consumed_acceptance_operation_ids": [
         "church.digestSchedule.set",
@@ -9564,7 +9675,6 @@
         "CASE-NTF-015",
         "CASE-OPS-001",
         "COST-GATE-001",
-        "DEL58-003",
         "DEL58-006",
         "DEL58-007",
         "EVRY-FAMILY-COMMUNICATION",
@@ -9583,7 +9693,6 @@
         "EXEC-010",
         "EXEC-011",
         "EXEC-012",
-        "FDB56-004",
         "GAP-COM-012",
         "MAIL-KEYWINDOW-001",
         "MAIL-LEDGER-001",
@@ -9592,7 +9701,6 @@
         "MAIL51-003",
         "MAIL51-004",
         "MAIL51-005",
-        "MAIL51-006",
         "MAIL51-007",
         "MAIL51-009",
         "NOTIFY47-002",
@@ -9606,8 +9714,6 @@
         "NOTIFY47-010",
         "ORG55-002",
         "ORG55-003",
-        "PUB57-001",
-        "PUB57-005",
         "REC59-006",
         "RECOVERY-DELETE-001",
         "SCHEMA-013",
@@ -9743,16 +9849,11 @@
       ],
       "own_requirement_ids": [
         "REQ-COM-008",
-        "REQ-KNOW-062",
         "REQ-KNOW-090",
-        "REQ-PHASE-008",
-        "REQ-PI-043",
-        "REQ-PI-044",
         "REQ-REF-001",
         "REQ-REF-004",
         "REQ-REF-005",
         "REQ-REF-006",
-        "REQ-REF-008",
         "REQ-REFREL-001"
       ],
       "own_case_ids": [
@@ -9786,6 +9887,7 @@
         "reference.rollbackActivation",
         "reference.validateBundle"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-008",
         "REQ-KNOW-062",
@@ -9806,18 +9908,28 @@
         "REQ-REFREL-001"
       ],
       "shared_requirement_ids": [
+        "REQ-KNOW-062",
         "REQ-KNOW-112",
         "REQ-KNOW-113",
         "REQ-KNOW-114",
         "REQ-KNOW-119",
-        "REQ-PI-046"
+        "REQ-PHASE-008",
+        "REQ-PI-043",
+        "REQ-PI-044",
+        "REQ-PI-046",
+        "REQ-REF-008"
       ],
       "consumed_acceptance_requirement_ids": [
+        "REQ-KNOW-062",
         "REQ-KNOW-112",
         "REQ-KNOW-113",
         "REQ-KNOW-114",
         "REQ-KNOW-119",
-        "REQ-PI-046"
+        "REQ-PHASE-008",
+        "REQ-PI-043",
+        "REQ-PI-044",
+        "REQ-PI-046",
+        "REQ-REF-008"
       ],
       "consumed_acceptance_operation_ids": [
         "communication.templates.forMeeting",
@@ -10174,6 +10286,7 @@
         "reference.invalidateWikiCache",
         "reference.rebuildEmbeddings"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-090",
         "REQ-REF-002",
@@ -10529,6 +10642,7 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-015",
         "REQ-KNOW-016",
@@ -11094,6 +11208,7 @@
         "wiki.organizationArticles.hide",
         "wiki.organizationArticles.publish"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-009",
         "REQ-KNOW-015",
@@ -11542,6 +11657,7 @@
         "documents.templates.get",
         "documents.templates.list"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-DOC-001",
         "REQ-DOC-002",
@@ -11814,6 +11930,7 @@
         "documents.saveNative",
         "documents.useForChurch"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-DOC-002",
         "REQ-DOC-003",
@@ -12167,6 +12284,7 @@
         "B02-021",
         "B02-025",
         "B02-031",
+        "B02-032",
         "CA005",
         "CA025",
         "CASE-NTF-009",
@@ -12216,6 +12334,7 @@
         "phases.readReadiness",
         "phases.transition"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-015",
         "REQ-IDN-029",
@@ -12613,6 +12732,7 @@
         "signals.listDefinitions",
         "signals.reaffirm"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-010",
         "REQ-IDN-022",
@@ -12918,6 +13038,7 @@
         "REQ-PI-045",
         "REQ-PI-046",
         "REQ-PPL-026",
+        "REQ-REF-008",
         "REQ-TEAM-016",
         "REQ-TEAM-017"
       ],
@@ -13079,6 +13200,7 @@
         "intelligence.readFacts",
         "intelligence.readScorecard"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-034",
         "REQ-KNOW-036",
@@ -13118,6 +13240,7 @@
         "REQ-PI-045",
         "REQ-PI-046",
         "REQ-PPL-026",
+        "REQ-REF-008",
         "REQ-TEAM-016",
         "REQ-TEAM-017"
       ],
@@ -13353,6 +13476,7 @@
         "PI-PURPOSE-001",
         "PI-TASK-CONTACT-001",
         "PI-URGENCY-001",
+        "REF-CASE-007",
         "ROLE43-013",
         "ROLE43-014",
         "SCHEMA-004",
@@ -13396,6 +13520,11 @@
         "people.reactivateCommitment",
         "people.recordAdultClassification",
         "people.withdrawCommitment",
+        "reference.activateGeneration",
+        "reference.auditLanguage",
+        "reference.readRubricManifest",
+        "reference.rollbackActivation",
+        "reference.validateBundle",
         "signals.attest",
         "signals.correct",
         "signals.getHistory",
@@ -13427,6 +13556,11 @@
         "people.reactivateCommitment",
         "people.recordAdultClassification",
         "people.withdrawCommitment",
+        "reference.activateGeneration",
+        "reference.auditLanguage",
+        "reference.readRubricManifest",
+        "reference.rollbackActivation",
+        "reference.validateBundle",
         "signals.attest",
         "signals.correct",
         "signals.getHistory",
@@ -13554,6 +13688,7 @@
         "intelligence.resolveCitation",
         "intelligence.retrieveMethodology"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-062",
         "REQ-KNOW-112",
@@ -13918,6 +14053,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.runEvaluation"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-062",
         "REQ-KNOW-112",
@@ -14355,6 +14491,7 @@
         "intelligence.requestRefresh",
         "intelligence.scheduleAssessment"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-062",
         "REQ-KNOW-112",
@@ -14733,6 +14870,8 @@
         "REQ-PI-032",
         "REQ-PI-033",
         "REQ-PI-034",
+        "REQ-PI-035",
+        "REQ-PI-037",
         "REQ-PI-043",
         "REQ-PI-044",
         "REQ-PPL-026",
@@ -14772,6 +14911,7 @@
         "B02-028",
         "B02-029",
         "B02-031",
+        "B02-032",
         "CA004",
         "CA005",
         "CA015",
@@ -14927,6 +15067,7 @@
         "intelligence.validateConcernPairing",
         "intelligence.validateDraft"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-018",
         "REQ-KNOW-034",
@@ -14973,6 +15114,8 @@
         "REQ-PI-032",
         "REQ-PI-033",
         "REQ-PI-034",
+        "REQ-PI-035",
+        "REQ-PI-037",
         "REQ-PI-043",
         "REQ-PI-044",
         "REQ-PI-046",
@@ -15198,10 +15341,31 @@
         "LI-016",
         "LI-017",
         "LI-018",
+        "MW-CASE-001",
+        "MW-CASE-002",
+        "MW-CASE-003",
+        "MW-CASE-004",
+        "MW-CASE-005",
+        "MW-CASE-006",
+        "MW-CASE-007",
+        "MW-CASE-008",
+        "MW-CASE-009",
+        "MW-CASE-010",
+        "MW-CASE-011",
+        "MW-CASE-012",
+        "MW-CASE-013",
+        "MW-CASE-014",
+        "MW-CASE-015",
+        "MW-CASE-016",
+        "MW-CASE-017",
         "MW-CASE-018",
+        "MW-CASE-019",
+        "MW-CASE-020",
+        "MW-CASE-021",
         "MW-CASE-022",
         "MW-CASE-023",
         "MW-CASE-024",
+        "MW-CASE-025",
         "MW-CASE-026",
         "NEX-001",
         "NEX-002",
@@ -15354,6 +15518,7 @@
         "intelligence.releaseAssessmentToOversight",
         "intelligence.resolveCitation",
         "intelligence.runAssessmentBatch",
+        "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates",
         "intelligence.settleRun",
         "intelligence.submitFeedback",
@@ -15386,6 +15551,7 @@
         "intelligence.readScorecard",
         "intelligence.releaseAssessmentToOversight",
         "intelligence.resolveCitation",
+        "intelligence.scheduleAssessment",
         "meetings.correctPracticeOccurrence",
         "meetings.listCompletedPreLaunchPractices",
         "onboarding.createPlant",
@@ -15511,6 +15677,7 @@
         "launch.reopenMilestone",
         "launch.schedule"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-015",
         "REQ-IDN-029",
@@ -15874,6 +16041,7 @@
         "B02-025",
         "B02-030",
         "B02-031",
+        "B02-032",
         "CASE-LCH-002",
         "CASE-LCH-003",
         "CASE-LCH-004",
@@ -15935,6 +16103,7 @@
         "launch.saveDebriefSummaryDraft",
         "launch.submitDebrief"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-034",
         "REQ-KNOW-035",
@@ -16333,6 +16502,7 @@
         "oversight.listSendingChurches",
         "oversight.readLaunchReadiness"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-023",
         "REQ-IDN-024",
@@ -16622,6 +16792,7 @@
         "dashboard.readSetupGaps",
         "dashboard.resolveHome"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-004",
         "REQ-ADM-005",
@@ -16758,6 +16929,7 @@
         "marketing.terms",
         "platformAdmin.authorize"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
@@ -16887,20 +17059,14 @@
       ],
       "own_requirement_ids": [
         "REQ-IDN-004",
-        "REQ-IDN-028",
-        "REQ-IDN-031",
-        "REQ-IDN-032",
         "REQ-KNOW-011",
         "REQ-KNOW-012",
         "REQ-KNOW-013",
         "REQ-KNOW-014",
         "REQ-KNOW-028",
-        "REQ-KNOW-030",
-        "REQ-KNOW-031",
         "REQ-KNOW-032",
         "REQ-KNOW-072",
         "REQ-KNOW-073",
-        "REQ-KNOW-074",
         "REQ-KNOW-078",
         "REQ-KNOW-081",
         "REQ-KNOW-082",
@@ -16911,10 +17077,8 @@
         "REQ-KNOW-087",
         "REQ-KNOW-088",
         "REQ-KNOW-089",
-        "REQ-KNOW-093",
         "REQ-KNOW-094",
         "REQ-KNOW-095",
-        "REQ-KNOW-096",
         "REQ-OPS-001",
         "REQ-OPS-002",
         "REQ-OPS-003",
@@ -16930,7 +17094,6 @@
         "REQ-OPS-013",
         "REQ-OPS-014",
         "REQ-OPS-015",
-        "REQ-PI-035",
         "REQ-PI-036"
       ],
       "own_case_ids": [
@@ -16946,7 +17109,6 @@
         "AUDIT-006",
         "AUDIT-007",
         "AUDIT-008",
-        "B02-032",
         "BKT60-001",
         "BKT60-003",
         "BKT60-004",
@@ -16979,7 +17141,6 @@
         "EXEC-012",
         "FDB56-002",
         "FDB56-003",
-        "NOTIFY47-009",
         "OPS54-001",
         "OPS54-002",
         "ORG55-006",
@@ -16995,7 +17156,6 @@
         "REC59-006",
         "RECOVERY-COPY-001",
         "RECOVERY-DELETE-001",
-        "ROLE43-017",
         "SCHEMA-011",
         "SCHEMA-013",
         "SEC-10",
@@ -17040,23 +17200,24 @@
         "qa.verifyNativeTransactions",
         "qa.verifyVerticalSlices"
       ],
+      "case_requirements_at_start": [
+        "REQ-KNOW-012",
+        "REQ-KNOW-078",
+        "REQ-OPS-004",
+        "REQ-PI-036"
+      ],
       "requirement_ids": [
         "REQ-IDN-004",
         "REQ-IDN-028",
         "REQ-IDN-029",
-        "REQ-IDN-031",
-        "REQ-IDN-032",
         "REQ-KNOW-011",
         "REQ-KNOW-012",
         "REQ-KNOW-013",
         "REQ-KNOW-014",
         "REQ-KNOW-028",
-        "REQ-KNOW-030",
-        "REQ-KNOW-031",
         "REQ-KNOW-032",
         "REQ-KNOW-072",
         "REQ-KNOW-073",
-        "REQ-KNOW-074",
         "REQ-KNOW-078",
         "REQ-KNOW-081",
         "REQ-KNOW-082",
@@ -17067,10 +17228,8 @@
         "REQ-KNOW-087",
         "REQ-KNOW-088",
         "REQ-KNOW-089",
-        "REQ-KNOW-093",
         "REQ-KNOW-094",
         "REQ-KNOW-095",
-        "REQ-KNOW-096",
         "REQ-OPS-001",
         "REQ-OPS-002",
         "REQ-OPS-003",
@@ -17090,9 +17249,14 @@
         "REQ-PI-036"
       ],
       "shared_requirement_ids": [
-        "REQ-IDN-029"
+        "REQ-IDN-028",
+        "REQ-IDN-029",
+        "REQ-PI-035"
       ],
-      "consumed_acceptance_requirement_ids": [],
+      "consumed_acceptance_requirement_ids": [
+        "REQ-IDN-028",
+        "REQ-PI-035"
+      ],
       "consumed_acceptance_operation_ids": [
         "auth.recoverInvalidSession",
         "documents.purgeOwnedForDeletion",
@@ -17138,7 +17302,6 @@
         "AUDIT-008",
         "AUTH-006",
         "AUTH-008",
-        "B02-032",
         "BKT60-001",
         "BKT60-002",
         "BKT60-003",
@@ -17177,12 +17340,9 @@
         "EXEC-010",
         "EXEC-011",
         "EXEC-012",
-        "FDB56-001",
         "FDB56-002",
         "FDB56-003",
-        "FDB56-004",
         "NI-010",
-        "NOTIFY47-009",
         "OPS54-001",
         "OPS54-002",
         "ORG55-001",
@@ -17194,8 +17354,6 @@
         "PROVIDER48-001",
         "PROVIDER48-004",
         "PUB57-001",
-        "PUB57-003",
-        "PUB57-004",
         "PUB57-005",
         "REC59-001",
         "REC59-002",
@@ -17206,9 +17364,6 @@
         "RECOVERY-COPY-001",
         "RECOVERY-DELETE-001",
         "ROLE43-002",
-        "ROLE43-010",
-        "ROLE43-011",
-        "ROLE43-012",
         "ROLE43-013",
         "ROLE43-017",
         "ROLE43-018",
@@ -17231,13 +17386,7 @@
         "TEN-009"
       ],
       "operation_ids": [
-        "account.cancelDeletion",
-        "account.getDeletionStatus",
-        "account.requestDeletion",
         "auth.recoverInvalidSession",
-        "churches.cancelWorkspaceDeletion",
-        "churches.getDeletionStatus",
-        "churches.requestWorkspaceDeletion",
         "dev.cleanupPreview",
         "dev.createIsolatedPreview",
         "dev.inspectPreviewProvenance",
@@ -17285,13 +17434,7 @@
         "storage.deleteUnreferencedObject"
       ],
       "shared_operation_ids": [
-        "account.cancelDeletion",
-        "account.getDeletionStatus",
-        "account.requestDeletion",
         "auth.recoverInvalidSession",
-        "churches.cancelWorkspaceDeletion",
-        "churches.getDeletionStatus",
-        "churches.requestWorkspaceDeletion",
         "documents.purgeOwnedForDeletion",
         "intelligence.recordAttemptTelemetry",
         "intelligence.requestOperatorRefresh",
@@ -17429,6 +17572,7 @@
         "evry.submitTurn",
         "evry.updateDraft"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-001",
         "REQ-EVR-003",
@@ -17776,6 +17920,7 @@
         "evry.invokeRead",
         "evry.readCatalog"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-001",
         "REQ-EVR-003",
@@ -18715,6 +18860,7 @@
         "evry.reuseRecipe",
         "evry.reviseProposal"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-001",
         "REQ-EVR-003",
@@ -19696,6 +19842,7 @@
         "evry.selectReturnedRows",
         "evry.stageAttachment"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-001",
         "REQ-EVR-003",
@@ -20100,6 +20247,7 @@
         "evry.runEvaluation",
         "evry.selectQualifiedModel"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-001",
         "REQ-EVR-002",
@@ -21812,6 +21960,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
@@ -27518,6 +27667,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
@@ -32985,6 +33135,7 @@
         "TARGET-IDN-032"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-032",
         "REQ-KNOW-014",
@@ -33289,6 +33440,7 @@
         "people.previewUnmerge",
         "people.readPipelineMetrics"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-011",
         "REQ-EVR-020",
@@ -33591,6 +33743,7 @@
         "people.unmergePeople",
         "people.updatePerson"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-EVR-025",
@@ -33878,6 +34031,7 @@
         "people.getInterviews",
         "people.listRecordCorrections"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -34042,6 +34196,7 @@
         "people.reactivateCommitment",
         "people.withdrawCommitment"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -34206,6 +34361,7 @@
         "people.listHouseholds",
         "people.listTags"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -34378,6 +34534,7 @@
         "people.updateSkill",
         "people.updateTag"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -34561,6 +34718,7 @@
         "venues.history",
         "venues.list"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-010",
         "REQ-EVR-020",
@@ -34880,6 +35038,7 @@
         "venues.edit",
         "venues.restore"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-010",
         "REQ-EVR-020",
@@ -35227,6 +35386,7 @@
         "tasks.relationOptions",
         "tasks.statusHistory"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -35538,6 +35698,7 @@
         "tasks.settleManagedEvaluation",
         "tasks.waive"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-011",
         "REQ-EVR-020",
@@ -35835,6 +35996,7 @@
         "teams.trainingHistory",
         "teams.trainingMatrix"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-029",
@@ -36118,6 +36280,7 @@
         "teams.scheduleMeeting",
         "teams.setRequiredTrainingParticipants"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-014",
@@ -36400,6 +36563,7 @@
         "mail.renderTransactional",
         "mail.suppression.listForSelf"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-001",
         "REQ-COM-002",
@@ -36669,6 +36833,7 @@
         "mail.suppression.recordProviderFact",
         "mail.suppression.restoreReviewed"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-COM-003",
         "REQ-COM-005",
@@ -36956,6 +37121,7 @@
         "signals.getHistory",
         "signals.listDefinitions"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-023",
@@ -37654,6 +37820,7 @@
         "signals.correct",
         "signals.reaffirm"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-KNOW-050",
@@ -38082,6 +38249,7 @@
         "launch.readMilestoneHistory",
         "launch.readWorkspace"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-KNOW-055",
@@ -38241,6 +38409,7 @@
         "launch.schedule",
         "launch.submitDebrief"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-KNOW-039",
@@ -38418,6 +38587,7 @@
         "wiki.search",
         "wiki.tableOfContents"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-PHASE-006",
@@ -38634,6 +38804,7 @@
         "wiki.reading.updateProgress",
         "wiki.setSourceOrder"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-PI-046",
@@ -38910,6 +39081,7 @@
         "storage.createAuthorizedDownload",
         "storage.readAuthorizedObject"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-DOC-001",
         "REQ-DOC-002",
@@ -39212,6 +39384,7 @@
         "storage.deleteUnreferencedObject",
         "storage.putPrivateObject"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-DOC-002",
         "REQ-DOC-003",
@@ -39466,6 +39639,7 @@
         "notifications.previewPlanterDigest",
         "notifications.unreadCount"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-012",
@@ -39660,6 +39834,7 @@
         "notifications.syncTaskReminders",
         "notifications.undoEmailOptOut"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-020",
         "REQ-IDN-012",
@@ -39914,6 +40089,7 @@
         "security.safeReturn",
         "settings.getSection"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
@@ -40340,6 +40516,7 @@
         "seats.revokeInvitation",
         "settings.saveSection"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-ADM-001",
         "REQ-ADM-002",
@@ -40792,6 +40969,7 @@
         "calendar.getContext",
         "calendar.resolve"
       ],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-EVR-017",
         "REQ-EVR-020"
@@ -40878,6 +41056,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
@@ -40901,6 +41080,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
@@ -40926,6 +41106,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
@@ -40951,6 +41132,7 @@
       "own_requirement_ids": [],
       "own_case_ids": [],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
@@ -41069,6 +41251,7 @@
         "TARGET-PPL-025"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-031",
         "REQ-IDN-032",
@@ -41245,6 +41428,7 @@
         "SCHEMA-010"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-012",
         "REQ-KNOW-014",
@@ -41343,6 +41527,7 @@
         "SME53-003"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-062",
         "REQ-KNOW-069",
@@ -41596,6 +41781,7 @@
         "TARGET-PPL-025"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-IDN-032",
         "REQ-KNOW-074",
@@ -41673,6 +41859,7 @@
         "REC59-006"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-013",
         "REQ-KNOW-014",
@@ -41739,6 +41926,7 @@
         "TEN-007"
       ],
       "own_operation_ids": [],
+      "case_requirements_at_start": [],
       "requirement_ids": [
         "REQ-KNOW-062",
         "REQ-KNOW-112",

@@ -433,8 +433,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "title": "Native drafts and reviewed scheduled email",
       "behavior_rules": [
@@ -527,8 +526,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -552,8 +550,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -598,9 +595,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-007",
-        "WP-030",
-        "WP-031"
+        "WP-030"
       ]
     },
     {
@@ -679,8 +674,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -798,8 +792,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -821,8 +814,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-027",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -846,8 +838,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -874,8 +865,7 @@
       "work_packages": [
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -901,8 +891,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ]
     },
     {
@@ -927,8 +916,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ]
     },
     {
@@ -998,7 +986,6 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-053",
         "WP-055",
         "WP-072"
@@ -1030,9 +1017,8 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-035",
-        "WP-031",
-        "WP-030"
+        "WP-030",
+        "WP-035"
       ]
     },
     {
@@ -1115,12 +1101,9 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-008",
         "WP-027",
         "WP-028",
-        "WP-029",
-        "WP-031"
+        "WP-029"
       ],
       "behavior_rules": [
         {
@@ -1607,10 +1590,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-008",
-        "WP-028",
-        "WP-031"
+        "WP-028"
       ],
       "title": "Shared transactional email transport and protected email templates",
       "behavior_rules": [

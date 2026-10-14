@@ -2459,6 +2459,21 @@
           "fixture_type": "test_execution",
           "from": "2026-10-01",
           "through": "2026-10-13"
+        },
+        "native-read-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-native-pipeline-reader",
+          "authority": "authenticated_internal_native_caller",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "verified": true,
+          "operation_ids": [
+            "people.readPipelineMetrics"
+          ],
+          "scope": "P"
         }
       },
       "actor": {
@@ -2578,6 +2593,21 @@
               "fixture_type": "test_execution",
               "from": "2026-09-01",
               "through": "2026-09-30"
+            },
+            "native-read-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-native-pipeline-reader",
+              "authority": "authenticated_internal_native_caller",
+              "actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              },
+              "verified": true,
+              "operation_ids": [
+                "people.readPipelineMetrics"
+              ],
+              "scope": "P"
             }
           },
           "actor": {
@@ -2634,6 +2664,21 @@
               "fixture_type": "test_execution",
               "from": "2026-10-01",
               "through": "2026-10-13"
+            },
+            "native-read-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-native-pipeline-reader",
+              "authority": "authenticated_internal_native_caller",
+              "actor": {
+                "account": "foreign-actor",
+                "session": "foreign-session",
+                "context": "Q"
+              },
+              "verified": true,
+              "operation_ids": [
+                "people.readPipelineMetrics"
+              ],
+              "scope": "Q"
             }
           },
           "actor": {
@@ -2680,6 +2725,21 @@
               "from": "2026-10-01",
               "through": "2026-10-13",
               "fault": "required_source_unavailable"
+            },
+            "native-read-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-native-pipeline-reader",
+              "authority": "authenticated_internal_native_caller",
+              "actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              },
+              "verified": true,
+              "operation_ids": [
+                "people.readPipelineMetrics"
+              ],
+              "scope": "P"
             }
           },
           "actor": {
@@ -10114,12 +10174,32 @@
           "email": "alex@example.test",
           "first_name": "Alex",
           "account": null
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_identity_provisioning_caller",
+          "authority": "registered_identity_provisioning_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "people.ensureAccountPerson"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -12883,6 +12963,21 @@
             "P3": "P1"
           },
           "source_cohort_available": false
+        },
+        "native-read-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-native-pipeline-reader",
+          "authority": "authenticated_internal_native_caller",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "verified": true,
+          "operation_ids": [
+            "people.readPipelineMetrics"
+          ],
+          "scope": "P"
         }
       },
       "actor": {

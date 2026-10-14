@@ -19,6 +19,7 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
  `Prerequisites: ${prerequisitesForPart(pkg,task.part).map(d=>`${d}=${producerReady(root,d)?progress[d]?.status==='done'?'done':'reviewed producer/interface milestone':progress[d]?.status ?? "unknown"}`).join(", ") || "none"}`,
  `Selected acceptance bundles: ${context.acceptance_ids.join(", ")}`,
  `Selected acceptance count: ${context.acceptance_ids.length}`,
+ `Write owned cases at package start for: ${(context.case_requirements_at_start as string[]).join(', ') || 'none'}`,
  `Owned cases: ${context.own_case_ids.join(", ") || "package output gates"}`,
  "For the bounded overview: python3 docs/package-context.py "+task.wp,
  "Start with the short package brief. Read linked chapters, schema and detailed clauses/cases on demand to resolve the task obligations.",

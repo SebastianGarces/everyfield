@@ -325,7 +325,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050"
       ]
@@ -348,7 +347,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
         "WP-049"
       ]
     },
@@ -372,9 +370,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -398,7 +394,6 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049",
-        "WP-050",
         "WP-091"
       ]
     },
@@ -424,7 +419,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-049",
         "WP-050",
         "WP-091"
@@ -477,8 +471,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-049",
-        "WP-050"
+        "WP-049"
       ]
     },
     {
@@ -548,10 +541,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-031",
         "WP-049",
-        "WP-050",
         "WP-053",
         "WP-055",
         "WP-091"
@@ -578,7 +568,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-031",
         "WP-050"
       ],
       "title": "External schedules and bounded HTTP job ticks",

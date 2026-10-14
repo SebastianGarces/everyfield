@@ -325,6 +325,7 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
  const brief=renderBrief(source,parseTask('WP-002'),{});
  assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
  assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
+ assert.match(brief,/Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
  assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
  const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
  const parts=buildBlocks(source,selected).blocks;
@@ -418,7 +419,21 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
   delete agenda.action.arguments.expected_answer;writeFileSync(casePath,JSON.stringify(caseFile));
   assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires available case actions.*WP-001\/TARGET-MTG-005/s);
   assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  // A plant Admin cannot use an operator operation as an evidence reader.
+  agenda.action={operation:'engineering.inventoryTools',arguments:{}};
+  writeFileSync(casePath,JSON.stringify(caseFile));
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*actor lacks authority.*engineering.inventoryTools/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
   writeFileSync(casePath,caseBytes);writeFileSync(manifestPath,manifestBytes);
+  // An owned requirement needs an owned case even with signed passing integration evidence.
+  const requirementPath=join(f.root,'docs/catalog/requirements/communications-notifications.json');
+  const requirementBytes=readFileSync(requirementPath,'utf8'),requirementFile=JSON.parse(requirementBytes);
+  requirementFile.requirements.find((r:{id:string})=>r.id==='REQ-NTF-004').work_packages.push('WP-001');
+  writeFileSync(requirementPath,JSON.stringify(requirementFile));
+  execFileSync('python3',[join(f.root,'docs/package-context.py'),'--root',f.root,'--refresh-manifest']);
+  assert.throws(()=>listShipped(f.root,[integration.id]),/Closure requires runnable cases.*WP-001\/REQ-NTF-004: owned requirement has no owned case/s);
+  assert.equal(readFileSync(progressPath,'utf8'),beforeRejectedClosure);
+  writeFileSync(requirementPath,requirementBytes);writeFileSync(manifestPath,manifestBytes);
   listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
   const closed=readFileSync(progressPath,'utf8');listShipped(f.root,[integration.id]);assert.equal(readFileSync(progressPath,'utf8'),closed);
  }finally{console.log=oldLog;f.close();}

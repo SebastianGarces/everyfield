@@ -57,7 +57,8 @@
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_prefixes": [
           "REF-"
-        ]
+        ],
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -151,6 +152,12 @@
           "docs/product/tasks.md#req-tsk-018",
           "docs/product/identity-access.md#req-idn-029",
           "docs/product/people.md#req-ppl-024"
+        ],
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-OPS-004",
+          "REQ-PI-037",
+          "REQ-PPL-024"
         ]
       },
       "estimate_factors": {
@@ -215,7 +222,20 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-013",
+          "REQ-KNOW-014",
+          "REQ-KNOW-078",
+          "REQ-KNOW-080",
+          "REQ-KNOW-081",
+          "REQ-KNOW-082",
+          "REQ-KNOW-083",
+          "REQ-KNOW-084",
+          "REQ-KNOW-086",
+          "REQ-KNOW-087",
+          "REQ-KNOW-088"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -276,7 +296,26 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "all",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-KNOW-012",
+          "REQ-KNOW-014",
+          "REQ-KNOW-069",
+          "REQ-KNOW-072",
+          "REQ-KNOW-073",
+          "REQ-KNOW-078",
+          "REQ-KNOW-081",
+          "REQ-KNOW-082",
+          "REQ-KNOW-083",
+          "REQ-KNOW-084",
+          "REQ-KNOW-085",
+          "REQ-KNOW-086",
+          "REQ-KNOW-087",
+          "REQ-KNOW-088",
+          "REQ-KNOW-089",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -338,7 +377,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-069",
+          "REQ-KNOW-072"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -403,7 +446,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-029",
+          "REQ-KNOW-116"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -469,7 +516,10 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-112"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -540,7 +590,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -610,7 +661,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -682,7 +734,13 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-IDN-012",
+          "REQ-KNOW-069",
+          "REQ-KNOW-072",
+          "REQ-KNOW-073"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -747,7 +805,12 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-069",
+          "REQ-KNOW-098",
+          "REQ-KNOW-099"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2056,7 +2119,7 @@
       "depends_on": [
         "WP-004"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-031; linked details on demand.",
         "WP-004 reviewed producer/interface milestone"
@@ -2099,7 +2162,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-072",
+          "REQ-KNOW-089"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2162,7 +2229,8 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 1,
@@ -3409,7 +3477,7 @@
         "WP-004",
         "WP-031"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-050; linked details on demand.",
         "WP-003 reviewed producer/interface milestone",
@@ -3451,7 +3519,13 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-012",
+          "REQ-KNOW-078",
+          "REQ-OPS-004",
+          "REQ-PI-036"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -6510,7 +6584,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2,
@@ -6580,7 +6655,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2,
@@ -6646,7 +6722,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 2.8,
@@ -6714,7 +6791,8 @@
         "acceptance": "explicit",
         "acceptance_ids": [],
         "schema": "produced",
-        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
+        "case_requirements_at_start": []
       },
       "estimate_factors": {
         "base_days": 3.4,
@@ -7275,8 +7353,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 94.0,
-  "total_engineer_days": 253.0,
+  "critical_path_unconstrained_days": 93.0,
+  "total_engineer_days": 251.5,
   "contract_milestones": {
     "C0": [
       "WP-002"

@@ -54,12 +54,32 @@
         "execution": {
           "fixture_type": "test_execution",
           "manifest_release": "everyfield-reference-inputs-2026-10-13"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packagePlaybook"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -118,12 +138,32 @@
             "execution": {
               "fixture_type": "test_execution",
               "manifest_release": "everyfield-reference-inputs-2026-10-13"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.packagePlaybook"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -183,12 +223,32 @@
             "execution": {
               "fixture_type": "test_execution",
               "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.packagePlaybook"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -280,12 +340,32 @@
               "fixture_type": "test_execution",
               "manifest_release": "everyfield-reference-inputs-2026-10-13",
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.packagePlaybook"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -731,12 +811,32 @@
           "plant": "P",
           "title": "Keep edited title",
           "status": "not_started"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packageTaskTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -823,12 +923,32 @@
             "execution": {
               "fixture_type": "test_execution",
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.packageTaskTemplates"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -910,12 +1030,32 @@
             "Custom 2",
             "Custom 3"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.packageTeamTemplates"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1003,12 +1143,32 @@
             "execution": {
               "fixture_type": "test_execution",
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.packageTeamTemplates"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -1636,12 +1796,32 @@
               "fixture_type": "test_execution",
               "bundle": "candidate",
               "fault": "required_source_unavailable"
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-authorized_global_reference_publisher",
+              "authority": "authorized_global_reference_publisher",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "reference.validateBundle"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -1985,12 +2165,32 @@
         "R2": {
           "fixture_type": "reference_generation",
           "id": "R2"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.validateBundle"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2120,12 +2320,32 @@
           "id": "R3",
           "state": "validated",
           "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.activateGeneration"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2226,12 +2446,32 @@
         "R1": {
           "fixture_type": "reference_generation",
           "id": "R1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.rollbackActivation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2475,12 +2715,32 @@
         "R2": {
           "fixture_type": "reference_generation",
           "id": "R2"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_global_reference_publisher",
+          "authority": "authorized_global_reference_publisher",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "reference.validateBundle"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2597,7 +2857,21 @@
           "historical_result_rewritten": false
         },
         "event": null
-      }
+      },
+      "coverage_notes": [
+        {
+          "round_2_4": {
+            "removed_owners": [
+              "WP-027",
+              "WP-032",
+              "WP-033",
+              "WP-034",
+              "WP-036"
+            ],
+            "reason": "This publication race invokes intelligence.publishAssessment owned by WP-043. Earlier reference producers cannot run assessment publication; WP-043 and its downstream integration WP-058 retain the case."
+          }
+        }
+      ]
     }
   ]
 }

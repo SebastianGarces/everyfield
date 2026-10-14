@@ -150,7 +150,8 @@ def compile_manifest(root):
                   (scope['schema'] == 'produced' and pid in t['producer_work_packages'])}
         result.append(dict(
             id=pid, feature_ids=sorted(fs), own_requirement_ids=sorted(own_rs), own_case_ids=sorted(own_cs),
-            own_operation_ids=sorted(own_ops), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
+            own_operation_ids=sorted(own_ops),
+            case_requirements_at_start=sorted(scope.get('case_requirements_at_start', [])), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
             consumed_acceptance_requirement_ids=sorted(consumed_ac_rs), consumed_acceptance_operation_ids=sorted(consumed_ac_ops),
             acceptance_ids=sorted(acs), case_ids=sorted(cs), operation_ids=sorted(ops), shared_operation_ids=sorted(ops - own_ops),
             shared_contract_ids=sorted(shared_symbols), unresolved_current_operation_references=unresolved,
@@ -232,10 +233,20 @@ def brief(root, manifest, package):
         if f['id'] in selected:
             links.add(f['spec_file'].split('#')[0] if own['context_scope']['features'] == 'all' else f['spec_file'])
     links.update(own['context_scope'].get('chapter_links', []))
+    requirements = {r['id']: r for path in set(manifest['requirement_locations'][rid]
+                    for rid in package['own_requirement_ids']) for r in read(root, path)['requirements']}
+    cases = {c['id']: c for path in set(manifest['case_locations'][cid]
+             for cid in package['own_case_ids']) for c in read(root, path)['cases']}
+    missing = [rid for rid in package['own_requirement_ids'] if not any(
+        cid in requirements[rid].get('case_ids', []) or
+        rid in [cases[cid]['requirement']] + cases[cid].get('requirement_ids', [])
+        for cid in package['own_case_ids'])]
     return dict(
         id=own['id'], title=own['title'], goal=own['goal'], outputs=own['outputs'], owning_paths=own['owning_paths'],
         root_outputs=own.get('root_outputs', []),
         own_requirement_ids=package['own_requirement_ids'], own_case_ids=package['own_case_ids'],
+        case_requirements_at_start=package['case_requirements_at_start'],
+        owned_requirements_without_cases=missing,
         chapter_links=sorted(links),
         schema_links={'source': 'docs/schema/target.json', 'producer_tables': package['producer_table_names'],
                       'consumer_tables': package['consumer_table_names']},

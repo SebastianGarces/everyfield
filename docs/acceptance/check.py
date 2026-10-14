@@ -130,7 +130,7 @@ def vocabulary_errors(value, fixtures, vocabularies, location, table=None):
 
 PROOF_ACTIONS = {'sql.inspectConstraints', 'sql.inspectEventRows', 'sql.inspectRuntimeGrants',
                  'build.inspectBrowserBundle', 'configuration.inspectProviderPrivacy',
-                 'configuration.inspectMixedEnvironment'}
+                 'configuration.inspectMixedEnvironment', 'build.inspectTargetCatalog'}
 SETUP_TYPES = {'domain_inputs', 'behavior_inputs', 'example', 'fixture', 'test_setup'}
 HARNESS_KEYS = {'fault', 'fault_control', 'recording_fault_control', 'foreign_control',
                 'invalid_control', 'repeat', 'concurrent', 'concurrent_requests',
@@ -152,6 +152,103 @@ def leaves(value):
             yield from leaves(child)
     else:
         yield value
+
+
+def expects_refusal(expected):
+    """Only an explicit refused operation bypasses positive actor authority."""
+    denied = {'access_denied', 'forbidden', 'unauthorized', 'not_found',
+              'foreign_context_refused', 'current_authority_refused', 'unauthenticated'}
+    result = expected.get('result', {})
+    return (expected.get('error_code') in denied or
+            isinstance(result, dict) and (result.get('error_code') in denied or
+                any(v is False and (k.endswith('_allowed') or k in {'authorized', 'permitted', 'allowed'})
+                    for k, v in result.items())))
+
+
+
+def authority_errors(example, given, operations, name):
+    actor = example.get('actor', {})
+    account, context = actor.get('account'), actor.get('context')
+    held = {'anonymous_public', 'public_or_sealed_expiring_proof'}
+    authenticated = (account in given and actor.get('session') in given and
+                     given[actor['session']].get('account') == account)
+    if authenticated:
+        held |= {'authenticated_self', 'authenticated_conversation_owner',
+                 'authenticated_reference_reader',
+                 'ambient_self_session_or_absent_invalid_cookie'}
+    else:
+        held |= {'anonymous_public', 'ambient_self_session_or_absent_invalid_cookie'}
+    if account and actor.get('session') and context is None:
+        held.add('authenticated_own_preplant_or_discovery_account')
+    for row in given.values():
+        if (row.get('fixture_type') == 'seat' and row.get('account') == account
+                and row.get('tenant') == context and row.get('active') is True):
+            kind = given.get(context, {}).get('fixture_type', 'plant')
+            prefix = 'organization' if kind in {'organization', 'sending_church', 'network'} else 'plant'
+            role = str(row.get('role', '')).lower()
+            held.add(prefix + '_' + role)
+            if prefix == 'plant' and role in {'owner', 'admin'}:
+                if role == 'owner':
+                    held.add('current_plant_owner_onboarding_subject')
+                if any(r.get('original_author_account_id', r.get('originalAuthorAccountId')) == account
+                       for r in given.values()):
+                    held.add('original_author_current_plant_owner_or_admin')
+    # Special principals/proofs are explicit harness fixtures. A plant session cannot
+    # elevate itself by supplying one; operator/internal execution has no user session.
+    for row in given.values():
+        if row.get('account') != account or not account or not actor.get('session'):
+            continue
+        typ = row.get('fixture_type')
+        if typ == 'registration_proof':
+            held |= {'verified_own_pending_domain_account', 'verified_own_pending_or_active_account'}
+        if typ == 'invitation_proof' and row.get('verified') is True:
+            held.add('verified_addressed_invitee_without_active_seat')
+        if typ == 'deletion_subject_proof' and row.get('verified') is True:
+            held.add('verified_restricted_deletion_subject')
+        if typ == 'discovery':
+            held.add('authenticated_discovery_subject_owner')
+    grants = [r for r in given.values() if r.get('fixture_type') == 'operation_capability'
+              and r.get('verified') is True and r.get('principal')
+              and r.get('actor') == actor]
+    errors = []
+    calls = [(example.get('action', {}), example.get('expected', {}))]
+    execution = example.get('given', {}).get('execution', {})
+    for field in ['parallel_calls', 'additional_calls']:
+        for call in execution.get(field, []):
+            calls.append((call, call.get('expected', {})))
+    for call, expected in calls:
+        oid = call.get('operation')
+        if call.get('actor', actor) != actor:
+            errors.extend(authority_errors({'actor': call['actor'], 'action': call,
+                                            'expected': expected}, given, operations, name))
+            continue
+        operation = operations.get(oid)
+        if not operation or expects_refusal(expected):
+            continue
+        allowed = {token for rule in operation.get('authority', [])
+                   for entry in rule['actors'] for token in entry.split('|')}
+        exact = {g['authority'] for g in grants if oid in g.get('operation_ids', [])
+                 and ((not account and not actor.get('session') and context is None) or
+                      (authenticated and g['authority'] in {
+                          'verified_restricted_deletion_subject', 'verified_addressed_invitee_without_active_seat',
+                          'verified_own_pending_domain_account', 'verified_own_pending_or_active_account',
+                          'verified_disable_only_proof', 'verified_one_hour_undo_proof',
+                          'sealed_unexpired_rsvp_proof'}) or
+                      (authenticated and g['authority'] == 'authenticated_internal_native_caller'
+                       and any(h.startswith('plant_') for h in held)))}
+        if allowed and not (held | exact) & allowed:
+            errors.append(f'{name}: actor lacks authority for {oid}; requires {sorted(allowed)}')
+    return errors
+
+
+def owned_requirement_gaps(requirements, cases, package_ids):
+    """Coverage is an owned case explicitly linked to this requirement."""
+    return {pid: sorted(r['id'] for r in requirements.values()
+                        if pid in r.get('work_packages', []) and not any(
+                            pid in c.get('work_packages', []) and
+                            (c['id'] in r.get('case_ids', []) or
+                             r['id'] in [c.get('requirement')] + c.get('requirement_ids', []))
+                            for c in cases.values())) for pid in package_ids}
 
 
 def runnable_errors(case, example, given, operations, requirement, name):
@@ -219,7 +316,7 @@ def runnable_errors(case, example, given, operations, requirement, name):
             errors.append(f'{name}: TARGET write scenarios need a command action or explicit command subcases')
     return errors
 
-def check(root, package=None):
+def check(root, package=None, report=None):
     index = read(root / 'docs/catalog/index.json')
     schema = read(root / 'docs/acceptance/case.schema.json')
     vocabularies = closed_vocabularies(read(root / 'docs/schema/target.json'))
@@ -272,8 +369,9 @@ def check(root, package=None):
                 operation = example.get('action', {}).get('operation')
                 if operation not in operation_ids | PROOF_ACTIONS:
                     errors.append(f'{name}: unknown operation {operation}')
-                problems = runnable_errors(case, example, given, operation_by,
-                                           requirements.get(requirement, {}), name)
+                problems = authority_errors(example, given, operation_by, name)
+                problems += runnable_errors(case, example, given, operation_by,
+                                            requirements.get(requirement, {}), name)
                 if s0.intersection(case.get('work_packages', [])) or package in case.get('work_packages', []):
                     errors.extend(problems)
                 elif problems:
@@ -315,7 +413,22 @@ def check(root, package=None):
               if 'cases' in read(p)}
     if actual != registered:
         errors.append('case files differ from catalog registration')
+    gaps = owned_requirement_gaps(requirements, cases, [p['id'] for p in dag['packages']])
+    for pid, missing in gaps.items():
+        print(f'Owned requirement coverage {pid}: {len(missing)} without an owned case' +
+              (': ' + ', '.join(missing) if missing else '.'))
+        declared = set(next(p for p in dag['packages'] if p['id'] == pid).get(
+            'context_scope', {}).get('case_requirements_at_start', []))
+        if pid in s0 and pid != package:
+            errors.extend(f'{pid}/{rid}: owned requirement has no owned case or reviewed at-start assignment'
+                          for rid in missing if rid not in declared)
+        if pid == package:
+            errors.extend(f'{pid}/{rid}: owned requirement has no owned case' for rid in missing)
     print(f'Runnable cases: {len(later)} later-package cases still need repair ({sum(map(len, later.values()))} findings).')
+    if report:
+        report.write_text(json.dumps({'owned_requirements_without_cases': gaps,
+                                     'later_case_findings': {cid: sorted(v) for cid, v in sorted(later.items())},
+                                     'errors': errors}, indent=2) + '\n')
     if package:
         print(f'Closure check: every owned {package} case must be runnable.')
     return errors, cases
@@ -325,9 +438,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--package', help='Fail on runnable-case defects for this package at closure')
+    parser.add_argument('--report', type=Path, help='Write detailed findings and coverage for every package')
     args = parser.parse_args()
     try:
-        errors, cases = check(args.root, args.package)
+        errors, cases = check(args.root, args.package, args.report)
     except (ValueError, KeyError, OSError) as error:
         print(f'FAIL: {error}', file=sys.stderr)
         return 1

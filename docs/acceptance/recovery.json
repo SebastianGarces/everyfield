@@ -269,12 +269,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -378,12 +398,32 @@
           "customer_rows": 0,
           "backup_configured": false,
           "cost_approved": false
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "ops.readiness"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -464,28 +504,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "input": {
-          "fixture_type": "test_setup",
-          "subject": "A",
-          "request_at": "2026-10-13T16:00:00Z",
-          "roles": [
-            "self",
-            "Owner",
-            "Admin",
-            "foreign"
-          ]
-        },
-        "execution": {
-          "fixture_type": "test_execution",
-          "subject": "A",
-          "request_at": "2026-10-13T16:00:00Z",
-          "roles": [
-            "self",
-            "Owner",
-            "Admin",
-            "foreign"
-          ]
         }
       },
       "actor": {
@@ -501,24 +519,14 @@
         "operation": "account.requestDeletion",
         "arguments": {
           "confirmation": "Delete my account",
-          "request_key": "delete-A-1"
+          "request_key": "delete-A-1",
+          "account": "A"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "personal_allowed": [
-            true,
-            false,
-            false,
-            false
-          ],
-          "workspace_allowed": [
-            false,
-            true,
-            false,
-            false
-          ],
+          "personal_allowed": true,
           "cancel_until": "2026-11-12T16:00:00Z",
           "normal_access": false
         },
@@ -534,6 +542,246 @@
               "WP-007"
             ],
             "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "Owner-cannot-delete-another-account",
+          "given": {
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "registration": "active"
+            },
+            "session-B": {
+              "fixture_type": "session",
+              "account": "B",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "P",
+              "role": "Owner",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "B",
+            "session": "session-B",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.requestDeletion",
+            "arguments": {
+              "account": "A",
+              "confirmation": "Delete my account",
+              "request_key": "foreign-delete-A-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
+          }
+        },
+        {
+          "name": "Admin-cannot-delete-another-account",
+          "given": {
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "registration": "active"
+            },
+            "session-B": {
+              "fixture_type": "session",
+              "account": "B",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "B",
+            "session": "session-B",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.requestDeletion",
+            "arguments": {
+              "account": "A",
+              "confirmation": "Delete my account",
+              "request_key": "foreign-delete-A-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
+          }
+        },
+        {
+          "name": "foreign-cannot-delete-another-account",
+          "given": {
+            "B": {
+              "fixture_type": "account",
+              "id": "B",
+              "registration": "active"
+            },
+            "session-B": {
+              "fixture_type": "session",
+              "account": "B",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "seat-B": {
+              "fixture_type": "seat",
+              "account": "B",
+              "tenant": "Q",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "B",
+            "session": "session-B",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.requestDeletion",
+            "arguments": {
+              "account": "A",
+              "confirmation": "Delete my account",
+              "request_key": "foreign-delete-A-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
+          }
+        },
+        {
+          "name": "Owner-workspace-request",
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Owner",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "churches.requestWorkspaceDeletion",
+            "arguments": {
+              "plant": "P",
+              "confirmation": "Delete workspace",
+              "request_key": "delete-P-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "workspace_allowed": true,
+              "cancel_until": "2026-11-12T16:00:00Z",
+              "normal_access": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "Admin-workspace-request",
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "churches.requestWorkspaceDeletion",
+            "arguments": {
+              "plant": "P",
+              "confirmation": "Delete workspace",
+              "request_key": "delete-P-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
+          }
+        },
+        {
+          "name": "foreign-workspace-request",
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "Q",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "Q"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "churches.requestWorkspaceDeletion",
+            "arguments": {
+              "plant": "P",
+              "confirmation": "Delete workspace",
+              "request_key": "delete-P-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "error_code": "access_denied",
+            "event": []
           }
         }
       ]
@@ -608,6 +856,13 @@
           "requested_at": "2026-10-13T16:00:00Z",
           "cancel_until": "2026-11-12T16:00:00Z",
           "revision": 2
+        },
+        "restricted-proof": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "verified": true,
+          "purpose": "status",
+          "subject": "A"
         }
       },
       "actor": {
@@ -982,7 +1237,7 @@
           "fixture_type": "seat",
           "account": "A",
           "tenant": "P",
-          "role": "Admin",
+          "role": "Owner",
           "active": true
         },
         "session-A": {
@@ -1258,12 +1513,32 @@
         "delete-A": {
           "fixture_type": "deletion_request",
           "id": "delete-A"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_deletion_purge_job",
+          "authority": "registered_deletion_purge_job",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1498,6 +1773,13 @@
           "requested_at": "2026-10-13T16:00:00Z",
           "cancel_until": "2026-11-12T16:00:00Z",
           "revision": 2
+        },
+        "restricted-proof": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "verified": true,
+          "purpose": "status",
+          "subject": "A"
         }
       },
       "actor": {
@@ -1606,12 +1888,32 @@
             "2026-10-01",
             "2026-10-13"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "ops.readiness"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1719,6 +2021,26 @@
         "snapshot-1": {
           "fixture_type": "recovery_snapshot",
           "id": "snapshot-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
@@ -1840,12 +2162,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -1957,12 +2299,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2061,12 +2423,32 @@
           "cost_approved": false,
           "copy_age_hours": 23,
           "copy_available": true
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-explicit_scoped_operator",
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "ops.readiness"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2177,12 +2559,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2315,12 +2717,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -2462,12 +2884,32 @@
         "delete-A": {
           "fixture_type": "deletion_request",
           "id": "delete-A"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered_deletion_purge_job",
+          "authority": "registered_deletion_purge_job",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.purgeEligibleSubject"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",

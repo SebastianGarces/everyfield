@@ -141,10 +141,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
-        "WP-005",
-        "WP-006",
-        "WP-007",
         "WP-010"
       ]
     },
@@ -170,8 +166,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-005",
-        "WP-006",
         "WP-010"
       ]
     },
@@ -201,10 +195,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
-        "WP-031",
         "WP-035",
         "WP-047",
         "WP-092"
@@ -286,8 +277,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-006",
-        "WP-007",
         "WP-010",
         "WP-035",
         "WP-037",
@@ -321,7 +310,6 @@
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-037",
         "WP-092"
       ]
@@ -439,7 +427,6 @@
       "work_packages": [
         "WP-010",
         "WP-049",
-        "WP-050",
         "WP-094"
       ]
     },
@@ -652,11 +639,9 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
         "WP-027",
         "WP-028",
         "WP-029",
-        "WP-031",
         "WP-036",
         "WP-037",
         "WP-050"
@@ -710,7 +695,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-004",
         "WP-036",
         "WP-037",
         "WP-050"
