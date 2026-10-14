@@ -95,3 +95,106 @@
   a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 }
+
+/* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */
+
+/* The white ring around every product UI card (Revision 21): drawn outside the card edge, so the card size never changes. */
+:root { --ui-ring: 0 0 0 6px rgba(255, 255, 255, .25); }
+
+@theme {
+  /* Panel and card shadows. Each one starts with the white ring. */
+  --shadow-mk-panel: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4);
+  --shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4);
+  --shadow-mk-hero-card: var(--ui-ring), 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45);
+  --shadow-mk-vignette: var(--ui-ring), 0 1px 2px rgba(24, 29, 25, .06), 0 22px 40px -22px rgba(24, 29, 25, .42);
+  --shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, rgba(24, 29, 25, .45));
+  --shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px rgba(24, 29, 25, .3);
+  --shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px rgba(24, 29, 25, .05);
+
+  /* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
+  --animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
+  --animate-mk-caret: mk-caret 1s steps(1) infinite;
+  --animate-eb-morph: eb-morph 9s ease-in-out infinite;
+  --animate-eb-bounce: eb-bounce .9s cubic-bezier(.3, 1.6, .5, 1) infinite alternate;
+  --animate-eb-talk: eb-talk .36s ease-in-out infinite alternate;
+  --animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
+  --animate-eb-blink-now: eb-blink-now .18s ease;
+
+  @keyframes mk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @keyframes mk-caret { 50% { opacity: 0; } }
+  @keyframes eb-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+  @keyframes eb-blink-now { 50% { transform: scaleY(.08); } }
+  @keyframes eb-morph {
+    0%, 100% { border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; transform: rotate(0deg) scale(1); }
+    25% { border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%; transform: rotate(-4deg) scale(1.02, .98); }
+    50% { border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%; transform: rotate(3deg) scale(.98, 1.03); }
+    75% { border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%; transform: rotate(-2deg) scale(1.01); }
+  }
+  @keyframes eb-bounce {
+    from { transform: translateY(0) scale(1.03, .97); border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%; }
+    to { transform: translateY(calc(var(--s) * -.08)) scale(.98, 1.03); border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; }
+  }
+  @keyframes eb-talk { from { height: calc(var(--s) * .04); width: calc(var(--s) * .14); } to { height: calc(var(--s) * .12); width: calc(var(--s) * .12); } }
+}
+
+/* A product visual: the dashboard's body type (14 / 1.45) on the marketing page. */
+@utility ef-ui {
+  font-family: var(--font-sans); color: var(--color-text); font-size: 14px; line-height: 1.45;
+  letter-spacing: 0; text-align: left; font-stretch: 100%;
+}
+
+/* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone.
+   The caller sets the position (relative or absolute) and may set --grain. */
+@utility gsurf {
+  overflow: hidden; isolation: isolate; background: var(--g-base);
+  --on: #181D19; --on-2: rgba(24, 29, 25, .74); --on-3: rgba(24, 29, 25, .6); --pill-bg: rgba(24, 29, 25, .07); --pill-edge: rgba(24, 29, 25, .16);
+  &::before {
+    content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+    background:
+      radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+      radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+      radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+      radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
+      radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+    filter: blur(52px) saturate(1.1);
+  }
+  &::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 260px 260px; opacity: var(--grain, .42); mix-blend-mode: overlay;
+  }
+}
+/* The eight gradient tones. field, sky, dawn and lilac come from the product tokens; sea, rose, sun and slate are marketing only
+   (Revision 19). --g-shadow tints the InsightCard shadow. */
+@utility g-field { --g-base: var(--ef-grad-field-base); --g1: var(--ef-grad-field-g1); --g2: var(--ef-grad-field-g2); --g3: var(--ef-grad-field-g3); --g4: var(--ef-grad-field-g4); --g5: var(--ef-grad-field-g5); --g-shadow: rgba(16, 120, 56, .55); }
+@utility g-sky { --g-base: var(--ef-grad-sky-base); --g1: var(--ef-grad-sky-g1); --g2: var(--ef-grad-sky-g2); --g3: var(--ef-grad-sky-g3); --g4: var(--ef-grad-sky-g4); --g5: var(--ef-grad-sky-g5); --g-shadow: rgba(40, 90, 170, .45); }
+@utility g-dawn { --g-base: var(--ef-grad-dawn-base); --g1: var(--ef-grad-dawn-g1); --g2: var(--ef-grad-dawn-g2); --g3: var(--ef-grad-dawn-g3); --g4: var(--ef-grad-dawn-g4); --g5: var(--ef-grad-dawn-g5); --g-shadow: rgba(190, 110, 40, .5); }
+@utility g-lilac { --g-base: var(--ef-grad-lilac-base); --g1: var(--ef-grad-lilac-g1); --g2: var(--ef-grad-lilac-g2); --g3: var(--ef-grad-lilac-g3); --g4: var(--ef-grad-lilac-g4); --g5: var(--ef-grad-lilac-g5); --g-shadow: rgba(110, 80, 200, .45); }
+@utility g-sea { --g-base: #7FDCCB; --g1: #96E6D7; --g2: #63CFBC; --g3: #BDF1E6; --g4: #4FBFAB; --g5: #F2FFFB; --g-shadow: rgba(30, 140, 120, .45); }
+@utility g-rose { --g-base: #FFB3C4; --g1: #FFC6D3; --g2: #FF9DB3; --g3: #FFDCE4; --g4: #F28AA2; --g5: #FFF5F7; }
+@utility g-sun { --g-base: #FFDD7A; --g1: #FFE69A; --g2: #FFD25A; --g3: #FFF0C2; --g4: #F5C443; --g5: #FFFBEB; --g-shadow: rgba(180, 130, 20, .5); }
+@utility g-slate { --g-base: #B4C3D6; --g1: #C5D2E2; --g2: #A2B3CA; --g3: #DCE4EE; --g4: #8FA2BC; --g5: #F6F8FB; }
+
+/* Diagonal hatch fill for meters and bars. --hatch sets the colour. */
+@utility hatch {
+  background-color: color-mix(in srgb, var(--hatch, var(--color-blue-300)) 16%, transparent);
+  background-image: repeating-linear-gradient(-45deg, var(--hatch, var(--color-blue-300)) 0, var(--hatch, var(--color-blue-300)) 1.6px, transparent 2.6px, transparent 5.5px);
+}
+
+/* Skeleton bar with a slow shimmer (hero scenes). The caller sets display and size. */
+@utility skeleton {
+  border-radius: 99px; background: linear-gradient(90deg, #ECEFF2 0%, #F7F8FA 50%, #ECEFF2 100%);
+  background-size: 200% 100%; animation: var(--animate-mk-shimmer);
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+}
+
+/* The hero panel's gradient layer fades to the page at the top (Revision 7). The stops follow an ease-in curve. */
+@utility hero-fade {
+  --a: 0%; --d: 58%;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--a), rgba(0,0,0,.03) calc(var(--a) + var(--d) * .15), rgba(0,0,0,.1) calc(var(--a) + var(--d) * .3), rgba(0,0,0,.22) calc(var(--a) + var(--d) * .45), rgba(0,0,0,.4) calc(var(--a) + var(--d) * .6), rgba(0,0,0,.62) calc(var(--a) + var(--d) * .75), rgba(0,0,0,.85) calc(var(--a) + var(--d) * .9), #000 calc(var(--a) + var(--d)));
+}
+
+/* A scene that is off screen or paused marks its root with data-idle: its CSS loops stop too. */
+@layer components {
+  [data-idle] *, [data-idle] *::before, [data-idle] *::after { animation-play-state: paused !important; }
+}

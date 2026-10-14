@@ -561,9 +561,10 @@ function ovFaq(f: Copy["shared"]["oversight_page"]["faq"]) {
 }
 
 /* ---------- Pages ---------- */
+/** The home page after the hero (HeroPanel, React). */
 export function homeHTML() {
   const s = COPY.journey;
-  return hero(s.hero, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + chapterSection("week", "sec-week") + proofMonday(s.proof) +
+  return problem(s.problem) + chapterSection("week", "sec-week") + proofMonday(s.proof) +
     phSection(s.features, {}) + chapterSection("intelligence", "sec-intelligence") + chapterSection("sending", "sec-sending") + cta(s.cta);
 }
 export function oversightHTML() {
