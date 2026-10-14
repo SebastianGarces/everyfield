@@ -332,7 +332,7 @@
         "headline": "Request early access",
         "subhead": "EveryField is in early access for church planters and the churches and networks that send them."
       },
-      "contact_email": "sebastian@everyfield.app",
+      "contact_email": "hello@everyfield.app",
       "planter_form": {
         "eyebrow": "For planters",
         "headline": "Know what needs you this week.",
@@ -440,11 +440,11 @@
         },
         "rate_limited_email": {
           "title": "Too many requests from this email today",
-          "body": "Try again tomorrow, or email sebastian@everyfield.app."
+          "body": "Try again tomorrow, or email hello@everyfield.app."
         },
         "rate_limited_ip": {
           "title": "Too many requests from this connection",
-          "body": "Try again in an hour, or email sebastian@everyfield.app."
+          "body": "Try again in an hour, or email hello@everyfield.app."
         },
         "invalid": {
           "title": "Check the marked fields",
@@ -452,8 +452,8 @@
         },
         "unavailable": {
           "title": "Your request was not sent",
-          "body": "The request form is not working right now. Your answers are still in the form. Email them to sebastian@everyfield.app and we will reply.",
-          "link": "Email sebastian@everyfield.app"
+          "body": "The request form is not working right now. Your answers are still in the form. Email them to hello@everyfield.app and we will reply.",
+          "link": "Email hello@everyfield.app"
         },
         "offline": {
           "title": "Your request was not sent",
@@ -507,7 +507,7 @@
           "items": [
             "Vercel hosts the site and runs the forms.",
             "Neon stores each request in a database on Amazon Web Services, in the US East (N. Virginia) region, us-east-1.",
-            "Resend sends a copy of each request by email to sebastian@everyfield.app."
+            "Resend sends a copy of each request by email to our team inbox."
           ]
         },
         {
@@ -523,7 +523,7 @@
         {
           "heading": "Ask for a copy, a correction or deletion",
           "paragraphs": [
-            "Email sebastian@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
+            "Email privacy@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
             "We will reply by email about your request."
           ]
         },
@@ -542,7 +542,7 @@
         {
           "heading": "Contact",
           "paragraphs": [
-            "Send questions about this policy to sebastian@everyfield.app."
+            "Send questions about this policy to privacy@everyfield.app."
           ]
         }
       ]
@@ -617,7 +617,7 @@
         {
           "heading": "Contact",
           "paragraphs": [
-            "Send questions about these terms to sebastian@everyfield.app."
+            "Send questions about these terms to hello@everyfield.app."
           ]
         }
       ],
