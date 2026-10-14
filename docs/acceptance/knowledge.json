@@ -417,9 +417,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "pastor_name": "Alex Rivera"
         }
       },
       "actor": {
@@ -438,9 +436,7 @@
           "format": "pdf",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "pastor_name": "Alex Rivera"
           },
           "request_key": "CASE-DOC-004-generate"
         }
@@ -546,10 +542,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -567,10 +560,7 @@
           "template": "response-card",
           "format": "pdf",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-005-generate"
         }
@@ -670,7 +660,6 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
           "meeting_date": "2026-10-20",
           "meeting_number": "3"
         }
@@ -691,7 +680,6 @@
           "format": "pdf",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
             "meeting_date": "2026-10-20",
             "meeting_number": "3"
           },
@@ -796,8 +784,7 @@
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
           "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "meeting_date": "2026-10-20"
         }
       },
       "actor": {
@@ -817,8 +804,7 @@
           "merge_fields": {
             "church_name": "Harvest Point",
             "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "meeting_date": "2026-10-20"
           },
           "request_key": "CASE-DOC-007-generate"
         }
@@ -906,8 +892,7 @@
               "fixture_type": "document_merge_values",
               "church_name": "Harvest Point",
               "pastor_name": "Alex Rivera",
-              "meeting_date": "2026-10-20",
-              "meeting_number": "3"
+              "meeting_date": "2026-10-20"
             }
           },
           "actor": {
@@ -927,8 +912,7 @@
               "merge_fields": {
                 "church_name": "Harvest Point",
                 "pastor_name": "Alex Rivera",
-                "meeting_date": "2026-10-20",
-                "meeting_number": "3"
+                "meeting_date": "2026-10-20"
               },
               "request_key": "CASE-DOC-007-generate"
             }
@@ -1032,9 +1016,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "pastor_name": "Alex Rivera"
         }
       },
       "actor": {
@@ -1053,9 +1035,7 @@
           "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "pastor_name": "Alex Rivera"
           },
           "request_key": "CASE-DOC-008-generate"
         }
@@ -1155,9 +1135,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "pastor_name": "Alex Rivera"
         }
       },
       "actor": {
@@ -1176,9 +1154,7 @@
           "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "pastor_name": "Alex Rivera"
           },
           "request_key": "CASE-DOC-009-generate"
         }
@@ -1278,9 +1254,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "pastor_name": "Alex Rivera"
         }
       },
       "actor": {
@@ -1299,9 +1273,7 @@
           "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "pastor_name": "Alex Rivera"
           },
           "request_key": "CASE-DOC-010-generate"
         }
@@ -1401,9 +1373,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "meeting_date": "2026-10-20"
         }
       },
       "actor": {
@@ -1422,9 +1392,7 @@
           "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "meeting_date": "2026-10-20"
           },
           "request_key": "CASE-DOC-011-generate"
         }
@@ -1523,10 +1491,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -1544,10 +1509,7 @@
           "template": "first-year-budget",
           "format": "xlsx",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-012-generate"
         }
@@ -1648,10 +1610,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -1669,10 +1628,7 @@
           "template": "budget-worksheet",
           "format": "xlsx",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-013-generate"
         }
@@ -1774,9 +1730,7 @@
         "merge": {
           "fixture_type": "document_merge_values",
           "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "launch_date": "2026-10-25"
         }
       },
       "actor": {
@@ -1795,9 +1749,7 @@
           "format": "pdf",
           "merge_fields": {
             "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "launch_date": "2026-10-25"
           },
           "request_key": "CASE-DOC-014-generate"
         }
