@@ -4362,7 +4362,6 @@
         "AC-COM-012--COM-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029"
       ],
@@ -4710,6 +4709,14 @@
             ],
             "reason": "The original scenario exercises communication.scheduleReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -4742,10 +4749,7 @@
       "work_packages": [
         "WP-027",
         "WP-029",
-        "WP-052",
-        "WP-053",
         "WP-055",
-        "WP-059",
         "WP-071"
       ],
       "status": "future-not-run",
@@ -4985,6 +4989,16 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises communication.preview and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-052",
+              "WP-053",
+              "WP-059"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -5272,13 +5286,7 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-022",
-        "WP-029",
-        "WP-055",
-        "WP-059",
-        "WP-065",
-        "WP-071"
+        "WP-055"
       ],
       "status": "future-not-run",
       "operation_ids": [
@@ -5542,6 +5550,19 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises evry.prepareMeetingInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-020",
+              "WP-022",
+              "WP-029",
+              "WP-059",
+              "WP-065",
+              "WP-071"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -6476,7 +6497,6 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029"
       ],
@@ -6608,6 +6628,14 @@
             ],
             "reason": "The original scenario exercises communication.dispatchAttempt and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -6629,7 +6657,6 @@
         "AC-NTF-013--NTF-013"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029"
       ],
@@ -6782,6 +6809,14 @@
             ],
             "reason": "The original scenario exercises communication.dispatchAttempt and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -6892,7 +6927,6 @@
         "AC-COM-012--COM-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028"
       ],
       "status": "future-not-run",
@@ -6965,6 +6999,14 @@
             ],
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -6980,7 +7022,6 @@
         "AC-COM-012--COM-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028"
       ],
       "status": "future-not-run",
@@ -7063,6 +7104,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -7178,7 +7227,6 @@
         "AC-COM-012--COM-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029"
       ],
@@ -7262,6 +7310,14 @@
             ],
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -7281,7 +7337,6 @@
         "AC-NTF-010--NTF-010"
       ],
       "work_packages": [
-        "WP-028",
         "WP-029"
       ],
       "status": "future-not-run",
@@ -7381,6 +7436,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises communication.deliveryTotals and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-028"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -7606,10 +7669,8 @@
         "AC-EVR-EFFECT--EVR-247"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029",
-        "WP-053",
         "WP-055",
         "WP-072"
       ],
@@ -7695,6 +7756,15 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises communication.scheduleReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027",
+              "WP-053"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -7934,8 +8004,7 @@
         "AC-NTF-015--NTF-015"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-030"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "Security/invitation purpose and seatless Discovery receipt with optional category email OFF.",
@@ -8006,6 +8075,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises mail.renderTransactional and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -8751,8 +8828,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-029",
         "WP-015",
         "WP-091"
       ],
@@ -9064,6 +9139,15 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-028",
+              "WP-029"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -9077,8 +9161,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-029",
         "WP-015",
         "WP-091"
       ],
@@ -9393,6 +9475,15 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-028",
+              "WP-029"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -9735,8 +9826,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-029",
         "WP-015",
         "WP-091"
       ],
@@ -10066,6 +10155,15 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-028",
+              "WP-029"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10079,8 +10177,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-081",
         "WP-082",
         "WP-015",
         "WP-091"
@@ -10393,6 +10489,15 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030",
+              "WP-081"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10406,8 +10511,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-081",
         "WP-082",
         "WP-015",
         "WP-091"
@@ -10724,6 +10827,15 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030",
+              "WP-081"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10737,8 +10849,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-081",
         "WP-082",
         "WP-015",
         "WP-091"
@@ -11053,6 +11163,15 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030",
+              "WP-081"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11066,8 +11185,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-081",
         "WP-082",
         "WP-015",
         "WP-091"
@@ -11397,6 +11514,15 @@
               "WP-031"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030",
+              "WP-081"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

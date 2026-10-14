@@ -1084,10 +1084,8 @@
         "AC-NTF-002--NTF-002"
       ],
       "work_packages": [
-        "WP-027",
         "WP-028",
         "WP-029",
-        "WP-037",
         "WP-092"
       ],
       "status": "future-not-run",
@@ -1169,6 +1167,15 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027",
+              "WP-037"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -1650,7 +1657,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-037",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -1750,6 +1756,14 @@
               "WP-004"
             ],
             "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-037"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -2231,8 +2245,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-036",
-        "WP-037",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -2341,6 +2353,15 @@
             ],
             "reason": "The original scenario exercises maintenance.restoreWithCurrentManifest and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-036",
+              "WP-037"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -2362,11 +2383,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-027",
-        "WP-028",
-        "WP-029",
-        "WP-036",
-        "WP-037",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -2485,6 +2501,18 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises maintenance.purgeEligibleSubject and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027",
+              "WP-028",
+              "WP-029",
+              "WP-036",
+              "WP-037"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

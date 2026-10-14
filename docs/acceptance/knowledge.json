@@ -4347,9 +4347,6 @@
         "AC-WIKI-011--WIKI-011"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-036",
-        "WP-037",
         "WP-051",
         "WP-052",
         "WP-053",
@@ -4965,6 +4962,16 @@
               "WP-009"
             ],
             "reason": "The original scenario exercises evry.submitTurn and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-036",
+              "WP-037"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

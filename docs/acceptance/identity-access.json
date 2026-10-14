@@ -4998,7 +4998,6 @@
         "AC-IDN-023--IDN-023"
       ],
       "work_packages": [
-        "WP-030",
         "WP-047"
       ],
       "status": "future-not-run",
@@ -5129,6 +5128,14 @@
             ],
             "reason": "The original scenario exercises oversight.listPlants and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -5148,7 +5155,6 @@
         "AC-IDN-023--IDN-023"
       ],
       "work_packages": [
-        "WP-030",
         "WP-047"
       ],
       "status": "future-not-run",
@@ -5277,6 +5283,14 @@
               "WP-007"
             ],
             "reason": "The original scenario exercises oversight.listPlants and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -5468,7 +5482,6 @@
         "AC-IDN-023--IDN-023"
       ],
       "work_packages": [
-        "WP-030",
         "WP-047"
       ],
       "status": "future-not-run",
@@ -5596,6 +5609,14 @@
               "WP-007"
             ],
             "reason": "The original scenario exercises oversight.listPlants and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-030"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -14461,8 +14482,7 @@
       ],
       "work_packages": [
         "WP-008",
-        "WP-017",
-        "WP-024"
+        "WP-017"
       ],
       "status": "future-not-run",
       "description": "Two Admin removals, actual Owner target, own self-promotion, foreign Member, role/leader appointment race, open and waived duties.",
@@ -14551,6 +14571,14 @@
               "WP-006"
             ],
             "reason": "The original scenario exercises seats.remove and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-024"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

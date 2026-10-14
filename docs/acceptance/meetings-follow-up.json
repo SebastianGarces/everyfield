@@ -1804,7 +1804,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-020",
         "WP-015",
         "WP-091"
       ],
@@ -2116,6 +2115,14 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-020"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -2129,7 +2136,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-020",
         "WP-015",
         "WP-091"
       ],
@@ -2444,6 +2450,14 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-020"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -2785,7 +2799,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-020",
         "WP-015",
         "WP-091"
       ],
@@ -3115,6 +3128,14 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-020"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -3128,10 +3149,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-021",
-        "WP-022",
-        "WP-023",
-        "WP-028",
         "WP-015",
         "WP-091"
       ],
@@ -3443,6 +3460,17 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-021",
+              "WP-022",
+              "WP-023",
+              "WP-028"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -3456,10 +3484,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-021",
-        "WP-022",
-        "WP-023",
-        "WP-028",
         "WP-015",
         "WP-091"
       ],
@@ -3774,6 +3798,17 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-021",
+              "WP-022",
+              "WP-023",
+              "WP-028"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -4118,10 +4153,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-021",
-        "WP-022",
-        "WP-023",
-        "WP-028",
         "WP-015",
         "WP-091"
       ],
@@ -4450,6 +4481,17 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-021",
+              "WP-022",
+              "WP-023",
+              "WP-028"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

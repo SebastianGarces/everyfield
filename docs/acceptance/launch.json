@@ -2194,11 +2194,7 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-012",
-        "WP-020",
-        "WP-053",
-        "WP-055",
-        "WP-066"
+        "WP-055"
       ],
       "status": "future-not-run",
       "description": "Single supplied name guest with no phone/email/age/account.",
@@ -2273,6 +2269,17 @@
             ],
             "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-012",
+              "WP-020",
+              "WP-053",
+              "WP-066"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -2291,11 +2298,7 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-012",
-        "WP-020",
-        "WP-053",
-        "WP-055",
-        "WP-066"
+        "WP-055"
       ],
       "status": "future-not-run",
       "description": "Same-name duplicate candidate selected existing ID and replay named create.",
@@ -2369,6 +2372,17 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises launch.addGuestAttendance and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-012",
+              "WP-020",
+              "WP-053",
+              "WP-066"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -2721,11 +2735,7 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-041",
-        "WP-042",
-        "WP-043",
         "WP-044",
-        "WP-047",
         "WP-093",
         "WP-096",
         "WP-058",
@@ -2810,6 +2820,17 @@
               "WP-032"
             ],
             "reason": "The original scenario exercises intelligence.readAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-041",
+              "WP-042",
+              "WP-043",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -7143,8 +7164,6 @@
         "AC-EVR-READ--EVR-419"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-053",
         "WP-075",
         "WP-076",
         "WP-046"
@@ -7240,6 +7259,15 @@
               "WP-006"
             ],
             "reason": "The original scenario exercises launch.readWorkspace and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-052",
+              "WP-053"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

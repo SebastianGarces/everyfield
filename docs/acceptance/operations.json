@@ -1938,7 +1938,6 @@
         "AC-OPS-007--OPS-007"
       ],
       "work_packages": [
-        "WP-049",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -2040,6 +2039,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises engineering.validateRequirements and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-049"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -2324,7 +2331,6 @@
       ],
       "work_packages": [
         "WP-049",
-        "WP-053",
         "WP-055",
         "WP-091"
       ],
@@ -2401,6 +2407,14 @@
               "WP-050"
             ],
             "reason": "The original scenario exercises feedback.createConfiguredIssue and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-053"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -3068,7 +3082,6 @@
         "AC-OPS-009--OPS-009"
       ],
       "work_packages": [
-        "WP-049",
         "WP-050"
       ],
       "status": "future-not-run",
@@ -3154,6 +3167,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises engineering.trackWork and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-049"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -3471,7 +3492,6 @@
         "AC-OPS-009--OPS-009"
       ],
       "work_packages": [
-        "WP-049",
         "WP-050",
         "WP-091"
       ],
@@ -3559,6 +3579,14 @@
               "WP-031"
             ],
             "reason": "The original scenario exercises engineering.trackWork and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-049"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

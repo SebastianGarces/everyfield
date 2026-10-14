@@ -1410,9 +1410,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-016",
-        "WP-017",
-        "WP-018",
         "WP-015",
         "WP-091"
       ],
@@ -1724,6 +1721,16 @@
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-016",
+              "WP-017",
+              "WP-018"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -1737,9 +1744,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-016",
-        "WP-017",
-        "WP-018",
         "WP-015",
         "WP-091"
       ],
@@ -2054,6 +2058,16 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-016",
+              "WP-017",
+              "WP-018"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -2397,9 +2411,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-016",
-        "WP-017",
-        "WP-018",
         "WP-015",
         "WP-091"
       ],
@@ -2728,6 +2739,16 @@
               "WP-004"
             ],
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-016",
+              "WP-017",
+              "WP-018"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -4073,7 +4094,6 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-053",
         "WP-055",
         "WP-070"
       ],
@@ -4162,6 +4182,14 @@
               "WP-004"
             ],
             "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-053"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -4530,10 +4558,7 @@
         "AC-PI-014--PI-014"
       ],
       "work_packages": [
-        "WP-039",
         "WP-040",
-        "WP-052",
-        "WP-053",
         "WP-055",
         "WP-073",
         "WP-074"
@@ -4616,6 +4641,16 @@
               "WP-004"
             ],
             "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-039",
+              "WP-052",
+              "WP-053"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -4732,7 +4767,6 @@
         "AC-REF-001--REF-001"
       ],
       "work_packages": [
-        "WP-039",
         "WP-040",
         "WP-041"
       ],
@@ -4836,6 +4870,14 @@
               "WP-032"
             ],
             "reason": "The original scenario exercises teams.trainingMatrix and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-039"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

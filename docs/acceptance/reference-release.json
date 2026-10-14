@@ -2273,10 +2273,7 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
-        "WP-033",
-        "WP-034",
-        "WP-036"
+        "WP-034"
       ],
       "status": "future-not-run",
       "description": "Rollback with previously departed organization cited in old cached/export/Evry context.",
@@ -2381,6 +2378,16 @@
               "WP-032"
             ],
             "reason": "The original scenario exercises wiki.articles.get and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-027",
+              "WP-033",
+              "WP-036"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]

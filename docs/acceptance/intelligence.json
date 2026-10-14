@@ -19,11 +19,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -110,6 +106,17 @@
             ],
             "reason": "The original scenario exercises intelligence.scheduleAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -127,11 +134,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -212,6 +215,17 @@
             ],
             "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -229,11 +243,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -316,6 +326,17 @@
             ],
             "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -333,11 +354,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -418,6 +435,17 @@
             ],
             "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -437,12 +465,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
-        "WP-043",
         "WP-044",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -526,6 +549,18 @@
               "WP-004"
             ],
             "reason": "The original scenario exercises intelligence.readAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-043",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -648,11 +683,7 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -732,6 +763,17 @@
             ],
             "reason": "The original scenario exercises intelligence.publishAssessment and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -749,8 +791,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
@@ -848,6 +888,15 @@
             ],
             "reason": "The original scenario exercises organizationIntelligence.read and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -867,11 +916,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
-        "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -954,6 +998,18 @@
             ],
             "reason": "The original scenario exercises intelligence.buildFactSnapshot and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-043",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -977,11 +1033,6 @@
         "AC-PI-042--PI-042"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-041",
-        "WP-042",
-        "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -1073,6 +1124,18 @@
             ],
             "reason": "The original scenario exercises intelligence.executeDemand and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-041",
+              "WP-042",
+              "WP-043",
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -1094,7 +1157,6 @@
         "WP-041",
         "WP-042",
         "WP-043",
-        "WP-047",
         "WP-093"
       ],
       "status": "future-not-run",
@@ -1177,6 +1239,14 @@
               "WP-004"
             ],
             "reason": "The original scenario exercises privateCare.save and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-047"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -3012,7 +3082,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -3095,6 +3164,14 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -3906,7 +3983,6 @@
       ],
       "work_packages": [
         "WP-017",
-        "WP-038",
         "WP-045"
       ],
       "status": "future-not-run",
@@ -3985,6 +4061,14 @@
               "WP-009"
             ],
             "reason": "The original scenario exercises teams.initialize and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -6201,7 +6285,6 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-014",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -6285,6 +6368,14 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-014"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -7329,7 +7420,6 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-014",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -7414,6 +7504,14 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-014"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -8957,7 +9055,6 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -9047,6 +9144,14 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises intelligence.readFacts and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-015"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -10521,9 +10626,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -10609,6 +10711,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10624,9 +10736,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -10711,6 +10820,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10726,9 +10845,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -10812,6 +10928,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10827,9 +10953,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -10904,6 +11027,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -10919,9 +11052,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11002,6 +11132,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11017,9 +11157,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11097,6 +11234,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11112,9 +11259,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11195,6 +11339,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11210,9 +11364,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11291,6 +11442,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11306,9 +11467,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11393,6 +11551,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11408,9 +11576,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11491,6 +11656,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11506,9 +11681,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11588,6 +11760,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11603,9 +11785,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11688,6 +11867,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11703,9 +11892,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11792,6 +11978,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11807,9 +12003,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11884,6 +12077,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11899,9 +12102,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -11981,6 +12181,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -11996,9 +12206,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12101,6 +12308,16 @@
               "WP-009"
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -12215,9 +12432,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12297,6 +12511,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -12312,9 +12536,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12397,6 +12618,16 @@
               "WP-009"
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -12614,9 +12845,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12699,6 +12927,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -12714,9 +12952,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12797,6 +13032,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -12812,9 +13057,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12884,6 +13126,16 @@
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -12899,9 +13151,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -12980,6 +13229,16 @@
               "WP-009"
             ],
             "reason": "The original scenario exercises documents.designateCoreValues and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-034",
+              "WP-035",
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -18232,8 +18491,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -18865,6 +19122,15 @@
             ],
             "reason": "The original scenario exercises settings.saveSection and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -18878,10 +19144,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-012",
-        "WP-014",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -19471,6 +19733,17 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises people.updatePerson and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-012",
+              "WP-014",
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -20091,9 +20364,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-015",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -20755,6 +21025,16 @@
               "WP-011"
             ],
             "reason": "The original scenario exercises people.mergePeople and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-015",
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -32029,9 +32309,6 @@
         "AC-PI-043--PI-043"
       ],
       "work_packages": [
-        "WP-047",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -32680,6 +32957,16 @@
             ],
             "reason": "The original scenario exercises privacy.setSharing and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-047",
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -32698,8 +32985,6 @@
       ],
       "work_packages": [
         "WP-096",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -33283,6 +33568,15 @@
               "WP-050"
             ],
             "reason": "The original scenario exercises seats.remove and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -33965,10 +34259,6 @@
         "AC-PI-016--PI-016"
       ],
       "work_packages": [
-        "WP-033",
-        "WP-041",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -34571,6 +34861,17 @@
             ],
             "reason": "The original scenario exercises reference.activateGeneration and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-033",
+              "WP-041",
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -34586,9 +34887,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-047",
-        "WP-040",
-        "WP-042",
         "WP-043"
       ],
       "status": "future-not-run",
@@ -35256,6 +35554,16 @@
               "WP-010"
             ],
             "reason": "The original scenario exercises organizations.correctReportingLocation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-047",
+              "WP-040",
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -53476,7 +53784,7 @@
         "AC-PI-035--PI-035"
       ],
       "work_packages": [
-        "WP-042"
+        "WP-044"
       ],
       "status": "future-not-run",
       "description": "optional-trace-sink-failure-and-minimal-fields",
@@ -53589,6 +53897,14 @@
               "WP-050"
             ],
             "reason": "The original scenario exercises intelligence.recordAttemptTelemetry and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-042"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
@@ -53936,7 +54252,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -54046,6 +54361,14 @@
             ],
             "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
+          }
         }
       ]
     },
@@ -54061,7 +54384,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -54190,6 +54512,14 @@
               "WP-032"
             ],
             "reason": "The original scenario exercises intelligence.readExitCriteria and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
+          }
+        },
+        {
+          "round_2_4_owner_correction": {
+            "removed_owners": [
+              "WP-038"
+            ],
+            "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
       ]
