@@ -10,7 +10,12 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 # These source-relative links are retained verbatim in an upstream skill, which is not editable here.
-UPSTREAM_LINKS = {('.agents/skills/principle-explain-the-number/SKILL.md', '../benchmark-checklist/SKILL.md')}
+UPSTREAM_LINKS = {
+    ('.agents/skills/principle-explain-the-number/SKILL.md', '../benchmark-checklist/SKILL.md'),
+    ('.agents/skills/vercel-react-best-practices/AGENTS.md', './async-defer-await.md'),
+    ('.agents/skills/vercel-react-best-practices/AGENTS.md', './async-cheap-condition-before-await.md'),
+    ('.agents/skills/vercel-react-best-practices/AGENTS.md', './server-hoist-static-io.md'),
+}
 
 
 class Links(HTMLParser):
@@ -53,7 +58,9 @@ def main():
                 continue
             if (relative, url) in UPSTREAM_LINKS:
                 skill = path.parent.name
-                if hashlib.sha256(path.read_bytes()).hexdigest() != upstream_hashes[skill]['sha256']:
+                pinned = upstream_hashes[skill]
+                expected_hash = pinned['sha256'] if path.name == 'SKILL.md' else pinned['fileHashes'][path.name]
+                if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
                     errors.append(f'{relative}: immutable upstream skill hash changed')
                 continue
             target = path.parent / unquote(parts.path)
