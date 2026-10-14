@@ -98,7 +98,8 @@ file or skill. Your role file names the ones to read in full at the start. Open 
 `docs/plan/dag.json` defines packages and dependencies. Only `evf` writes `docs/build-progress.json`,
 automatically on ship and coordinator acknowledgement. Agents update task notes, not package patches.
 Reviewed producer/interface milestones unlock dependents; full package closure stays at integration.
-Read `docs/build-agent-workflow.md` for coordinator duties. Explorer generation is a separate view.
+Read `docs/build-agent-workflow.md` for coordinator duties. Generate the read-only explorer outside the repo with `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
+Run all documentation checks with `python3 docs/check-all.py`.
 
 ## Current documentation context
 Read docs/START-HERE.md and generate the assigned package context from docs/plan/context-manifest.json using docs/package-context.py. Current product chapters, catalogs and target schema directly define behavior; do not reconstruct a prior decision chronology or require v2. Read original reference passages and approved design sections on demand. This repository has no superseded-material archive. External evidence is an investigation path, not a package prerequisite. Preserve original reference bytes, unrelated assets, and design/everyfield-ui.html. Documentation status is separate from implementation authorization and evidence.

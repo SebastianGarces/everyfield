@@ -1,6 +1,6 @@
 # Local workflow reconciliation
 
-This tooling branch adapts the received workflow to the current standalone plan. It does not authorize application implementation, run the live feedback desk, configure GitHub protections or commit spending. G-AUTH remains unopened, G-WORKFLOW remains open for the qualified runner/setup handoff, and all 86 canonical package statuses remain `not_started`.
+This tooling branch adapts the received workflow to the current standalone plan. It does not authorize application implementation, run the live feedback desk, configure GitHub protections or commit spending. G-AUTH remains unopened, G-WORKFLOW remains open for the qualified runner/setup handoff, and [canonical progress](../../docs/build-progress.json) records implementation state.
 
 Run local tooling regressions with the Node version resolved by `bin/evf`:
 
@@ -64,8 +64,14 @@ writes; concrete protection configuration remains a separate owner action.
 Only evf writes `docs/build-progress.json`, on ship and coordinator acknowledgement. Shipped records
 retain author/verifier proofs, proven/deferred case/gate portions and merge commits. A coordinator
 reviews `evf shipped`, then acknowledges with `evf shipped --clear <task>`; exact replays are
-idempotent. Commit the generated canonical change in the normal integration branch. No package
-patch, separate progress PR or offline explorer closure checklist is required.
+idempotent. Commit the evf-generated change through reviewed `OPS-n` maintenance as described in
+[the coordinator role](../../.agents/roles/coordinator.md). No package patch or offline explorer
+closure checklist is required.
+
+Reconcile new and retired plan IDs with `node tools/evf/progress.ts --reconcile` using Node 24+,
+then commit the generated change through the same reviewed OPS task. This writer preserves
+evidence and refuses unknown package IDs. Generate a read-only explorer outside the checkout
+with `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
 
 Reviewed producer/interface milestones unlock dependents while full closure stays at integration.
 A contract milestone unlocks consumers; without a contract split the API/producer milestone does.
@@ -112,4 +118,4 @@ Local preparation here covers the coherent entry/role/skill paths, current bound
 
 Owner/harness setup remains: explicit kickoff; the actual Intent review/identity and scoped sensitive-approval receipt interface; independently reviewed task risk/stage plans; verified feedback/bot/human identities and safe publisher/reproduction protocol; concrete protection and paid usage approvals where applicable. Map the receipt adapter to existing Intent capabilities before choosing any additional service. Follow `ship` for review and protection requirements.
 
-Future implementation work remains all 86 packages: their contracts/reference/platform/schema producers, native/assistant vertical slices, real runtime/database/browser/evaluation assertions, operational environment and recovery proofs. Keep stage evidence and package closure separate; do not bootstrap applications or launch the first wave during repository preparation.
+Read [canonical progress](../../docs/build-progress.json) for implementation milestones. Future proof covers contract/reference/platform/schema producers, native/assistant slices, runtime/database/browser/evaluation assertions and operational/recovery behavior. Keep stage evidence and package closure separate; do not bootstrap applications or launch the first wave during repository preparation.

@@ -1,9 +1,0 @@
-# Capability and acceptance preservation
-
-[Features](catalog/features.json) index each current capability to its domain chapter, exact requirement IDs, named operation contracts, acceptance bundles, future fixtures and owning work packages. [Acceptance](catalog/acceptance.json) selects the required real test layers and cases. [Catalog index](catalog/index.json) enumerates the single canonical clause/case partitions. No feature is dropped because it appears late in a slice or lacks a source suite.
-
-The current target excludes explicitly rejected coaching/background-check surfaces and assistant private-care access while preserving native original-author care. Retained internal pipeline metrics do not create a new widget/service/tool. Required native/reviewed assistant Unmerge has a safe transactional inverse plus conflict refusal and exceptional reviewed correction; unavailable exact historical callable evidence is not replaced with an invented source claim.
-
-The consolidation reconciliation evidence outside routine build context maps all original499feature records/723acceptance bundles/86packages, all88source tables+5named additions and486original detailed cases to current clauses/operations/constraints/fixtures or an explicit approved supersession. Source-suite52gaps and all exact inherited48Evry scenarios have individual future fixtures/dispositions. Historical source implementation counts are not target test results. The original pre-consolidation external archive/Library copy remains unchanged; no replacement archive folder is added to this repository.
-
-Current reference originals and the accepted96article/21section/7template bootstrap remain portable and hash-verified under [reference manifest](reference/manifest.json). Source historical executable mappings are evidence; the current derived operational adapter states accepted evidence interpretations without rewriting SME bytes.

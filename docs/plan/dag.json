@@ -142,7 +142,7 @@
           "REQ-IDN-029": "Trusted actor/scope and closed role conventions; actual session and grant enforcement belongs to identity/access producers.",
           "REQ-TSK-018": "Distinct time values, injected clock and deterministic resolver conventions; task/reminder workflows belong to their producers.",
           "REQ-OPS-004": "Short transaction, durable intent and replay conventions; real domain persistence belongs to later producers.",
-          "REQ-PI-037": "Atomic revision/audit/receipt pattern and private-care exclusion; material writer registrations belong to each producer.",
+          "REQ-PI-037": "Atomic revision/audit/receipt pattern and private-care exclusion; assessment input revision triggers belong to each producer.",
           "REQ-PPL-024": "Typed Person subjects in shared receipt/audit contracts; actual merge/reference/inverse behavior belongs to WP-015 and later consumers."
         },
         "chapter_links": [
@@ -2598,7 +2598,7 @@
         "DiscoveryEvidenceProvider reads account/plant native document revisions, credited-reader Wiki evidence and qualifying relationship records under versioned policy; no model inference.",
         "Discovery checklist/readiness does not override actual persisted creation-entry/current phase; incomplete remains real.",
         "Coherent practice and formal debrief fact projections; no source timestamps/headcount treated as debrief/guest completeness",
-        "Every material writer increments source revision synchronously in its mutation transaction; fixed-asOf evidence, genuine acquisition history independent of current size and exact denominators/Unknown."
+        "Every assessment input table has a database trigger that increments source revision synchronously in the mutation transaction; fixed-asOf evidence, genuine acquisition history independent of current size and exact denominators/Unknown."
       ],
       "owning_paths": [
         "packages/domain/src/intelligence/",

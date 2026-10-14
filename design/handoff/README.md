@@ -6,7 +6,7 @@ The dashboard (Overview) keeps the prototype look. Compose it from the built com
 
 This folder hands the v3 interface design to the build. The design itself is one file, [`../everyfield-ui.html`](../everyfield-ui.html), a clickable prototype of every screen in light and dark mode. The files here turn it into things the Next.js build can use directly.
 
-The build stack is in [`docs/architecture/architecture.md`](../../docs/architecture/architecture.md) and [`docs/dependencies.md`](../../docs/dependencies.md): Next.js, Tailwind CSS 4, and shadcn/ui on Radix in `packages/ui`.
+The build stack is in [`docs/architecture/README.md`](../../docs/architecture/README.md) and [`docs/dependencies.md`](../../docs/dependencies.md): Next.js, Tailwind CSS 4, and shadcn/ui on Radix in `packages/ui`.
 
 ## What is here
 
@@ -74,17 +74,9 @@ Two flows need a note here because the prototype is close to them:
 - **Wiki source order (WIKI-001, REQ-KNOW-191).** Each plant keeps one ordered list of Wiki sources for its sending churches and one for its networks. The first entry is the preferred source. This needs a section in Settings, probably next to Sharing, with a reorderable list. The Source menu on an article lists sources in the same order. When two sources compete and no order is set, show that an order is needed; never pick a winner.
 - **Lead planter (IDN-014, REQ-IDN-014).** Onboarding asks the Owner a yes/no question. Yes gives the Owner's Person the ordinary lead ministry role. No changes nothing and shows no lead. The lead planter role grants no access. A separate operating lead is a real Person with an ordinary Admin invitation. Assign the role later on Ministries, like any other role.
 
-## Open decisions
+## Remaining choices
 
-Each needs an owner's choice before the matching work starts.
-
-**Charts.** The prototype draws its charts by hand: bar charts with a goal line, stacked bars, sparklines, ring meters and hatched planned values. `docs/dependencies.md` allows a chart library only for specified behaviors. I recommend small owned SVG components in `packages/ui`, because there are few chart types and the hatch pattern, tooltips and keyboard access are easier to control. Visx is the fallback if the set grows.
-
-**Wiki editor.** v2 Wiki content is MDX. The editor needs a rich-text library that can read and write that content without loss. Tiptap and Lexical are both candidates. I recommend a short spike in WP-035 that round-trips ten real articles before choosing.
-
-**Sliding highlights.** Lists, menus, tabs and the nav share one sliding highlight. Motion's `layoutId` does this in a few lines but adds a dependency. A small owned hook with CSS transforms also works. Choose one and use it everywhere.
-
-**Gradient card rendering.** The cards use a large CSS blur. Profile Overview on a low-end laptop before launch. If painting is slow, pre-render each of the four tones to a static image and keep only the grain in CSS. See [foundations.md](foundations.md#gradient-cards).
+The [release-gate register](../../docs/plan/release-gates.json) owns all open questions, including charts, the Wiki editor, sliding highlights and gradient rendering. Each entry names its slice, owner and decision deadline. The Wiki editor choice belongs before WP-032 freezes the sanitized-node contract.
 
 ## Settled
 

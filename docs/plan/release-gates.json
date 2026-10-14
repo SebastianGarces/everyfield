@@ -6,16 +6,17 @@
       "title": "Whole target design and independent review",
       "owner": "Root integration owner",
       "closure": "Current domain/schema/operation/acceptance/packet contracts resolve all reviewed design findings; independent losslessness and whole-plan reviews pass; no substantive open design gap.",
-      "status": "passed-independent-documentation-review",
+      "status": "re-review-required",
       "work_packages": [],
-      "evidence": "docs/verification.json#independent_reviews",
-      "reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f"
+      "evidence": "docs/verification.json#current_review",
+      "review_reason": "The 2026-10-14 fix wave changed schema, architecture, catalogs, acceptance cases, package scope, workflow and design handoff inputs. Prior fingerprints are historical provenance; review the corrected current inputs independently.",
+      "prior_reviewed_substantive_candidate_fingerprint": "2f8e99dba4f186967993b0e3c39b246e9f2e03e78e33ce5fc2af3b3c93203f5f"
     },
     {
       "id": "G-AUTH",
       "title": "Implementation kickoff",
       "owner": "Owner",
-      "closure": "Separate explicit implementation authorization for this frozen version; all86packages currently unstarted.",
+      "closure": "Separate explicit implementation authorization for the reviewed frozen version. Package state is recorded only in docs/build-progress.json.",
       "status": "not-authorized",
       "work_packages": []
     },
@@ -37,12 +38,6 @@
       "owner": "Owner-provided external handoff",
       "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric.",
       "status": "received-reconciliation-required",
-      "work_packages": [
-        "WP-049",
-        "WP-050",
-        "WP-055",
-        "WP-084"
-      ],
       "source": {
         "repository": "/Users/sebastian/dev/everyfield_v3",
         "ref": "refs/heads/main",
@@ -104,7 +99,73 @@
       "stage": "before-customer-data"
     }
   ],
-  "owner_product_questions": [],
+  "owner_product_questions": [
+    {
+      "id": "Q-CHARTS",
+      "title": "Chart implementation",
+      "slice": "S0",
+      "work_packages": [
+        "WP-088"
+      ],
+      "owner": "UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose owned SVG components or a chart library before the shared UI package ships.",
+      "recommendation": "Use small owned SVG components; add Visx only if the required chart set exceeds them.",
+      "decision_before": "WP-088 shared chart components"
+    },
+    {
+      "id": "Q-WIKI-EDITOR",
+      "title": "Wiki editor library",
+      "slice": "S2",
+      "work_packages": [
+        "WP-032",
+        "WP-035"
+      ],
+      "owner": "Knowledge editor implementor and UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose Tiptap or Lexical before freezing the sanitized editor-node contract. Prove supported nodes, safe imports and organization/native editing; curated global MDX remains a separate release-validated source.",
+      "recommendation": "Compare both with real supported content before WP-032. Arbitrary executable MDX round-tripping is not required.",
+      "decision_before": "WP-032 editor contract; WP-035 consumes it"
+    },
+    {
+      "id": "Q-SLIDING-HIGHLIGHTS",
+      "title": "Shared sliding highlight",
+      "slice": "S0",
+      "work_packages": [
+        "WP-088"
+      ],
+      "owner": "UI designer",
+      "status": "open-engineering-choice",
+      "question": "Choose one shared sliding highlight mechanism before navigation, menus and tabs consume it.",
+      "recommendation": "Use an owned CSS transform mechanism first; add Motion only for a demonstrated benefit.",
+      "decision_before": "WP-088 shared navigation components"
+    },
+    {
+      "id": "Q-GRADIENT-RENDERING",
+      "title": "Gradient rendering cost",
+      "slice": "S5",
+      "work_packages": [
+        "WP-048",
+        "WP-057"
+      ],
+      "owner": "UI designer and integration verifier",
+      "status": "measurement-required",
+      "question": "Keep CSS blur or use pre-rendered tone images after profiling the actual Overview on a low-end laptop.",
+      "recommendation": "Retain the designed treatment until real profiling shows a paint problem.",
+      "decision_before": "WP-057 final UI performance proof"
+    },
+    {
+      "id": "FUTURE-HELP",
+      "title": "Help center",
+      "slice": "future",
+      "work_packages": [],
+      "owner": "Owner",
+      "status": "future-out-of-v3-scope",
+      "question": "Searchable Help center and how-to library are reserved for a future scope decision; retain the design.",
+      "recommendation": "Keep contextual Guide WIKI-008 in v3. Authorize and assign a separate Help feature only in a future plan.",
+      "decision_before": "Any future Help implementation"
+    }
+  ],
   "implementation_tests_run": 0,
   "provider_changes": 0
 }

@@ -12,7 +12,10 @@ wait for results. These are the EveryField additions.
    files, and ships as a PR.
 2. Review `bin/evf shipped`, then acknowledge the shipped milestone with
    `bin/evf shipped --clear <task>`. evf writes canonical progress automatically; commit its generated
-   change in the normal integration branch. No package patch or second progress PR is needed.
+   change through a reviewed `OPS-n` maintenance task owning only `docs/build-progress.json`.
+   Transfer the exact evf-generated change into that task worktree, restore the root to the committed
+   progress, and use the normal tooling proof/review loop. Do this before the next planning round
+   or handoff so the root never retains an uncommitted progress change.
    Producer/interface milestones unlock dependents. Full closure remains an integration decision.
 3. Plan: `bin/evf plan <slice or WP IDs>` prints `@@@task` blocks with `dependsOn`,
    `conflictsWith` and effort. Paste them into the spec note. Do not hand-write task context.

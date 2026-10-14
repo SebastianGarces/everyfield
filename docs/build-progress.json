@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 0,
-  "updated_at": "2026-10-03",
+  "revision": 1,
+  "updated_at": "2026-10-14T10:19:10.013Z",
   "packages": {
     "WP-001": {
       "status": "not_started",
@@ -685,12 +685,27 @@
       "updated_at": null
     },
     "WP-086": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-085; ID must not be reused.",
       "owner": null,
+      "revision": 1,
+      "updated_at": "2026-10-14T10:19:10.013Z",
+      "retired_into": "WP-085"
+    },
+    "WP-087": {
+      "status": "not_started",
       "revision": 0,
-      "updated_at": null
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-088": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
     }
   }
 }

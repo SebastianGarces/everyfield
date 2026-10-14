@@ -1,6 +1,6 @@
 # Identity, access and account lifecycle
 
-This is the operative target for IDN-001–028. Stable feature IDs retain their identity when a source mechanism is replaced or a capability is explicitly excluded. Requirements below are sufficient without the older decision/module chain. Better Auth supplies credentials and sessions; application-owned accounts, one current seat, organizations, relationships, People links and permissions remain domain data. All work-package implementation statuses remain `not_started`; every acceptance fixture is future work.
+This is the operative target for IDN-001–028. Stable feature IDs retain their identity when a source mechanism is replaced or a capability is explicitly excluded. Requirements below are sufficient without the older decision/module chain. Better Auth supplies credentials and sessions; application-owned accounts, one current seat, organizations, relationships, People links and permissions remain domain data. [Canonical build progress](../build-progress.json) records implementation milestones and completion; acceptance proof is separate from specification content.
 
 Native account/credential challenges remain native and never send passwords, reset tokens, mailbox proofs or cancellation-only identity evidence to Evry. Ordinary domain reads and nonpersistent drafts may run immediately under current authorization. Every durable Evry domain effect uses the same command as native UI, with exact human-reviewed fields, targets, generated effects and revisions. A title or a client-supplied account/tenant ID cannot create authority.
 
@@ -453,7 +453,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 ## Consumer closure and proof
 
-Implementation remains `not_started`. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
 
 ## Affiliation settings category adapter
 

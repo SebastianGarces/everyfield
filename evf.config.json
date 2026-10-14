@@ -14,21 +14,10 @@
       ]
     },
     {
-      "name": "current-context",
+      "name": "documentation",
       "run": [
         "python3",
-        "docs/package-context.py",
-        "--check-manifest"
-      ]
-    },
-    {
-      "name": "build-explorer",
-      "run": [
-        "python3",
-        "docs/update-build-explorer.py",
-        "--root",
-        ".",
-        "--check"
+        "docs/check-all.py"
       ]
     }
   ],
