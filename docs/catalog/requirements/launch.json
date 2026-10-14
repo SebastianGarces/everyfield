@@ -389,7 +389,7 @@
         },
         {
           "operation": "meetings.checkIn",
-          "rule": "withDomainTransaction: fresh attendance authority + attendance mutation + history + synchronous material revision + command_receipt + safe audit + required effect intent; provider/model outside transaction."
+          "rule": "withDomainTransaction: fresh attendance authority + attendance mutation + history + synchronous material revision + operation + safe audit + required effect intent; provider/model outside transaction."
         },
         {
           "operation": "meetings.checkIn",

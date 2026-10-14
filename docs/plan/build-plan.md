@@ -4,7 +4,7 @@ The approved target has 87 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 288 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 108 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 287.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 107.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -76,11 +76,11 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-039 | Check-ins manual signals and corrections | 19 | 18 | 163 | 5 | 3.5 |
 | WP-045 | Launch plan/readiness/milestones | 31 | 20 | 119 | 9 | 3.5 |
 | WP-046 | Launch outcomes/events/history | 48 | 19 | 69 | 8 | 3.5 |
-| WP-040 | Deterministic fact snapshot and metric lineage | 40 | 14 | 218 | 2 | 4 |
+| WP-040 | Deterministic fact snapshot and metric lineage | 40 | 13 | 218 | 2 | 4 |
 | WP-041 | Rubric/reference retrieval and history C3a | 10 | 13 | 157 | 4 | 3 |
 | WP-047 | Oversight portfolio and health | 16 | 15 | 174 | 7 | 3.5 |
 | WP-042 | Structured AI judge and evaluation harness | 11 | 17 | 176 | 4 | 3.5 |
-| WP-043 | Assessment orchestration/retry/publication | 14 | 25 | 184 | 6 | 3.5 |
+| WP-043 | Assessment orchestration/retry/publication | 14 | 24 | 184 | 6 | 3.5 |
 | WP-044 | Plant Intelligence/oversight assessment UI | 50 | 40 | 287 | 4 | 5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 7 | 7 | 2 | 2 |
 | WP-049 | Feedback admin public waitlist/legal/marketing | 20 | 15 | 22 | 4 | 2.5 |
@@ -104,7 +104,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-071 | Evry communication reads/helper adapters | 12 | 21 | 45 | 0 | 2.5 |
 | WP-072 | Evry communication draft/propose/execute adapters | 10 | 24 | 35 | 0 | 2.5 |
 | WP-073 | Evry intelligence reads/helper adapters | 48 | 45 | 347 | 0 | 5.5 |
-| WP-074 | Evry intelligence draft/propose/execute adapters | 25 | 27 | 202 | 0 | 4 |
+| WP-074 | Evry intelligence draft/propose/execute adapters | 25 | 26 | 183 | 0 | 3.5 |
 | WP-075 | Evry launch reads/helper adapters | 5 | 5 | 39 | 0 | 2 |
 | WP-076 | Evry launch draft/propose/execute adapters | 7 | 16 | 47 | 0 | 2.5 |
 | WP-077 | Evry wiki reads/helper adapters | 12 | 19 | 91 | 0 | 2.5 |
@@ -117,8 +117,8 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-084 | Evry platform draft/propose/execute adapters | 26 | 53 | 136 | 0 | 4 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 15 | 0 | 2 |
 | WP-055 | Evry autonomy policy/evals/human ownership | 9 | 9 | 51 | 0 | 2 |
-| WP-056 | Cross-module race/privacy/correction integration | 496 | 662 | 1086 | 0 | 14 |
-| WP-057 | Full target browser/file/capability parity gate | 496 | 662 | 1086 | 5 | 14 |
+| WP-056 | Cross-module race/privacy/correction integration | 496 | 661 | 1086 | 0 | 14 |
+| WP-057 | Full target browser/file/capability parity gate | 496 | 661 | 1086 | 5 | 14 |
 | WP-058 | Fresh bootstrap and release rehearsal | 16 | 9 | 139 | 0 | 3 |
 
 ## Critical prerequisite chain

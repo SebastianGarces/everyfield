@@ -33,6 +33,18 @@ def check(root):
         columns = {c['name'] for c in tables.get(name, {}).get('columns', [])}
         if not ref.get('policy') or any(c not in columns for c in field.split('/')):
             errors.append(f'unresolved frozen/generic Person reference {name}.{field}')
+    # Record FKs outside subtype identities can carry a Person. Every such link
+    # must be registered or explicitly constrained to another record kind.
+    registered = {(r['table'], c) for r in schema['person_snapshot_references']
+                  for c in r['field'].split('/')}
+    for table in tables.values():
+        for fk in table['foreign_keys']:
+            if fk['references']['table'] != 'record':
+                continue
+            for column, target in zip(fk['columns'], fk['references']['columns']):
+                # The subtype id identifies its own record, not a consumer link.
+                if target == 'id' and column != 'id' and (table['name'], column) not in registered:
+                    errors.append(f'unregistered Person-kind record reference {table["name"]}.{column}')
     return errors
 
 

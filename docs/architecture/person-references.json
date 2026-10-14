@@ -656,6 +656,36 @@
       "table": "event",
       "field": "target_record_id/from_value/to_value/diff",
       "policy": "Person-kind historical identity and original occurrence/correction evidence are immutable."
+    },
+    {
+      "table": "effect",
+      "field": "target_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
+    },
+    {
+      "table": "effect",
+      "field": "source_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
+    },
+    {
+      "table": "effect",
+      "field": "result_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
+    },
+    {
+      "table": "job",
+      "field": "subject_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership. Preserve original job uniqueness and producer key; stale source revisions supersede work instead of creating a replacement under the survivor."
+    },
+    {
+      "table": "notice",
+      "field": "source_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership. Recheck the current audience and source eligibility before display or dispatch; never duplicate or resend a notice on identity movement."
+    },
+    {
+      "table": "evidence_link",
+      "field": "consumer_record_id",
+      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
     }
   ]
 }

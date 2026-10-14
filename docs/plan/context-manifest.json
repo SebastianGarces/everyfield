@@ -1792,7 +1792,6 @@
         "domain.executeAtomicConsequences",
         "events.appendRequiredOutbox",
         "events.deliverIdempotentConsumer",
-        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates"
       ],
@@ -1800,7 +1799,6 @@
         "domain.executeAtomicConsequences",
         "events.appendRequiredOutbox",
         "events.deliverIdempotentConsumer",
-        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates"
       ],
@@ -15645,7 +15643,6 @@
         "intelligence.buildFactSnapshot",
         "intelligence.deriveLensEvidence",
         "intelligence.formatCitedFact",
-        "intelligence.markMaterialRevision",
         "intelligence.readAssessmentHistory",
         "intelligence.readCommittedAdultCohort",
         "intelligence.readExitCriteria",
@@ -15701,7 +15698,9 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [],
+      "consumed_acceptance_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "acceptance_ids": [
         "AC-PI-001--PI-001",
         "AC-PI-002--PI-002",
@@ -15985,6 +15984,7 @@
         "followups.listContactHistory",
         "followups.readObligations",
         "followups.recordOutcome",
+        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates",
         "onboarding.createPlant",
@@ -17157,7 +17157,6 @@
         "intelligence.describeRunFailure",
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessmentDelta",
         "intelligence.readAssessmentRun",
@@ -17195,7 +17194,9 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [],
+      "consumed_acceptance_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "acceptance_ids": [
         "AC-PI-019--PI-019",
         "AC-PI-020--PI-020",
@@ -17420,7 +17421,9 @@
         "organizationLaunchSummary.readPublished",
         "organizations.correctReportingLocation"
       ],
-      "shared_operation_ids": [],
+      "shared_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",
@@ -26227,7 +26230,6 @@
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readAssessmentDelta",
@@ -27201,7 +27203,9 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [],
+      "consumed_acceptance_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
         "AC-ADM-002--ADM-002",
@@ -29676,7 +29680,9 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "shared_operation_ids": [],
+      "shared_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",
@@ -31859,7 +31865,6 @@
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readAssessmentDelta",
@@ -32833,7 +32838,9 @@
       ],
       "shared_requirement_ids": [],
       "consumed_acceptance_requirement_ids": [],
-      "consumed_acceptance_operation_ids": [],
+      "consumed_acceptance_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "acceptance_ids": [
         "AC-ADM-001--ADM-001",
         "AC-ADM-002--ADM-002",
@@ -35308,7 +35315,9 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "shared_operation_ids": [],
+      "shared_operation_ids": [
+        "intelligence.markMaterialRevision"
+      ],
       "shared_contract_ids": [
         "C0-DOMAIN-TRANSACTION",
         "C0-TIME",
@@ -40519,7 +40528,6 @@
         "intelligence.evaluateAssessment",
         "intelligence.formatCitedFact",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readAssessmentDelta",
@@ -40580,7 +40588,6 @@
         "evry.readCatalog",
         "intelligence.evaluateAssessment",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.releaseAssessmentToOversight",
         "intelligence.requestOperatorRefresh",
@@ -40739,27 +40746,8 @@
         "LI-016",
         "LI-017",
         "LI-018",
-        "MW-CASE-001",
-        "MW-CASE-002",
-        "MW-CASE-003",
-        "MW-CASE-004",
-        "MW-CASE-005",
-        "MW-CASE-006",
-        "MW-CASE-007",
-        "MW-CASE-008",
-        "MW-CASE-009",
-        "MW-CASE-010",
-        "MW-CASE-011",
-        "MW-CASE-012",
-        "MW-CASE-013",
-        "MW-CASE-014",
         "MW-CASE-015",
         "MW-CASE-016",
-        "MW-CASE-017",
-        "MW-CASE-018",
-        "MW-CASE-019",
-        "MW-CASE-020",
-        "MW-CASE-021",
         "MW-CASE-022",
         "MW-CASE-023",
         "MW-CASE-024",
@@ -40873,7 +40861,6 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.recordAttemptTelemetry",
         "intelligence.releaseAssessmentToOversight",
@@ -41034,27 +41021,8 @@
         "LI-016",
         "LI-017",
         "LI-018",
-        "MW-CASE-001",
-        "MW-CASE-002",
-        "MW-CASE-003",
-        "MW-CASE-004",
-        "MW-CASE-005",
-        "MW-CASE-006",
-        "MW-CASE-007",
-        "MW-CASE-008",
-        "MW-CASE-009",
-        "MW-CASE-010",
-        "MW-CASE-011",
-        "MW-CASE-012",
-        "MW-CASE-013",
-        "MW-CASE-014",
         "MW-CASE-015",
         "MW-CASE-016",
-        "MW-CASE-017",
-        "MW-CASE-018",
-        "MW-CASE-019",
-        "MW-CASE-020",
-        "MW-CASE-021",
         "MW-CASE-022",
         "MW-CASE-023",
         "MW-CASE-024",
@@ -41172,7 +41140,6 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.markAssessmentSeen",
-        "intelligence.markMaterialRevision",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
         "intelligence.readOwnFeedback",

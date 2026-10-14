@@ -36,7 +36,7 @@
       "id": "G-WORKFLOW",
       "title": "Merged development workflow",
       "owner": "Owner-provided external handoff",
-      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric.",
+      "closure": "The merged source is received and pinned. Adapt it to the current standalone context/catalog, approval, safe feedback, dependency, final-head evidence and progress contracts; independently review the integration before workflow execution. Preserve the supplied severity/complexity rubric. Install the real qualified runner and authenticated Intent identity/review receipt adapter; independently review its public verification key and keep the signing key outside agent/worktree access. Configure and verify the main repository remote and required protection. Through one owner-reviewed bootstrap commit, switch evf.config.json from tooling-only verification to the qualified application runner and install the approved first-task proof plans and stack wiring. Independently prove the bootstrap before application workflow execution; simulated local tooling receipts cannot close this gate.",
       "status": "received-reconciliation-required",
       "source": {
         "repository": "/Users/sebastian/dev/everyfield_v3",
@@ -97,6 +97,19 @@
         "WP-058"
       ],
       "stage": "before-customer-data"
+    },
+    {
+      "id": "G-LOAD",
+      "title": "Measured scheduler load and fairness",
+      "owner": "Executor/assessment/operations + release owner",
+      "closure": "Measure representative backlog and bursts across tenants and every affected job kind to identify starvation, lag and saturation. Select per-tenant fairness, concurrency/page limits, reserved security/cancellation slots and per-kind alert thresholds from those measurements; prove recovery and owed scan-tail completion across every affected kind. Until then retain finite leases, claim fences, idempotency, bounded retries, durable checkpoints, unknown-outcome reconciliation and safe operator visibility. This gate does not block building the base executor and grants no deployment or spending authority.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-031",
+        "WP-043",
+        "WP-050"
+      ],
+      "stage": "before-production-schedules"
     }
   ],
   "owner_product_questions": [
@@ -164,6 +177,19 @@
       "question": "Searchable Help center and how-to library are reserved for a future scope decision; retain the design.",
       "recommendation": "Keep contextual Guide WIKI-008 in v3. Authorize and assign a separate Help feature only in a future plan.",
       "decision_before": "Any future Help implementation"
+    },
+    {
+      "id": "Q-MARKETING-COPY",
+      "title": "Marketing copy review",
+      "slice": "S3",
+      "work_packages": [
+        "WP-049"
+      ],
+      "owner": "Owner",
+      "status": "owner-review-required",
+      "question": "Review the five public marketing pages for product claims, privacy, recovery limits and tone before WP-049.",
+      "recommendation": "Approve the bounded copy before WP-049 in S3; keep Help outside v3 and describe actual access and recovery limits.",
+      "decision_before": "WP-049, S3"
     }
   ],
   "implementation_tests_run": 0,

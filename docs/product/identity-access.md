@@ -4,7 +4,7 @@ This is the operative target for IDN-001–028. Stable feature IDs retain their 
 
 Native account/credential challenges remain native and never send passwords, reset tokens, mailbox proofs or cancellation-only identity evidence to Evry. Ordinary domain reads and nonpersistent drafts may run immediately under current authorization. Every durable Evry domain effect uses the same command as native UI, with exact human-reviewed fields, targets, generated effects and revisions. A title or a client-supplied account/tenant ID cannot create authority.
 
-The physical model uses `app_account`, `organization`, `workspace_membership`, typed affiliation/invitation resources, domain receipts and the shared audit envelope. `organization` is typed plant, sending church or network; affiliation does not merge tenants. An account has at most one active workspace seat. Historical seat/relationship rows may coexist with that single active seat. Discovery is an explicit account profile without a seat, never an inference from a missing seat.
+The physical model uses `account`, `organization`, `seat`, typed affiliation/invitation resources, domain receipts and the shared audit envelope. `tenant` distinguishes account, plant and organization; `organization.kind` distinguishes sending church and sending network. Affiliation does not merge tenants. An account has at most one active workspace seat. Historical seat/relationship rows may coexist with that single active seat. Discovery is an explicit account profile without a seat, never an inference from a missing seat.
 
 
 ## Shared domain contracts

@@ -1503,7 +1503,7 @@
           "fixture_type": "fixture",
           "value": "2026-10-01"
         },
-        "app_account": {
+        "account": {
           "fixture_type": "fixture",
           "value": null
         }
@@ -1524,7 +1524,7 @@
           "named_person": "P",
           "agreed_to_worship": true,
           "attestation_date": "2026-10-01",
-          "app_account": null
+          "account": null
         }
       },
       "expected": {
@@ -17764,9 +17764,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -18394,9 +18392,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -18997,9 +18993,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -19620,9 +19614,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -20312,9 +20304,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -21041,9 +21031,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -21710,9 +21698,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -22338,9 +22324,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -23002,9 +22986,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -23735,9 +23717,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -24377,9 +24357,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -25026,9 +25004,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -25749,9 +25725,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -26359,9 +26333,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -26980,9 +26952,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -27607,9 +27577,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -28262,9 +28230,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -28907,9 +28873,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -29621,9 +29585,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -30262,9 +30224,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -30932,9 +30892,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -31535,6 +31493,14 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York"
+        },
+        "R-org-old": {
+          "fixture_type": "assessment",
+          "id": "R-org-old",
+          "tenant": "Org-A",
+          "state": "validated",
+          "source_revision": 21,
+          "reference_activation": 1
         }
       },
       "actor": {
@@ -31566,9 +31532,7 @@
             "Org-A-materialRevision": {
               "greater_than": 21
             },
-            "Org-B-materialRevision": {
-              "greater_than": 31
-            }
+            "Org-B-materialRevision": 31
           },
           "current_assessment": "R0",
           "material_revision": 11,
@@ -31665,6 +31629,14 @@
               },
               "approved_at": "2026-10-13T15:59:00Z",
               "expires_at": "2026-10-13T16:14:00Z"
+            },
+            "R-org-old": {
+              "fixture_type": "assessment",
+              "id": "R-org-old",
+              "tenant": "Org-A",
+              "state": "validated",
+              "source_revision": 21,
+              "reference_activation": 1
             }
           },
           "actor": {
@@ -31756,7 +31728,8 @@
             "old-job": {
               "fixture_type": "job",
               "generation": 4,
-              "lease_until": "2026-10-13T16:02:00Z"
+              "lease_until": "2026-10-13T16:02:00Z",
+              "tenant": "Org-A"
             },
             "reference": {
               "fixture_type": "activation",
@@ -31783,6 +31756,14 @@
               },
               "approved_at": "2026-10-13T15:59:00Z",
               "expires_at": "2026-10-13T16:14:00Z"
+            },
+            "R-org-old": {
+              "fixture_type": "assessment",
+              "id": "R-org-old",
+              "tenant": "Org-A",
+              "state": "validated",
+              "source_revision": 21,
+              "reference_activation": 1
             }
           },
           "actor": {
@@ -31797,8 +31778,9 @@
           "action": {
             "operation": "intelligence.publishAssessment",
             "arguments": {
-              "captured_source": 11,
-              "live_source": 12,
+              "assessmentId": "R-org-old",
+              "captured_organization_revision": 21,
+              "live_organization_revision": 22,
               "generation": 4,
               "lease_until": "2026-10-13T16:02:00Z"
             }
@@ -31892,6 +31874,14 @@
               },
               "approved_at": "2026-10-13T15:59:00Z",
               "expires_at": "2026-10-13T16:14:00Z"
+            },
+            "R-org-old": {
+              "fixture_type": "assessment",
+              "id": "R-org-old",
+              "tenant": "Org-A",
+              "state": "validated",
+              "source_revision": 21,
+              "reference_activation": 1
             }
           },
           "actor": {
@@ -32001,6 +31991,14 @@
               },
               "approved_at": "2026-10-13T15:59:00Z",
               "expires_at": "2026-10-13T16:14:00Z"
+            },
+            "R-org-old": {
+              "fixture_type": "assessment",
+              "id": "R-org-old",
+              "tenant": "Org-A",
+              "state": "validated",
+              "source_revision": 21,
+              "reference_activation": 1
             }
           },
           "actor": {
@@ -32186,9 +32184,7 @@
           "material_revision": {
             "greater_than": 11
           },
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -32791,15 +32787,11 @@
           "facts": {
             "releasedAssessment": "Assessment-R1",
             "plantMaterialRevision": 11,
-            "Org-A-materialRevision": {
-              "greater_than": 21
-            }
+            "Org-A-materialRevision": 21
           },
           "current_assessment": "R0",
           "material_revision": 11,
-          "organization_A_revision": {
-            "greater_than": 21
-          },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,
@@ -33934,7 +33926,7 @@
         "WP-043"
       ],
       "status": "future-not-run",
-      "description": "mw-026-geography-correction-transaction-rollback-paused-wakeup",
+      "description": "Plant reporting-geography correction advances plant material revision; organization publication compares contributor source revisions.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -34079,10 +34071,10 @@
             "chosenAreaAttested": false
           },
           "current_assessment": "R0",
-          "material_revision": 11,
-          "organization_A_revision": {
-            "greater_than": 21
+          "material_revision": {
+            "greater_than": 11
           },
+          "organization_A_revision": 21,
           "organization_B_revision": 31,
           "wake_delivery": "paused",
           "sweep_discovers_change": true,

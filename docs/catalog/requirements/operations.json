@@ -283,7 +283,7 @@
         },
         {
           "operation": "feedback.notifyOperator",
-          "rule": "Configured actual authorized operator and safe frozen content only, same email_intent ledger; no raw private original/token/contact body in general notification, unknown mail remains truthful."
+          "rule": "Configured actual authorized operator and safe frozen content only, same mail ledger; no raw private original/token/contact body in general notification, unknown mail remains truthful."
         },
         {
           "operation": "feedback.reconcileIssueLink",
@@ -548,7 +548,7 @@
       "feature_ids": [
         "OPS-001"
       ],
-      "text": "One authenticated bounded Next/Postgres executor, durable owed work, fairness/lease/fencing/lag/recovery catalog in execution. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+      "text": "One authenticated bounded Next/Postgres executor, durable owed work, lease/fencing/checkpoint/reconciliation/recovery contract in execution; fairness and alert tuning belong to G-LOAD. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "jobs.tickNotifications",

@@ -80,7 +80,7 @@
         "NTF-008",
         "OPS-001"
       ],
-      "text": "Selected same-app authenticated Next/Postgres executor uses unique durable occurrence job, SKIPLOCKED claim generation/default 5 min lease/30s heartbeat/checkpoint CAS. assessment.refresh explicitly overrides the default with 120 second job/attempt lease and individual provider call≤45 seconds. Tick budget remains 270 seconds,4 concurrent,2 per tenant,10 per tenant page with rotating type+tenant fairness and durable owed cursors. External uncertainty has handler-specific reconciliation; pure failures≤3 backoffs; safe operator reason/current scope recovery. No per-feature queue or workflow platform.",
+      "text": "The authenticated same-app Next/Postgres executor uses unique durable jobs, finite leases with a five-minute default, claim generations, heartbeat at most every 30 seconds and checkpoint comparisons. Assessment work uses the 120-second lease and 45-second provider-call bound in the assessment contract. Invocation duration, page size and concurrency must fit the measured deployment. Preserve owed scan tail work, idempotency, at most three backoffs for known retryable failures and handler-specific unknown-outcome reconciliation. Operator recovery rechecks current scope and records its reason and evidence. Per-tenant fairness, reserved slots and alert tuning close at G-LOAD after representative load measurements; they do not block building the base executor. No per-feature queue or separate workflow platform.",
       "spec": "docs/architecture/execution.md#claim-and-transaction-protocol",
       "operations": [
         "jobs.manualRun",
@@ -161,7 +161,7 @@
         },
         {
           "operation": "jobs.tickAssessments",
-          "rule": "Bounded same-app/Postgres tick with fairness/lease/fence/checkpoint"
+          "rule": "Bounded same-app/Postgres tick with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD"
         }
       ]
     }

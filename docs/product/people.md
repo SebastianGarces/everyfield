@@ -4,7 +4,7 @@ This is the current target for PPL-001–023. People are tenant-owned contacts, 
 
 The seven recruitment stages are `prospect`, `attendee`, `following_up`, `interviewed`, `core_group`, `launch_team`, `leader`. Recording evidence and choosing a stage are distinct actions. Human-recorded person qualification uses the unchanged four C’s—Committed, Compelled, Contagious, Courageous—and interview criteria Maturity, Gifted, Chemistry, Right Reasons, Season. No model supplies pastoral judgment, assessment scores or testimony. These person assessments differ from the immutable SME Plant Intelligence rubric. Background-check capture/display/import/export/tool fields and coach workflows are explicitly excluded.
 
-The target schema uses `person`, `person_activity`, typed qualification/commitment history, `record_correction`, and `person_merge`. Successful material mutations, history, receipt/audit and plant source-revision advancement commit together; an outbox wake-up may follow commit. Native and reviewed Evry commands use the same domain policy. Expected revisions and operation IDs prevent stale edits or retries from silently losing history.
+The target schema uses `person`, typed qualification/commitment history, `event`, and `person_merge`. Successful material mutations, history, receipt/audit and plant source-revision advancement commit together; an outbox wake-up may follow commit. Native and reviewed Evry commands use the same domain policy. Expected revisions and operation IDs prevent stale edits or retries from silently losing history.
 
 
 ## Shared domain contracts

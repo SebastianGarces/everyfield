@@ -329,7 +329,7 @@
       "feature_ids": [
         "DOC-015"
       ],
-      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+      "text": "Private file_object fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "storage.putPrivateObject",
@@ -355,7 +355,7 @@
       "feature_ids": [
         "DOC-016"
       ],
-      "text": "Native owned_documents have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under 10MiB/40MiB expanded/2000 entries/2 million text/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
+      "text": "Native document have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under 10MiB/40MiB expanded/2000 entries/2 million text/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
       "spec": "docs/product/knowledge-documents.md#native-owned-writing",
       "operations": [
         "documents.listOwned",

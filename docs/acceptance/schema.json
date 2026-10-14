@@ -440,7 +440,7 @@
         },
         "case-input": {
           "fixture_type": "domain_inputs",
-          "action": "person_updated",
+          "action": "people.updated",
           "diff_utf8_bytes": [
             2048,
             2049
@@ -462,7 +462,7 @@
         "operation": "sql.inspectEventRows",
         "arguments": {
           "subject": "P",
-          "action": "person_updated",
+          "action": "people.updated",
           "diff_utf8_bytes": [
             2048,
             2049
@@ -3945,7 +3945,7 @@
         "person_merge",
         "evidence_link"
       ],
-      "description": "Enumerate all 24 declared Person FK and 4 frozen/generic references; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
+      "description": "Enumerate all 24 declared Person FK and 10 frozen/generic registry entries; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3989,8 +3989,8 @@
         "refs": {
           "fixture_type": "consumer_inventory",
           "foreign_key_references": 24,
-          "frozen_generic_references": 4,
-          "source": "docs/schema/person-references.json"
+          "frozen_generic_references": 10,
+          "source": "docs/architecture/person-references.json"
         }
       },
       "actor": {
@@ -4014,7 +4014,7 @@
         "state": {},
         "result": {
           "registered_fk_count": 24,
-          "registered_frozen_generic_count": 4,
+          "registered_frozen_generic_count": 10,
           "missing_collision_policies": [],
           "missing_inverse_policies": [],
           "missing_retirement_policies": [],

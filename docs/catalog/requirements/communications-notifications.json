@@ -104,7 +104,7 @@
       "feature_ids": [
         "COM-005"
       ],
-      "text": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+      "text": "Dispatch exact frozen per-recipient payloads through one mail/mail_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.dispatchAttempt",
@@ -1374,7 +1374,7 @@
         "NTF-010",
         "NTF-013"
       ],
-      "text": "One email_intent/email_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "text": "One mail/mail_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#mail-contract",
       "operations": [
         "communication.dispatchAttempt",
@@ -1429,7 +1429,7 @@
       "feature_ids": [
         "NTF-002"
       ],
-      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation and fairness follow execution; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.claimDue",

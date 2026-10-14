@@ -9,7 +9,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Use a separate private Tigris backup bucket, not a production prefix/directory. Production app credentials cannot access it; only dedicated bucket-scoped backup credentials in the restricted backup execution context do. Actual key delivery/isolation is implementation proof, not assumed from naming a key or adding an env variable.",
+      "text": "Before customer data, use a separate private Tigris backup bucket, not a production prefix/directory. Production app credentials cannot access it; only dedicated bucket-scoped backup credentials in the restricted backup execution context do. Actual key delivery/isolation is implementation proof, not assumed from naming a key or adding an env variable.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -64,7 +64,8 @@
           "operation": "storage.readAuthorizedObject",
           "rule": "Read actual matching private bytes after current resource authorization; protected handle never model/raw credential, no placeholder safeCounts response."
         }
-      ]
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-012",
@@ -74,7 +75,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Dated encrypted daily copies have actual DB/byte reference/checksum manifest and explicit seven-day artifact/deletion expiry/cleanup under . Key/control access is recoverable by authorized backup operators; no ordinary app/model/private-care leakage. Lifecycle expiry is not object lock or prevention of earlier privileged deletion; old copy recopy cannot reset subject expiry.",
+      "text": "Before customer data, dated encrypted daily copies have actual DB/byte reference/checksum manifest and explicit seven-day artifact/deletion expiry and cleanup under the restricted backup execution context. Key/control access is recoverable by authorized backup operators; no ordinary app/model/private-care leakage. Lifecycle expiry is not object lock or prevention of earlier privileged deletion; old copy recopy cannot reset subject expiry.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -114,7 +115,8 @@
           "operation": "documents.reconcileOrphans",
           "rule": "Bounded fenced orphan cleanup verifies actual reference/lifecycle witness; cannot delete a ready linked document."
         }
-      ]
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-013",
@@ -123,7 +125,7 @@
         "DOC-015",
         "OPS-007"
       ],
-      "text": "Same-provider/account outage/loss may affect both primary storage and backup; disclose accepted limitation and require no second provider as launch gate. Ordinary live-provider 1hRPO/4hRTO remains measured target; daily 24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish 24h recovery, with no invented disaster RTO/SLA.",
+      "text": "Before customer data, same-provider/account outage/loss may affect both primary storage and backup; disclose accepted limitation and require no second provider as launch gate. Ordinary live-provider 1hRPO/4hRTO remains measured target; daily 24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish 24h recovery, with no invented disaster RTO/SLA.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [],
       "acceptance_ids": [
@@ -146,7 +148,8 @@
           "operation": "marketing.privacyPolicy",
           "rule": "Anonymous static public content pure read; no sealed proof, approval, CommandReceipt or mutation audit."
         }
-      ]
+      ],
+      "stage": "before-customer-data"
     },
     {
       "id": "REQ-KNOW-014",

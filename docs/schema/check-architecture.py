@@ -15,6 +15,19 @@ def check(root):
     all_columns = set().union(*columns.values())
     retired = set(schema['legacy_table_producers']) - tables.keys()
     errors = []
+    # Requirements are authoritative; chapters and cases must use the same model.
+    paths = sorted((root / 'docs/catalog/requirements').glob('*.json'))
+    paths += sorted((root / 'docs/product').glob('*.md'))
+    paths += sorted((root / 'docs/acceptance').glob('*.json'))
+    enum_values = {v for values in schema['type_contracts'].values()
+                   if isinstance(values, list) for v in values if isinstance(v, str)}
+    for path in paths:
+        for line_no, line in enumerate(path.read_text().splitlines(), 1):
+            for token in re.findall(r'\b[a-z_][a-z_0-9]*\b', line):
+                if token in retired and not (token in enum_values and
+                        ('Supported category values:' in line or
+                         re.search(r'"category"\s*:\s*"' + re.escape(token) + r'"', line))):
+                    errors.append(f'{path.relative_to(root)}:{line_no}: retired table {token}')
     for path in sorted((root / 'docs/architecture').glob('*.md')):
         for line_no, line in enumerate(path.read_text().splitlines(), 1):
             for token in re.findall(r'`([^`]+)`', line):

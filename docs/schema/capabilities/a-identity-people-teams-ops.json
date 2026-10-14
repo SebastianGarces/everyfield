@@ -1615,13 +1615,13 @@
       "entities": [
         "owed job",
         "claim or checkpoint",
-        "fairness cursor"
+        "durable scan cursor"
       ],
       "facts": [
         "Closed job type, enforced typed actual subject/owner, occurrence key, originating receipt/source revision and bounded ID/version payload.",
         "Eligibility Instant, ready/claimed/retry_wait/reconcile/succeeded/failed/cancelled/superseded state, attempt count/max, next retry and safe failure code.",
         "Current claim owner, lease-until Instant, monotonically advancing generation and bounded completed-work checkpoint.",
-        "Persisted type/tenant last-served scan cursor and remaining owed-work identity for fair sweep without dropping tail cohorts.",
+        "Durable scan cursor and remaining owed-work identity preserve tail cohorts across bounded sweeps and crashes.",
         "Current cancellation/lifecycle/source fence and actual external unknown outcome reference; operator recovery actor/reason/proof receipt."
       ],
       "history": "append-only events",
@@ -1634,11 +1634,11 @@
       "retention": "Keep active/unknown work and bounded recovery receipts until settled or properly canceled; delete private payloads according to actual subject ownership. No arbitrary permanent full payload archive or separate universal workflow event store is required.",
       "current_tables": [
         "job",
-        "command_receipt",
-        "email_intent",
+        "operation",
+        "mail",
         "feedback_publication"
       ],
-      "notes": "Sources: OPS-001, 004; execution claim protocol. Fairness state and retry/checkpoint facts are real needs, not a reason for a per-feature queue or separate worker platform."
+      "notes": "Sources: OPS-001, 004; execution claim protocol. Implement leases, fences, idempotency, bounded retries, checkpoints and unknown-outcome reconciliation during the build. Per-tenant fairness, reserved slots and alert tuning belong to G-LOAD after representative measurements; no prescribed last-served rotation or fairness state is a build prerequisite."
     },
     {
       "id": "CAP-A-051",

@@ -182,11 +182,11 @@
         },
         {
           "operation": "tasks.createSubtask",
-          "rule": "Persist each one-level child as a task row via parent_task_id with its own task_status_event history. Current same-plant Owner/Admin or Member currently assigned the exact top-level parent may create; omitted assignee inherits the current parent, only Owner/Admin may explicitly choose an eligible account or null, and Member must omit it and inherit its own assignment. Tick/reopen requires current Owner/Admin or the actual child-assignee Member; parent assignment never substitutes. Child deadline, recurrence, source-obligation and completion/contact hooks remain absent. A recurring parent copies fresh real child rows and resets completion facts; child state has one authoritative representation."
+          "rule": "Persist each one-level child as a task row via parent_task_id with its own event history. Current same-plant Owner/Admin or Member currently assigned the exact top-level parent may create; omitted assignee inherits the current parent, only Owner/Admin may explicitly choose an eligible account or null, and Member must omit it and inherit its own assignment. Tick/reopen requires current Owner/Admin or the actual child-assignee Member; parent assignment never substitutes. Child deadline, recurrence, source-obligation and completion/contact hooks remain absent. A recurring parent copies fresh real child rows and resets completion facts; child state has one authoritative representation."
         },
         {
           "operation": "tasks.createSubtask",
-          "rule": "Actual task row and own task_status_event/receipt only. No child due/recurrence/source obligation/completion/contact hooks; required date/time/Instant/zone/recurrence/origin columns null. Child tick/reopen never acts by parent assignment, completes parent, earns task 48/contact credit or invokes generic follow-up hooks."
+          "rule": "Actual task row and own event/receipt only. No child due/recurrence/source obligation/completion/contact hooks; required date/time/Instant/zone/recurrence/origin columns null. Child tick/reopen never acts by parent assignment, completes parent, earns task 48/contact credit or invokes generic follow-up hooks."
         },
         {
           "operation": "tasks.listSubtasks",

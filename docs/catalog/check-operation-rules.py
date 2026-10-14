@@ -289,6 +289,13 @@ FIX6_RULE_REWRITES = {
 def current_rule(rule):
     """Apply the reviewed Fix 6 prose corrections to historical rule evidence."""
     rule = FIX6_RULE_REWRITES.get(rule, RULE_REWRITES.get(rule, rule))
+    # Physical names and measured-load staging follow the approved round-2 model.
+    for old, new in [('email_intent', 'mail'), ('command_receipt', 'operation'), ('task_status_event', 'event')]:
+        rule = re.sub(r'\b' + old + r'\b', new, rule)
+    rule = rule.replace('with fairness/lease/fence/checkpoint',
+                        'with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD')
+    rule = rule.replace('Plant publication completes the paired assessment and its availability; increment only affected organization material inputs.',
+                        'Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source revisions without advancing organization material revision for a source-only change.')
     if rule.startswith('Supported ') and rule.endswith('[].'):
         return rule[:-3] + '.'
     return rule
@@ -296,6 +303,10 @@ def current_rule(rule):
 
 def audit(base, report):
     before = load_base('docs/catalog/operations.json', base)
+    # Round 2: database triggers supersede this caller-managed command and rule.
+    # REQ-PI-037 and assessment.md own trigger-set and freshness obligations.
+    retired = 'intelligence.markMaterialRevision'
+    before['operations'] = [o for o in before['operations'] if o['id'] != retired]
     aliases = load_base('docs/catalog/current-operation-aliases.json', base)
     catalog = json.loads((ROOT / 'docs/catalog/index.json').read_text())
     files = catalog['requirement_files'] + catalog['case_files']

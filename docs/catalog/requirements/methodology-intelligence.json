@@ -904,7 +904,7 @@
       "feature_ids": [
         "PI-021"
       ],
-      "text": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with fairness. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
+      "text": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with bounded scan/checkpoint recovery. Fairness tuning belongs to G-LOAD. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.selectAssessmentCandidates",
@@ -1034,7 +1034,7 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "Plant publication completes the paired assessment and its availability; increment only affected organization material inputs. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
+          "rule": "Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source revisions without advancing organization material revision for a source-only change. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
         },
         {
           "operation": "intelligence.publishAssessment",
@@ -1509,10 +1509,9 @@
       "feature_ids": [
         "PI-037"
       ],
-      "text": "Database triggers on every assessment input table advance the affected plant or organization material revision in the same transaction as the fact mutation, history, audit, required intents and receipt. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Correction, merge, attendance, contact, role, training, phase, date, geography, reference and sharing changes follow this contract. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry is required.",
+      "text": "Database triggers on every assessment input table advance plant.material_revision in the same transaction as the relevant fact mutation. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Revisions are monotonic freshness fences; multiple changed rows may advance them more than once. Organization material revision advances only on affiliation and sharing changes, including category grants. Other plant input changes are fenced by contributor source revisions at organization publication. Reference activation is a separate monotonic fence. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry or caller revision helper is required.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
-        "intelligence.markMaterialRevision",
         "intelligence.scheduleAssessment",
         "intelligence.selectAssessmentCandidates"
       ],
@@ -1567,12 +1566,7 @@
         "WP-040",
         "WP-043"
       ],
-      "behavior_rules": [
-        {
-          "operation": "intelligence.markMaterialRevision",
-          "rule": "Required mutation consequence inside caller transaction; no separate endpoint/post-commit repair. Once per affected root per command; preview/noop/exact replay/private care excluded."
-        }
-      ],
+      "behavior_rules": [],
       "title": "Assessment input triggers and revision freshness"
     },
     {

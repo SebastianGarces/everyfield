@@ -432,7 +432,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "270 second route budget reached mid page with unstarted claims and slow provider call.",
+      "description": "A synthetic executor invocation reaches its configured route deadline mid page with unstarted claims and a slow provider call.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -477,6 +477,11 @@
           "fixture_type": "job",
           "state": "ready",
           "due_at": "2026-10-13T15:00:00Z"
+        },
+        "executor-config": {
+          "fixture_type": "executor_configuration",
+          "invocation_budget_seconds": 90,
+          "provider_timeout_seconds": 45
         }
       },
       "actor": {
@@ -491,8 +496,8 @@
       "action": {
         "operation": "jobs.tickNotifications",
         "arguments": {
-          "elapsed_seconds": 240,
-          "route_budget_seconds": 270,
+          "elapsed_seconds": 70,
+          "route_budget_seconds": 90,
           "cursor": "page-2"
         }
       },
@@ -807,11 +812,15 @@
           "fixture_type": "domain_inputs",
           "assessment_lease_seconds": 120,
           "provider_timeout_seconds": 45,
-          "tick_budget_seconds": 270,
+          "tick_budget_seconds": 90,
           "source_revision_at_start": 11,
           "current_source_revision": 12,
           "claim_generation": 4,
           "current_generation": 5
+        },
+        "executor-config": {
+          "fixture_type": "executor_configuration",
+          "invocation_budget_seconds": 90
         }
       },
       "actor": {
@@ -830,7 +839,7 @@
           "expected_revision": 3,
           "assessment_lease_seconds": 120,
           "provider_timeout_seconds": 45,
-          "tick_budget_seconds": 270,
+          "tick_budget_seconds": 90,
           "source_revision_at_start": 11,
           "current_source_revision": 12,
           "claim_generation": 4,
@@ -844,7 +853,7 @@
           "prior_result": "R0",
           "lease_seconds": 120,
           "provider_timeout_seconds": 45,
-          "tick_budget_seconds": 270,
+          "tick_budget_seconds": 90,
           "time_only_demand_has_new_identity": true
         },
         "event": null

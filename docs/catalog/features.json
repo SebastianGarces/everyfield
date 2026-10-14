@@ -3721,7 +3721,7 @@
     "id": "COM-005",
     "title": "Bulk provider dispatch and per-recipient outcome correlation",
     "module": "communication",
-    "behavior": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+    "behavior": "Dispatch exact frozen per-recipient payloads through one mail/mail_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
     "spec_file": "docs/product/communications-notifications.md#composition-and-history",
     "requirement_ids": [
       "REQ-COM-005",
@@ -4048,7 +4048,7 @@
     "id": "NTF-002",
     "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation",
     "module": "notifications",
-    "behavior": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation and fairness follow execution; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+    "behavior": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-006",
@@ -5005,7 +5005,7 @@
     "id": "DOC-015",
     "title": "Private storage service and uploaded commitment attachments",
     "module": "documents",
-    "behavior": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG\u226410MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+    "behavior": "Private file_object fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG\u226410MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-015",
@@ -5991,7 +5991,7 @@
     "id": "OPS-001",
     "title": "External schedules and bounded HTTP job ticks",
     "module": "operations",
-    "behavior": "One authenticated bounded Next/Postgres executor, durable owed work, fairness/lease/fencing/lag/recovery catalog in execution. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+    "behavior": "One authenticated bounded Next/Postgres executor, durable owed work, lease/fencing/checkpoint/reconciliation/recovery contract in execution; fairness and alert tuning belong to G-LOAD. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
     "spec_file": "docs/product/operations.md#engineering-and-operational-scope",
     "requirement_ids": [
       "REQ-OPS-001",
@@ -7108,7 +7108,7 @@
     "id": "PI-021",
     "title": "Dirty-or-seven-day-stale assessment scheduling",
     "module": "intelligence",
-    "behavior": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with fairness. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
+    "behavior": "Select never-assessed, changed-source/reference and seven-day-stale subjects from durable SQL state with bounded scan/checkpoint recovery. Fairness tuning belongs to G-LOAD. Time refresh has independent daily-window demand identity even when source/rubric unchanged; no model generation on reads.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-021"
@@ -7803,7 +7803,7 @@
     "id": "PI-037",
     "title": "Assessment input triggers and revision freshness",
     "module": "intelligence",
-    "behavior": "Database triggers on every assessment input table advance the affected plant or organization material revision in the same transaction as the fact mutation, history, audit, required intents and receipt. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Correction, merge, attendance, contact, role, training, phase, date, geography, reference and sharing changes follow this contract. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry is required.",
+    "behavior": "Database triggers on every assessment input table advance plant.material_revision in the same transaction as the relevant fact mutation. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Revisions are monotonic freshness fences; multiple changed rows may advance them more than once. Organization material revision advances only on affiliation and sharing changes, including category grants. Other plant input changes are fenced by contributor source revisions at organization publication. Reference activation is a separate monotonic fence. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry or caller revision helper is required.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-037"
@@ -10074,7 +10074,7 @@
     "id": "DOC-016",
     "title": "Account/plant-owned native documents, parsed text/Word imports and core-values evidence",
     "module": "documents",
-    "behavior": "Native owned_documents have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under 10MiB/40MiB expanded/2000 entries/2 million text/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
+    "behavior": "Native document have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under 10MiB/40MiB expanded/2000 entries/2 million text/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
     "spec_file": "docs/product/knowledge-documents.md#native-owned-writing",
     "requirement_ids": [
       "REQ-DOC-016",
