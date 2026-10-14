@@ -334,7 +334,7 @@
       }
     },
     "access_page": {
-      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also the honeypot answer), duplicate, rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value.",
+      "note": "E2 (2026-10-14): draft copy for /access, owner review required. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also the honeypot answer), duplicate, rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
       "hero": {
         "eyebrow": "Early access",
         "headline": "Request early access",
@@ -370,16 +370,7 @@
             "label": "Phase",
             "help": "Choose the phase you are in now.",
             "error": "Choose the phase you are in now.",
-            "prompt": "Choose a phase",
-            "options": [
-              "0 · Discovery",
-              "1 · Core group",
-              "2 · Launch team",
-              "3 · Training",
-              "4 · Pre-launch",
-              "5 · Launch Sunday",
-              "6 · Post-launch"
-            ]
+            "prompt": "Choose a phase"
           },
           "sending": {
             "label": "Sending church or network",
@@ -387,6 +378,15 @@
             "help": "Leave it blank if you do not have one yet."
           }
         },
+        "phases": [
+          "0 · Discovery",
+          "1 · Core group",
+          "2 · Launch team",
+          "3 · Training",
+          "4 · Pre-launch",
+          "5 · Launch Sunday",
+          "6 · Post-launch"
+        ],
         "submit": "Request early access",
         "submitting": "Sending your request"
       },
@@ -472,7 +472,7 @@
     "privacy_page": {
       "note": "E2 (2026-10-14): draft privacy policy for /privacy, owner review required. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
       "title": "Privacy policy",
-      "last_updated": "October 14, 2026",
+      "updated": "October 14, 2026",
       "intro": [
         "This policy covers everyfield.app, the early access site for EveryField. EveryField LLC runs the site.",
         "The site has no accounts, no sign in and no newsletter. It collects information only when you send a request for early access."
@@ -480,6 +480,7 @@
       "sections": [
         {
           "heading": "What we collect",
+          "paragraphs": [],
           "items": [
             "From the planter form: your name, email, church plant name, city and phase. If you add it, your sending church or network.",
             "From the network form: your name, email, network or church and role. If you add them, the number of plants you send or support and your message.",
@@ -489,6 +490,7 @@
         },
         {
           "heading": "Why we collect it",
+          "paragraphs": [],
           "items": [
             "To read your request and reply to you about early access.",
             "To decide who joins early access, and when.",
@@ -497,6 +499,7 @@
         },
         {
           "heading": "What we do not do",
+          "paragraphs": [],
           "items": [
             "We do not add you to a newsletter or a mailing list.",
             "We do not create an account for you.",
@@ -506,7 +509,7 @@
         },
         {
           "heading": "Where it is stored and processed",
-          "body": [
+          "paragraphs": [
             "Three providers run the site for us. They use your information only to provide their service to us. All three process data in the United States. If you live outside the United States, your request goes to the United States."
           ],
           "items": [
@@ -517,6 +520,7 @@
         },
         {
           "heading": "How long we keep it",
+          "paragraphs": [],
           "items": [
             "We keep each request for 12 months after you send it. Then we delete it from the database and delete the email copy.",
             "We delete the IP addresses we keep for request limits after 30 days.",
@@ -526,26 +530,26 @@
         },
         {
           "heading": "Ask for a copy, a correction or deletion",
-          "body": [
+          "paragraphs": [
             "Email sebastian@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
             "We reply within 30 days. When we delete a request, we delete it from the database and from our inbox."
           ]
         },
         {
           "heading": "Children",
-          "body": [
+          "paragraphs": [
             "The forms are for adults who lead or support church plants. Do not send a request for a child."
           ]
         },
         {
           "heading": "Changes to this policy",
-          "body": [
+          "paragraphs": [
             "If we change this policy, we post the new version on this page and change the date at the top."
           ]
         },
         {
           "heading": "Contact",
-          "body": [
+          "paragraphs": [
             "Send questions about this policy to sebastian@everyfield.app."
           ]
         }
@@ -554,14 +558,14 @@
     "terms_page": {
       "note": "E2 (2026-10-14): draft terms for /terms, owner review required. Short terms for the marketing site during early access. Product terms come later.",
       "title": "Terms",
-      "last_updated": "October 14, 2026",
+      "updated": "October 14, 2026",
       "intro": [
         "These terms apply to everyfield.app, the early access site for EveryField. EveryField LLC runs the site. When you use the site, you agree to these terms."
       ],
       "sections": [
         {
           "heading": "Early access",
-          "body": [
+          "paragraphs": [
             "EveryField is in early access. You cannot sign in or use the product on this site.",
             "A request does not reserve a place. We choose who joins early access and when, and we can say no.",
             "The product will have its own terms. We will give them to you before you use it."
@@ -569,19 +573,20 @@
         },
         {
           "heading": "What the site shows",
-          "body": [
+          "paragraphs": [
             "The site describes EveryField as we build it. Features can change before you can use them.",
             "Names and numbers in the product pictures come from a sample church."
           ]
         },
         {
           "heading": "Your requests",
-          "body": [
+          "paragraphs": [
             "Send true information that you have the right to share. Request access only for yourself, or for a church or network you represent."
           ]
         },
         {
           "heading": "Fair use",
+          "paragraphs": [],
           "items": [
             "Do not use the site to send spam, to pose as someone else or to break the law.",
             "Do not try to get around the request limits, overload the site or get into systems you have no right to use."
@@ -589,37 +594,37 @@
         },
         {
           "heading": "Our content",
-          "body": [
+          "paragraphs": [
             "The EveryField name, logo, text and pictures on this site belong to EveryField LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
           ]
         },
         {
           "heading": "No warranty",
-          "body": [
+          "paragraphs": [
             "We provide the site as it is. We work to keep it correct and online, but we do not promise that it is always correct, complete or available."
           ]
         },
         {
           "heading": "Limit of liability",
-          "body": [
+          "paragraphs": [
             "As far as the law allows, EveryField LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
           ]
         },
         {
           "heading": "Privacy",
-          "body": [
+          "paragraphs": [
             "Our privacy policy explains what we collect when you send a request and how to have it deleted."
           ]
         },
         {
           "heading": "Changes to these terms",
-          "body": [
+          "paragraphs": [
             "If we change these terms, we post the new version on this page and change the date at the top."
           ]
         },
         {
           "heading": "Contact",
-          "body": [
+          "paragraphs": [
             "Send questions about these terms to sebastian@everyfield.app."
           ]
         }
