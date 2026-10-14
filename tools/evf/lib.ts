@@ -38,6 +38,8 @@ export type Package = {
   lane: string;
   domain: string;
   depends_on: string[];
+  ui_depends_on?: string[];
+  root_outputs?: string[];
   estimate_engineer_days: number;
   inputs: string[];
   outputs: string[];
@@ -141,7 +143,7 @@ export function loadDag(root: string): Dag {
     if (visiting.has(id)) fail(`Cyclic package dependency at ${id}.`);
     if (done.has(id)) return;
     const p = by.get(id); if (!p) fail(`Unknown prerequisite ${id}.`);
-    visiting.add(id); p.depends_on.forEach(visit); visiting.delete(id); done.add(id);
+    visiting.add(id); [...p.depends_on,...(p.ui_depends_on??[])].forEach(visit); visiting.delete(id); done.add(id);
   };
   dag.packages.forEach(p => visit(p.id));
   return dag;
@@ -230,11 +232,17 @@ export function partsOf(pkg: Package): Part[] {
 
 export function pathsForPart(pkg: Package, part: Part): string[] {
   const parts = partsOf(pkg);
-  if (part === null) return pkg.owning_paths;
+  if (part === null) return [...pkg.owning_paths,...(pkg.root_outputs??[])];
   if (!parts.includes(part)) fail(`${pkg.id} does not split into a "${part}" task. Valid: ${parts.map((p) => p ?? "(none)").join(", ")}.`);
   if (part === "ui") return pkg.owning_paths.filter(isUiPath);
   if (part === "contract") return pkg.owning_paths.filter(isContract);
   return pkg.owning_paths.filter((p) => !isUiPath(p) && (parts.includes("contract") ? !isContract(p) : true));
+}
+
+/** Design milestones gate only presentation; server/contracts can proceed independently. */
+export function prerequisitesForPart(pkg: Package, part: Part): string[] {
+  const ui = part === "ui" || part === null && pkg.owning_paths.some(isUiPath);
+  return [...pkg.depends_on, ...(ui ? pkg.ui_depends_on ?? [] : [])];
 }
 
 export function hasRemote(root: string, cfg: Config): boolean {

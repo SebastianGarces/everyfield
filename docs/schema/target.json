@@ -27434,7 +27434,7 @@
     {
       "name": "job",
       "domain": "operations",
-      "purpose": "Durable typed owed work and generation-fenced current claim. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. The global variant is restricted to approved reference/platform work and body-free operational records. A sweep job per kind and tenant uses checkpoint_key for an opaque durable last-served position, never a live-subject FK.",
+      "purpose": "Durable typed owed work and generation-fenced current claim. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. The global variant is restricted to approved reference/platform work and body-free operational records. A sweep job per kind and tenant uses checkpoint_key for an opaque durable scan checkpoint, never a live-subject FK.",
       "library_owned": false,
       "columns": [
         {

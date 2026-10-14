@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 1,
-  "updated_at": "2026-10-14T10:19:10.013Z",
+  "revision": 2,
+  "updated_at": "2026-10-14T13:29:57.918Z",
   "packages": {
     "WP-001": {
       "status": "not_started",
@@ -701,6 +701,62 @@
       "notes": ""
     },
     "WP-088": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-089": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-090": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-091": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-092": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-093": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-094": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-095": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-096": {
       "status": "not_started",
       "revision": 0,
       "updated_at": null,

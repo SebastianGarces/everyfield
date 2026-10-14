@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -70,29 +71,36 @@ def compile_manifest(root):
     for p in dag['packages']:
         pid, scope = p['id'], p['context_scope']
         fs = selected_features(scope, pid, features)
+        # Catalog ownership is independent of the records needed for reading/proof.
+        own_ops = {o['id'] for o in operations if pid == o['owning_package'] or pid in o['evry_packages']}
+        own_rs = {rid for rid, v in reqs.items() if pid in v['record'].get('work_packages', [])}
+        own_cs = {cid for cid, v in cases.items() if pid in v['record'].get('work_packages', [])}
         op_mode = scope['operations']
         if op_mode == 'explicit':
-            own_ops = set(scope['operation_ids'])
+            ops = set(scope['operation_ids'])
         elif op_mode == 'evry_owned':
-            own_ops = {o['id'] for o in operations if pid in o['evry_packages']}
+            ops = {o['id'] for o in operations if pid in o['evry_packages']}
         elif op_mode in ['features', 'owned_and_features']:
-            own_ops = {o['id'] for o in operations if fs & set(o['feature_ids']) or
-                       (op_mode == 'owned_and_features' and pid == o['owning_package'])}
+            ops = {o['id'] for o in operations if fs & set(o['feature_ids'])}
+        elif op_mode == 'owned':
+            ops = set()
         else:
             raise ValueError('Unknown operation selection ' + op_mode)
-        if not own_ops <= op_by.keys():
+        ops |= own_ops
+        if not ops <= op_by.keys():
             raise ValueError('Unknown operation selector for ' + pid)
         req_mode = scope['requirements']
         if req_mode == 'explicit':
-            own_rs = set(scope['requirement_ids'])
+            rs = set(scope['requirement_ids'])
         elif req_mode in ['features', 'owned_and_features', 'features_and_operations']:
-            own_rs = {rid for rid, v in reqs.items() if fs & set(v['record']['feature_ids']) or
-                      (req_mode == 'owned_and_features' and pid in v['record'].get('work_packages', [])) or
-                      (req_mode == 'features_and_operations' and own_ops & set(v['record'].get('operations', [])))}
+            rs = {rid for rid, v in reqs.items() if fs & set(v['record']['feature_ids']) or
+                  (req_mode == 'features_and_operations' and ops & set(v['record'].get('operations', [])))}
+        elif req_mode == 'owned':
+            rs = set()
         else:
             raise ValueError('Unknown requirement selection ' + req_mode)
-        own_rs -= set(scope.get('exclude_requirement_ids', []))
-        if not own_rs <= reqs.keys():
+        rs = (rs - set(scope.get('exclude_requirement_ids', []))) | own_rs
+        if not rs <= reqs.keys():
             raise ValueError('Unknown requirement selector for ' + pid)
         ac_mode = scope.get('acceptance', 'owned_and_features')
         acs = set(scope['acceptance_ids']) if ac_mode == 'explicit' else {
@@ -103,7 +111,7 @@ def compile_manifest(root):
             raise ValueError('Unknown acceptance selector for ' + pid)
         consumed_ac_rs = {rid for a in acceptance if a['id'] in acs for rid in a['requirement_ids']} - own_rs
         consumed_ac_ops = {oid for a in acceptance if a['id'] in acs for oid in a['operations']} - own_ops
-        rs = own_rs | consumed_ac_rs
+        rs |= consumed_ac_rs
         queue = list(rs)
         while queue:
             rid = queue.pop()
@@ -115,7 +123,7 @@ def compile_manifest(root):
             shared for rid in rs for shared in reqs[rid]['record'].get('shared_contract_ids', []) if shared not in reqs}
         if not shared_symbols <= shared_registry.keys():
             raise ValueError('Unresolved shared contract ' + str(shared_symbols - shared_registry.keys()))
-        ops = own_ops | consumed_ac_ops
+        ops |= consumed_ac_ops
         unresolved = []
         for rid in rs:
             for operation in reqs[rid]['record'].get('operations', []):
@@ -123,39 +131,36 @@ def compile_manifest(root):
                     unresolved.append({'requirement': rid, 'operation': operation})
                 else:
                     ops.add(operation)
-        # Consuming a clause never grants ownership or model exposure to its referenced operations.
-        shared_ops = ops - own_ops
         case_mode = scope['cases']
         if case_mode == 'explicit':
-            own_cs = set(scope['case_ids'])
+            cs = set(scope['case_ids'])
         elif case_mode in ['features', 'owned_and_features', 'operations_and_features']:
-            own_cs = {cid for cid, v in cases.items() if fs & set(v['record']['feature_ids']) or
-                      (case_mode == 'owned_and_features' and pid in v['record'].get('work_packages', []))}
-            own_cs |= {cid for o in operations if o['id'] in own_ops for cid in o['case_ids'] if cid in cases}
-            if case_mode == 'owned_and_features':
-                own_cs |= {cid for rid in own_rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
+            cs = {cid for cid, v in cases.items() if fs & set(v['record']['feature_ids'])}
+            cs |= {cid for o in operations if o['id'] in own_ops for cid in o['case_ids'] if cid in cases}
+        elif case_mode == 'owned':
+            cs = set()
         else:
             raise ValueError('Unknown case selection ' + case_mode)
-        own_cs |= set(scope.get('case_ids', []))
-        if not own_cs <= cases.keys():
+        cs |= own_cs | set(scope.get('case_ids', [])) | {cid for a in acceptance if a['id'] in acs for cid in a['case_ids']}
+        if case_mode not in ['explicit', 'owned']:
+            cs |= {cid for rid in rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
+        if not cs <= cases.keys():
             raise ValueError('Unknown case selector for ' + pid)
-        cs = own_cs | {cid for a in acceptance if a['id'] in acs for cid in a['case_ids']}
-        if case_mode != 'explicit':
-            cs |= {cid for rid in rs - own_rs for cid in reqs[rid]['record'].get('case_ids', []) if cid in cases}
-        tables = {t['name'] for t in schema if scope['schema'] == 'all' or pid in t['producer_work_packages']}
+        tables = {t['name'] for t in schema if scope['schema'] == 'all' or
+                  (scope['schema'] == 'produced' and pid in t['producer_work_packages'])}
         result.append(dict(
             id=pid, feature_ids=sorted(fs), own_requirement_ids=sorted(own_rs), own_case_ids=sorted(own_cs),
             own_operation_ids=sorted(own_ops), requirement_ids=sorted(rs), shared_requirement_ids=sorted(rs - own_rs),
             consumed_acceptance_requirement_ids=sorted(consumed_ac_rs), consumed_acceptance_operation_ids=sorted(consumed_ac_ops),
-            acceptance_ids=sorted(acs), case_ids=sorted(cs), operation_ids=sorted(ops), shared_operation_ids=sorted(shared_ops),
-            shared_contract_ids=sorted(shared_symbols),
-            unresolved_current_operation_references=unresolved, direct_prerequisites=p['depends_on'],
+            acceptance_ids=sorted(acs), case_ids=sorted(cs), operation_ids=sorted(ops), shared_operation_ids=sorted(ops - own_ops),
+            shared_contract_ids=sorted(shared_symbols), unresolved_current_operation_references=unresolved,
+            direct_prerequisites=p['depends_on'], ui_prerequisites=p.get('ui_depends_on', []),
             producer_table_names=sorted(tables), consumer_table_names=sorted(
                 t['name'] for t in schema if fs & set(t['feature_ids']) and t['name'] not in tables),
             proof_stage=scope['proof_stage'],
             contract_consumption_rule='Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership.'))
     return dict(
-        version=3, scope='Short package briefs and exact on-demand selectors; package scope policy lives in the DAG.',
+        version=4, scope='Catalog fields own work; DAG selectors add consumed context only.',
         catalog_source='docs/catalog/index.json', package_source='docs/plan/dag.json',
         requirement_locations={k: v['path'] for k, v in sorted(reqs.items())},
         case_locations={k: v['path'] for k, v in sorted(cases.items())},
@@ -164,6 +169,57 @@ def compile_manifest(root):
         detail_page_size=10, max_detail_page_bytes=196608, max_brief_bytes=65536,
         packages=result, package_count=len(result), shared_contract_source='docs/catalog/shared-contracts.json',
         omission_policy='All selected IDs remain indexed. Details are on demand; pages report totalPages and selectedCount and never truncate records. Package gates account for owned and explicitly deferred portions, without a mandatory full-packet read.')
+
+
+def check_ownership(root, manifest):
+    """Compare the stored projection with catalog owners, without feature inference."""
+    catalog = read(root, 'docs/catalog/index.json')
+    records = {
+        'own_requirement_ids': [r for path in catalog['requirement_files'] for r in read(root, path)['requirements']],
+        'own_case_ids': [c for path in catalog['case_files'] for c in read(root, path)['cases']],
+        'own_operation_ids': read(root, catalog['operation_source'])['operations'],
+    }
+    by = {p['id']: p for p in read(root, 'docs/plan/dag.json')['packages']}
+    expected = {pid: {field: set() for field in records} for pid in by}
+    for field, rows in records.items():
+        for row in rows:
+            owners = ({row['owning_package']} | set(row['evry_packages'])) if field == 'own_operation_ids' else set(row.get('work_packages', []))
+            if not owners <= by.keys():
+                raise ValueError('Unknown catalog owner for ' + row['id'])
+            for pid in owners:
+                expected[pid][field].add(row['id'])
+            if field == 'own_requirement_ids' and owners and all(by[pid]['lane'] == 'integration' for pid in owners):
+                raise ValueError('Requirement lacks a non-integration owner: ' + row['id'])
+    differences = []
+    for p in manifest['packages']:
+        for field in records:
+            delta = set(p[field]) ^ expected[p['id']][field]
+            if delta:
+                differences.append(p['id'] + '/' + field + ': ' + ', '.join(sorted(delta)))
+    if set(expected) != {p['id'] for p in manifest['packages']}:
+        raise ValueError('Ownership projection has missing or extra packages')
+    if differences:
+        raise ValueError('Catalog/manifest ownership differs: ' + '; '.join(differences))
+    return sum(len(ids) for fields in expected.values() for ids in fields.values())
+
+
+def ui_design_links(root, package):
+    """Link exact screen-map rows by feature/owner, including undrawn flows."""
+    rows = []
+    selected = set(package['feature_ids'])
+    for number, line in enumerate((root / 'design/handoff/screens.md').read_text().splitlines(), 1):
+        if not line.startswith('| '):
+            continue
+        expanded = set()
+        for prefix, start, end in re.findall(r'([A-Z]+)-(\d+) to (?:[A-Z]+-)?(\d+)', line):
+            expanded |= {f'{prefix}-{n:03}' for n in range(int(start), int(end) + 1)}
+        expanded |= set(re.findall(r'\b[A-Z]+-\d{3}\b', line))
+        if package['id'] in line or selected & expanded:
+            cells = [cell.strip() for cell in line.strip('|').split('|')]
+            label = cells[1] if cells[0].startswith('`#/') else cells[0]
+            rows.append(dict(line=number, screen=label, source=f'design/handoff/screens.md#L{number}'))
+    return dict(prototype='design/everyfield-ui.html', screen_map='design/handoff/screens.md', rows=rows,
+                reading='Open the matching prototype screen and handoff row on demand; compose undrawn flows from the shared components.')
 
 
 def brief(root, manifest, package):
@@ -178,11 +234,13 @@ def brief(root, manifest, package):
     links.update(own['context_scope'].get('chapter_links', []))
     return dict(
         id=own['id'], title=own['title'], goal=own['goal'], outputs=own['outputs'], owning_paths=own['owning_paths'],
+        root_outputs=own.get('root_outputs', []),
         own_requirement_ids=package['own_requirement_ids'], own_case_ids=package['own_case_ids'],
         chapter_links=sorted(links),
         schema_links={'source': 'docs/schema/target.json', 'producer_tables': package['producer_table_names'],
                       'consumer_tables': package['consumer_table_names']},
-        direct_prerequisites=own['depends_on'],
+        direct_prerequisites=own['depends_on'], ui_prerequisites=own.get('ui_depends_on', []),
+        design_links=ui_design_links(root, package) if own.get('ui_composition_rule') or own['lane'] == 'ui' else None,
         requirement_portions=own['context_scope'].get('requirement_portions', {}),
         ui_composition_rule=own.get('ui_composition_rule'),
         details=f"python3 docs/package-context.py {own['id']} --part requirements|cases|operations|schema",
@@ -201,7 +259,7 @@ def graph_order(dag):
         if pid not in by:
             raise ValueError('Unknown prerequisite ' + pid)
         visiting.add(pid)
-        for dep in by[pid]['depends_on']:
+        for dep in by[pid]['depends_on'] + by[pid].get('ui_depends_on', []):
             visit(dep)
         visiting.remove(pid)
         visited.add(pid)
@@ -216,6 +274,7 @@ def check_plan(root, manifest):
     dag = read(root, 'docs/plan/dag.json')
     by = {p['id']: p for p in dag['packages']}
     graph_order(dag)
+    check_ownership(root, manifest)
     retired = {p['id'] for p in dag.get('retired_packages', [])}
     if retired & by.keys():
         raise ValueError('Retired package ID reused')
@@ -223,7 +282,7 @@ def check_plan(root, manifest):
 
     def ancestors(pid):
         result = set()
-        for dep in by[pid]['depends_on']:
+        for dep in by[pid]['depends_on'] + by[pid].get('ui_depends_on', []):
             result.add(dep)
             result |= ancestors(dep)
         return result
@@ -234,13 +293,17 @@ def check_plan(root, manifest):
             raise ValueError('Empty package scope ' + p['id'])
         if any(not x.endswith('/') for x in p['owning_paths']):
             raise ValueError('Owning paths must be directories: ' + p['id'])
+        if any(x in ['./', '/'] or x.startswith('./') for x in p['owning_paths']):
+            raise ValueError('Unbounded owning path: ' + p['id'])
+        if any(not x or '/' in x or x in ['.', '..', 'evf.config.json'] for x in p.get('root_outputs', [])):
+            raise ValueError('Root outputs must be bounded scaffold files, outside workflow policy: ' + p['id'])
         if 'status' in p or 'feature_ids' in p:
             raise ValueError('Duplicated DAG state: ' + p['id'])
         if len(encode(brief(root, manifest, c)).encode()) > manifest['max_brief_bytes']:
             raise ValueError('Default brief exceeds byte budget: ' + p['id'])
         if p.get('ui_composition_rule'):
-            design = next(x['id'] for x in dag['packages'] if x['domain'] == 'design-system')
-            if design not in p['depends_on']:
+            design = {x['id'] for x in dag['packages'] if x['domain'] == 'design-system'}
+            if not design <= set(p.get('ui_depends_on', [])) or design & set(p['depends_on']):
                 raise ValueError('Feature UI lacks design-system dependency: ' + p['id'])
     adapters = read(root, 'docs/plan/adapter-ownership.json')['adapter_packages']
     operations = read(root, read(root, 'docs/catalog/index.json')['operation_source'])['operations']
@@ -249,7 +312,7 @@ def check_plan(root, manifest):
         pid = adapter['work_package']
         selected = [o for o in operations if o['id'] in contexts[pid]['own_operation_ids']]
         producers = set(adapter['domain_producers']) | {o['owning_package'] for o in selected}
-        missing = producers - ancestors(pid)
+        missing = producers - ancestors(pid) - {pid}
         if missing:
             raise ValueError(pid + ' lacks producer ancestors ' + str(sorted(missing)))
         for o in selected:
@@ -260,13 +323,25 @@ def check_plan(root, manifest):
                 if path.startswith(previous) or previous.startswith(path):
                     raise ValueError('Overlapping adapter directories: ' + owner + ' and ' + pid)
             paths.append((pid, path))
+    # Every operation owner is itself or follows its producer, including kernel work.
+    for p in dag['packages']:
+        for o in operations:
+            if o['id'] in contexts[p['id']]['own_operation_ids'] and o['owning_package'] != p['id'] and o['owning_package'] not in ancestors(p['id']):
+                raise ValueError(p['id'] + ' owns an operation before its producer: ' + o['id'])
+    # Shared directories must have a reviewed dependency order, not just a conflict hint.
+    owners = list(by.values())
+    for i, a in enumerate(owners):
+        for b in owners[i + 1:]:
+            overlap = any(x.startswith(y) or y.startswith(x) for x in a['owning_paths'] for y in b['owning_paths'])
+            if overlap and a['id'] not in ancestors(b['id']) and b['id'] not in ancestors(a['id']):
+                raise ValueError('Unordered owning path overlap: ' + a['id'] + ' and ' + b['id'])
     seen = set()
     for s in dag['vertical_slices']:
         additions = set(s['required_packages'])
         if additions & seen:
             raise ValueError('Slice repeats packages: ' + s['id'])
         seen |= additions
-        if seen != set(s['cumulative_packages']) or any(not set(by[x]['depends_on']) <= seen for x in seen):
+        if seen != set(s['cumulative_packages']) or any(not set(by[x]['depends_on'] + by[x].get('ui_depends_on', [])) <= seen for x in seen):
             raise ValueError('Slice is not dependency-closed: ' + s['id'])
     if seen != by.keys():
         raise ValueError('Slices do not cover the active target')
@@ -286,18 +361,19 @@ def plan_projection(root, manifest):
                   f['operation_days'] * len(c['own_operation_ids']) + f['case_days'] * len(c['own_case_ids']) +
                   f['table_days'] * len(c['producer_table_names']) + f['gate_days'] * len(p['acceptance_gates']))
         p['estimate_engineer_days'] = math.ceil(amount * 2) / 2
-        prior = max(p['depends_on'], key=lambda x: costs[x]) if p['depends_on'] else None
+        dependencies = p['depends_on'] + p.get('ui_depends_on', [])
+        prior = max(dependencies, key=lambda x: costs[x]) if dependencies else None
         costs[pid] = p['estimate_engineer_days'] + (costs[prior] if prior else 0)
         chains[pid] = (chains[prior] if prior else []) + [pid]
     last = max(order, key=lambda x: costs[x])
     dag['topological_merge_order'] = order
-    dag['edge_count'] = sum(len(p['depends_on']) for p in dag['packages'])
+    dag['edge_count'] = sum(len(p['depends_on']) + len(p.get('ui_depends_on', [])) for p in dag['packages'])
     dag['critical_path'] = chains[last]
     dag['critical_path_unconstrained_days'] = costs[last]
     dag['total_engineer_days'] = sum(p['estimate_engineer_days'] for p in dag['packages'])
     dag['resource_assumptions']['estimates'] = 'Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Integration estimates cover checking existing producers, not rebuilding their features.'
-    dag['dependency_amendment'] = {'reason': 'All adapter producers precede consumers; workflow bootstrap and shared UI precede feature work.',
-                                   'retired': [p['id'] for p in dag.get('retired_packages', [])], 'ownership_source': 'docs/plan/adapter-ownership.json'}
+    dag['dependency_amendment'] = {'reason': 'Catalog owners precede operation consumers; design prerequisites apply only to presentation tasks; scoped integration producers precede whole-target gates.',
+                                   'retired': [p['id'] for p in dag.get('retired_packages', [])], 'ownership_source': 'docs/catalog/index.json'}
     retired = '; '.join(p['id'] + ' is retired into ' + p['scope_moved_to'] for p in dag.get('retired_packages', []))
     notes = dag['build_plan_notes']
     lines = ['# Future build plan', '',
@@ -318,6 +394,9 @@ def plan_projection(root, manifest):
     for pid in order:
         p, c = by[pid], contexts[pid]
         lines.append(f"| {pid} | {p['title']} | {len(c['own_requirement_ids'])} | {len(c['own_operation_ids'])} | {len(c['own_case_ids'])} | {len(c['producer_table_names'])} | {p['estimate_engineer_days']:g} |")
+    lines += ['', '## Package splits', '', 'The retained target gates reproduce complete evidence after the scoped producers. A split never waives an obligation.', '']
+    for split in dag.get('package_splits', []):
+        lines += [split['source'] + ': ' + ', '.join(split['packages']) + '. ' + split['seam'] + ' ' + split['closure'], '']
     lines += ['', '## Critical prerequisite chain', '', ' → '.join(chains[last]), '',
               f"The graph has {dag['edge_count']} edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.", '',
               '## Exact dependency graph', '', '```mermaid', 'graph LR']
@@ -326,6 +405,8 @@ def plan_projection(root, manifest):
     for pid in order:
         for dep in by[pid]['depends_on']:
             lines.append(f'  {dep.replace("-", "")} --> {pid.replace("-", "")}')
+        for dep in by[pid].get('ui_depends_on', []):
+            lines.append(f'  {dep.replace("-", "")} -. UI .-> {pid.replace("-", "")}')
     lines += ['```', '', 'Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.', '']
     return dag, '\n'.join(lines)
 
@@ -363,7 +444,7 @@ def main():
     parser.add_argument('--page', type=int, default=1)
     parser.add_argument('--output', type=Path)
     actions = parser.add_mutually_exclusive_group()
-    for action in ['refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes', 'acceptance']:
+    for action in ['check-ownership', 'refresh-manifest', 'check-manifest', 'refresh-plan', 'check-plan', 'brief-sizes', 'acceptance']:
         actions.add_argument('--' + action, action='store_true')
     args = parser.parse_args()
     root = args.root.resolve()
@@ -371,6 +452,11 @@ def main():
         sys.stdout.write(encode(load_acceptance(root)))
         return
     manifest = compile_manifest(root)
+    if args.check_ownership:
+        assignments = check_ownership(root, read(root, 'docs/plan/context-manifest.json'))
+        print(f'Catalog/manifest ownership: zero differences across {assignments} assignments, including integration.')
+        return
+    check_ownership(root, manifest)
     if args.refresh_manifest:
         (root / 'docs/plan/context-manifest.json').write_text(encode(manifest))
         print(f"Generated {manifest['package_count']} current package selectors.")

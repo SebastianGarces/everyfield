@@ -705,7 +705,7 @@
       ]
     }
   ],
-  "shared_domain_rule": "Each native action and assistant adapter invokes the same authorized owning domain function. Only domain owner owns mutation/history/revision/receipt/audit/effect intent transaction.",
+  "shared_domain_rule": "Catalog owning_package owns native mutation/history/revision/receipt/audit/effect intent behavior; evry_packages owns the named adapters. Framework operations belong to their one kernel owner; consumers do not acquire ownership.",
   "contract_producers": [
     "WP-002 ActorContext/CommandContext/errors/receipts",
     "WP-004 physical shared receipts/audit/job",

@@ -2699,7 +2699,7 @@
         "WP-004",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3015,7 +3015,7 @@
         "WP-004",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3335,7 +3335,7 @@
         "WP-004",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3653,7 +3653,7 @@
         "WP-004",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3987,7 +3987,7 @@
         "WP-004",
         "WP-039",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -4303,7 +4303,7 @@
         "WP-004",
         "WP-039",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -4623,7 +4623,7 @@
         "WP-004",
         "WP-039",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -4941,7 +4941,7 @@
         "WP-004",
         "WP-039",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -5277,7 +5277,7 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -5595,7 +5595,7 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -5917,7 +5917,7 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -6237,7 +6237,7 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -6572,7 +6572,7 @@
         "WP-011",
         "WP-012",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -6889,7 +6889,7 @@
         "WP-011",
         "WP-012",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -7210,7 +7210,7 @@
         "WP-011",
         "WP-012",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -7529,7 +7529,7 @@
         "WP-011",
         "WP-012",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -7863,7 +7863,7 @@
         "WP-002",
         "WP-004",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8179,7 +8179,7 @@
         "WP-002",
         "WP-004",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8499,7 +8499,7 @@
         "WP-002",
         "WP-004",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8817,7 +8817,7 @@
         "WP-002",
         "WP-004",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -9735,7 +9735,7 @@
         "WP-014"
       ],
       "status": "future-not-run",
-      "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
+      "description": "Skip prospect\u2192leader, backward leader\u2192attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11166,7 +11166,7 @@
           "owner": "A",
           "plant": "P",
           "mime": "text/csv",
-          "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+          "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
         },
         "intent-1": {
           "fixture_type": "import_intent",
@@ -11200,7 +11200,7 @@
         "operation": "people.executeBulkImport",
         "arguments": {
           "upload": "upload-1",
-          "original_utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
+          "original_utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
           "request_key": "import-1",
           "row_resolutions": [
             {
@@ -11325,7 +11325,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -11405,7 +11405,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -11490,7 +11490,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -11586,7 +11586,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -11669,7 +11669,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12226,7 +12226,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 `asOf`, P moved prospect\u2192attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12367,7 +12367,6 @@
         "AC-PPL-021--PPL-021"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-015",
         "WP-019",
@@ -12379,11 +12378,11 @@
         "WP-037",
         "WP-046",
         "WP-053",
-        "WP-056",
-        "WP-057"
+        "WP-091",
+        "WP-094"
       ],
       "status": "future-not-run",
-      "description": "Register a later attendance and training consumer after WP-015; race its insert against source→survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
+      "description": "Register a later attendance and training consumer after WP-015; race its insert against source\u2192survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12508,8 +12507,8 @@
         "WP-060",
         "WP-063",
         "WP-064",
-        "WP-056",
-        "WP-057"
+        "WP-091",
+        "WP-094"
       ],
       "status": "future-not-run",
       "description": "Merge unlinked duplicate S into linked survivor D with distinct tags/qualification/household/photo and registered later refs; replay; safely reverse unchanged result. Then separately edit D, add training/RSVP, chain-merge or dispatch recorded mail before attempting inverse.",

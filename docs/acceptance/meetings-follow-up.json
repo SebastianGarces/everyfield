@@ -1802,7 +1802,7 @@
         "WP-004",
         "WP-020",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2118,7 +2118,7 @@
         "WP-004",
         "WP-020",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2438,7 +2438,7 @@
         "WP-004",
         "WP-020",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2756,7 +2756,7 @@
         "WP-004",
         "WP-020",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3093,7 +3093,7 @@
         "WP-023",
         "WP-028",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3412,7 +3412,7 @@
         "WP-023",
         "WP-028",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3735,7 +3735,7 @@
         "WP-023",
         "WP-028",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -4056,7 +4056,7 @@
         "WP-023",
         "WP-028",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -5153,7 +5153,7 @@
         "WP-020"
       ],
       "status": "future-not-run",
-      "description": "Vision create+retry kit, foreign/retired assignee, checked→unchecked summary, orientation/practice request.",
+      "description": "Vision create+retry kit, foreign/retired assignee, checked\u2192unchecked summary, orientation/practice request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7035,7 +7035,7 @@
         "WP-024",
         "WP-022",
         "WP-023",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Vision V with 0 then 2 attendees, repeat/concurrent finalize; replace P by Q at same count; add earlier Vision history; no lead title; fail each kernel/history/audit boundary and lose response.",

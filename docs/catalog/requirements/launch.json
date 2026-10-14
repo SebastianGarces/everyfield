@@ -441,7 +441,9 @@
       "work_packages": [
         "WP-053",
         "WP-055",
-        "WP-066"
+        "WP-066",
+        "WP-018",
+        "WP-019"
       ]
     },
     {
@@ -592,7 +594,9 @@
         "WP-053",
         "WP-055",
         "WP-075",
-        "WP-076"
+        "WP-076",
+        "WP-045",
+        "WP-046"
       ]
     },
     {
@@ -778,7 +782,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-007",
         "WP-010",
@@ -788,8 +791,8 @@
         "WP-043",
         "WP-044",
         "WP-047",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058",
         "WP-073",
         "WP-074"
@@ -1466,7 +1469,7 @@
       "feature_ids": [
         "LCH-001"
       ],
-      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note≤2000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.schedule",

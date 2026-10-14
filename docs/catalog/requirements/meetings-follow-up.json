@@ -202,7 +202,7 @@
       "feature_ids": [
         "MTG-003"
       ],
-      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when supplied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
+      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity\u22651 when supplied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-003",
       "operations": [
         "venues.list",
@@ -268,7 +268,7 @@
       "feature_ids": [
         "MTG-005"
       ],
-      "text": "Agenda sections have stable ID, trimmed title 1–120 and integer duration 0–600 minutes; at most 40 sections, empty valid. Save validates entire payload with named errors, never silently drops/truncates invalid API sections. Vision default is Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15 minutes (90 total), fresh IDs and immutable source version. Non Vision starts empty. Add/remove/reorder/retime roundtrip and derived total; later reference revision never overwrites a user's agenda.",
+      "text": "Agenda sections have stable ID, trimmed title 1\u2013120 and integer duration 0\u2013600 minutes; at most 40 sections, empty valid. Save validates entire payload with named errors, never silently drops/truncates invalid API sections. Vision default is Welcome 10, Worship 15, Vision 25, Q&A 15, Response 10, Fellowship 15 minutes (90 total), fresh IDs and immutable source version. Non Vision starts empty. Add/remove/reorder/retime roundtrip and derived total; later reference revision never overwrites a user's agenda.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-005",
       "operations": [
         "meetings.readAgenda",
@@ -413,7 +413,7 @@
       "feature_ids": [
         "MTG-009"
       ],
-      "text": "Authenticated own reply binds current account→live Person→existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
+      "text": "Authenticated own reply binds current account\u2192live Person\u2192existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-009",
       "operations": [
         "meetings.getOwnRsvp",
@@ -654,7 +654,7 @@
       "feature_ids": [
         "MTG-014"
       ],
-      "text": "Only Vision allows one human evaluation with integer 1–5 for 8 factor keys: attendanceScore (Great Attendance: Core Group actively inviting); locationScore (Acceptable Location: easy to find/welcoming/distraction-free); logisticsScore (Great Logistics: room/AV/materials ready); agendaScore (Clear Agenda: detailed and on time); vibeScore (Great Vibe: warm/inviting/enthusiastic); messageScore (Compelling Message: clear vision); closeScore (Strong Close: nonmanipulative call); nextStepsScore (Clear Next Steps: dates/details). Server computes arithmetic average rounded 1 decimal and records reference version/actor/date. Evaluation insert and managed-evaluation task completion/history/revision commit together, uniqueness handles concurrent submission. No model scores factors.",
+      "text": "Only Vision allows one human evaluation with integer 1\u20135 for 8 factor keys: attendanceScore (Great Attendance: Core Group actively inviting); locationScore (Acceptable Location: easy to find/welcoming/distraction-free); logisticsScore (Great Logistics: room/AV/materials ready); agendaScore (Clear Agenda: detailed and on time); vibeScore (Great Vibe: warm/inviting/enthusiastic); messageScore (Compelling Message: clear vision); closeScore (Strong Close: nonmanipulative call); nextStepsScore (Clear Next Steps: dates/details). Server computes arithmetic average rounded 1 decimal and records reference version/actor/date. Evaluation insert and managed-evaluation task completion/history/revision commit together, uniqueness handles concurrent submission. No model scores factors.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-014",
       "operations": [
         "meetings.recordEvaluation",
@@ -741,7 +741,7 @@
       "feature_ids": [
         "MTG-017"
       ],
-      "text": "Validate current meeting/Person/guest-attendance relation within plant before bounded trimmed 1–5000 character note. Derive meeting type/ID from server and append authored Person activity with actual performer, meeting provenance and recorded instant atomically. Own note edit/delete follows People history contract; client metadata cannot forge unrelated meeting or Person link. No privileged broad note edit or private care classification is created.",
+      "text": "Validate current meeting/Person/guest-attendance relation within plant before bounded trimmed 1\u20135000 character note. Derive meeting type/ID from server and append authored Person activity with actual performer, meeting provenance and recorded instant atomically. Own note edit/delete follows People history contract; client metadata cannot forge unrelated meeting or Person link. No privileged broad note edit or private care classification is created.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-017",
       "operations": [
         "meetings.addAttendeeNote"
@@ -866,7 +866,7 @@
         "WP-024",
         "WP-022",
         "WP-023",
-        "WP-056"
+        "WP-091"
       ]
     },
     {

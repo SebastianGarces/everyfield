@@ -23,12 +23,12 @@ export function bootstrapReadiness(root:string):Array<[boolean,string]> {
   [hasRemote(root,cfg),`repository remote ${cfg.remote}`],
   [!!v?.attest?.length&&v.attest.some(a=>a.includes('{request}')),'trusted signed runner command with {request}; owner reviews its identity and review adapter'],
   [key,'reviewed Ed25519 public key; private key stays outside agent worktrees'],
+  [v?.kind==='application'&&v.applicationQualified===true,'owner-reviewed bootstrap application qualification and assertion/report driver'],
   [planReady('WP-087'),'reviewed WP-087 producer proof plan'],
   [planReady('WP-001'),'reviewed WP-001 proof plan'],
   [wiring,'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring'],
   [producerReady(root,'WP-087'),'acknowledged WP-087 stack and test scripts milestone'],
   [!!cfg.stack?.up&&!!cfg.stack?.status,'stack up/status commands wired after WP-087'],
-  [v?.kind==='application'&&v.applicationQualified===true,'owner-reviewed bootstrap application qualification and assertion/report driver'],
  ];
 }
 
@@ -102,7 +102,7 @@ export function doctor(root: string): number {
 
   const dag = loadDag(root);
   const ids = new Set(dag.packages.map((p) => p.id));
-  const missing = dag.packages.flatMap((p) => p.depends_on.filter((d) => !ids.has(d)));
+  const missing = dag.packages.flatMap((p) => [...p.depends_on,...(p.ui_depends_on??[])].filter((d) => !ids.has(d)));
   check(missing.length === 0, `dag.json: ${ids.size} packages, prerequisites resolve`, `dag.json has unknown prerequisites: ${missing.join(", ")}`);
 
   check(run("gh", ["--version"]).code === 0, "gh installed", "gh is not installed");

@@ -37,7 +37,8 @@ wait for results. These are the EveryField additions.
    `bin/evf shipped --clear <task>`. The retained acknowledged signed record unlocks dependents
    immediately, even before canonical progress is committed. evf also writes the progress projection.
    Batch all evf-generated progress changes into one reviewed `OPS-n` commit per coordinator round,
-   owning only `docs/build-progress.json`. Transfer the exact generated change into that task worktree
+   owning only `docs/build-progress.json`. Acknowledge all milestones in one pass, then transfer once.
+   Transfer the exact generated change into that task worktree
    and restore the root progress file to its committed bytes before delegating dependents. Retain
    the shipped records under the git common directory. Do not wait for the progress OPS commit to
    unlock tasks or create a separate progress commit after every acknowledgement. Finish the round's

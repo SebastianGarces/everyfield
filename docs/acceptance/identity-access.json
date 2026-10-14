@@ -5641,7 +5641,7 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Change church Chicago→Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
+      "description": "Change church Chicago\u2192Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6323,7 +6323,7 @@
     },
     {
       "id": "EVRY-INTERNAL-PURGEELIGIBLESUBJECT",
-      "requirement": "CAS pending_deletion→purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
+      "requirement": "CAS pending_deletion\u2192purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
       "feature_ids": [
         "IDN-026",
         "OPS-001"
@@ -7043,7 +7043,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-002",
         "WP-006",
         "WP-007",
         "WP-010"
@@ -7338,7 +7337,6 @@
         "AC-IDN-023--IDN-023"
       ],
       "work_packages": [
-        "WP-002",
         "WP-009",
         "WP-011",
         "WP-017",
@@ -7424,8 +7422,8 @@
       "work_packages": [
         "WP-006",
         "WP-047",
-        "WP-056",
-        "WP-057"
+        "WP-093",
+        "WP-096"
       ],
       "status": "future-not-run",
       "description": "Inspect directory lead projection for account IDs/contact/care and inspect organization intelligence input.",
@@ -7531,7 +7529,7 @@
         "WP-011",
         "WP-039",
         "WP-050",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Personal deletion by original account with private care/avatar/account-owned files plus church-owned documents/records.",
@@ -7620,7 +7618,7 @@
         "WP-007",
         "WP-010",
         "WP-011",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Owner and Admin request church deletion; Owner asks to leave while retaining running workspace.",
@@ -7694,7 +7692,7 @@
     },
     {
       "id": "ORG55-008",
-      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts≤7 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
+      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts\u22647 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
       "requirement_ids": [
         "REQ-IDN-026"
       ],
@@ -7712,12 +7710,12 @@
         "WP-004",
         "WP-010",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
+      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires\u2264November 27; isolated old restore after expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7794,7 +7792,7 @@
         "WP-006",
         "WP-011",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8111,7 +8109,7 @@
         "WP-006",
         "WP-011",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8432,7 +8430,7 @@
         "WP-006",
         "WP-011",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8751,7 +8749,7 @@
         "WP-006",
         "WP-011",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -10379,7 +10377,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Create church at 0/6 reading with no lead title and a different reader’s progress; retry after later phase transition.",
+      "description": "Create church at 0/6 reading with no lead title and a different reader\u2019s progress; retry after later phase transition.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10655,7 +10653,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-002",
         "WP-006",
         "WP-008",
         "WP-010"
@@ -10730,7 +10727,7 @@
     },
     {
       "id": "ROLE43-018",
-      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and≤7 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
+      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and\u22647 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
       "requirement_ids": [
         "REQ-IDN-001",
         "REQ-IDN-007",
@@ -13091,7 +13088,6 @@
         "AC-IDN-005--IDN-005"
       ],
       "work_packages": [
-        "WP-002",
         "WP-006"
       ],
       "status": "future-not-run",
@@ -13585,7 +13581,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
+      "description": "Org A/B linked plants, no lead vs Owner\u2260lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13792,7 +13788,6 @@
         "AC-IDN-005--IDN-005"
       ],
       "work_packages": [
-        "WP-002",
         "WP-006"
       ],
       "status": "future-not-run",
@@ -14217,7 +14212,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-006"
       ],
@@ -14733,7 +14727,7 @@
         "WP-050",
         "WP-052",
         "WP-053",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two Plant A Admin authors with different private care weeks; guessed IDs, merged Persons, role edits, retained Evry context, organization projection, log/audit inspection and personal deletion/isolated restore. Correct a saved entry, attempt individual-entry delete, then request personal lifecycle deletion.",
@@ -14856,8 +14850,8 @@
         "WP-037",
         "WP-039",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-091",
+        "WP-094",
         "WP-058"
       ],
       "status": "future-not-run",

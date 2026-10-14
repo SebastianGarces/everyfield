@@ -30,7 +30,8 @@ export function proofPlan(root:string,task:TaskRef,wp:string,expectedCases:strin
  }
  const reaches=(owner:string,start:string,seen=new Set<string>()):boolean=>{
   if(owner===start)return true;if(seen.has(owner))return false;seen.add(owner);
-  return findPackage(dag,owner).depends_on.some(id=>reaches(id,start,seen));
+  const p=findPackage(dag,owner);
+  return [...p.depends_on,...(p.ui_depends_on??[])].some(id=>reaches(id,start,seen));
  };
  const expectedGates=findPackage(dag,wp).acceptance_gates;
  if(!Array.isArray(plan.gates)||plan.gates.length!==expectedGates.length||plan.gates.map(g=>g.index).sort((a,b)=>a-b).some((x,i)=>x!==i))fail('Proof plan must account for every package gate as staged portions, never claim whole later-runtime gates passed.');
@@ -70,7 +71,7 @@ export function draftProofPlan(root:string,task:TaskRef):ProofPlan {
  if(task.kind==='ops')return {risk:'ordinary',stage:'maintenance',ownedPortion:'platform',requiresStack:false,cases:[],gates:[]};
  const pkg=findPackage(loadDag(root),task.wp),context=packageContext(root,task.wp);
  const stage=task.part??(['WP-056','WP-057'].includes(task.wp)?'full-target':'producer');
- const ownedPortion:Portion=stage==='full-target'?'integration':task.part==='contract'?'contract':task.part==='ui'||pkg.owning_paths.every(isUiPath)?'native':pkg.owning_paths.some(p=>p.startsWith('packages/reference/'))?'reference':pkg.owning_paths.some(p=>p.startsWith('packages/domain/'))?'domain':'platform';
+ const ownedPortion:Portion=stage==='full-target'||pkg.lane==='integration'?'integration':task.part==='contract'?'contract':task.part==='ui'||pkg.owning_paths.every(isUiPath)?'native':pkg.owning_paths.some(p=>p.startsWith('packages/reference/'))?'reference':pkg.owning_paths.some(p=>p.startsWith('packages/domain/'))?'domain':'platform';
  return {risk:'ordinary',stage,ownedPortion,requiresStack:ownedPortion==='domain'||ownedPortion==='native'||ownedPortion==='integration',cases:context.case_ids.map(id=>({id,requiredPortions:[ownedPortion],deferred:[]})),gates:pkg.acceptance_gates.map((_,index)=>({index,requiredPortions:[ownedPortion],deferred:[]}))};
 }
 export function requiredPortions(plan:ProofPlan):Array<{caseId:string;portion:Portion}> {

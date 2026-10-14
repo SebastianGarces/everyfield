@@ -19,14 +19,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "quiet-day-eight",
@@ -119,14 +118,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "paused-outbox-correction",
@@ -213,14 +211,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "changed-input-during-inference",
@@ -309,14 +306,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "reclaimed-worker-generation",
@@ -405,7 +401,6 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
@@ -413,7 +408,7 @@
         "WP-043",
         "WP-044",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "prior-result-survives",
@@ -504,14 +499,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "audit-or-revision-write-fault",
@@ -600,14 +594,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "reference-changed-during-inference",
@@ -693,14 +686,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "org-revocation-before-publish-read",
@@ -803,14 +795,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "consistent-snapshot-race",
@@ -905,14 +896,13 @@
         "AC-PI-042--PI-042"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "provider-and-output-ladder",
@@ -1010,14 +1000,13 @@
         "AC-PI-037--PI-037"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-040",
         "WP-041",
         "WP-042",
         "WP-043",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "private-care-no-invalidation",
@@ -8365,7 +8354,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-002",
         "WP-040",
         "WP-044"
       ],
@@ -8582,7 +8570,6 @@
         "AC-PI-002--PI-002"
       ],
       "work_packages": [
-        "WP-002",
         "WP-040",
         "WP-042"
       ],
@@ -13579,7 +13566,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -13589,8 +13575,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -13712,7 +13698,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -13722,8 +13707,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -13839,7 +13824,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -13849,8 +13833,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -13972,7 +13956,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -13982,8 +13965,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14105,7 +14088,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14115,8 +14097,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14244,7 +14226,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14254,8 +14235,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14377,7 +14358,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14387,8 +14367,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14510,7 +14490,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14520,8 +14499,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14643,7 +14622,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14653,8 +14631,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14776,7 +14754,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14786,8 +14763,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -14908,7 +14885,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -14918,8 +14894,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -15049,7 +15025,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -15059,8 +15034,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -15175,7 +15150,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -15185,8 +15159,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -32052,7 +32026,7 @@
         "WP-006",
         "WP-010",
         "WP-050",
-        "WP-057",
+        "WP-096",
         "WP-040",
         "WP-042",
         "WP-043"
@@ -46887,7 +46861,7 @@
         "WP-044",
         "WP-047",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual intelligence-snapshot-citation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -47206,7 +47180,7 @@
         "WP-044",
         "WP-047",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual intelligence-snapshot-citation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -47529,7 +47503,7 @@
         "WP-044",
         "WP-047",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual intelligence-snapshot-citation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -47850,7 +47824,7 @@
         "WP-044",
         "WP-047",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual intelligence-snapshot-citation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -49123,7 +49097,7 @@
         },
         "reservedInitialReason": {
           "fixture_type": "fixture",
-          "value": "Declared at setup — where this plant already was when it joined EveryField."
+          "value": "Declared at setup \u2014 where this plant already was when it joined EveryField."
         }
       },
       "actor": {
@@ -49144,7 +49118,7 @@
           "currentPlantRevision": 11,
           "declarationSlot": "unused",
           "actor": "current same-plant Admin",
-          "reservedInitialReason": "Declared at setup — where this plant already was when it joined EveryField."
+          "reservedInitialReason": "Declared at setup \u2014 where this plant already was when it joined EveryField."
         }
       },
       "expected": {

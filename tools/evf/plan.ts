@@ -7,6 +7,7 @@ import {
   loadContexts,
   partsOf,
   pathsForPart,
+  prerequisitesForPart,
   type Package,
   type Part,
 } from "./lib.ts";
@@ -74,15 +75,14 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
     const context = contexts.get(pkg.id);
     if (!context) fail(`No current context for ${pkg.id}.`);
     const acceptanceCount = context.acceptance_ids.length;
-    const prereqKeys: string[] = [];
-    for (const dep of pkg.depends_on) {
-      if (producerReady(root, dep)) continue;
-      if (inSet.has(dep)) prereqKeys.push(...(finalKeys.get(dep) ?? []));
-      else external.add(dep);
-    }
     for (const part of parts) {
       const key = keyOf(pkg.id, part);
-      const dependsOn = [...prereqKeys];
+      const dependsOn: string[] = [];
+      for (const dep of prerequisitesForPart(pkg, part)) {
+        if (producerReady(root, dep)) continue;
+        if (inSet.has(dep)) dependsOn.push(...(finalKeys.get(dep) ?? []));
+        else external.add(dep);
+      }
       if (part === "api" || part === "ui") {
         const anchor = parts.includes("contract") ? keyOf(pkg.id, "contract") : part === "ui" ? keyOf(pkg.id, "api") : null;
         if (anchor) dependsOn.push(anchor);

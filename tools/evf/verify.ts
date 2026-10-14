@@ -36,7 +36,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):Proof {
  if(!wp&&task.kind!=='ops') fail('Missing reviewed task context.');
  const context=task.kind==='ops'?{acceptance_ids:[],case_ids:[]}:packageContext(wt,wp!);
  if(task.kind==='ops')requireTaskScope(root,task);
- if(settings.kind==='application'){requireImplementation(root,wp!);requireTaskRisk(root,task);if(typeof settings.usesPaidProviders!=='boolean')fail('Declare actual provider usage before application proof.');if(settings.usesPaidProviders)requireSpend(root);}
+ if(settings.kind==='application'){requireImplementation(root,wp!,task.part);requireTaskRisk(root,task);if(typeof settings.usesPaidProviders!=='boolean')fail('Declare actual provider usage before application proof.');if(settings.usesPaidProviders)requireSpend(root);}
  const plan=settings.kind==='application'||task.kind==='ops'?proofPlan(task.kind==='ops'?root:wt,task,wp??'',context.case_ids):null;
  const expectedGates=task.kind==='ops'?[]:(findPackage(loadDag(wt),wp!)).acceptance_gates;
  const included=gitOk(wt,'merge-base','--is-ancestor',baseSha,'HEAD');

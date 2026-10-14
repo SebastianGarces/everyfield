@@ -194,7 +194,7 @@
         "WP-024",
         "WP-025",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -512,7 +512,7 @@
         "WP-024",
         "WP-025",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -834,7 +834,7 @@
         "WP-024",
         "WP-025",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -1154,7 +1154,7 @@
         "WP-024",
         "WP-025",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2517,7 +2517,7 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "description": "A→B→C→A, concurrent A→B/B→A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
+      "description": "A\u2192B\u2192C\u2192A, concurrent A\u2192B/B\u2192A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -583,7 +583,7 @@
       "feature_ids": [
         "PI-009"
       ],
-      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0–28 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
+      "text": "Read current native launch planned/actual dates, status, local countdown, milestone validity, headcount and submitted debrief/guest cue as independent typed facts. Uncompleted final window 0\u201328 days; past target overdue until actual occurrence/reschedule/postpone, no automatic phase.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -1711,7 +1711,8 @@
       ],
       "work_packages": [
         "WP-040",
-        "WP-043"
+        "WP-043",
+        "WP-002"
       ],
       "behavior_rules": [
         {
@@ -2004,7 +2005,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-007",
         "WP-032",
@@ -2015,8 +2015,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
@@ -2146,7 +2146,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-010",
         "WP-032",
@@ -2156,8 +2155,8 @@
         "WP-047",
         "WP-073",
         "WP-074",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058"
       ],
       "title": "Location Insights: Regions, state/province, Country and Whole portfolio",

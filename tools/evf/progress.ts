@@ -69,7 +69,7 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
     let advanced=false;
     for(const wp of pending){
      const pkg=findPackage(dag,wp),target=progress.packages[wp];
-     if(pkg.depends_on.some(id=>progress.packages[id]?.status!=='done'))continue;
+     if([...pkg.depends_on,...(pkg.ui_depends_on??[])].some(id=>progress.packages[id]?.status!=='done'))continue;
      const parts=partsOf(pkg).map(part=>part?`${wp}/${part}`:wp);
      if(!target||parts.some(id=>!target.milestones?.[id]?.acknowledged||!retained(root,id)||!reviewedMilestone(root,retained(root,id)!)))fail(`Closure requires every reviewed merged part of ${wp}.`);
      const passed=new Set(record.proof.attestation!.payload.casePortions.filter(c=>c.portion==='integration').map(c=>c.caseId));

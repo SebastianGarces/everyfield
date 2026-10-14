@@ -1993,10 +1993,9 @@
         "AC-OPS-009--OPS-009"
       ],
       "work_packages": [
-        "WP-002",
         "WP-049",
         "WP-050",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Bug versus feature feedback awaiting actual merged owner triage/routing version; uncertain classification.",
@@ -2073,7 +2072,7 @@
       "work_packages": [
         "WP-049",
         "WP-050",
-        "WP-056",
+        "WP-091",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -2156,7 +2155,7 @@
         "WP-050",
         "WP-053",
         "WP-055",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Feedbacktext includes exfiltration instruction/private body and duplicate issue retry.",
@@ -2327,8 +2326,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -2798,7 +2797,6 @@
         "AC-OPS-009--OPS-009"
       ],
       "work_packages": [
-        "WP-002",
         "WP-031",
         "WP-049",
         "WP-050"
@@ -3078,7 +3076,7 @@
       "work_packages": [
         "WP-049",
         "WP-050",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Malformed/unknown safe public fields; normal safe closed summary in separate submission.",
@@ -3161,7 +3159,7 @@
         "WP-031",
         "WP-049",
         "WP-050",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Provider creates issue before timeout/local receipt failure; marker search inaccessible or ambiguous.",

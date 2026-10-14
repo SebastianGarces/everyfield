@@ -1,7 +1,7 @@
 {
   "version": 2,
   "as_of": "2026-10-14",
-  "scope": "Documentation-only full approved target with 87 active single-owner tasks. WP-086 is retired into WP-085. Implementation state is owned solely by docs/build-progress.json.",
+  "scope": "Documentation-only full approved target with 95 active packages. WP-086 is retired into WP-085. Implementation state is owned solely by docs/build-progress.json.",
   "resource_assumptions": {
     "engineers": 4,
     "qa_engineers": 1,
@@ -19,7 +19,7 @@
       "depends_on": [
         "WP-087"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-001; linked details on demand.",
         "WP-087 reviewed producer/interface milestone"
@@ -110,7 +110,7 @@
         "requirements": "explicit",
         "cases": "explicit",
         "operations": "explicit",
-        "schema": "produced",
+        "schema": "none",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_ids": [],
         "requirement_ids": [
@@ -178,7 +178,7 @@
       "outputs": [
         "single Next.js representative slice and SEC gate evidence; runtime/provider limits decision; no separate backend or worker deployment inferred",
         "Selected Vercel Next/Neon/Tigris platform proof and server-only ordinary storage adapter; current subject-authorized short-lived exact-object presigning, no forced byte proxy.",
-        "Prove pinned Node 24/Next/BetterAuth/transaction driver behavior with real adapter SQL and sessions; deny missing identity generation, forged scope, stale stream/file authority and incompatible hooks."
+        "Prove pinned Node 24/Next/BetterAuth/transaction driver behavior with real adapter SQL and sessions; deny expired or revoked live sessions, forged scope, stale stream/file authority and incompatible hooks."
       ],
       "owning_paths": [
         "apps/web/src/server/platform/",
@@ -234,19 +234,18 @@
       "depends_on": [
         "WP-003"
       ],
-      "estimate_engineer_days": 7.0,
+      "estimate_engineer_days": 5.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-004; linked details on demand.",
         "WP-003 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "fresh source-preserving schema with independent affiliation and per-org fixed-category sharing, revisions/audit/private storage",
-        "Proposed owned_document/owned_document_revision scope integrity distinct from 88 source tables and generated artifacts.",
-        "Target-only creation-entry journal integrity/once-per-church discriminator and nullability rules, preserving declaration slot; existing source declarations unchanged.",
-        "Proposed organization run/assessment storage, adult-classification and current-commitment fields with dated audit history; preserve all 88 source declarations.",
-        "Scoped organization assessment/finding/reference-version feedback via a typed variant of existing feedback model; dedicated same-org references, author/history/revision and exact reviewed Evry write. No overloaded plant FK or automatic rubric rewrite.",
-        "Proposed launch_guest same-plant Launch\u2192Person relation; questionnaire/draft/submission/summary projection and typed Launch event history reuse existing Launch models.",
-        "Create fresh PostgreSQL target schema and private object namespaces; exact typed organization keys, per-reference deletion, assignment/reader/history rows and schema review. No customer import."
+        "Fresh adopted 100-table baseline from docs/schema/target.json with record subtype integrity, event history, operation receipts and same-tenant foreign keys; no customer import.",
+        "document/document_revision authorization and owner integrity for private native documents, separate from generated artifacts.",
+        "plant_creation_transition once-per-plant journal and phase-entry integrity under the adopted schema.",
+        "assessment/run storage, reference versions and current sharing/affiliation relationships; reader_feedback stores assessment/finding feedback while feedback stores private application feedback.",
+        "launch_guest same-plant Launch-to-Person relation, interview responses and published summary projections with typed event history.",
+        "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks."
       ],
       "owning_paths": [
         "packages/db/src/schema/",
@@ -257,7 +256,7 @@
         "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports."
       ],
       "acceptance_gates": [
-        "fresh DB migration succeeds",
+        "The adopted 100-table baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
         "rollback and same-tenant FKs",
         "no v2 ledger/customer import",
         "notification/Wiki evidence model reviewed before first schema migration",
@@ -270,7 +269,7 @@
         "docs/product/scope.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Fresh database/storage baseline. Prove only the owned producer or adapter portion; later integration closes the whole target.",
+      "goal": "Install the adopted 100-table PostgreSQL baseline, tenant integrity and private object namespaces. Domain producers add their reviewed behavior and later migrations.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
@@ -286,7 +285,8 @@
         "case_days": 0.006,
         "table_days": 0.025,
         "gate_days": 0.04
-      }
+      },
+      "migration_ownership_rule": "WP-004 installs the baseline. Later domain producers may add migrations only after WP-004, with schema-owner review; shared migration edits are dependency ordered. WP-040 owns assessment input revision triggers."
     },
     {
       "id": "WP-005",
@@ -295,15 +295,13 @@
       "domain": "identity",
       "depends_on": [
         "WP-004",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-005; linked details on demand.",
         "WP-004 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "register/login/logout/verify/recover credential API",
@@ -352,7 +350,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-006",
@@ -360,14 +363,12 @@
       "lane": "identity",
       "domain": "access",
       "depends_on": [
-        "WP-005",
-        "WP-088"
+        "WP-005"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-006; linked details on demand.",
-        "WP-005 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-005 reviewed producer/interface milestone"
       ],
       "outputs": [
         "flat independent seat/domain grants plus current multiple affiliation and per-org sharing predicates; no coaching or delegated network approvals",
@@ -414,7 +415,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-007",
@@ -422,14 +428,12 @@
       "lane": "identity",
       "domain": "organizations",
       "depends_on": [
-        "WP-006",
-        "WP-088"
+        "WP-006"
       ],
-      "estimate_engineer_days": 5.0,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-007; linked details on demand.",
-        "WP-006 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-006 reviewed producer/interface milestone"
       ],
       "outputs": [
         "multiple exact-org relationship requests/approval/end/history; default oversight and per-org ON sharing with scoped planter notices"
@@ -442,7 +446,7 @@
       ],
       "interfaces": [
         "multiple exact-org relationship requests/approval/end/history; default oversight and per-org ON sharing with scoped planter notices",
-        "WP007 organizations/relationships.ts#applySharingPatchInTransaction is shared by privacy.setSharing and WP010 settings.saveSection affiliations; exact category aliases, omitted-preserve fields and current relationship/consent revision lock; one caller-owned DomainTransaction, no nested public-command commits."
+        "WP-007 owns the relationship-sharing mutation boundary used by privacy.setSharing and settings.saveSection. Preserve omitted fields, exact categories and current relationship/consent revisions in one caller-owned short transaction."
       ],
       "acceptance_gates": [
         "disclosed defaults",
@@ -477,7 +481,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-008",
@@ -487,16 +496,14 @@
       "depends_on": [
         "WP-006",
         "WP-007",
-        "WP-011",
-        "WP-088"
+        "WP-011"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-008; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
         "WP-007 reviewed producer/interface milestone",
-        "WP-011 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-011 reviewed producer/interface milestone"
       ],
       "outputs": [
         "create/describe/revoke/resend/accept invitation",
@@ -545,7 +552,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-009",
@@ -553,14 +565,12 @@
       "lane": "identity",
       "domain": "onboarding",
       "depends_on": [
-        "WP-008",
-        "WP-088"
+        "WP-008"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-009; linked details on demand.",
-        "WP-008 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-008 reviewed producer/interface milestone"
       ],
       "outputs": [
         "create plant, leadership/journey attestation, completion",
@@ -612,7 +622,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-010",
@@ -622,16 +637,14 @@
       "depends_on": [
         "WP-007",
         "WP-008",
-        "WP-009",
-        "WP-088"
+        "WP-009"
       ],
-      "estimate_engineer_days": 4.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-010; linked details on demand.",
         "WP-007 reviewed producer/interface milestone",
         "WP-008 reviewed producer/interface milestone",
-        "WP-009 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-009 reviewed producer/interface milestone"
       ],
       "outputs": [
         "account/team/privacy/preferences/hash-modal UI",
@@ -647,7 +660,7 @@
         "account/team/privacy/preferences/hash-modal UI",
         "PersonalTimezonePreference read/CAS/preview inputs; actual private-week integration completes in WP-039",
         "organizations.getProfile/updateProfile current own-orgOwner/Admin; account.deletePersonalLogin separate from churches.deleteWorkspace with accepted manualOwner exception; retention periods not invented.",
-        "WP007 organizations/relationships.ts#applySharingPatchInTransaction is shared by privacy.setSharing and WP010 settings.saveSection affiliations; exact category aliases, omitted-preserve fields and current relationship/consent revision lock; one caller-owned DomainTransaction, no nested public-command commits."
+        "WP-007 owns the relationship-sharing mutation boundary used by privacy.setSharing and settings.saveSection. Preserve omitted fields, exact categories and current relationship/consent revisions in one caller-owned short transaction."
       ],
       "acceptance_gates": [
         "dirty draft navigation/focus",
@@ -681,7 +694,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-011",
@@ -689,14 +707,12 @@
       "lane": "people",
       "domain": "people",
       "depends_on": [
-        "WP-006",
-        "WP-088"
+        "WP-006"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-011; linked details on demand.",
-        "WP-006 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-006 reviewed producer/interface milestone"
       ],
       "outputs": [
         "scoped CRUD/query/activity and linked-account contract",
@@ -743,7 +759,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-012",
@@ -751,14 +772,12 @@
       "lane": "people",
       "domain": "people",
       "depends_on": [
-        "WP-011",
-        "WP-088"
+        "WP-011"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-012; linked details on demand.",
-        "WP-011 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-011 reviewed producer/interface milestone"
       ],
       "outputs": [
         "household/tag/skills/private-photo and retained person-field operations",
@@ -808,7 +827,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-013",
@@ -816,14 +840,12 @@
       "lane": "people",
       "domain": "people",
       "depends_on": [
-        "WP-012",
-        "WP-088"
+        "WP-012"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-013; linked details on demand.",
-        "WP-012 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-012 reviewed producer/interface milestone"
       ],
       "outputs": [
         "bounded preview/import/export result contracts",
@@ -871,7 +893,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-014",
@@ -880,15 +907,13 @@
       "domain": "people",
       "depends_on": [
         "WP-011",
-        "WP-001",
-        "WP-088"
+        "WP-001"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-014; linked details on demand.",
         "WP-011 reviewed producer/interface milestone",
-        "WP-001 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-001 reviewed producer/interface milestone"
       ],
       "outputs": [
         "record 4Cs/interview/commitment with approved status policy",
@@ -938,7 +963,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-015",
@@ -947,15 +977,13 @@
       "domain": "people",
       "depends_on": [
         "WP-012",
-        "WP-014",
-        "WP-088"
+        "WP-014"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-015; linked details on demand.",
         "WP-012 reviewed producer/interface milestone",
-        "WP-014 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-014 reviewed producer/interface milestone"
       ],
       "outputs": [
         "exact correction snapshots and transactional merge",
@@ -1007,7 +1035,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-016",
@@ -1016,15 +1049,13 @@
       "domain": "teams",
       "depends_on": [
         "WP-011",
-        "WP-032",
-        "WP-088"
+        "WP-032"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-016; linked details on demand.",
         "WP-011 reviewed producer/interface milestone",
-        "WP-032 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-032 reviewed producer/interface milestone"
       ],
       "outputs": [
         "canonical team create/archive/edit/list"
@@ -1069,7 +1100,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-017",
@@ -1078,15 +1114,13 @@
       "domain": "teams",
       "depends_on": [
         "WP-016",
-        "WP-008",
-        "WP-088"
+        "WP-008"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-017; linked details on demand.",
         "WP-016 reviewed producer/interface milestone",
-        "WP-008 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-008 reviewed producer/interface milestone"
       ],
       "outputs": [
         "membership/role/leader/remove-seat reconciliation",
@@ -1137,7 +1171,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-018",
@@ -1145,14 +1184,12 @@
       "lane": "teams",
       "domain": "teams",
       "depends_on": [
-        "WP-016",
-        "WP-088"
+        "WP-016"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-018; linked details on demand.",
-        "WP-016 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-016 reviewed producer/interface milestone"
       ],
       "outputs": [
         "transactional offer/decline/delete/reorder responsibility"
@@ -1197,7 +1234,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-019",
@@ -1206,15 +1248,13 @@
       "domain": "teams",
       "depends_on": [
         "WP-017",
-        "WP-015",
-        "WP-088"
+        "WP-015"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-019; linked details on demand.",
         "WP-017 reviewed producer/interface milestone",
-        "WP-015 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-015 reviewed producer/interface milestone"
       ],
       "outputs": [
         "training matrix/program/completion/correction",
@@ -1261,7 +1301,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-020",
@@ -1270,15 +1315,13 @@
       "domain": "meetings",
       "depends_on": [
         "WP-011",
-        "WP-016",
-        "WP-088"
+        "WP-016"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-020; linked details on demand.",
         "WP-011 reviewed producer/interface milestone",
-        "WP-016 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-016 reviewed producer/interface milestone"
       ],
       "outputs": [
         "vision/team meetings, locations, logistics, checklist",
@@ -1324,7 +1367,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-021",
@@ -1333,15 +1381,13 @@
       "domain": "meetings",
       "depends_on": [
         "WP-020",
-        "WP-008",
-        "WP-088"
+        "WP-008"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-021; linked details on demand.",
         "WP-020 reviewed producer/interface milestone",
-        "WP-008 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-008 reviewed producer/interface milestone"
       ],
       "outputs": [
         "invite/response/public token/authenticated own-RSVP"
@@ -1387,7 +1433,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-022",
@@ -1397,16 +1448,14 @@
       "depends_on": [
         "WP-020",
         "WP-021",
-        "WP-024",
-        "WP-088"
+        "WP-024"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-022; linked details on demand.",
         "WP-020 reviewed producer/interface milestone",
         "WP-021 reviewed producer/interface milestone",
-        "WP-024 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-024 reviewed producer/interface milestone"
       ],
       "outputs": [
         "attendance finalize/correct/evaluate/analytics",
@@ -1453,7 +1502,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-023",
@@ -1462,15 +1516,13 @@
       "domain": "followups",
       "depends_on": [
         "WP-022",
-        "WP-024",
-        "WP-088"
+        "WP-024"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-023; linked details on demand.",
         "WP-022 reviewed producer/interface milestone",
-        "WP-024 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-024 reviewed producer/interface milestone"
       ],
       "outputs": [
         "obligation provenance, start/outcome/no-longer-needed",
@@ -1518,7 +1570,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-024",
@@ -1527,15 +1584,13 @@
       "domain": "tasks",
       "depends_on": [
         "WP-006",
-        "WP-011",
-        "WP-088"
+        "WP-011"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-024; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
-        "WP-011 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-011 reviewed producer/interface milestone"
       ],
       "outputs": [
         "CRUD/assign/complete/reopen/delete/bulk/status audit",
@@ -1582,7 +1637,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-025",
@@ -1590,14 +1650,12 @@
       "lane": "tasks",
       "domain": "tasks",
       "depends_on": [
-        "WP-024",
-        "WP-088"
+        "WP-024"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-025; linked details on demand.",
-        "WP-024 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-024 reviewed producer/interface milestone"
       ],
       "outputs": [
         "cycle guards, reschedule, transactional successor"
@@ -1643,7 +1701,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-026",
@@ -1653,16 +1716,14 @@
       "depends_on": [
         "WP-025",
         "WP-032",
-        "WP-038",
-        "WP-088"
+        "WP-038"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-026; linked details on demand.",
         "WP-025 reviewed producer/interface milestone",
         "WP-032 reviewed producer/interface milestone",
-        "WP-038 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-038 reviewed producer/interface milestone"
       ],
       "outputs": [
         "offer/import/decline templates per transition"
@@ -1708,7 +1769,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-027",
@@ -1717,15 +1783,13 @@
       "domain": "communication",
       "depends_on": [
         "WP-011",
-        "WP-020",
-        "WP-088"
+        "WP-020"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-027; linked details on demand.",
         "WP-011 reviewed producer/interface milestone",
-        "WP-020 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-020 reviewed producer/interface milestone"
       ],
       "outputs": [
         "recipient selection, merge fields, template/draft/preview"
@@ -1771,7 +1835,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-028",
@@ -1780,15 +1849,13 @@
       "domain": "communication",
       "depends_on": [
         "WP-027",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
       "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-028; linked details on demand.",
         "WP-027 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "provider send boundary and durable recipient states",
@@ -1839,7 +1906,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-029",
@@ -1847,14 +1919,12 @@
       "lane": "communication",
       "domain": "communication",
       "depends_on": [
-        "WP-028",
-        "WP-088"
+        "WP-028"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-029; linked details on demand.",
-        "WP-028 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-028 reviewed producer/interface milestone"
       ],
       "outputs": [
         "delivery stats/person history/resend non-openers",
@@ -1900,7 +1970,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-030",
@@ -1910,16 +1985,14 @@
       "depends_on": [
         "WP-006",
         "WP-007",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
       "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-030; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
         "WP-007 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "feed/read/preferences/unsubscribe/suppression views",
@@ -1968,7 +2041,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-031",
@@ -1978,7 +2056,7 @@
       "depends_on": [
         "WP-004"
       ],
-      "estimate_engineer_days": 4.5,
+      "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-031; linked details on demand.",
         "WP-004 reviewed producer/interface milestone"
@@ -2001,7 +2079,7 @@
         "timeout-safe unknown reconciliation",
         "auth-template token secrecy and log redaction",
         "max attempts/backoff",
-        "budgets/fairness",
+        "Bounded budgets, scan-tail recovery and operator visibility; measured fairness/reserved-slot/alert tuning closes at G-LOAD.",
         "no duplicate external effect",
         "provider webhook replay differs from recipient resend; 24h idempotency expiry tested",
         "ER-001..010 webhook persistence/handling/retry/recovery, wrong-secret signature proof without secret logging, disabled/unknown endpoint visibility and attributable provider replay recovery; reported v2 incident cause unconfirmed and no current repair",
@@ -2041,7 +2119,7 @@
         "WP-001",
         "WP-004"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-032; linked details on demand.",
         "WP-001 reviewed producer/interface milestone",
@@ -2101,12 +2179,14 @@
       "lane": "reference",
       "domain": "wiki",
       "depends_on": [
-        "WP-001"
+        "WP-001",
+        "WP-032"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-033; linked details on demand.",
-        "WP-001 reviewed producer/interface milestone"
+        "WP-001 reviewed producer/interface milestone",
+        "WP-032 reviewed producer/interface milestone"
       ],
       "outputs": [
         "verified existing noncustomer snapshot/source provenance/assets/approved corpus",
@@ -2160,16 +2240,14 @@
       "depends_on": [
         "WP-006",
         "WP-032",
-        "WP-033",
-        "WP-088"
+        "WP-033"
       ],
       "estimate_engineer_days": 5.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-034; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
         "WP-032 reviewed producer/interface milestone",
-        "WP-033 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-033 reviewed producer/interface milestone"
       ],
       "outputs": [
         "shared per-article Wiki corpus resolver plus browse/download/search/progress/bookmark",
@@ -2219,7 +2297,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-035",
@@ -2227,14 +2310,12 @@
       "lane": "knowledge",
       "domain": "wiki",
       "depends_on": [
-        "WP-034",
-        "WP-088"
+        "WP-034"
       ],
-      "estimate_engineer_days": 5.5,
+      "estimate_engineer_days": 5.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-035; linked details on demand.",
-        "WP-034 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-034 reviewed producer/interface milestone"
       ],
       "outputs": [
         "own-org Owner/Admin Wiki add/edit/hide/publish; feedback and independent authorized reference/cache refresh"
@@ -2283,7 +2364,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-036",
@@ -2295,8 +2381,7 @@
         "WP-019",
         "WP-020",
         "WP-024",
-        "WP-032",
-        "WP-088"
+        "WP-032"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
@@ -2305,8 +2390,7 @@
         "WP-019 reviewed producer/interface milestone",
         "WP-020 reviewed producer/interface milestone",
         "WP-024 reviewed producer/interface milestone",
-        "WP-032 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-032 reviewed producer/interface milestone"
       ],
       "outputs": [
         "all code-defined template inputs/merge/export formats",
@@ -2357,7 +2441,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-037",
@@ -2367,16 +2456,14 @@
       "depends_on": [
         "WP-036",
         "WP-004",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-037; linked details on demand.",
         "WP-036 reviewed producer/interface milestone",
         "WP-004 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "PDF/DOCX/XLSX generation and private artifact lifecycle",
@@ -2426,7 +2513,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-038",
@@ -2435,15 +2527,13 @@
       "domain": "phases",
       "depends_on": [
         "WP-009",
-        "WP-032",
-        "WP-088"
+        "WP-032"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-038; linked details on demand.",
         "WP-009 reviewed producer/interface milestone",
-        "WP-032 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-032 reviewed producer/interface milestone"
       ],
       "outputs": [
         "attest initial phase/manual advance/override/history",
@@ -2458,7 +2548,7 @@
       ],
       "interfaces": [
         "attest initial phase/manual advance/override/history",
-        "Consume/preserve WP-009-owned packages/domain/src/phases/creation-entry.ts helper against frozen C0; broader phase module ownership cannot overwrite/reimplement creation helper without its owner review"
+        "Consume the WP-009 plant-creation entry interface under reviewed C0 conventions; broader phase ownership requires WP-009 review before changing that behavior."
       ],
       "acceptance_gates": [
         "phase advisory",
@@ -2492,7 +2582,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-039",
@@ -2502,16 +2597,14 @@
       "depends_on": [
         "WP-038",
         "WP-015",
-        "WP-010",
-        "WP-088"
+        "WP-010"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-039; linked details on demand.",
         "WP-038 reviewed producer/interface milestone",
         "WP-015 reviewed producer/interface milestone",
-        "WP-010 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-010 reviewed producer/interface milestone"
       ],
       "outputs": [
         "plant-owned attestations/check-in drafts/history/edit",
@@ -2560,7 +2653,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-040",
@@ -2577,9 +2675,9 @@
         "WP-037",
         "WP-039",
         "WP-046",
-        "WP-088"
+        "WP-004"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-040; linked details on demand.",
         "WP-007 reviewed producer/interface milestone",
@@ -2591,7 +2689,7 @@
         "WP-037 reviewed producer/interface milestone",
         "WP-039 reviewed producer/interface milestone",
         "WP-046 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-004 reviewed producer/interface milestone"
       ],
       "outputs": [
         "versioned observed facts/lenses/trends/evidence",
@@ -2604,7 +2702,8 @@
         "packages/domain/src/intelligence/",
         "packages/contracts/src/intelligence/",
         "apps/web/src/features/intelligence/",
-        "tests/integration/intelligence/"
+        "tests/integration/intelligence/",
+        "packages/db/migrations/"
       ],
       "interfaces": [
         "versioned observed facts/lenses/trends/evidence"
@@ -2642,7 +2741,13 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "migration_ownership_rule": "WP-004 installs the baseline. Later domain producers may add migrations only after WP-004, with schema-owner review; shared migration edits are dependency ordered. WP-040 owns assessment input revision triggers.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-041",
@@ -2651,15 +2756,13 @@
       "domain": "intelligence",
       "depends_on": [
         "WP-032",
-        "WP-040",
-        "WP-088"
+        "WP-040"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-041; linked details on demand.",
         "WP-032 reviewed producer/interface milestone",
-        "WP-040 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-040 reviewed producer/interface milestone"
       ],
       "outputs": [
         "Everyfield authors/tests a separate versioned portfolio rubric v1, records content hashes and fixtures, then collects user feedback; original SME PI is unchanged.",
@@ -2706,7 +2809,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-042",
@@ -2716,16 +2824,14 @@
       "depends_on": [
         "WP-041",
         "WP-003",
-        "WP-047",
-        "WP-088"
+        "WP-047"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-042; linked details on demand.",
         "WP-041 reviewed producer/interface milestone",
         "WP-003 reviewed producer/interface milestone",
-        "WP-047 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-047 reviewed producer/interface milestone"
       ],
       "outputs": [
         "grounded schema/primary+secondary focus/evals/model config",
@@ -2776,7 +2882,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-043",
@@ -2785,15 +2896,13 @@
       "domain": "intelligence",
       "depends_on": [
         "WP-042",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-043; linked details on demand.",
         "WP-042 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "run claims/budget/dirty scheduling/stale publication guard",
@@ -2815,7 +2924,7 @@
         "run-budget vs rules",
         "stale snapshot",
         "concurrent run",
-        "fairness/recovery",
+        "Recovery preserves owed work; measured fairness/reserved-slot/alert tuning closes at G-LOAD.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -2843,7 +2952,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-044",
@@ -2852,15 +2966,13 @@
       "domain": "intelligence",
       "depends_on": [
         "WP-043",
-        "WP-047",
-        "WP-088"
+        "WP-047"
       ],
-      "estimate_engineer_days": 5.0,
+      "estimate_engineer_days": 4.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-044; linked details on demand.",
         "WP-043 reviewed producer/interface milestone",
-        "WP-047 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-047 reviewed producer/interface milestone"
       ],
       "outputs": [
         "sectioned assessment/check-in/feedback/history/read DTO",
@@ -2877,7 +2989,7 @@
       "interfaces": [
         "sectioned assessment/check-in/feedback/history/read DTO",
         "Network/Location Intelligence views and history remain separate from the named status/needs directory; show missing evidence and singleton withholding without ranking.",
-        "organizationIntelligence.submitFeedback; module alias intelligence.submitOrganizationFeedback frozenC0"
+        "Consume organizationIntelligence.submitFeedback under the reviewed organization scope and exact-effect approval contract."
       ],
       "acceptance_gates": [
         "planter gets diagnosis first",
@@ -2911,7 +3023,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-045",
@@ -2923,18 +3040,16 @@
         "WP-019",
         "WP-032",
         "WP-038",
-        "WP-020",
-        "WP-088"
+        "WP-020"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-045; linked details on demand.",
         "WP-024 reviewed producer/interface milestone",
         "WP-019 reviewed producer/interface milestone",
         "WP-032 reviewed producer/interface milestone",
         "WP-038 reviewed producer/interface milestone",
-        "WP-020 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-020 reviewed producer/interface milestone"
       ],
       "outputs": [
         "manual launch plan/milestone/task linkage/readiness",
@@ -2980,7 +3095,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-046",
@@ -2990,16 +3110,14 @@
       "depends_on": [
         "WP-045",
         "WP-011",
-        "WP-015",
-        "WP-088"
+        "WP-015"
       ],
       "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-046; linked details on demand.",
         "WP-045 reviewed producer/interface milestone",
         "WP-011 reviewed producer/interface milestone",
-        "WP-015 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-015 reviewed producer/interface milestone"
       ],
       "outputs": [
         "record Launch Sunday and chronology/outcome",
@@ -3058,7 +3176,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-047",
@@ -3070,18 +3193,16 @@
         "WP-011",
         "WP-017",
         "WP-038",
-        "WP-046",
-        "WP-088"
+        "WP-046"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-047; linked details on demand.",
         "WP-007 reviewed producer/interface milestone",
         "WP-011 reviewed producer/interface milestone",
         "WP-017 reviewed producer/interface milestone",
         "WP-038 reviewed producer/interface milestone",
-        "WP-046 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-046 reviewed producer/interface milestone"
       ],
       "outputs": [
         "network/sending church/oversight discovery and plant reads",
@@ -3127,7 +3248,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-048",
@@ -3140,8 +3266,7 @@
         "WP-024",
         "WP-034",
         "WP-045",
-        "WP-047",
-        "WP-088"
+        "WP-047"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [
@@ -3151,8 +3276,7 @@
         "WP-024 reviewed producer/interface milestone",
         "WP-034 reviewed producer/interface milestone",
         "WP-045 reviewed producer/interface milestone",
-        "WP-047 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-047 reviewed producer/interface milestone"
       ],
       "outputs": [
         "discovery/plant/no-plant/oversight shell and workflow entry points",
@@ -3200,7 +3324,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements. Preserve the dashboard prototype look."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements. Preserve the dashboard prototype look.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-049",
@@ -3209,15 +3338,13 @@
       "domain": "admin",
       "depends_on": [
         "WP-006",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-049; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "feedback lifecycle/GitHub convenience/waitlist/public surfaces",
@@ -3265,7 +3392,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-050",
@@ -3277,7 +3409,7 @@
         "WP-004",
         "WP-031"
       ],
-      "estimate_engineer_days": 4.5,
+      "estimate_engineer_days": 4.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-050; linked details on demand.",
         "WP-003 reviewed producer/interface milestone",
@@ -3338,20 +3470,19 @@
       "depends_on": [
         "WP-003",
         "WP-006",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
       "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-051; linked details on demand.",
         "WP-003 reviewed producer/interface milestone",
         "WP-006 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "one durable conversation owner/stream/context budget",
-        "Implement only the adapter/kernel files in adapter-ownership.json; register manifests with the designated kernel integrator and run exact owned parity/denial/replay cases."
+        "Implement only the adapter/kernel files in adapter-ownership.json; register manifests with the designated kernel integrator and run exact owned parity/denial/replay cases.",
+        "Own-account drafts, including reading and updating the private draft; proposal effects remain WP-053 work."
       ],
       "owning_paths": [
         "packages/evry/src/runtime/",
@@ -3400,7 +3531,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-052",
@@ -3411,7 +3547,7 @@
         "WP-051",
         "WP-006"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-052; linked details on demand.",
         "WP-051 reviewed producer/interface milestone",
@@ -3479,18 +3615,16 @@
         "WP-008",
         "WP-015",
         "WP-024",
-        "WP-031",
-        "WP-088"
+        "WP-031"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 4.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-053; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
         "WP-008 reviewed producer/interface milestone",
         "WP-015 reviewed producer/interface milestone",
         "WP-024 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone"
       ],
       "outputs": [
         "typed plans/exact digest/actor recheck/shared operations/audit",
@@ -3550,7 +3684,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-054",
@@ -3560,16 +3699,14 @@
       "depends_on": [
         "WP-053",
         "WP-013",
-        "WP-037",
-        "WP-088"
+        "WP-037"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-054; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
         "WP-013 reviewed producer/interface milestone",
-        "WP-037 reviewed producer/interface milestone",
-        "WP-088 reviewed producer/interface milestone"
+        "WP-037 reviewed producer/interface milestone"
       ],
       "outputs": [
         "CSV/photo/commitment-document intents and typed artifact UI",
@@ -3620,7 +3757,12 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements."
+      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-055",
@@ -3646,7 +3788,7 @@
         "WP-084",
         "WP-085"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-055; linked details on demand.",
         "WP-054 reviewed producer/interface milestone",
@@ -3669,7 +3811,8 @@
       ],
       "outputs": [
         "policy class matrix, task handoff/eval suite/ownership",
-        "Implement only the adapter/kernel files in adapter-ownership.json; register manifests with the designated kernel integrator and run exact owned parity/denial/replay cases."
+        "Implement only the adapter/kernel files in adapter-ownership.json; register manifests with the designated kernel integrator and run exact owned parity/denial/replay cases.",
+        "Safe workflow hints under the policy/evaluation owner; consuming a hint does not implement its producer."
       ],
       "owning_paths": [
         "packages/evry/src/policy/",
@@ -3811,9 +3954,12 @@
         "WP-046",
         "WP-049",
         "WP-050",
-        "WP-055"
+        "WP-055",
+        "WP-091",
+        "WP-092",
+        "WP-093"
       ],
-      "estimate_engineer_days": 14.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-056; linked details on demand.",
         "WP-015 reviewed producer/interface milestone",
@@ -3827,17 +3973,20 @@
         "WP-046 reviewed producer/interface milestone",
         "WP-049 reviewed producer/interface milestone",
         "WP-050 reviewed producer/interface milestone",
-        "WP-055 reviewed producer/interface milestone"
+        "WP-055 reviewed producer/interface milestone",
+        "WP-091 reviewed producer/interface milestone",
+        "WP-092 reviewed producer/interface milestone",
+        "WP-093 reviewed producer/interface milestone"
       ],
       "outputs": [
         "full SQL/contract negative-path test report",
         "Cross-organization health ON/OFF/revocation and missing-input fixtures; adult withdrawal/correction/merge and per-level contributor-minimum integration checks.",
-        "Whole-target Person references and all cross-domain transaction/privilege/privacy/correction/claim races; exact native/domain/Evry parity."
+        "Whole-target Person references and all cross-domain transaction/privilege/privacy/correction/claim races; exact native/domain/Evry parity.",
+        "Aggregate the scoped domain integration packages and reproduce the complete target case/gate evidence; no deferred portions or report-only acceptance."
       ],
       "owning_paths": [
-        "apps/web/src/server/integration/",
-        "tests/integration/integration/",
-        "tests/integration/organization-intelligence/"
+        "apps/web/src/server/integration/wp-056/",
+        "tests/integration/target/wp-056/"
       ],
       "interfaces": [
         "full SQL/contract negative-path test report",
@@ -3859,7 +4008,7 @@
         "docs/product/evry.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Cross-module race/privacy/correction integration. Prove only the owned producer or adapter portion; later integration closes the whole target.",
+      "goal": "Reproduce and aggregate all target obligations after the scoped domain integration producers; no deferred portions.",
       "context_scope": {
         "features": "all",
         "requirements": "owned_and_features",
@@ -3872,7 +4021,7 @@
         "base_days": 1,
         "requirement_days": 0.002,
         "operation_days": 0.001,
-        "case_days": 0.01,
+        "case_days": 0.001,
         "table_days": 0,
         "gate_days": 0.04
       }
@@ -3884,23 +4033,29 @@
       "domain": "integration",
       "depends_on": [
         "WP-048",
-        "WP-056"
+        "WP-056",
+        "WP-094",
+        "WP-095",
+        "WP-096"
       ],
-      "estimate_engineer_days": 14.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-057; linked details on demand.",
         "WP-048 reviewed producer/interface milestone",
-        "WP-056 reviewed producer/interface milestone"
+        "WP-056 reviewed producer/interface milestone",
+        "WP-094 reviewed producer/interface milestone",
+        "WP-095 reviewed producer/interface milestone",
+        "WP-096 reviewed producer/interface milestone"
       ],
       "outputs": [
         "every preserved feature accepted with UI/Evry/file evidence",
         "Full 496-source capability preservation plus DOC-016, PI-043 and PI-044 gates; future acceptance requirements are not executed tests.",
-        "All current feature/acceptance/fixture gates and real file/browser/model/protocol evidence; measured coherent ordinary 1h RPO/4h RTO and honest asynchronous purge/copy expiry."
+        "All current feature/acceptance/fixture gates and real file/browser/model/protocol evidence; measured coherent ordinary 1h RPO/4h RTO and honest asynchronous purge/copy expiry.",
+        "Aggregate the scoped domain integration packages and reproduce the complete target case/gate evidence; no deferred portions or report-only acceptance."
       ],
       "owning_paths": [
-        "apps/web/src/server/integration/",
-        "tests/integration/integration/",
-        "tests/e2e/"
+        "apps/web/src/server/integration/wp-057/",
+        "tests/integration/target/wp-057/"
       ],
       "interfaces": [
         "every preserved feature accepted with UI/Evry/file evidence",
@@ -3919,7 +4074,7 @@
         "docs/product/evry.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Full target browser/file/capability parity gate. Prove only the owned producer or adapter portion; later integration closes the whole target.",
+      "goal": "Reproduce and aggregate all target obligations after the scoped domain integration producers; no deferred portions.",
       "context_scope": {
         "features": "all",
         "requirements": "owned_and_features",
@@ -3932,7 +4087,7 @@
         "base_days": 1,
         "requirement_days": 0.002,
         "operation_days": 0.001,
-        "case_days": 0.01,
+        "case_days": 0.001,
         "table_days": 0,
         "gate_days": 0.04
       }
@@ -3946,7 +4101,7 @@
         "WP-057",
         "WP-033"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-058; linked details on demand.",
         "WP-057 reviewed producer/interface milestone",
@@ -4011,7 +4166,7 @@
         "WP-013",
         "WP-023"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-059; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4111,7 +4266,7 @@
         "WP-013",
         "WP-023"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-060; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4205,7 +4360,7 @@
         "WP-014",
         "WP-015"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-061; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4281,7 +4436,7 @@
         "WP-014",
         "WP-015"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-062; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4364,7 +4519,7 @@
         "WP-014",
         "WP-015"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-063; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4546,7 +4701,7 @@
         "WP-022",
         "WP-023"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-065; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4632,7 +4787,7 @@
         "WP-022",
         "WP-023"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-066; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4750,7 +4905,7 @@
         "WP-025",
         "WP-026"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-067; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -4838,7 +4993,7 @@
         "WP-025",
         "WP-026"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-068; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -4942,7 +5097,7 @@
         "WP-018",
         "WP-019"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-069; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5032,7 +5187,7 @@
         "WP-018",
         "WP-019"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-070; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5136,7 +5291,7 @@
         "WP-028",
         "WP-029"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-071; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5236,7 +5391,7 @@
         "WP-028",
         "WP-029"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-072; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5317,7 +5472,7 @@
         "WP-043",
         "WP-044"
       ],
-      "estimate_engineer_days": 5.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-073; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5406,7 +5561,7 @@
         "WP-043",
         "WP-044"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-074; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5432,7 +5587,7 @@
       "interfaces": [
         "typed intelligence proposed operations, approval cards, executor adapters and effect receipts",
         "Exactly reviewed organizationIntelligence.requestRefresh adapter with effect receipt; no invented autonomous rubric editing or durable writes.",
-        "organizationIntelligence.submitFeedback; module alias intelligence.submitOrganizationFeedback frozenC0"
+        "Consume organizationIntelligence.submitFeedback under the reviewed organization scope and exact-effect approval contract."
       ],
       "acceptance_gates": [
         "each actual effect uses shared domain op",
@@ -5559,7 +5714,7 @@
         "WP-045",
         "WP-046"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-076; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5638,7 +5793,7 @@
         "WP-034",
         "WP-035"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-077; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5714,7 +5869,7 @@
         "WP-034",
         "WP-035"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-078; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5786,7 +5941,7 @@
         "WP-036",
         "WP-037"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-079; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -5861,7 +6016,7 @@
         "WP-036",
         "WP-037"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 1.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-080; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -5998,7 +6153,7 @@
         "WP-030",
         "WP-031"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-082; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -6070,7 +6225,7 @@
         "WP-049",
         "WP-050"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-083; linked details on demand.",
         "WP-052 reviewed producer/interface milestone",
@@ -6144,7 +6299,7 @@
         "WP-049",
         "WP-050"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-084; linked details on demand.",
         "WP-053 reviewed producer/interface milestone",
@@ -6319,21 +6474,21 @@
       ],
       "outputs": [
         "Repository root scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
-        "Working per-task local app stack command in evf.config.json, with isolated dependencies, start/stop and preview instructions so each task agent can run and try the app.",
+        "Working isolated per-task local app stack and assertion/report scripts with start/stop and preview instructions; a reviewed OPS task wires stack/checks into evf.config.json after this producer ships.",
         "Minimal CI for lint/types and the small regression suite; retain existing verification and cross-model review."
       ],
       "owning_paths": [
-        "./",
+        "scripts/",
         ".github/workflows/",
         "tests/workflow/"
       ],
       "interfaces": [
         "Repository root scaffold, workspace package/dependency scripts, root TypeScript configuration and selected minimal test runner.",
-        "Working per-task local app stack command in evf.config.json, with isolated dependencies, start/stop and preview instructions so each task agent can run and try the app.",
+        "Working isolated per-task local app stack and assertion/report scripts with start/stop and preview instructions; a reviewed OPS task wires stack/checks into evf.config.json after this producer ships.",
         "Minimal CI for lint/types and the small regression suite; retain existing verification and cross-model review."
       ],
       "acceptance_gates": [
-        "A fresh local checkout installs and runs the app through the configured per-task stack command.",
+        "A fresh local checkout installs and runs the delivered local stack script without changing evf.config.json.",
         "Two isolated task stacks can start and stop independently; safe local preview is usable by an agent.",
         "Root scripts and minimal CI run the selected local checks; no provider setup, spending or remote approval is inferred."
       ],
@@ -6367,53 +6522,49 @@
       },
       "root_outputs": [
         "package.json",
-        "workspace dependency lock/config",
-        "tsconfig.json",
-        "test runner config",
-        "evf.config.json"
+        "tsconfig.json"
       ],
-      "integration_rule": "Bootstrap runs before all feature work. Root ownership is limited to named scaffold outputs and reviewed workflow configuration; preserve existing source/docs/reference bytes. If a runnable shell requires UI, its presentation part belongs to ui-designer on Opus 5.5.",
+      "integration_rule": "Bootstrap supplies scripts and minimal scaffold before feature work; only the reviewed OPS wiring task changes evf.config.json. Preserve existing source/docs/reference bytes.",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5"
     },
     {
       "id": "WP-088",
-      "title": "Prototype design system and application shell",
-      "goal": "Prototype design system and application shell.",
+      "title": "Design foundations and AppShell",
+      "goal": "Deliver prototype tokens, fonts, icons and AppShell before shared components.",
       "lane": "ui",
       "domain": "design-system",
       "depends_on": [
-        "WP-087",
-        "WP-002"
+        "WP-087"
       ],
-      "estimate_engineer_days": 9.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-088; linked details on demand.",
-        "WP-087 reviewed producer/interface milestone",
-        "WP-002 reviewed producer/interface milestone"
+        "WP-087 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "Shared prototype tokens, selected fonts, Hugeicons and AppShell.",
-        "Reusable components listed in design/handoff/components.md with the prototype look, interaction states and accessible keyboard behavior.",
-        "Component previews and exports for feature screens and the dashboard; feature logic remains with its domain producers."
+        "Prototype light/dark tokens, fonts and Hugeicons, plus AppShell, top bar, top navigation and rail.",
+        "Foundation and shell previews cover focus, narrow screens and role-dependent navigation."
       ],
       "owning_paths": [
-        "packages/ui/",
-        "tests/ui/"
+        "packages/ui/src/foundations/",
+        "packages/ui/src/shell/",
+        "tests/ui/foundations/",
+        "tests/ui/shell/"
       ],
       "interfaces": [
-        "Shared prototype tokens, selected fonts, Hugeicons and AppShell.",
-        "Reusable components listed in design/handoff/components.md with the prototype look, interaction states and accessible keyboard behavior.",
-        "Component previews and exports for feature screens and the dashboard; feature logic remains with its domain producers."
+        "Prototype light/dark tokens, fonts and Hugeicons, plus AppShell, top bar, top navigation and rail.",
+        "Foundation and shell previews cover focus, narrow screens and role-dependent navigation."
       ],
       "acceptance_gates": [
-        "Render and inspect every handoff component and AppShell against design/everyfield-ui.html.",
-        "Keyboard, focus, loading, empty/error, role-dependent and narrow-screen states work in the component preview.",
-        "Feature owners can compose their screens from the shared exports without copying a second token/component system."
+        "Inspect foundations and the shell against the matching prototype views.",
+        "Tokens, fonts, icons and shell exports compose without a second foundation system.",
+        "Keyboard/focus/theme/role and narrow-screen shell behavior works in the preview."
       ],
       "spec_paths": [
+        "design/handoff/foundations.md",
         "design/handoff/components.md",
-        "design/handoff/README.md",
+        "design/handoff/screens.md",
         "design/everyfield-ui.html"
       ],
       "specialist": "ui-designer",
@@ -6432,7 +6583,7 @@
         "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
       },
       "estimate_factors": {
-        "base_days": 8.4,
+        "base_days": 2,
         "requirement_days": 0,
         "operation_days": 0,
         "case_days": 0,
@@ -6443,10 +6594,561 @@
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
-      "estimate_basis": "106 handoff inventory rows plus shared foundations, fonts/icons, shell and browser state review; base allowance uses 0.06 engineer-days per row plus 2 days foundations."
+      "estimate_basis": "Foundations, fonts/icons and the first three Layout inventory rows; component rows are split into WP-089 and WP-090."
+    },
+    {
+      "id": "WP-089",
+      "title": "Shared controls, surfaces and overlays",
+      "goal": "Build the Layout except shell/top bar/top navigation/rail, Surfaces, Actions, Inputs, Overlays, Feedback inventory groups for feature composition.",
+      "lane": "ui",
+      "domain": "design-system",
+      "depends_on": [
+        "WP-088"
+      ],
+      "estimate_engineer_days": 4.0,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-089; linked details on demand.",
+        "WP-088 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Shared components for inventory groups: Layout except shell/top bar/top navigation/rail, Surfaces, Actions, Inputs, Overlays, Feedback.",
+        "Accessible interaction and loading/error/empty variants match the prototype; feature behavior stays with the domain owner."
+      ],
+      "owning_paths": [
+        "packages/ui/src/controls/",
+        "tests/ui/controls/"
+      ],
+      "interfaces": [
+        "Shared components for inventory groups: Layout except shell/top bar/top navigation/rail, Surfaces, Actions, Inputs, Overlays, Feedback.",
+        "Accessible interaction and loading/error/empty variants match the prototype; feature behavior stays with the domain owner."
+      ],
+      "acceptance_gates": [
+        "Render every assigned inventory row and state against the matching prototype view.",
+        "Keyboard, focus, loading, error, empty and narrow-screen states work.",
+        "Feature packages consume these shared exports instead of copying a second component system."
+      ],
+      "spec_paths": [
+        "design/handoff/foundations.md",
+        "design/handoff/components.md",
+        "design/handoff/screens.md",
+        "design/everyfield-ui.html"
+      ],
+      "specialist": "ui-designer",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "explicit",
+        "requirement_ids": [],
+        "cases": "explicit",
+        "case_ids": [],
+        "operations": "explicit",
+        "operation_ids": [],
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "produced",
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+      },
+      "estimate_factors": {
+        "base_days": 2.8,
+        "requirement_days": 0,
+        "operation_days": 0,
+        "case_days": 0,
+        "table_days": 0,
+        "gate_days": 0.3
+      },
+      "model": "Opus 5.5",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
+      "estimate_basis": "Assigned inventory rows, scoped state previews and review; no runtime throughput claim."
+    },
+    {
+      "id": "WP-090",
+      "title": "Shared data, content and domain display components",
+      "goal": "Build the Data, Charts, Content, Domain, Evry, Email inventory groups for feature composition.",
+      "lane": "ui",
+      "domain": "design-system",
+      "depends_on": [
+        "WP-088",
+        "WP-089"
+      ],
+      "estimate_engineer_days": 4.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-090; linked details on demand.",
+        "WP-088 reviewed producer/interface milestone",
+        "WP-089 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Shared components for inventory groups: Data, Charts, Content, Domain, Evry, Email.",
+        "Accessible interaction and loading/error/empty variants match the prototype; feature behavior stays with the domain owner."
+      ],
+      "owning_paths": [
+        "packages/ui/src/display/",
+        "tests/ui/display/"
+      ],
+      "interfaces": [
+        "Shared components for inventory groups: Data, Charts, Content, Domain, Evry, Email.",
+        "Accessible interaction and loading/error/empty variants match the prototype; feature behavior stays with the domain owner."
+      ],
+      "acceptance_gates": [
+        "Render every assigned inventory row and state against the matching prototype view.",
+        "Keyboard, focus, loading, error, empty and narrow-screen states work.",
+        "Feature packages consume these shared exports instead of copying a second component system."
+      ],
+      "spec_paths": [
+        "design/handoff/foundations.md",
+        "design/handoff/components.md",
+        "design/handoff/screens.md",
+        "design/everyfield-ui.html"
+      ],
+      "specialist": "ui-designer",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "explicit",
+        "requirement_ids": [],
+        "cases": "explicit",
+        "case_ids": [],
+        "operations": "explicit",
+        "operation_ids": [],
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "produced",
+        "proof_stage": "local workflow or shared UI producer; no whole-target acceptance"
+      },
+      "estimate_factors": {
+        "base_days": 3.4,
+        "requirement_days": 0,
+        "operation_days": 0,
+        "case_days": 0,
+        "table_days": 0,
+        "gate_days": 0.3
+      },
+      "model": "Opus 5.5",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
+      "estimate_basis": "Assigned inventory rows, scoped state previews and review; no runtime throughput claim."
+    },
+    {
+      "id": "WP-091",
+      "title": "Core SQL race/privacy/correction integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-015",
+        "WP-019",
+        "WP-023",
+        "WP-026",
+        "WP-029",
+        "WP-035",
+        "WP-037",
+        "WP-044",
+        "WP-046",
+        "WP-049",
+        "WP-050",
+        "WP-055"
+      ],
+      "estimate_engineer_days": 2.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-091; linked details on demand.",
+        "WP-015 reviewed producer/interface milestone",
+        "WP-019 reviewed producer/interface milestone",
+        "WP-023 reviewed producer/interface milestone",
+        "WP-026 reviewed producer/interface milestone",
+        "WP-029 reviewed producer/interface milestone",
+        "WP-035 reviewed producer/interface milestone",
+        "WP-037 reviewed producer/interface milestone",
+        "WP-044 reviewed producer/interface milestone",
+        "WP-046 reviewed producer/interface milestone",
+        "WP-049 reviewed producer/interface milestone",
+        "WP-050 reviewed producer/interface milestone",
+        "WP-055 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped core SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/sql/core/",
+        "tests/integration/target/sql/core/"
+      ],
+      "interfaces": [
+        "Scoped core SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "acceptance_gates": [
+        "Every owned core case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the core domain seam through real applicable layers; final whole-target closure remains WP-056.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
+    },
+    {
+      "id": "WP-092",
+      "title": "Knowledge SQL race/privacy/correction integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-015",
+        "WP-019",
+        "WP-023",
+        "WP-026",
+        "WP-029",
+        "WP-035",
+        "WP-037",
+        "WP-044",
+        "WP-046",
+        "WP-049",
+        "WP-050",
+        "WP-055"
+      ],
+      "estimate_engineer_days": 1.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-092; linked details on demand.",
+        "WP-015 reviewed producer/interface milestone",
+        "WP-019 reviewed producer/interface milestone",
+        "WP-023 reviewed producer/interface milestone",
+        "WP-026 reviewed producer/interface milestone",
+        "WP-029 reviewed producer/interface milestone",
+        "WP-035 reviewed producer/interface milestone",
+        "WP-037 reviewed producer/interface milestone",
+        "WP-044 reviewed producer/interface milestone",
+        "WP-046 reviewed producer/interface milestone",
+        "WP-049 reviewed producer/interface milestone",
+        "WP-050 reviewed producer/interface milestone",
+        "WP-055 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped knowledge SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/sql/knowledge/",
+        "tests/integration/target/sql/knowledge/"
+      ],
+      "interfaces": [
+        "Scoped knowledge SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "acceptance_gates": [
+        "Every owned knowledge case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the knowledge domain seam through real applicable layers; final whole-target closure remains WP-056.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
+    },
+    {
+      "id": "WP-093",
+      "title": "Intelligence SQL race/privacy/correction integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-015",
+        "WP-019",
+        "WP-023",
+        "WP-026",
+        "WP-029",
+        "WP-035",
+        "WP-037",
+        "WP-044",
+        "WP-046",
+        "WP-049",
+        "WP-050",
+        "WP-055"
+      ],
+      "estimate_engineer_days": 2.0,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-093; linked details on demand.",
+        "WP-015 reviewed producer/interface milestone",
+        "WP-019 reviewed producer/interface milestone",
+        "WP-023 reviewed producer/interface milestone",
+        "WP-026 reviewed producer/interface milestone",
+        "WP-029 reviewed producer/interface milestone",
+        "WP-035 reviewed producer/interface milestone",
+        "WP-037 reviewed producer/interface milestone",
+        "WP-044 reviewed producer/interface milestone",
+        "WP-046 reviewed producer/interface milestone",
+        "WP-049 reviewed producer/interface milestone",
+        "WP-050 reviewed producer/interface milestone",
+        "WP-055 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped intelligence SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/sql/intelligence/",
+        "tests/integration/target/sql/intelligence/"
+      ],
+      "interfaces": [
+        "Scoped intelligence SQL race/privacy/correction checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-056."
+      ],
+      "acceptance_gates": [
+        "Every owned intelligence case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the intelligence domain seam through real applicable layers; final whole-target closure remains WP-056.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [
+          "AC-PI-043--PI-043",
+          "AC-PI-044--PI-044"
+        ],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
+    },
+    {
+      "id": "WP-094",
+      "title": "Core browser/file/native-Evry parity integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-048",
+        "WP-056"
+      ],
+      "estimate_engineer_days": 1.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-094; linked details on demand.",
+        "WP-048 reviewed producer/interface milestone",
+        "WP-056 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped core browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/browser/core/",
+        "tests/integration/target/browser/core/",
+        "tests/e2e/target/core/"
+      ],
+      "interfaces": [
+        "Scoped core browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "acceptance_gates": [
+        "Every owned core case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the core domain seam through real applicable layers; final whole-target closure remains WP-057.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
+    },
+    {
+      "id": "WP-095",
+      "title": "Knowledge browser/file/native-Evry parity integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-048",
+        "WP-056"
+      ],
+      "estimate_engineer_days": 1.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-095; linked details on demand.",
+        "WP-048 reviewed producer/interface milestone",
+        "WP-056 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped knowledge browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/browser/knowledge/",
+        "tests/integration/target/browser/knowledge/",
+        "tests/e2e/target/knowledge/"
+      ],
+      "interfaces": [
+        "Scoped knowledge browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "acceptance_gates": [
+        "Every owned knowledge case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the knowledge domain seam through real applicable layers; final whole-target closure remains WP-057.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
+    },
+    {
+      "id": "WP-096",
+      "title": "Intelligence browser/file/native-Evry parity integration",
+      "lane": "integration",
+      "domain": "integration",
+      "depends_on": [
+        "WP-048",
+        "WP-056"
+      ],
+      "estimate_engineer_days": 1.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-096; linked details on demand.",
+        "WP-048 reviewed producer/interface milestone",
+        "WP-056 reviewed producer/interface milestone"
+      ],
+      "outputs": [
+        "Scoped intelligence browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/browser/intelligence/",
+        "tests/integration/target/browser/intelligence/",
+        "tests/e2e/target/intelligence/"
+      ],
+      "interfaces": [
+        "Scoped intelligence browser/file/native-Evry parity checks, including denied actors, current authority, corrections and replay.",
+        "Review exact native/domain/assistant results from the delivered producers; keep full-target aggregation in WP-057."
+      ],
+      "acceptance_gates": [
+        "Every owned intelligence case passes at its applicable real layers, including stated denials and failures.",
+        "Current state, history, receipts, audit and required intents agree without privacy leaks.",
+        "Evidence and exact case coverage are available to the final whole-target gate."
+      ],
+      "spec_paths": [
+        "docs/product/scope.md",
+        "docs/product/evry.md"
+      ],
+      "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
+      "goal": "Prove the intelligence domain seam through real applicable layers; final whole-target closure remains WP-057.",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "owned",
+        "operations": "owned",
+        "cases": "owned",
+        "acceptance": "explicit",
+        "acceptance_ids": [
+          "AC-PI-043--PI-043",
+          "AC-PI-044--PI-044"
+        ],
+        "schema": "none",
+        "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.002,
+        "operation_days": 0,
+        "case_days": 0.015,
+        "table_days": 0,
+        "gate_days": 0.04
+      }
     }
   ],
-  "edge_count": 337,
+  "edge_count": 479,
   "topological_merge_order": [
     "WP-087",
     "WP-001",
@@ -6455,6 +7157,8 @@
     "WP-004",
     "WP-031",
     "WP-088",
+    "WP-089",
+    "WP-090",
     "WP-005",
     "WP-006",
     "WP-007",
@@ -6532,7 +7236,13 @@
     "WP-084",
     "WP-085",
     "WP-055",
+    "WP-091",
+    "WP-092",
+    "WP-093",
     "WP-056",
+    "WP-094",
+    "WP-095",
+    "WP-096",
     "WP-057",
     "WP-058"
   ],
@@ -6559,12 +7269,14 @@
     "WP-073",
     "WP-074",
     "WP-055",
+    "WP-091",
     "WP-056",
+    "WP-094",
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 107.5,
-  "total_engineer_days": 287.5,
+  "critical_path_unconstrained_days": 71.0,
+  "total_engineer_days": 234.5,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -6608,7 +7320,9 @@
         "WP-032",
         "WP-050",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "cumulative_packages": [
         "WP-001",
@@ -6626,7 +7340,9 @@
         "WP-032",
         "WP-050",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "dependency_closed": true,
       "meaning": "Fresh foundation and identity/reference skeleton"
@@ -6683,7 +7399,9 @@
         "WP-059",
         "WP-060",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "dependency_closed": true,
       "meaning": "People/meeting/task native and reviewed Evry vertical slice"
@@ -6748,7 +7466,9 @@
         "WP-059",
         "WP-060",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "dependency_closed": true,
       "meaning": "Teams/training/communication/Wiki/documents"
@@ -6827,7 +7547,9 @@
         "WP-059",
         "WP-060",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "dependency_closed": true,
       "meaning": "Full phases/Plant and Network Intelligence/Launch/operations"
@@ -6947,7 +7669,9 @@
         "WP-084",
         "WP-085",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090"
       ],
       "dependency_closed": true,
       "meaning": "All assistant adapters and whole-target integration"
@@ -6957,7 +7681,13 @@
       "required_packages": [
         "WP-056",
         "WP-057",
-        "WP-058"
+        "WP-058",
+        "WP-091",
+        "WP-092",
+        "WP-093",
+        "WP-094",
+        "WP-095",
+        "WP-096"
       ],
       "cumulative_packages": [
         "WP-001",
@@ -7046,18 +7776,26 @@
         "WP-084",
         "WP-085",
         "WP-087",
-        "WP-088"
+        "WP-088",
+        "WP-089",
+        "WP-090",
+        "WP-091",
+        "WP-092",
+        "WP-093",
+        "WP-094",
+        "WP-095",
+        "WP-096"
       ],
       "dependency_closed": true,
       "meaning": "Full target release rehearsal"
     }
   ],
   "dependency_amendment": {
-    "reason": "All adapter producers precede consumers; workflow bootstrap and shared UI precede feature work.",
+    "reason": "Catalog owners precede operation consumers; design prerequisites apply only to presentation tasks; scoped integration producers precede whole-target gates.",
     "retired": [
       "WP-086"
     ],
-    "ownership_source": "docs/plan/adapter-ownership.json"
+    "ownership_source": "docs/catalog/index.json"
   },
   "release_gate_source": "docs/plan/release-gates.json",
   "context_source": "docs/plan/context-manifest.json",
@@ -7069,8 +7807,42 @@
     }
   ],
   "build_plan_notes": {
-    "foundation": "WP-087 supplies root scaffold, workspace scripts, TypeScript/test setup, minimal CI and the configured per-task local stack before WP-001. It does not grant remote/provider/spending authority. WP-088 builds packages/ui tokens, fonts, Hugeicons, AppShell and every component in design/handoff/components.md against the prototype. Feature UI and WP-048 compose these components; the dashboard preserves the prototype look. UI work belongs to ui-designer on Opus 5.5.",
+    "foundation": "WP-087 delivers local stack/assertion scripts and minimal scaffold/CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5.",
     "milestones": "C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.",
-    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope."
-  }
+    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the 100-table baseline; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
+  },
+  "package_splits": [
+    {
+      "source": "WP-088",
+      "packages": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "seam": "Foundations and first three Layout rows; controls/surfaces/overlays; data/content/domain display. Inventory groups are exhaustive, with shell rows excluded from WP-089.",
+      "closure": "Feature UI consumes all three; contracts and APIs have no design prerequisite."
+    },
+    {
+      "source": "WP-056",
+      "packages": [
+        "WP-091",
+        "WP-092",
+        "WP-093",
+        "WP-056"
+      ],
+      "seam": "Core identity/people/meetings/tasks/teams/Evry/operations; knowledge/communication/reference; phases/intelligence/Launch. Multi-family records go to intelligence first, then knowledge, then core.",
+      "closure": "WP-056 reproduces all whole-target SQL/race/privacy gates after the three scoped producers; no deferrals."
+    },
+    {
+      "source": "WP-057",
+      "packages": [
+        "WP-094",
+        "WP-095",
+        "WP-096",
+        "WP-057"
+      ],
+      "seam": "The same domain partition for browser/file/native-Evry parity, after WP-056.",
+      "closure": "WP-057 remains the final complete target gate after the scoped browser producers; no deferrals."
+    }
+  ]
 }

@@ -192,10 +192,10 @@ These features have a route in the catalog because their results show on a scree
 
 These exist only in the prototype and are not app routes.
 
-| Prototype route | Content |
-|---|---|
-| `#/foundations` | tokens, color, gradients, type, shape, content width |
-| `#/components` | every component and its states, the Evry character |
-| `#/inventory` | the component table that [components.md](components.md) is generated from |
-| `#/mobile` | the phone screens above |
-| `#/emails` | the emails above |
+| Prototype route | Content | Work packages |
+|---|---|---|
+| `#/foundations` | tokens, color, gradients, type, shape, content width | WP-088 |
+| `#/components` | shell, shared controls and displays, their states, the Evry character | WP-088, WP-089, WP-090 |
+| `#/inventory` | the component table that [components.md](components.md) is generated from | WP-088, WP-089, WP-090 |
+| `#/mobile` | the phone screens above | the named feature UI owners above, using WP-089 and WP-090 |
+| `#/emails` | the emails above | the named email producers above, using WP-090 |

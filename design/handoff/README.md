@@ -64,7 +64,7 @@ The prototype adds keyboard access to clickable cards and rows with a script. Th
 
 ## Who builds the design system
 
-WP-088 (prototype design system and application shell) builds `packages/ui`: `tokens.css`, the two fonts through `next/font`, Hugeicons, `AppShell` and every component in [components.md](components.md). Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088; its contract and API parts do not.
+WP-088 builds the shared tokens, fonts, Hugeicons and AppShell. WP-089 builds controls, surfaces and overlays; WP-090 builds data, content and domain display components from [components.md](components.md). These packages own separate directories within `packages/ui`. Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088, WP-089 and WP-090; its contract and API parts do not.
 
 ## Not designed yet
 

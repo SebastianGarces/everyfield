@@ -54,7 +54,7 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
+        "WP-092"
       ],
       "stage": "before-customer-data"
     },
@@ -81,7 +81,7 @@
         "WP-003",
         "WP-050",
         "WP-049",
-        "WP-057"
+        "WP-095"
       ],
       "stage": "before-customer-data"
     },
@@ -110,8 +110,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -141,7 +141,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-005",
         "WP-006",
@@ -208,7 +207,7 @@
         "WP-031",
         "WP-035",
         "WP-047",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -252,7 +251,7 @@
         "WP-036",
         "WP-037",
         "WP-039",
-        "WP-056"
+        "WP-093"
       ]
     },
     {
@@ -294,7 +293,7 @@
         "WP-037",
         "WP-039",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ]
     },
     {
@@ -324,7 +323,7 @@
         "WP-029",
         "WP-031",
         "WP-037",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -341,7 +340,7 @@
         "PI-040",
         "PI-041"
       ],
-      "text": "At deadline transition pending→purging and purge eligible live DB/private object content with resumable scope/request fencing. livePurgedAt is recorded only after coherent eligible DB+file purge; failures remain hidden and retryable, not falsely complete. Existing shared-history references remain valid with minimal scrubbed attribution.",
+      "text": "At deadline transition pending\u2192purging and purge eligible live DB/private object content with resumable scope/request fencing. livePurgedAt is recorded only after coherent eligible DB+file purge; failures remain hidden and retryable, not falsely complete. Existing shared-history references remain valid with minimal scrubbed attribution.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [
         "documents.purgeOwnedForDeletion"
@@ -370,7 +369,7 @@
         "WP-037",
         "WP-039",
         "WP-050",
-        "WP-056"
+        "WP-093"
       ],
       "operation_refs": [
         {
@@ -411,8 +410,8 @@
         "WP-010",
         "WP-037",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -441,7 +440,7 @@
         "WP-010",
         "WP-049",
         "WP-050",
-        "WP-057"
+        "WP-094"
       ]
     },
     {
@@ -525,7 +524,7 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
+        "WP-092"
       ]
     },
     {
@@ -551,8 +550,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -581,7 +580,7 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-057",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -620,8 +619,8 @@
         "WP-037",
         "WP-049",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ]
     },
@@ -634,7 +633,7 @@
         "NTF-002",
         "OPS-007"
       ],
-      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/claim generation. Deletion request immediately revokes affected normal access and holds privately 30 days solely for restricted native cancellation. DB clock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry≤livePurgedAt+7 days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
+      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/claim generation. Deletion request immediately revokes affected normal access and holds privately 30 days solely for restricted native cancellation. DB clock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry\u2264livePurgedAt+7 days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [
         "maintenance.purgeEligibleSubject",
@@ -693,7 +692,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Verify Neon 7 day PITR+daily expiring snapshots and Tigris 7 day deleted objects. Separate private Tigris backup bucket has dedicated scope and recoverable encryption keys absent ordinary app/build/preview. Same artifact operator-only CLI in a positively identified future restricted scheduled context creates verified dated daily DB+exact-byte/checksum manifests and current witness journal. Ordinary live-provider RPO 1h/RTO 4h is measured; surviving fresh daily fallback≤24h only, shared-provider risk/no disaster RTO/SLA.",
+      "text": "Verify Neon 7 day PITR+daily expiring snapshots and Tigris 7 day deleted objects. Separate private Tigris backup bucket has dedicated scope and recoverable encryption keys absent ordinary app/build/preview. Same artifact operator-only CLI in a positively identified future restricted scheduled context creates verified dated daily DB+exact-byte/checksum manifests and current witness journal. Ordinary live-provider RPO 1h/RTO 4h is measured; surviving fresh daily fallback\u226424h only, shared-provider risk/no disaster RTO/SLA.",
       "spec": "docs/architecture/recovery.md#restricted-backup-context",
       "operations": [
         "maintenance.restoreWithCurrentManifest",

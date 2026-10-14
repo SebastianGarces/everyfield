@@ -206,7 +206,7 @@ test('INV-workflow-routing: Next server paths stay with implementor and presenta
  assert.ok(buildBlocks(source,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
  const design=loadDag(source).packages.find(p=>p.id==='WP-088')!;
  const planned=buildBlocks(source,[design]).blocks;
- assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/','tests/ui/']}]);
+ assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/src/foundations/','packages/ui/src/shell/','tests/ui/foundations/','tests/ui/shell/']}]);
  assert.equal(draftProofPlan(source,parseTask('WP-088')).ownedPortion,'native');
  assert.equal(draftProofPlan(source,parseTask('WP-088')).requiresStack,true);
 });
@@ -326,6 +326,16 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
  assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
  assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
  assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
+ const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
+ const parts=buildBlocks(source,selected).blocks;
+ assert.deepEqual(parts.filter(b=>b.wp==='WP-005').map(b=>[b.part,b.dependsOn]),[
+  ['contract',[]],['api',['wp-005-contract']],['ui',['wp-088','wp-089','wp-090','wp-005-contract']]]);
+ const ui=renderBrief(source,parseTask('WP-005/ui'),{});
+ assert.match(ui,/Design prototype: design\/everyfield-ui\.html/);
+ assert.match(ui,/Screen map: design\/handoff\/screens\.md/);
+ assert.match(ui,/screens\.md#L\d+: Sign in, with an invitation notice/);
+ assert.match(renderBrief(source,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
+
 });
 
 test('INV-proof-draft: drafts account for each selected case and gate without installing authority',()=>{
@@ -391,7 +401,7 @@ test('INV-progress-milestones: ship and acknowledgement write once, preserve pro
   f.cfg.verification.proofPlans[integration.id]={...draft,requiresStack:false,packageClosures:[closure]};
   f.cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e',`require('node:fs').writeFileSync(process.env.EVF_TEST_REPORT,JSON.stringify({tests:[{name:${JSON.stringify(draft.cases.map(c=>'AC:'+c.id).join(' '))},status:'passed'}]}))`]}];
   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();f.git('push','-q','origin','main');const integratedWt=f.task(integration.slug);
-  const integratedOutput=join(integratedWt,'tests/e2e/fixture.txt');mkdirSync(join(integratedWt,'tests/e2e'),{recursive:true});writeFileSync(integratedOutput,'Reviewed complete integration');importGit(integratedWt,'add','tests/e2e/fixture.txt');importGit(integratedWt,'commit','-qm','Integration output');
+  const integratedOutput=join(integratedWt,'tests/integration/target/wp-057/fixture.txt');mkdirSync(join(integratedWt,'tests/integration/target/wp-057'),{recursive:true});writeFileSync(integratedOutput,'Reviewed complete integration');importGit(integratedWt,'add','tests/integration/target/wp-057/fixture.txt');importGit(integratedWt,'commit','-qm','Integration output');
   const integrationState=f.getState();integrationState.mergeBranch=integration.branch;f.setState(integrationState);
   verify(f.root,integration,'author','full');verify(f.root,integration,'verifier','full');assert.equal(ship(f.root,integration,{maxUpdates:0}),0);
   assert.equal(loadProgress(f.root)['WP-001'].status,'in_progress');listShipped(f.root,[integration.id]);assert.equal(loadProgress(f.root)['WP-001'].status,'done');
@@ -409,6 +419,7 @@ test('INV-maintenance: OPS uses tooling-only proof without global app gates or s
   f.cfg.maintenanceTasks[task.id].owningPaths=['tools/evf/','evf.config.json'];
   const gatePath=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(gatePath,'utf8'));gates.gates.find((g:any)=>g.id==='G-AUTH').status='not-authorized';writeFileSync(gatePath,JSON.stringify(gates));
   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+  assert.match(renderBrief(f.root,task,{}),/The reviewed maintenance proof plan is installed/);
   taskStart(f.root,task,{allowUnready:false,noStack:false});
   const wt=join(f.root,'.worktrees',task.slug),marker=join(f.root,'fake-bin/unreviewed-check');
   mkdirSync(join(wt,'tools/evf'),{recursive:true});writeFileSync(join(wt,'tools/evf/upkeep.txt'),'Reviewed tooling change');
@@ -463,10 +474,10 @@ test('INV-bootstrap-readiness: missing owner setup lists each prerequisite witho
    'owner kickoff approval in G-AUTH','owner workflow approval in G-WORKFLOW','repository remote origin',
    'trusted signed runner command with {request}; owner reviews its identity and review adapter',
    'reviewed Ed25519 public key; private key stays outside agent worktrees',
+   'owner-reviewed bootstrap application qualification and assertion/report driver',
    'reviewed WP-087 producer proof plan','reviewed WP-001 proof plan',
    'reviewed OPS task and maintenance proof plan for stack/checks configuration wiring',
-   'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087',
-   'owner-reviewed bootstrap application qualification and assertion/report driver']);
+   'acknowledged WP-087 stack and test scripts milestone','stack up/status commands wired after WP-087']);
   f.authorize();assert.equal(bootstrapReadiness(f.root)[0][0],true);assert.equal(bootstrapReadiness(f.root)[1][0],true);
  }finally{f.close();}
 });

@@ -1413,7 +1413,7 @@
         "WP-017",
         "WP-018",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -1731,7 +1731,7 @@
         "WP-017",
         "WP-018",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2053,7 +2053,7 @@
         "WP-017",
         "WP-018",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2373,7 +2373,7 @@
         "WP-017",
         "WP-018",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -2707,7 +2707,7 @@
         "WP-004",
         "WP-019",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3023,7 +3023,7 @@
         "WP-004",
         "WP-019",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3343,7 +3343,7 @@
         "WP-004",
         "WP-019",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3661,7 +3661,7 @@
         "WP-004",
         "WP-019",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -3998,7 +3998,6 @@
         "AC-TEAM-008--TEAM-008"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-019",
         "WP-053",
@@ -4209,7 +4208,7 @@
         "WP-004",
         "WP-019",
         "WP-040",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Add/remove/correct assignment episode, revoke/redo completion, stale bulk preview, fail mid-roster transaction and repeat.",
@@ -4439,7 +4438,6 @@
         "AC-PI-014--PI-014"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-039",
         "WP-040",
@@ -5880,7 +5878,7 @@
         "WP-019"
       ],
       "status": "future-not-run",
-      "description": "Complete→revoke→redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
+      "description": "Complete\u2192revoke\u2192redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6483,11 +6481,10 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-002",
         "WP-017"
       ],
       "status": "future-not-run",
-      "description": "Request children’s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
+      "description": "Request children\u2019s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6725,7 +6722,6 @@
         "AC-TEAM-011--TEAM-011"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-019",
         "WP-040",

@@ -394,7 +394,7 @@
       "feature_ids": [
         "TSK-007"
       ],
-      "text": "Daily/weekly/biweekly/monthly/quarterly/yearly rules retain interval and inclusive end LocalDate, series ID/source version and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completion+successor+all reset checklist items/history/reminder intent commit atomically, with unique one open series and predecessor→successor identity as arbiters. Retry converges; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
+      "text": "Daily/weekly/biweekly/monthly/quarterly/yearly rules retain interval and inclusive end LocalDate, series ID/source version and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completion+successor+all reset checklist items/history/reminder intent commit atomically, with unique one open series and predecessor\u2192successor identity as arbiters. Retry converges; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
       "spec": "docs/product/tasks.md#req-tsk-007",
       "operations": [
         "tasks.configureRecurrence",
@@ -698,7 +698,7 @@
       "feature_ids": [
         "TSK-013"
       ],
-      "text": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded≤100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
+      "text": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded\u2264100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
       "spec": "docs/product/tasks.md#req-tsk-013",
       "operations": [
         "tasks.planHandoff",
@@ -787,7 +787,7 @@
       "feature_ids": [
         "TSK-016"
       ],
-      "text": "Create/edit/template paths normalize bounded≤50000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
+      "text": "Create/edit/template paths normalize bounded\u226450000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
       "spec": "docs/product/tasks.md#req-tsk-016",
       "operations": [
         "tasks.normalizeDescription",
@@ -824,7 +824,7 @@
         "TSK-014",
         "TSK-015"
       ],
-      "text": "WP-024 owns a transaction-bound API accepting the caller's database connection: ensure immutable obligation key, ensure managed task, update current task/obligation state, append status history, audit/operation receipt and required reminder intent. It supplies uniqueness `(tenant, originKind, originMeeting, Person, obligationKind)`, protected source identity, one active managed task per obligation, current revision and explicit unowned state. Meeting evaluation tasks use separate meeting/kind identity and do not require Person. A no_longer_needed obligation persists even if its task is edited/soft-deleted and forbids regeneration; current source correction may mark applicability superseded with history. No outcome reporting, generic work flow interpreter, independent task transaction or provider call is required in this kernel. WP-022 invokes it in the same finalization UoW; direct dependency WP-024→WP-022 is mandatory. WP-023 owns later typed outcomes/contact/eligible ownership/handoff. Kernel closure proves physical constraints/replay/fault rollback with actual WP-022 consumer at that consumer's closure, not only a stub or final regression.",
+      "text": "WP-024 owns a transaction-bound API accepting the caller's database connection: ensure immutable obligation key, ensure managed task, update current task/obligation state, append status history, audit/operation receipt and required reminder intent. It supplies uniqueness `(tenant, originKind, originMeeting, Person, obligationKind)`, protected source identity, one active managed task per obligation, current revision and explicit unowned state. Meeting evaluation tasks use separate meeting/kind identity and do not require Person. A no_longer_needed obligation persists even if its task is edited/soft-deleted and forbids regeneration; current source correction may mark applicability superseded with history. No outcome reporting, generic work flow interpreter, independent task transaction or provider call is required in this kernel. WP-022 invokes it in the same finalization UoW; direct dependency WP-024\u2192WP-022 is mandatory. WP-023 owns later typed outcomes/contact/eligible ownership/handoff. Kernel closure proves physical constraints/replay/fault rollback with actual WP-022 consumer at that consumer's closure, not only a stub or final regression.",
       "spec": "docs/product/tasks.md#req-tsk-017",
       "operations": [
         "tasks.ensureObligation",

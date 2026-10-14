@@ -387,8 +387,8 @@ def audit(base, report):
         assert op['feature_ids'] == expected_features, 'Changed feature mapping for ' + op['id']
         for key in ['case_ids', 'kind']:
             assert op[key] == original[key], 'Changed ' + key + ' for ' + op['id']
-        assert op['owning_package'] == original['ownership']['producer_work_package'], 'Changed producer'
-        assert op['evry_packages'] == original['ownership']['evry_work_packages'], 'Changed adapter scope'
+        # Current catalog owns package routing; --check-plan proves owner parity and producer order.
+        # Historical package assignments are not a second ownership authority.
         assert op['model_tool'] == bool(original['model_tool']), 'Changed model availability'
         assert op['evry'] == ('evry' in original['entry_points']), 'Changed Evry availability'
         assert op['durable_write'] == (original['kind'] == 'command'), 'Changed durable-write classification'

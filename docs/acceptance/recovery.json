@@ -117,7 +117,7 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
+        "WP-092"
       ],
       "status": "future-not-run",
       "description": "Dated encrypted full candidate/checksums, key escrow, subject expiry and old copy recopy.",
@@ -204,7 +204,7 @@
         "WP-003",
         "WP-050",
         "WP-049",
-        "WP-057"
+        "WP-095"
       ],
       "status": "future-not-run",
       "description": "Shared provider/account outage loses primary+backup versus surviving 24 hour-fresh complete daily copy.",
@@ -291,8 +291,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -378,7 +378,6 @@
         "AC-IDN-026--IDN-026"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-005",
         "WP-006",
@@ -583,7 +582,7 @@
         "WP-031",
         "WP-035",
         "WP-047",
-        "WP-056"
+        "WP-092"
       ],
       "status": "future-not-run",
       "description": "Cancel at deadline-minus 1ms, exact deadline, purge lease and stale old request after new request.",
@@ -695,7 +694,7 @@
         "WP-036",
         "WP-037",
         "WP-039",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Accountcreator owns private doc and created plant-owned doc/generated file/shared history.",
@@ -797,7 +796,7 @@
         "WP-037",
         "WP-039",
         "WP-047",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native private care.",
@@ -901,7 +900,7 @@
         "WP-029",
         "WP-031",
         "WP-037",
-        "WP-056"
+        "WP-092"
       ],
       "status": "future-not-run",
       "description": "Pendingdeletion with unsent intent, accepted scheduled mail, sent mail and unexpired issued URL.",
@@ -1011,7 +1010,7 @@
         "WP-037",
         "WP-039",
         "WP-050",
-        "WP-056"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Deadline purge chunks DB/bytes; object-delete timeout halfway then retry same request.",
@@ -1100,8 +1099,8 @@
         "WP-010",
         "WP-037",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -1187,7 +1186,7 @@
         "WP-010",
         "WP-049",
         "WP-050",
-        "WP-057"
+        "WP-094"
       ],
       "status": "future-not-run",
       "description": "Privacycopy and own feedback status during hold/purge with actual external copy/provider limits.",
@@ -1467,7 +1466,7 @@
         "WP-004",
         "WP-037",
         "WP-050",
-        "WP-056"
+        "WP-092"
       ],
       "status": "future-not-run",
       "description": "Restore DB point with replaced/deleted/private ready files and failed pending upload candidate.",
@@ -1551,8 +1550,8 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -1641,7 +1640,7 @@
         "WP-003",
         "WP-004",
         "WP-050",
-        "WP-057",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",
@@ -1739,8 +1738,8 @@
         "WP-037",
         "WP-049",
         "WP-050",
-        "WP-056",
-        "WP-057",
+        "WP-092",
+        "WP-095",
         "WP-058"
       ],
       "status": "future-not-run",

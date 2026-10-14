@@ -2703,7 +2703,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-004",
         "WP-007",
         "WP-010",
@@ -2713,8 +2712,8 @@
         "WP-043",
         "WP-044",
         "WP-047",
-        "WP-056",
-        "WP-057",
+        "WP-093",
+        "WP-096",
         "WP-058",
         "WP-073",
         "WP-074"
@@ -6463,7 +6462,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Correction No→Yes 2, no-op repeat, stale revision, previous PI snapshot/advanced phase.",
+      "description": "Correction No\u2192Yes 2, no-op repeat, stale revision, previous PI snapshot/advanced phase.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7488,7 +7487,7 @@
         "WP-004",
         "WP-046",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -7804,7 +7803,7 @@
         "WP-004",
         "WP-046",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8124,7 +8123,7 @@
         "WP-004",
         "WP-046",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -8442,7 +8441,7 @@
         "WP-004",
         "WP-046",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",

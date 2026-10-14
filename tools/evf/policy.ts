@@ -1,16 +1,16 @@
 import { join } from 'node:path';
-import { baseRef, contractFingerprint, git, fail, findPackage, loadDag, loadConfig, readJson, type TaskRef } from './lib.ts';
+import { baseRef, contractFingerprint, git, gitOk, fail, findPackage, loadDag, loadConfig, readJson, prerequisitesForPart, type Part, type TaskRef } from './lib.ts';
 import { producerReady } from './progress.ts';
 
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
-export function requireImplementation(root:string,wp:string):void {
+export function requireImplementation(root:string,wp:string,part:Part=null):void {
  const gates=readJson<{gates:Array<{id:string;status:string;scope?:string;work_packages:string[]}>}>(join(root,'docs/plan/release-gates.json')).gates;
  for(const id of ['G-AUTH','G-WORKFLOW']) {
   const g=gates.find(g=>g.id===id),expected=id==='G-AUTH'?'authorized':'reconciled-independent-review';
   if(!g||(g.scope!=='global' && g.work_packages?.length!==0)||g.status!==expected) fail(`${id} is not closed for application implementation. Global action gates apply to every application package; read-only work does not open them.`);
  }
  const p=findPackage(loadDag(root),wp);
- const blocked=p.depends_on.filter(id=>!producerReady(root,id));
+ const blocked=prerequisitesForPart(p,part).filter(id=>!producerReady(root,id));
  if(blocked.length) fail(`Prerequisites need reviewed producer/interface milestones: ${blocked.join(', ')}. --allow-unready cannot grant implementation authority.`);
  }
 /** Check actual paid commitments separately from local implementation and synthetic proof. */
@@ -29,7 +29,7 @@ export function requireTaskScope(root:string,task:TaskRef,wp?:string):void {
   if(scope.owningPaths.some(path=>path.split('/').includes('..')||!files.includes(path)&&!directories.some(dir=>path.startsWith(dir))))fail('Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.');
  } else {
   if(!wp)fail('Missing reviewed task scope.');
-  requireImplementation(root,wp);
+  requireImplementation(root,wp,task.part);
  }
  requireTaskRisk(root,task);
 }
@@ -53,7 +53,9 @@ export function requireReviewedContract(root:string,wt:string,task:TaskRef):void
  const cfg=loadConfig(root),candidate=loadConfig(wt),scope=cfg.maintenanceTasks![task.id];
  const owns=(path:string)=>scope.owningPaths.some(p=>p.endsWith('/')?path.startsWith(p):path===p);
  // Check the whole candidate diff, including subjects outside the policy fingerprint.
- const changed=git(wt,'diff','--name-only','--no-renames',baseRef(root,cfg),'HEAD').split('\n').filter(Boolean);
+ const base=baseRef(root,cfg);
+ if(!gitOk(wt,'merge-base','--is-ancestor',base,'HEAD'))fail('Maintenance candidate must include the latest main before checking owning paths.');
+ const changed=git(wt,'diff','--name-only','--no-renames',base,'HEAD').split('\n').filter(Boolean);
  if(changed.some(p=>!owns(p)))fail('Maintenance candidate changes paths outside its reviewed owning paths.');
  const authority=structuredClone(candidate);
  for(const key of scope.configChanges??[])authority[key]=cfg[key];

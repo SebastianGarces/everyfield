@@ -67,7 +67,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-010",
         "WP-081"
       ],
@@ -1017,7 +1016,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-002",
         "WP-050",
         "WP-055"
       ],
@@ -1745,7 +1743,7 @@
       ],
       "work_packages": [
         "WP-055",
-        "WP-057"
+        "WP-094"
       ],
       "status": "future-not-run",
       "description": "All 158 inherited plus 52 suite gaps and current UI/org/unmerge/runtime cases; synthetic tenants and fake providers; critical invitation/import/task/team/intelligence/notification/commitment flows",
@@ -7231,7 +7229,7 @@
             "person",
             "team"
           ],
-          "Unicode_text": "Alex ✓ Casey"
+          "Unicode_text": "Alex \u2713 Casey"
         }
       },
       "actor": {
@@ -7277,7 +7275,7 @@
           "sequence": 4,
           "draft_revision": 2,
           "recent_messages_max": 24,
-          "Unicode_text": "Alex ✓ Casey",
+          "Unicode_text": "Alex \u2713 Casey",
           "team_row_selected_as_person": false,
           "stale_edit_applied": false,
           "revoked_reference_in_context": null,
@@ -10220,7 +10218,7 @@
       "work_packages": [
         "WP-015",
         "WP-060",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Merge receipt R moved household/member/training/attendance/task refs; survivor/references/account/photo unchanged; second fixture has edited attendance and later sent email",
@@ -26354,7 +26352,7 @@
         "WP-079",
         "WP-080",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -26691,7 +26689,7 @@
         "WP-079",
         "WP-080",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -27032,7 +27030,7 @@
         "WP-079",
         "WP-080",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
@@ -27371,7 +27369,7 @@
         "WP-079",
         "WP-080",
         "WP-015",
-        "WP-056"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
