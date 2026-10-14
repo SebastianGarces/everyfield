@@ -8,7 +8,7 @@
         "PI-009",
         "PI-028"
       ],
-      "text": "0 and28 church-local days qualify;29does not; unknown target remains Unknown.",
+      "text": "0 and 28 church-local days qualify;29 does not; unknown target remains Unknown.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -99,7 +99,7 @@
         "PI-009",
         "PI-032"
       ],
-      "text": "Calendar launch-window clocks never substitute for72 elapsed release hours or48hcontact performance.",
+      "text": "Calendar launch-window clocks never substitute for 72 elapsed release hours or 48 hcontact performance.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -121,7 +121,7 @@
         "LCH-003",
         "LCH-004"
       ],
-      "text": "All nine milestone and23 actual source-task identities remain with human completion; aggregate counts never automatically complete them. Preserve every actual task rather than force the former incorrect summary count.",
+      "text": "All nine milestone and 23 actual source-task identities remain with human completion; aggregate counts never automatically complete them. Preserve every actual task rather than force the former incorrect summary count.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -247,7 +247,7 @@
         },
         {
           "operation": "meetings.correctOccurrence",
-          "rule": "Preserve genuine archive versus invalid void; reviewed correction updates current fact lineage and obligation applicability without erasing performed history or changing immutable48h origin silently."
+          "rule": "Preserve genuine archive versus invalid void; reviewed correction updates current fact lineage and obligation applicability without erasing performed history or changing immutable 48h origin silently."
         },
         {
           "operation": "meetings.correctPracticeOccurrence",
@@ -504,7 +504,7 @@
         "MTG-002",
         "PI-028"
       ],
-      "text": "Reaching three actual practices grants no account authority and never advances phase or completes nine milestones/the23 actual source Tasks.",
+      "text": "Reaching three actual practices grants no account authority and never advances phase or completes nine milestones/the 23 actual source Tasks.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -752,7 +752,7 @@
         "LCH-006",
         "PI-028"
       ],
-      "text": "Valid submitted No missingguests derives guest criterion Met; Yes positivecount derives Notmet; unanswered/draft Unknown. Debrief valid submission separately Met, with actual source wording/history preserved and no unrelated effects.",
+      "text": "Valid submitted No missing guests derives guest criterion Met; Yes positive count derives Notmet; unanswered/draft Unknown. Debrief valid submission separately Met, with actual source wording/history preserved and no unrelated effects.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -870,7 +870,7 @@
         },
         {
           "operation": "shared",
-          "rule": "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task48 actual typed originating task completion differs from actual contacted occurredAt; raw checkbox/provider acceptance no typed contact proof."
+          "rule": "An existing soft-deleted prerequisite ceases actionable blocking while retaining predecessor/edge history and no successful/task 48/contact credit. Care correction retains revisions; individual-entry delete absent; only approved lifecycle purge. Task 48 actual typed originating task completion differs from actual contacted occurredAt; raw checkbox/provider acceptance no typed contact proof."
         },
         {
           "operation": "shared",
@@ -925,7 +925,7 @@
         "LCH-006",
         "PI-028"
       ],
-      "text": "Submitted missingguestanswer, not headcount/roster/outcomeRecorded, determines guest criterion; Yespositivecount remains reportedremaining without roster subtraction and no placeholders.",
+      "text": "Submitted missing guest answer, not headcount/roster/outcomeRecorded, determines guest criterion; Yespositivecount remains reported remaining without roster subtraction and no placeholders.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -949,7 +949,7 @@
         "PI-024",
         "PI-032"
       ],
-      "text": "Owner/Admin opens the durable assessment OR72elapsed hours after availability releases it, whichever first.",
+      "text": "Owner/Admin opens the durable assessment OR 72 elapsed hours after availability releases it, whichever first.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -1103,7 +1103,7 @@
         },
         {
           "operation": "intelligence.releaseAssessmentToOversight",
-          "rule": "Verified actual eligible open OR72elapsed hours from durable availability; same concern/evidence and current permissions. Affected org material input revision bumps atomically. No plant-source self-invalidation."
+          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Affected org material input revision bumps atomically. No plant-source self-invalidation."
         },
         {
           "operation": "organizationIntelligence.read",
@@ -1165,7 +1165,7 @@
         "IDN-023",
         "LCH-006"
       ],
-      "text": "Separate humanoperationalsummary preview/review/explicitpublish has current exactorg shared_findings and contributing-category access immediately; raw questionnaire/guest/privatecare remains private and modelassessment72hour/humanopened gate stays separate.",
+      "text": "Separate human operational summary preview/review/explicit publish has current exact org shared_findings and contributing-category access immediately; raw questionnaire/guest/private care remains private and model assessment 72 hour/human opened gate stays separate.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1211,7 +1211,7 @@
         "MTG-002",
         "PI-028"
       ],
-      "text": "Active target catalog preserves unchanged canonical rubric/Playbook criterion keys and names chosen nativepractice/debrief commands explicitly. Current source inventory remains separate evidence; a declaration or retainedtable never manufactures active operation authority.",
+      "text": "Active target catalog preserves unchanged canonical rubric/Playbook criterion keys and names chosen native practice/debrief commands explicitly. Current source inventory remains separate evidence; a declaration or retained table never manufactures active operation authority.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1753,7 +1753,7 @@
         "PI-043",
         "PI-044"
       ],
-      "text": "Current direct summary becomes available on deliberate publish under current grants; PI/NI/Location assessments still use eligible human opened OR72elapsed-hour P15 release independently.",
+      "text": "Current direct summary becomes available on deliberate publish under current grants; PI/NI/Location assessments still use eligible human opened OR 72 elapsed-hour P15 release independently.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1812,7 +1812,7 @@
         },
         {
           "operation": "shared",
-          "rule": "Canonical pre_launch_practice actual-held occurrence; no Vision artifacts or implicittraining/phase effects."
+          "rule": "Canonical pre_launch_practice actual-held occurrence; no Vision artifacts or implicit training/phase effects."
         }
       ]
     },
@@ -2117,7 +2117,7 @@
       "feature_ids": [
         "LCH-008"
       ],
-      "text": "Launch workspace/dashboard uses one church-local countdown and canonical planned/status/actual outcome/readiness facts, explicitly distinguishes zero/unknown/postponed/overdue/completed and exposes named-guest/debrief/summary workflow. Calendar0..28day window is distinct from48hour follow-up and72hour result-release clocks; load error is unavailable.",
+      "text": "Launch workspace/dashboard uses one church-local countdown and canonical planned/status/actual outcome/readiness facts, explicitly distinguishes zero/unknown/postponed/overdue/completed and exposes named-guest/debrief/summary workflow. Calendar 0..28 day window is distinct from 48 hour follow-up and 72 hour result-release clocks; load error is unavailable.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.readWorkspace",
@@ -2194,7 +2194,7 @@
       "feature_ids": [
         "LCH-011"
       ],
-      "text": "Recurring post-launch services/worship/volunteer scheduling is outside the active target; source declarations create no operation. Phase-six post-launch48hour guest follow-up remains Unknown/unmeasured without an approved actual obligations/contact/time origin, never substituted by prelaunch Vision success.",
+      "text": "Recurring post-launch services/worship/volunteer scheduling is outside the active target; source declarations create no operation. Phase-six post-launch 48 hour guest follow-up remains Unknown/unmeasured without an approved actual obligations/contact/time origin, never substituted by prelaunch Vision success.",
       "spec": "docs/product/launch.md#post-launch-measurement-and-proof",
       "operations": [],
       "acceptance_ids": [

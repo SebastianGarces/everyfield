@@ -87,7 +87,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-002 — Profile creation, quick named guests and explicit nullable edits
 
-**REQ-PPL-002.** Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/edit able. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.
+**REQ-PPL-002.** Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.
 
 **Target operations:** `people.createPerson`, `people.updatePerson`.
 
@@ -113,7 +113,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-004 — Account-linked contact identity
 
-**REQ-PPL-004.** Maintain one live same plant Person per account through a partial uniqueness arbiter. Owner bootstrap and accepted ordinary seat link reuse an exact already-linked identity; otherwise show/select a same-email active unlinked contact only when verified non ambiguous, or create a new linked Person. Never choose the oldest ambiguous email match as identity proof or steal another link; client cannot set accountId. Seat removal/email change retains stable account-link history and independently edit able CRM email. Recruited-contact source composition remains distinct from all-currently-committed adult size: bootstrap alone is no recruitment/commitment evidence, while a login holder with real adult active commitment may count.
+**REQ-PPL-004.** Maintain one live same plant Person per account through a partial uniqueness arbiter. Owner bootstrap and accepted ordinary seat link reuse an exact already-linked identity; otherwise show/select a same-email active unlinked contact only when verified non ambiguous, or create a new linked Person. Never choose the oldest ambiguous email match as identity proof or steal another link; client cannot set accountId. Seat removal/email change retains stable account-link history and independently editable CRM email. Recruited-contact source composition remains distinct from all-currently-committed adult size: bootstrap alone is no recruitment/commitment evidence, while a login holder with real adult active commitment may count.
 
 **Target operations:** `people.ensureAccountPerson`, `people.getOwnAccountPerson`.
 
@@ -145,7 +145,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **Acceptance:** AC-PPL-006--PPL-006. **Named cases:** TARGET-PPL-006.
 
-**TARGET-PPL-006 fixture:** Skip prospect→leader, backward leader→at ten dee, same-stage retry, concurrent edits and declined open-duty handoff. **Expected:** Warnings and attributable history persist, explicit demotion works, decline keeps Needs owner and other lifecycles do not change implicitly.
+**TARGET-PPL-006 fixture:** Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff. **Expected:** Warnings and attributable history persist, explicit demotion works, decline keeps Needs owner and other lifecycles do not change implicitly.
 
 
 <a id="req-ppl-007"></a>
@@ -165,7 +165,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-008 — Attributable timeline and authored notes
 
-**REQ-PPL-008.** Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-edit able notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
+**REQ-PPL-008.** Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
 
 **Target operations:** `people.getActivities`, `people.addNote`, `people.editNote`, `people.deleteNote`.
 
@@ -308,7 +308,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-019 — Filtered formula-safe CSV export
 
-**REQ-PPL-019.** Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spread sheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV notan XLSXclaim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; large exports stream/bound rows and include exact filter/count receipt. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip.
+**REQ-PPL-019.** Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; large exports stream/bound rows and include exact filter/count receipt. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip.
 
 **Target operations:** `people.exportPeople`.
 
@@ -321,7 +321,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-020 — Exact cross-domain recruitment advancement
 
-**REQ-PPL-020.** Preserve only conditional source transitions: attended Vision prospect→at ten dee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; asyncwake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.
+**REQ-PPL-020.** Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.
 
 **Target operations:** `people.applyRecordedRecruitmentEvent`.
 
@@ -366,7 +366,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **Acceptance:** AC-PPL-023--PPL-023. **Named cases:** TARGET-PPL-023.
 
-**TARGET-PPL-023 fixture:** At October 13 asOf, P moved prospect→at ten dee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request. **Expected:** Distinct current stage counts and September transition count use different labelled units; repeated P counts once, retired/merged source counts once through canonical history, missing denominator gives Unknown and foreign request refuses. No widget/tool is registered.
+**TARGET-PPL-023 fixture:** At October 13 asOf, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request. **Expected:** Distinct current stage counts and September transition count use different labelled units; repeated P counts once, retired/merged source counts once through canonical history, missing denominator gives Unknown and foreign request refuses. No widget/tool is registered.
 
 
 ## Consumer closure and proof

@@ -1733,7 +1733,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing customorgversion/hide and completed reader.",
+      "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing custom org version/hide and completed reader.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1939,7 +1939,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Two reviewed complete candidates promote same expectedactivation; stale build worker resumes.",
+      "description": "Two reviewed complete candidates promote same expected activation; stale build worker resumes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2276,7 +2276,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Candidate carries wrong rubric/playbook/template hash or tenant/token/executableMDX canary.",
+      "description": "Candidate carries wrong rubric/playbook/template hash or tenant/token/executable MDX canary.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2378,7 +2378,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Assessment pins oldreference; activation changes before publication.",
+      "description": "Assessment pins old reference; activation changes before publication.",
       "given": {
         "P": {
           "fixture_type": "plant",

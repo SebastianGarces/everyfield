@@ -1129,7 +1129,7 @@
       "behavior_rules": [
         {
           "operation": "evry.composeReads",
-          "rule": "At most eight declared parallel reads; each actual composed read consumes one of the same24 tool invocations, plus wall/cumulative token budgets. Wrapper cannot multiply budget or bypass current scope/purpose."
+          "rule": "At most eight declared parallel reads; each actual composed read consumes one of the same 24 tool invocations, plus wall/cumulative token budgets. Wrapper cannot multiply budget or bypass current scope/purpose."
         }
       ],
       "operation_refs": [

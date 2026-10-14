@@ -22,7 +22,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Chicago meetingMarch 10 T 09:00 ; 7/3/1 civil-day offsets cross DST; timezone edit preserves its fixed Instant.",
+      "description": "Chicago meeting March 10 T 09:00 ; 7/3/1 civil-day offsets cross DST; timezone edit preserves its fixed Instant.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5897,7 +5897,7 @@
         "WP-022"
       ],
       "status": "future-not-run",
-      "description": "Zero at ten dee, duplicate/concurrent finalize, same count replacement/removal to 0, no lead and fault after obligation insert.",
+      "description": "Zero attendee, duplicate/concurrent finalize, same count replacement/removal to 0, no lead and fault after obligation insert.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6678,7 +6678,7 @@
         "WP-022"
       ],
       "status": "future-not-run",
-      "description": "Known Person but unrelated meeting, forged type/foreign ID, whitespace/5001 chars and valid authored at ten dee note.",
+      "description": "Known Person but unrelated meeting, forged type/foreign ID, whitespace/5001 chars and valid authored attendee note.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7038,7 +7038,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Vision V with 0 then 2 attendees, repeat/concurrent finalize; replace P byQ at same count; add earlier Vision history; no lead title; fail each kernel/history/audit boundary and lose response.",
+      "description": "Vision V with 0 then 2 attendees, repeat/concurrent finalize; replace P by Q at same count; add earlier Vision history; no lead title; fail each kernel/history/audit boundary and lose response.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7363,7 +7363,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Two distinct Vision meetings on same LocalDate; origin across DST; completion at 48 h and 48 h+1 ms; due day end differs; manual task, waived soft-deleted generated task, absent post launch source. Frozen asOf with pending23h, pending48h, success2h, success48h, future actual origin/completion, pre-origin completion, late recorded historical valid completion, waived origin and retired genuine originating meeting. Two Persons: one originating typed administrative completion at2h with no contacted outcome, another open obligation24h; plain completed checkbox/provider acceptance without typed human outcome.",
+      "description": "Two distinct Vision meetings on same LocalDate; origin across DST; completion at 48 h and 48 h+1 ms; due day end differs; manual task, waived soft-deleted generated task, absent post launch source. Frozen asOf with pending 23h, pending 48h, success 2h, success 48h, future actual origin/completion, pre-origin completion, late recorded historical valid completion, waived origin and retired genuine originating meeting. Two Persons: one originating typed administrative completion at 2h with no contacted outcome, another open obligation 24h; plain completed checkbox/provider acceptance without typed human outcome.",
       "given": {
         "P": {
           "fixture_type": "plant",

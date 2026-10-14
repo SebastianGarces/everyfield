@@ -36,7 +36,7 @@
       "feature_ids": [
         "DOC-002"
       ],
-      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field≤2000 characters and combined≤16KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact≤8MiB/XML≤2millionchars/1000blocks/XLSX20sheets500rows50cols. Render failure is truthful; no mutating GET.",
+      "text": "Closed catalog merge fields use authorized plant/actual leader/launch-date defaults, explicit nonempty override, required-field validation, each field≤2000 characters and combined≤16KiB. Side-effect-free preview and typed generation command use the same immutable template/input/render profile. Exact PDF bytes and structural DOCX/XLSX preview preserve offered formats, formulas/footer/content with artifact≤8MiB/XML≤2 million chars/1000 blocks/XLSX 20 sheets 500 rows 50 cols. Render failure is truthful; no mutating GET.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.resolveContext",
@@ -61,7 +61,7 @@
       "feature_ids": [
         "DOC-003"
       ],
-      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending→ready only after coherent upload/finalization. Latest100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+      "text": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending→ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.history.list",
@@ -329,7 +329,7 @@
       "feature_ids": [
         "DOC-015"
       ],
-      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for5minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
+      "text": "Private upload_intent/object_metadata fixes immutable owner/purpose/type/hash and pending/ready/failed state. Commitment files PDF/JPEG/PNG≤10MiB require magic-byte/MIME and bounded decoding. Current authorized record, never caller key, permits exact object signing for 5 minutes; guessed/foreign/revoked/pending objects deny. Replace uses new immutable key; orphan cleanup checks current reference fence. Existing issued URLs expire honestly, without instant recall.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "storage.putPrivateObject",
@@ -355,7 +355,7 @@
       "feature_ids": [
         "DOC-016"
       ],
-      "text": "Native owned_documents have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under10MiB/40MiBexpanded/2000entries/2milliontext/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
+      "text": "Native owned_documents have exactly one immutable account or plant owner and same-owner immutable revision lineage. Reuse safe editor for save/render/edit/archive/core_values designation; only ready saved nonempty current native text supplies values evidence. UTF8 TXT/modern DOCX imports parse into native content under 10MiB/40MiBexpanded/2000 entries/2 million text/15s bounds; reject macros/external fetch/path traversal/unsupported legacy DOC. Explicit Use for this church copies one selected authorized account revision into one actual plant-owned document with lineage, leaving original/private unrelated assets intact.",
       "spec": "docs/product/knowledge-documents.md#native-owned-writing",
       "operations": [
         "documents.listOwned",
@@ -574,7 +574,7 @@
         },
         {
           "operation": "shared",
-          "rule": "Only three prayer/giving legacy keys have source30day reaffirmation. Funding/values/systems/PrayerLeader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them."
+          "rule": "Only three prayer/giving legacy keys have source 30 day reaffirmation. Funding/values/systems/PrayerLeader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them."
         },
         {
           "operation": "shared",
@@ -828,7 +828,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Selected VercelNext/Neon/app-ownedBetterAuth/privateTigris/Resend settings, synthetic preview isolation, DBplusbyte restore and current file/tenant authority must be proven. Seven-day recovery/daily snapshots/separate privateTigris backup and ordinary measured1h/4h are selected target; actual paidplan/spend/configuration/credentials/restore remains unauthorized by documentation.",
+      "text": "Selected VercelNext/Neon/app-owned Better Auth/private Tigris/Resend settings, synthetic preview isolation, DB plus byte restore and current file/tenant authority must be proven. Seven-day recovery/daily snapshots/separate private Tigris backup and ordinary measured 1h/4h are selected target; actual paid plan/spend/configuration/credentials/restore remains unauthorized by documentation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [],
       "acceptance_ids": [
@@ -855,7 +855,7 @@
         "REF-008",
         "WIKI-010"
       ],
-      "text": "Use the exact verified available global96article/21section/7system-message-template bundle as future starter content; preserve IDs/slugs/topology/hashes and authoritative SME Playbook/rubric. Editorial contradictions remain named SME work. Seven message templates are not the11 generated-document templates; no tenant/customer rows or live export/bootstrap execution.",
+      "text": "Use the exact verified available global 96 article/21 section/7 system-message-template bundle as future starter content; preserve IDs/slugs/topology/hashes and authoritative SME Playbook/rubric. Editorial contradictions remain named SME work. Seven message templates are not the 11 generated-document templates; no tenant/customer rows or live export/bootstrap execution.",
       "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
       "operations": [],
       "acceptance_ids": [
@@ -880,7 +880,7 @@
         },
         {
           "operation": "reference.installApprovedWiki",
-          "rule": "Guarded fresh/global-only transaction;96published articles/21sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import."
+          "rule": "Guarded fresh/global-only transaction;96 published articles/21 sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import."
         },
         {
           "operation": "reference.installMessageTemplates",
@@ -1327,7 +1327,7 @@
       "feature_ids": [
         "WIKI-009"
       ],
-      "text": "G2 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "text": "G2 Global publication never clobbers edits/hides; customized current org editors receive in-app-only review cue for every published change, including typo; no forced deadline or email.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1346,7 +1346,7 @@
       "feature_ids": [
         "WIKI-009"
       ],
-      "text": "N1 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "text": "N1 Global publication never clobbers edits/hides; customized current org editors receive in-app-only review cue for every published change, including typo; no forced deadline or email.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1365,7 +1365,7 @@
       "feature_ids": [
         "WIKI-009"
       ],
-      "text": "S1 Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "text": "S1 Global publication never clobbers edits/hides; customized current org editors receive in-app-only review cue for every published change, including typo; no forced deadline or email.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1384,7 +1384,7 @@
       "feature_ids": [
         "WIKI-009"
       ],
-      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied. Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "text": "hidden-default; independently authorized other-source published versions remain discoverable/readable; winning hidden-source body/draft denied. Global publication never clobbers edits/hides; customized current org editors receive in-app-only review cue for every published change, including typo; no forced deadline or email.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1406,7 +1406,7 @@
         "WIKI-007",
         "WIKI-008"
       ],
-      "text": "N1 Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "text": "N1 Current entitlement denies former org bodies/history/citations/caches/export/Evry; surviving independent grants remain, minimal nonbody attribution only.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1462,7 +1462,7 @@
         "WIKI-007",
         "WIKI-008"
       ],
-      "text": "unavailable Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "text": "unavailable Current entitlement denies former org bodies/history/citations/caches/export/Evry; surviving independent grants remain, minimal nonbody attribution only.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1488,7 +1488,7 @@
         "WIKI-007",
         "WIKI-008"
       ],
-      "text": "G1 Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "text": "G1 Current entitlement denies former org bodies/history/citations/caches/export/Evry; surviving independent grants remain, minimal nonbody attribution only.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1514,7 +1514,7 @@
         "WIKI-007",
         "WIKI-008"
       ],
-      "text": "content_access_denied Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "text": "content_access_denied Current entitlement denies former org bodies/history/citations/caches/export/Evry; surviving independent grants remain, minimal nonbody attribution only.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -1540,7 +1540,7 @@
         "WIKI-007",
         "WIKI-008"
       ],
-      "text": "content_access_denied Current entitlement denies formerorg bodies/history/citations/caches/export/Evry; survivingindependent grants remain, minimal nonbody attribution only.",
+      "text": "content_access_denied Current entitlement denies former org bodies/history/citations/caches/export/Evry; surviving independent grants remain, minimal nonbody attribution only.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -2260,7 +2260,7 @@
         "WIKI-001",
         "WIKI-009"
       ],
-      "text": "edited_fork_intact_with_review_notice Global publication never clobbers edits/hides; customized currentorg editors receive in-app-only reviewcue for every publishedchange, including typo; no forceddeadline or email.",
+      "text": "edited_fork_intact_with_review_notice Global publication never clobbers edits/hides; customized current org editors receive in-app-only review cue for every published change, including typo; no forced deadline or email.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -2282,7 +2282,7 @@
         "WIKI-001",
         "WIKI-009"
       ],
-      "text": "Current plant Owner/Admin explicit orderwrite with expectedrevision/history; exact Evryreview; no CRMtitle or orgeditor preferencegrant.",
+      "text": "Current plant Owner/Admin explicit order write with expected revision/history; exact Evryreview; no CRM title or org editor preference grant.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -2858,7 +2858,7 @@
       "feature_ids": [
         "WIKI-004"
       ],
-      "text": "Discovery foundations qualifies only when one actual Owner or ordinary lead linked to the actual reader account with a current same-plant Admin seat completes each of all six canonical articles at strictly>0.80, using any currently entitled published same-canonical source version. Ordinary Admin/lead qualifies only through that current linked actual-reader authority; title adds no grant. Owner0/6+eligible lead6/6 qualifies; two readers3/6 each do not. Article update retains credit; creation Phase1 is independent.",
+      "text": "Discovery foundations qualifies only when one actual Owner or ordinary lead linked to the actual reader account with a current same-plant Admin seat completes each of all six canonical articles at strictly>0.80, using any currently entitled published same-canonical source version. Ordinary Admin/lead qualifies only through that current linked actual-reader authority; title adds no grant. Owner 0/6+eligible lead 6/6 qualifies; two readers 3/6 each do not. Article update retains credit; creation Phase 1 is independent.",
       "spec": "docs/product/knowledge-documents.md#reading-and-discovery-evidence",
       "operations": [
         "wiki.reading.updateProgress",

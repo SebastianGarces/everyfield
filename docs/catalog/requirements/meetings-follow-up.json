@@ -118,7 +118,7 @@
       "feature_ids": [
         "MTG-003"
       ],
-      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when sup plied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
+      "text": "Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when supplied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-003",
       "operations": [
         "venues.list",
@@ -413,7 +413,7 @@
       "feature_ids": [
         "MTG-011"
       ],
-      "text": "Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named con tactuses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.",
+      "text": "Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named contact uses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-011",
       "operations": [
         "meetings.createGuestContact",
@@ -629,7 +629,7 @@
       "feature_ids": [
         "MTG-019"
       ],
-      "text": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is notan approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.",
+      "text": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-019",
       "operations": [
         "meetings.invitationAttribution",
@@ -674,7 +674,7 @@
         "TSK-011",
         "TSK-012"
       ],
-      "text": "WP-024 first supplies the minimal persistence/uniqueness API for `follow_up_obligation`, managed `task`, history/audit/receipt and source-revision changes using the caller's transaction. WP-022 depends on that kernel and owns one finalize/reconcile unit of work: lock meeting/current guest-attendance revision and affected live Persons, compute exact attended identity snapshot/classification, apply approved People attendance progression, create required first-Vision obligations plus evaluation task, record current actual Attendance/snapshot/marker and audit/receipt/material revision atomically. No after-commit task call or stub weakens this boundary. A zero-at ten dee Vision still produces evaluation work. Missing lead title/account never suppresses obligations; a currently eligible selected assignee or visible Needs owner is required. Durable review includes all generated work; invalid assignment refuses or uses explicitly reviewed unowned result.\n\nRepeat same finalized revision returns original receipt; concurrent calls converge. Late additions/removals/same-count replacements are reconciled by identity and expected revision, not count. Corrected first-Vision eligibility may add/supersede current obligations through a reviewed delta; completed/waived/outcome history survives and no performed work is silently deleted. A removed at ten dee's unperformed obligation is marked source-corrected/no-longer-applicable with history, not successful completion. Changing current meeting date does not rewrite immutable original follow-up 48 h origin; a correction to an erroneous origin is separately reviewed with old/new metric lineage. Finalization is independent from setting meeting status completed and from practice occurrence completion. Injected failure rolls back marker+attendance effects+obligations+task+audit; response loss returns saved receipt. WP-022 proves its actual kernel consumer before closure, WP-023 later adds outcomes/contact/ownership projections; WP-056 is additional whole-target regression.",
+      "text": "WP-024 first supplies the minimal persistence/uniqueness API for `follow_up_obligation`, managed `task`, history/audit/receipt and source-revision changes using the caller's transaction. WP-022 depends on that kernel and owns one finalize/reconcile unit of work: lock meeting/current guest-attendance revision and affected live Persons, compute exact attended identity snapshot/classification, apply approved People attendance progression, create required first-Vision obligations plus evaluation task, record current actual Attendance/snapshot/marker and audit/receipt/material revision atomically. No after-commit task call or stub weakens this boundary. A zero-attendee Vision still produces evaluation work. Missing lead title/account never suppresses obligations; a currently eligible selected assignee or visible Needs owner is required. Durable review includes all generated work; invalid assignment refuses or uses explicitly reviewed unowned result.\n\nRepeat same finalized revision returns original receipt; concurrent calls converge. Late additions/removals/same-count replacements are reconciled by identity and expected revision, not count. Corrected first-Vision eligibility may add/supersede current obligations through a reviewed delta; completed/waived/outcome history survives and no performed work is silently deleted. A removed attendee's unperformed obligation is marked source-corrected/no-longer-applicable with history, not successful completion. Changing current meeting date does not rewrite immutable original follow-up 48 h origin; a correction to an erroneous origin is separately reviewed with old/new metric lineage. Finalization is independent from setting meeting status completed and from practice occurrence completion. Injected failure rolls back marker+attendance effects+obligations+task+audit; response loss returns saved receipt. WP-022 proves its actual kernel consumer before closure, WP-023 later adds outcomes/contact/ownership projections; WP-056 is additional whole-target regression.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-020",
       "operations": [
         "meetings.finalizeAttendance",
@@ -713,7 +713,7 @@
         },
         {
           "operation": "tasks.assignFollowUp",
-          "rule": "Existing obligation origin protected; no client-provided originMeetingId can fabricate48h lineage."
+          "rule": "Existing obligation origin protected; no client-provided originMeetingId can fabricate 48h lineage."
         },
         {
           "operation": "tasks.assignFollowUp",
@@ -733,7 +733,7 @@
         },
         {
           "operation": "tasks.createFollowUp",
-          "rule": "distinct manual task receipt, excluded generated48h metric"
+          "rule": "distinct manual task receipt, excluded generated 48h metric"
         }
       ]
     },

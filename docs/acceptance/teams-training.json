@@ -4006,7 +4006,7 @@
         "WP-070"
       ],
       "status": "future-not-run",
-      "description": "P in 2 roles/two selectedteams, Q member, R leader; preview program T saved exact P/Q/R roster, then membership changes.",
+      "description": "P in 2 roles/two selected teams, Q member, R leader; preview program T saved exact P/Q/R roster, then membership changes.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -52,7 +52,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-001 — Task queues, filters and keyset paging
 
-**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sortkey+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.
+**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sort key+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.
 
 **Target operations:** `tasks.list`, `tasks.count`, `tasks.followUpCoverage`.
 
@@ -227,7 +227,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 **Acceptance:** AC-TSK-014--TSK-014. **Named cases:** TARGET-TSK-014.
 
-**TARGET-TSK-014 fixture:** Date-only DSTdue, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot. **Expected:** Correct local deadline/reminder and current recipient only; no terminal/old-owner duplicate and transport reported honestly.
+**TARGET-TSK-014 fixture:** Date-only DST due, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot. **Expected:** Correct local deadline/reminder and current recipient only; no terminal/old-owner duplicate and transport reported honestly.
 
 
 <a id="req-tsk-015"></a>

@@ -4314,7 +4314,7 @@
         "WP-024"
       ],
       "status": "future-not-run",
-      "description": "Date-only DSTdue, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot.",
+      "description": "Date-only DST due, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4848,7 +4848,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "America/Chicago spring gap 02:30 and fall fold 01:30; all-day 2026-03-08/2026-11-01; change to Pacific/Auckland with fixed appointment and delivered reminder; process runsnon UTC.",
+      "description": "America/Chicago spring gap 02:30 and fall fold 01:30; all-day 2026-03-08/2026-11-01; change to Pacific/Auckland with fixed appointment and delivered reminder; process runs non UTC.",
       "given": {
         "P": {
           "fixture_type": "plant",

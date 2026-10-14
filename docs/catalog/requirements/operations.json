@@ -30,7 +30,7 @@
       "feature_ids": [
         "ADM-002"
       ],
-      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expectedrevision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
+      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expected revision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.admin.list",
@@ -54,7 +54,7 @@
       "feature_ids": [
         "ADM-003"
       ],
-      "text": "Safe automatic feedback issue/triage uses separate PUBLICrepo with private original, frozen sanitized payload/hash/opaque occurrence and durable actual repoID/owner-name snapshot/issueID-number/URL.10second external timeout enters unknown and reconciles same marker in exact destination before retry; inaccessible/ambiguous remains held. Deterministic closed serializer never copies raw private text/IDs/URL/logs, richer publication exact-reviewed; actual merged owner workflow governs routing, no competing rubric/coding authority.",
+      "text": "Safe automatic feedback issue/triage uses separate PUBLIC repo with private original, frozen sanitized payload/hash/opaque occurrence and durable actual repoID/owner-name snapshot/issueID-number/URL.10 second external timeout enters unknown and reconciles same marker in exact destination before retry; inaccessible/ambiguous remains held. Deterministic closed serializer never copies raw private text/IDs/URL/logs, richer publication exact-reviewed; actual merged owner workflow governs routing, no competing rubric/coding authority.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.createConfiguredIssue",
@@ -156,7 +156,7 @@
       "behavior_rules": [
         {
           "operation": "marketing.requestInvitation",
-          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address24h dedup/5day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
+          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
         }
       ],
       "title": "Public product landing, interactive examples and invite-request form"
@@ -267,7 +267,7 @@
         },
         {
           "operation": "feedback.createConfiguredIssue",
-          "rule": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback;10sec timeout."
+          "rule": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback;10 sec timeout."
         },
         {
           "operation": "feedback.createConfiguredIssue",
@@ -279,7 +279,7 @@
         },
         {
           "operation": "feedback.listOwn",
-          "rule": "Native own bounded25 status page; original author current active account, no raw original or other author existence."
+          "rule": "Native own bounded 25 status page; original author current active account, no raw original or other author existence."
         },
         {
           "operation": "feedback.notifyOperator",
@@ -449,7 +449,7 @@
         "ADM-002",
         "ADM-003"
       ],
-      "text": "Preserve durable native private feedback/triage and configured safe operator mail. Automatically create safe sanitized issue in a separate PUBLICfeedback repository, persisting actual destination/locator/receipt and truthful failure/unknown. Actual repository identity/configuration still future input, not a visibility choice or rawpublication grant.",
+      "text": "Preserve durable native private feedback/triage and configured safe operator mail. Automatically create safe sanitized issue in a separate PUBLIC feedback repository, persisting actual destination/locator/receipt and truthful failure/unknown. Actual repository identity/configuration still future input, not a visibility choice or raw publication grant.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -473,7 +473,7 @@
         "ADM-003",
         "OPS-009"
       ],
-      "text": "Automatictriage uses safe minimal report and only the actual merged owner development workflow/version for severity/complexity/escalation. Missinghand-off remains explicit; no invented competing rubric or automaticimplementation class.",
+      "text": "Automatictriage uses safe minimal report and only the actual merged owner development workflow/version for severity/complexity/escalation. Missinghand-off remains explicit; no invented competing rubric or automatic implementation class.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [
@@ -498,7 +498,7 @@
         "ADM-003",
         "OPS-009"
       ],
-      "text": "Implementation/PRrouting waits for the actual merged authoritative owner workflow/version. Humanreview and explicit escalation remain; no automaticmerge/deploy or unspecifiedworktree inspection/merge.",
+      "text": "Implementation/PR routing waits for the actual merged authoritative owner workflow/version. Humanreview and explicit escalation remain; no automatic merge/deploy or unspecified worktree inspection/merge.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [],
       "acceptance_ids": [

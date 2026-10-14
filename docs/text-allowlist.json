@@ -1,0 +1,29 @@
+{
+  "purpose": "Reviewed technical tokens for check-text.py; exceptions are exact, never prose-wide.",
+  "tokens": {
+    "4Cs": "Canonical methodology name.",
+    "e2e": "Established end-to-end test abbreviation.",
+    "sha256": "Hash algorithm and manifest field name.",
+    "python3": "Interpreter command.",
+    "utf8CsvBytes": "Existing result field name, not prose.",
+    "p95": "Latency percentile.",
+    "v0": "Reference version label.",
+    "v1": "Reference version label.",
+    "v2": "Previous product version.",
+    "v3": "Current product version.",
+    "15min": "Compact duration unit.",
+    "23h55m": "Compact compound duration.",
+    "rev1": "Fixture revision label.",
+    "rev2": "Fixture revision label.",
+    "b01": "Existing acceptance-case slug prefix.",
+    "fix2107": "Historical v2 fix identifier."
+  },
+  "files": {
+    "docs/reference/manifest.json": {
+      "watch21": "Preserved source-drift shorthand for a cadence threshold.",
+      "direct28": "Preserved source-drift shorthand for a cadence threshold.",
+      "Lens5": "Original rubric lens reference.",
+      "Lens7": "Original rubric lens reference."
+    }
+  }
+}

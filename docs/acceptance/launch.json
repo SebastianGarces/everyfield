@@ -23,7 +23,7 @@
         "WP-045"
       ],
       "status": "future-not-run",
-      "description": "Target dates0,28,29church-localdays away and missingtarget.",
+      "description": "Target dates 0,28,29 church-local days away and missing target.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -115,7 +115,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Past uncompleted target then reviewedmove/postpone and retry.",
+      "description": "Past uncompleted target then reviewed move/postpone and retry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -195,7 +195,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "DSTcalendar launch-window versus elapsed72hour release and48hour contact.",
+      "description": "DST calendar launch-window versus elapsed 72 hour release and 48 hour contact.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -273,7 +273,7 @@
         "WP-045"
       ],
       "status": "future-not-run",
-      "description": "Nine fixed milestones and23 actual source tasks seeded; aggregatecount updated.",
+      "description": "Nine fixed milestones and 23 actual source tasks seeded; aggregate count updated.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -511,7 +511,7 @@
         "WP-076"
       ],
       "status": "future-not-run",
-      "description": "Current valid milestone re-confirmation with liveguard and staleEvryreview.",
+      "description": "Current valid milestone re-confirmation with live guard and stale Evry review.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -738,7 +738,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Create/filter/detail prelaunch_practice versus teamrehearsal/Vision.",
+      "description": "Create/filter/detail prelaunch_practice versus team rehearsal/Vision.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -832,7 +832,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Three distinct completedactualpractice IDs,fourth and duplicate receipt.",
+      "description": "Three distinct completed actual practice IDs,fourth and duplicate receipt.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -933,7 +933,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Scheduledfuture/cancelled/nothheld practice and actualnonfuture correction.",
+      "description": "Scheduled future/cancelled/not held practice and actual nonfuture correction.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1118,7 +1118,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Practice date/type corrected,voidduplicate,reopen and prior PI snapshot.",
+      "description": "Practice date/type corrected,void duplicate,reopen and prior PI snapshot.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1483,7 +1483,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Current Owner/Admin and foreign/member/teamleader practicewrite.",
+      "description": "Current Owner/Admin and foreign/member/team leader practice write.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1667,7 +1667,7 @@
         "WP-074"
       ],
       "status": "future-not-run",
-      "description": "Chosen promotion plan actualexecution attestation with optional references.",
+      "description": "Chosen promotion plan actual execution attestation with optional references.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1824,7 +1824,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Native actualLaunch/debriefquestionnaire and separately editable counts/outcome notes.",
+      "description": "Native actualLaunch/debrief questionnaire and separately editable counts/outcome notes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1910,7 +1910,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Debrief Yes3 validsubmit then No correction; incomplete draft and guestcriterion.",
+      "description": "Debrief Yes 3 valid submit then No correction; incomplete draft and guest criterion.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2013,7 +2013,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Correct submittedquestionnaire without altering phase/task and preserved original version.",
+      "description": "Correct submitted questionnaire without altering phase/task and preserved original version.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2109,7 +2109,7 @@
         "WP-076"
       ],
       "status": "future-not-run",
-      "description": "Evry debrief/outcome/guest read and reviewedwrite with stale target.",
+      "description": "Evry debrief/outcome/guest read and reviewed write with stale target.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2202,7 +2202,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Single suppliedname guest with no phone/email/age/account.",
+      "description": "Single supplied name guest with no phone/email/age/account.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2290,7 +2290,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Same-name duplicate candidate selected existingID and replay namedcreate.",
+      "description": "Same-name duplicate candidate selected existingID and replay named create.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2372,7 +2372,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Launch guest roster/headcount differ; submitted missingYes2 vs No criterion.",
+      "description": "Launch guest roster/headcount differ; submitted missing Yes 2 vs No criterion.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2458,7 +2458,7 @@
         "WP-074"
       ],
       "status": "future-not-run",
-      "description": "Owner/Admin opens availablemodelresult versus72elapsedhours with no open.",
+      "description": "Owner/Admin opens available model result versus 72 elapsed hours with no open.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2539,7 +2539,7 @@
         "WP-073"
       ],
       "status": "future-not-run",
-      "description": "Email/model/otherMember reads result before eligiblehuman opportunity.",
+      "description": "Email/model/otherMember reads result before eligible human opportunity.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2625,7 +2625,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Previous released concern during new unpublished result under current revokedcategory.",
+      "description": "Previous released concern during new unpublished result under current revoked category.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2720,7 +2720,7 @@
         "WP-074"
       ],
       "status": "future-not-run",
-      "description": "NI/Location consumes latestresult still embargoed; source grants differ.",
+      "description": "NI/Location consumes latest result still embargoed; source grants differ.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2804,7 +2804,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Separately reviewed publicoperationalsummary versus rawquestionnaire and resultembargo.",
+      "description": "Separately reviewed public operational summary versus raw questionnaire and result embargo.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2886,7 +2886,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Launchsupport/reflection attempts privatecare answer/history/calendar import.",
+      "description": "Launchsupport/reflection attempts private care answer/history/calendar import.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2966,7 +2966,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Current generated operation catalog includes nativepractice/debrief while source facts unchanged.",
+      "description": "Current generated operation catalog includes native practice/debrief while source facts unchanged.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4083,7 +4083,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Actual occurrence before/after planned date, single-name new guest, Yes3 debrief and separate summary publish.",
+      "description": "Actual occurrence before/after planned date, single-name new guest, Yes 3 debrief and separate summary publish.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4207,7 +4207,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Submitted No changes Yes2; later incomplete draft; aggregate headcount unchanged; corrected prior actual outcome.",
+      "description": "Submitted No changes Yes 2; later incomplete draft; aggregate headcount unchanged; corrected prior actual outcome.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4329,7 +4329,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "0day,28day,29day, overdue postponed/no target/completed launch; actual zero count and absent count.",
+      "description": "0 day,28 day,29 day, overdue postponed/no target/completed launch; actual zero count and absent count.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4961,7 +4961,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Phase6 has named launch guests and successful prelaunch Vision followups but no postlaunch obligation source.",
+      "description": "Phase 6 has named launch guests and successful prelaunch Vision followups but no postlaunch obligation source.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5049,7 +5049,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Phase6 plant with Sunday headcounts, prelaunch Vision48h follow-up and no approved postlaunch service-contact capture",
+      "description": "Phase 6 plant with Sunday headcounts, prelaunch Vision 48h follow-up and no approved postlaunch service-contact capture",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5228,7 +5228,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts3,3,2,2,3,3,2,3,2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
+      "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts 3,3,2,2,3,3,2,3,2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5378,7 +5378,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "ActualLaunch occurs on a date differing plannedtarget; Meetingtype public_launch/Vision attempted.",
+      "description": "ActualLaunch occurs on a date differing planned target; Meetingtype public_launch/Vision attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5463,7 +5463,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "New real namedguest versus explicitly selected sameplant existingPerson; DB failure betweencreate/link.",
+      "description": "New real named guest versus explicitly selected sameplant existingPerson; DB failure between create/link.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5546,7 +5546,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Guest has one meaningful suppliedname only, no email/phone/surname/age/account.",
+      "description": "Guest has one meaningful supplied name only, no email/phone/surname/age/account.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5632,7 +5632,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Same-name duplicate candidates,repeatedcreate/link receipt and concurrentattendance insert.",
+      "description": "Same-name duplicate candidates,repeated create/link receipt and concurrent attendance insert.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5715,7 +5715,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Aggregateheadcount100, namedroster20 and reportedmissingguestcount3.",
+      "description": "Aggregate headcount 100, namedroster 20 and reported missing guest count 3.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5844,7 +5844,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Debrief missingnameanswer No then Yes withcount input; extra finish/attestation control attempted.",
+      "description": "Debrief missing name answer No then Yes with count input; extra finish/attestation control attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5929,7 +5929,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Submitted No with datedactor while headcount unknown/zero or rostercounts mismatch.",
+      "description": "Submitted No with dated actor while headcount unknown/zero or roster counts mismatch.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6015,7 +6015,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Submitted Yes3 and rosterlateradds2 namedguests without correctedanswer.",
+      "description": "Submitted Yes 3 and roster later adds 2 named guests without corrected answer.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6101,7 +6101,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Previous validNo submission followed unansweredincomplete draft.",
+      "description": "Previous valid No submission followed unanswered incomplete draft.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6191,7 +6191,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Valid sixarea submission with Yes3 unnamedguests.",
+      "description": "Valid six area submission with Yes 3 unnamed guests.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6274,7 +6274,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Partial sixarea form,draftsave,validsubmit,correction and emptyoptional prose.",
+      "description": "Partial six area form,draft save,valid submit,correction and empty optional prose.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6375,7 +6375,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Debrief actualcount/date edit,plannedtarget unaffected and narrative claims firstservice.",
+      "description": "Debrief actual count/date edit,planned target unaffected and narrative claims first service.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6463,7 +6463,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Correction No→Yes2,no-op repeat,stale revision,previousPI snapshot/advancedphase.",
+      "description": "Correction No→Yes 2,no-op repeat,stale revision,previousPI snapshot/advanced phase.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6556,7 +6556,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Derived guest/debrief milestones alongside manually editableotherreadiness; override checkbox attempted.",
+      "description": "Derived guest/debrief milestones alongside manually editable other readiness; override checkbox attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6641,7 +6641,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Questionnairesubmitted with rawreflection, summarydraftsaved, separatepublish previewreview.",
+      "description": "Questionnairesubmitted with raw reflection, summary draft saved, separate publish preview review.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6730,7 +6730,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Publishedsummary sourceunion Meetings+People versus orgsharedfindingsON/PeopleOFF; secondaffiliatevalid.",
+      "description": "Publishedsummary source union Meetings+People versus org shared findings ON/PeopleOFF; second affiliate valid.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6823,7 +6823,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Summary draft contains individualguest details/private support reflection; no automaticmodelredaction.",
+      "description": "Summary draft contains individual guest details/private support reflection; no automatic model redaction.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6911,7 +6911,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Direct reviewedsummarypublication while newmodelassessment still72hourembargoed.",
+      "description": "Direct reviewed summary publication while new model assessment still 72 hour embargoed.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7001,7 +7001,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Questionnairesubmission and summarypublish with optional nextsteptask proposed separately.",
+      "description": "Questionnairesubmission and summary publish with optional next step task proposed separately.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7094,7 +7094,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Current plantOwner/Admin,Member,foreignactor,expiredreview and revokedgrant write guest/debrief.",
+      "description": "Current plantOwner/Admin,Member,foreign actor,expired review and revoked grant write guest/debrief.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7197,7 +7197,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Headcount/outcomeRecorded set but no submittedquestionnaire; arbitrarymanualsignal attempted.",
+      "description": "Headcount/outcomeRecorded set but no submitted questionnaire; arbitrary manual signal attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7283,7 +7283,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "GuestPerson merge into existing attendee, link correction and unchanged reportedmissingcount.",
+      "description": "GuestPerson merge into existing attendee, link correction and unchanged reported missing count.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7397,7 +7397,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "PI evidenceDTO includes boundedsubmission/counts with privatecare/reflection canaries.",
+      "description": "PI evidenceDTO includes bounded submission/counts with private care/reflection canaries.",
       "given": {
         "P": {
           "fixture_type": "plant",

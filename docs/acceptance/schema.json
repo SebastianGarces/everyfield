@@ -277,7 +277,7 @@
         "request",
         "sql"
       ],
-      "description": "Forge scope/subject/actor/origin/approval/execution, wrong organization kind, double owner and model supplied actor; validhuman/service controls.",
+      "description": "Forge scope/subject/actor/origin/approval/execution, wrong organization kind, double owner and model supplied actor; valid human/service controls.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -617,7 +617,7 @@
         "request",
         "sql"
       ],
-      "description": "TenantAdmin, orgAdmin affiliatedON, genericplatformadmin and scopedinvestigator; cursor search/export and wrong resource context.",
+      "description": "TenantAdmin, orgAdmin affiliatedON, generic platform admin and scoped investigator; cursor search/export and wrong resource context.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -719,7 +719,7 @@
         "request",
         "sql"
       ],
-      "description": "Delete account that authored plant document/human evidence/Launch/audit; private account audit; delete plant with independent orgending receipt.",
+      "description": "Delete account that authored plant document/human evidence/Launch/audit; private account audit; delete plant with independent org ending receipt.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -837,7 +837,7 @@
         "request",
         "sql"
       ],
-      "description": "Ordinary runtime role attempts auditUPDATE/DELETE/direct invalidappend; rollback command then safe denial append; provider accepted vs delivered/out-of-order failure.",
+      "description": "Ordinary runtime role attempts audit UPDATE/DELETE/direct invalid append; rollback command then safe denial append; provider accepted vs delivered/out-of-order failure.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -964,7 +964,7 @@
         "request",
         "sql"
       ],
-      "description": "Restore beforeaccount/plantpurge snapshot with old actorlinks, schedules and objects; apply current witness and original copy expiry.",
+      "description": "Restore before account/plant purge snapshot with old actor links, schedules and objects; apply current witness and original copy expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1610,7 +1610,7 @@
         "request",
         "sql"
       ],
-      "description": "Pending account orplant deletion, revoked ordinary session, native fresh proof at deadline-1ms/deadline/deadline+1ms and delayed purge.",
+      "description": "Pending account or plant deletion, revoked ordinary session, native fresh proof at deadline-1ms/deadline/deadline+1ms and delayed purge.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1730,7 +1730,7 @@
         "request",
         "sql"
       ],
-      "description": "Delete lastOwneraccount; independent platform role/leadPerson/org association; end seat then ordinary invitation.",
+      "description": "Delete last Owner account; independent platform role/leadPerson/org association; end seat then ordinary invitation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1840,7 +1840,7 @@
         "request",
         "sql"
       ],
-      "description": "Node24+pinned BetterAuth/Next+selected PostgreSQL driver in isolated deployment; actual handler/action cookie renewal, verification storage, interactive locks, Origin and proxy behavior.",
+      "description": "Node 24+pinned BetterAuth/Next+selected PostgreSQL driver in isolated deployment; actual handler/action cookie renewal, verification storage, interactive locks, Origin and proxy behavior.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3024,7 +3024,7 @@
         "assessment",
         "assessment_contributor"
       ],
-      "description": "A plant affiliated with sending churchesA/B and networkN; org run points to plant ID, wrong kind or parent-network-only reach; endA whileB valid.",
+      "description": "A plant affiliated with sending churchesA/B and networkN; org run points to plant ID, wrong kind or parent-network-only reach; endA while B valid.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3469,7 +3469,7 @@
         "article_revision",
         "reference_item"
       ],
-      "description": "Owner0/6 and eligible actual lead6/6; two readers each3/6; exactly80 versus80.01; accessible org fork of same canonical article; meaningful update then typo; end source affiliation.",
+      "description": "Owner 0/6 and eligible actual lead 6/6; two readers each 3/6; exactly 80 versus 80.01; accessible org fork of same canonical article; meaningful update then typo; end source affiliation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3692,7 +3692,7 @@
         "private_week",
         "private_week_revision"
       ],
-      "description": "AuthorsA/B in exactplant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
+      "description": "AuthorsA/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3807,7 +3807,7 @@
         "document_revision",
         "file_object"
       ],
-      "description": "Private account document+revisions/import, reviewed selected carry-forward into newplant copy, forge current/prior revision from another doc/owner, then original account purge. Create a selected copy with current source-account read plus target-plant Owner/Admin proof; forge another private owner or stale source/plant lifecycle; try rebinding provenance or foreign owner current revision/import/object. Purge the original account and inspect every tagged private binding alongside the independent plant copy.",
+      "description": "Private account document+revisions/import, reviewed selected carry-forward into new plant copy, forge current/prior revision from another doc/owner, then original account purge. Create a selected copy with current source-account read plus target-plant Owner/Admin proof; forge another private owner or stale source/plant lifecycle; try rebinding provenance or foreign owner current revision/import/object. Purge the original account and inspect every tagged private binding alongside the independent plant copy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4251,7 +4251,7 @@
         "finding",
         "assessment_contributor"
       ],
-      "description": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after30day fence; purge with dependent current revision links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
+      "description": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after 30 day fence; purge with dependent current revision links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4745,7 +4745,7 @@
         "article_revision",
         "passage"
       ],
-      "description": "Release1 active; release2 derivative fail/incomplete, then complete+validated activate; concurrent activates; rollback; foreign org-source body via history/artifact/search/file/citation.",
+      "description": "Release 1 active; release 2 derivative fail/incomplete, then complete+validated activate; concurrent activates; rollback; foreign org-source body via history/artifact/search/file/citation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5094,7 +5094,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "ForeignIDs,seatless/Member/deferredcoach token, spoofeduser/plant, revokedgrant, staleapprovedplan, guessedobject across read and effect.",
+      "description": "ForeignIDs,seatless/Member/deferred coach token, spoofed user/plant, revoked grant, stale approved plan, guessed object across read and effect.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5217,7 +5217,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Real login/reset/emailchange/logout/renewal, stalecredentialrace, stagedregistration rollback and cookiehandling.",
+      "description": "Real login/reset/email change/logout/renewal, stale credential race, staged registration rollback and cookie handling.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5329,7 +5329,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Unauthorized account/contact/assessment canaries in HTML/RSC/JSON/errors/streams/filemetadata/counts; crawler forgedUA to org Wiki.",
+      "description": "Unauthorized account/contact/assessment canaries in HTML/RSC/JSON/errors/streams/file metadata/counts; crawler forgedUA to org Wiki.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5437,7 +5437,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Alternate tenants through warmnavigation/prefetch/requestmemo/privateRSC/download, revokegrant thenread; globalvsorgcorpuscache.",
+      "description": "Alternate tenants through warm navigation/prefetch/requestmemo/privateRSC/download, revoke grant then read; global vs org corpus cache.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5555,7 +5555,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "ForgedHost/x-forwarded-host/clientactorheaders, foreign/missingOrigin, unsafe redirect, GETmutation, unsignedmachine/webhook, replay unsubscribe/RSVP.",
+      "description": "ForgedHost/x-forwarded-host/client actor headers, foreign/missingOrigin, unsafe redirect, GET mutation, unsigned machine/webhook, replay unsubscribe/RSVP.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5683,7 +5683,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "MalformedUUID/filters/order/fields, whitespace-only names, omittedvsnull, massassignment/oversize, forgedIP, parallel limiterburst, changedidem digest. Plant/org profile patches include independent null clears, boundary lengths, unknown nested contact/profile keys, malformed email/HTTPS URL, attempted kind/ID/lifecycle/material-revision assignment, own-org Owner/Admin/Member and foreign/plant-only role controls.",
+      "description": "MalformedUUID/filters/order/fields, whitespace-only names, omitted vs null, massassignment/oversize, forgedIP, parallel limiter burst, changed idem digest. Plant/org profile patches include independent null clears, boundary lengths, unknown nested contact/profile keys, malformed email/HTTPS URL, attempted kind/ID/lifecycle/material-revision assignment, own-org Owner/Admin/Member and foreign/plant-only role controls.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5813,7 +5813,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "SpoofedMIME/format/traversal/oversize/decompressionheavyOffice/CSVformula, crossownerintent/finalize/download, expiredhandle/deletedsubject/revokedgrant; realPDF/DOCX/XLSX bytes.",
+      "description": "SpoofedMIME/format/traversal/oversize/decompression heavy Office/CSV formula, cross owner intent/finalize/download, expired handle/deleted subject/revoked grant; real PDF/DOCX/XLSX bytes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6804,7 +6804,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Badrawbytes/signature/timestamp, replay/outoforder/unknownproviderIDs, duplicateevents and crossscope IDinjection.",
+      "description": "Badrawbytes/signature/timestamp, replay/out of order/unknown provider IDs, duplicate events and cross scope ID injection.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6914,7 +6914,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Mixprodpreview DB/object/sender/callback/model/trigger config; attemptstartupwipe/customerclone/unsafe fixture reset.",
+      "description": "Mixprodpreview DB/object/sender/callback/model/trigger config; attempt startup wipe/customer clone/unsafe fixture reset.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7022,7 +7022,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Credential/address/private narrative/promptattachmentcanaries in errors/logs/traces/RSCactionclosures; editor/MDX/HTML scriptinjection; unscopedoperatorinspect.",
+      "description": "Credential/address/private narrative/prompt attachment canaries in errors/logs/traces/RSC action closures; editor/MDX/HTML script injection; unscoped operator inspect.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7144,7 +7144,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Crash/disconnect/cancel/afterfailure before/after DBcommit/provideracceptance/streamresponse; restartchangedproposal/revokedactor.",
+      "description": "Crash/disconnect/cancel/after failure before/after DB commit/provider acceptance/stream response; restart changed proposal/revoked actor.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7476,7 +7476,7 @@
     },
     {
       "id": "TEN-003",
-      "requirement": "Independent orgsharing and source access",
+      "requirement": "Independent org sharing and source access",
       "feature_ids": [
         "IDN-021",
         "IDN-022",
@@ -7501,7 +7501,7 @@
         "request",
         "sql"
       ],
-      "description": "Plant hasA/B and parentchurch/network relations; health/category differs, endA withBdirectgrant valid; departed Wiki citations warm.",
+      "description": "Plant hasA/B and parent church/network relations; health/category differs, endA with B direct grant valid; departed Wiki citations warm.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7625,7 +7625,7 @@
         "request",
         "sql"
       ],
-      "description": "Revoke role/affiliation/sharing during reviewed preview, jobclaim/publication, uploadintent/finalize/download and warmcache read.",
+      "description": "Revoke role/affiliation/sharing during reviewed preview, job claim/publication, upload intent/finalize/download and warm cache read.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7710,7 +7710,7 @@
     },
     {
       "id": "TEN-005",
-      "requirement": "Single active seat and no roleunion",
+      "requirement": "Single active seat and no role union",
       "feature_ids": [
         "IDN-005",
         "IDN-019"
@@ -7730,7 +7730,7 @@
         "request",
         "sql"
       ],
-      "description": "Attempt simultaneous differenttenant memberships; independentplatform+orgrelationship+leadtitle; stale session acting scope.",
+      "description": "Attempt simultaneous different tenant memberships; independent platform+org relationship+lead title; stale session acting scope.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7849,7 +7849,7 @@
         "request",
         "sql"
       ],
-      "description": "TwoOwner/Admin accounts inplant and outsideorg/operator/model callers inspect own/other answers/history/existence/period/nudge paths.",
+      "description": "TwoOwner/Admin accounts inplant and outside org/operator/model callers inspect own/other answers/history/existence/period/nudge paths.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7955,7 +7955,7 @@
         "request",
         "sql"
       ],
-      "description": "Personalpurge with sharedPerson/training/meeting/Launch records and privateartifacts; exactplantpurge with otherorg/account data.",
+      "description": "Personalpurge with sharedPerson/training/meeting/Launch records and private artifacts; exact plant purge with other org/account data.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8073,7 +8073,7 @@
         "request",
         "sql"
       ],
-      "description": "Feedback,attachment,reference/model text requests raw SQL, forgedactor/org, anotherapproval or NIrawmanifest.",
+      "description": "Feedback,attachment,reference/model text requests raw SQL, forged actor/org, another approval or NI raw manifest.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8194,7 +8194,7 @@
         "request",
         "sql"
       ],
-      "description": "Selected non-owner runtime role, migration/backup and auditcleanup roles; pooled transaction scope reuse. If RLS later selected, missingcontext/noBYPASSRLS/ownerbypass/globalbridge controls.",
+      "description": "Selected non-owner runtime role, migration/backup and audit cleanup roles; pooled transaction scope reuse. If RLS later selected, missing context/no BYPASSRLS/owner bypass/global bridge controls.",
       "given": {
         "P": {
           "fixture_type": "plant",

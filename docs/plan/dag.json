@@ -178,7 +178,7 @@
       "outputs": [
         "single Next.js representative slice and SEC gate evidence; runtime/provider limits decision; no separate backend or worker deployment inferred",
         "Selected VercelNext/Neon/Tigris platform proof and server-only ordinary storage adapter; current subject-authorized short-lived exact-object presigning, no forced byte proxy.",
-        "Prove pinned Node24/Next/BetterAuth/transaction driver behavior with real adapter SQL and sessions; deny missing identity generation, forged scope, stale stream/file authority and incompatible hooks."
+        "Prove pinned Node 24/Next/BetterAuth/transaction driver behavior with real adapter SQL and sessions; deny missing identity generation, forged scope, stale stream/file authority and incompatible hooks."
       ],
       "owning_paths": [
         "apps/web/src/server/platform/",
@@ -241,7 +241,7 @@
       ],
       "outputs": [
         "fresh source-preserving schema with independent affiliation and per-org fixed-category sharing, revisions/audit/private storage",
-        "Proposed owned_document/owned_document_revision scope integrity distinct from88 source tables and generated artifacts.",
+        "Proposed owned_document/owned_document_revision scope integrity distinct from 88 source tables and generated artifacts.",
         "Target-only creation-entry journal integrity/once-per-church discriminator and nullability rules, preserving declaration slot; existing source declarations unchanged.",
         "Proposed organization run/assessment storage, adult-classification and current-commitment fields with dated audit history; preserve all 88 source declarations.",
         "Scoped organization assessment/finding/reference-version feedback via a typed variant of existing feedback model; dedicated same-org references, author/history/revision and exact reviewed Evry write. No overloaded plant FK or automatic rubric rewrite.",
@@ -564,8 +564,8 @@
       ],
       "outputs": [
         "create plant, leadership/journey attestation, completion",
-        "No-church Discovery account accesses Wiki/editor plus account/creation controls; creation supplies main Phase1 evidence without strict readiness; selected document carry-forward is scoped proposal.",
-        "CreateChurchFromDiscovery atomic Phase 1/authority/creation-origin provenance; actual unfinished checklist preserved; not_sure never auto-declares Phase0.",
+        "No-church Discovery account accesses Wiki/editor plus account/creation controls; creation supplies main Phase 1 evidence without strict readiness; selected document carry-forward is scoped proposal.",
+        "CreateChurchFromDiscovery atomic Phase 1/authority/creation-origin provenance; actual unfinished checklist preserved; not_sure never auto-declares Phase 0.",
         "Owner CRM create/link and recorded lead-answer contract close here; WP017 proves real ordinary role/container assignment integration. A frozen interface alone does not close full onboarding vertical acceptance."
       ],
       "owning_paths": [
@@ -583,7 +583,7 @@
         "back/reentry/drafts",
         "association/seat conversion guard",
         "Persist actual creation Phase 1; no inferred readiness, advanced existing-journey attestation or automatic checklist completion",
-        "Journal actual new insert once; an existing/race created result never writes a new entry or overwrites later phase. Both not_sure and zero/discerning setup answers retain creationPhase1, distinct from a later reasoned correction.",
+        "Journal actual new insert once; an existing/race created result never writes a new entry or overwrites later phase. Both not_sure and zero/discerning setup answers retain creationPhase 1, distinct from a later reasoned correction.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -2175,7 +2175,7 @@
         "shared per-article Wiki corpus resolver plus browse/download/search/progress/bookmark",
         "Versioned actual-reader Discovery scroll proxy >0.80; required list and distinct-reader edge remain explicit; no new exercises.",
         "Six-item >80% credited-reader checklist with actual per-article source/version/progress; no phase advancement or auto-completion on creation.",
-        "Current entitled source precedence, actual reader/source/revision progress, retained meaningful-update credit, one-reader six-article Discovery and independent Phase1 creation."
+        "Current entitled source precedence, actual reader/source/revision progress, retained meaningful-update credit, one-reader six-article Discovery and independent Phase 1 creation."
       ],
       "owning_paths": [
         "packages/domain/src/wiki/",
@@ -2249,7 +2249,7 @@
         "own-org Owner/Admin Wiki add/edit/hide/publish; feedback and independent authorized reference/cache refresh",
         "Consume C-EDITOR from WP-032 via WP-034; Wiki editorial policy remains separate from owned-document authority",
         "wiki.organizationArticles.publish: existing publisher supplies meaningfulUpdate revision flag; no classifier or new grant.",
-        "Namedwiki.upstream_updated in-app-only producer; currentorgeditor/upstreamcustomversion trigger, noemail regardlessordinaryprefs; distinctfromreader meaningfulflag."
+        "Namedwiki.upstream_updated in-app-only producer; current org editor/upstream custom version trigger, no email regardless ordinary prefs; distinct from reader meaningful flag."
       ],
       "acceptance_gates": [
         "own-org Owner/Admin editorial scope; local authoring uses owned Church Documents; no plant-local Wiki CMS",
@@ -2447,8 +2447,8 @@
       ],
       "outputs": [
         "attest initial phase/manual advance/override/history",
-        "Read/project actual creation-origin Phase1 separately from existing-journey declaration/manual changes; no fictitious Phase0 timeline or new producer.",
-        "One creation-origin Phase1 record independently of reading; explicit attested initial phase and reviewable transition/history; same-phase no-op without new PI tasks/revision."
+        "Read/project actual creation-origin Phase 1 separately from existing-journey declaration/manual changes; no fictitious Phase 0 timeline or new producer.",
+        "One creation-origin Phase 1 record independently of reading; explicit attested initial phase and reviewable transition/history; same-phase no-op without new PI tasks/revision."
       ],
       "owning_paths": [
         "packages/domain/src/phases/",
@@ -2663,7 +2663,7 @@
       ],
       "outputs": [
         "Everyfield authors/tests a separate versioned portfolio rubric v1, records content hashes and fixtures, then collects user feedback; original SME PI is unchanged.",
-        "Exact preserved SME rubric plus approved evidence overlay, immutable rubric/reference manifests, current citations/entitlement and separate Network rubricv1."
+        "Exact preserved SME rubric plus approved evidence overlay, immutable rubric/reference manifests, current citations/entitlement and separate Network rubricv 1."
       ],
       "owning_paths": [
         "packages/domain/src/intelligence/",
@@ -3156,7 +3156,7 @@
       ],
       "outputs": [
         "discovery/plant/no-plant/oversight shell and workflow entry points",
-        "Independent onboarding/readiness/declaration facts; currentPhase>0 is not completion and not_sure retains creation Phase1."
+        "Independent onboarding/readiness/declaration facts; currentPhase>0 is not completion and not_sure retains creation Phase 1."
       ],
       "owning_paths": [
         "packages/domain/src/dashboard/",
@@ -3231,7 +3231,7 @@
       ],
       "interfaces": [
         "feedback lifecycle/GitHub convenience/waitlist/public surfaces",
-        "feedback.listOwn/getOwnStatus bounded authenticated-original-user DTO; separatepublicfeedbackrepo sanitized title/body + actualrepo/issue locator + truthful publication/triage outcomes, no admin DTO or roadmap."
+        "feedback.listOwn/getOwnStatus bounded authenticated-original-user DTO; separate public feedback repo sanitized title/body + actual repo/issue locator + truthful publication/triage outcomes, no admin DTO or roadmap."
       ],
       "acceptance_gates": [
         "published description disclosure",
@@ -3895,7 +3895,7 @@
       "outputs": [
         "every preserved feature accepted with UI/Evry/file evidence",
         "Full 496-source capability preservation plus DOC-016, PI-043 and PI-044 gates; future acceptance requirements are not executed tests.",
-        "All current feature/acceptance/fixture gates and real file/browser/model/protocol evidence; measured coherent ordinary1h RPO/4h RTO and honest asynchronous purge/copy expiry."
+        "All current feature/acceptance/fixture gates and real file/browser/model/protocol evidence; measured coherent ordinary 1h RPO/4h RTO and honest asynchronous purge/copy expiry."
       ],
       "owning_paths": [
         "apps/web/src/server/integration/",
@@ -3955,7 +3955,7 @@
       "outputs": [
         "staging-only future rehearsal/readiness evidence",
         "Fresh bootstrap with original source payload and actually authored/tested portfolio rubric; no empty reference marked ready and no customer import.",
-        "Fresh global-reference/template bootstrap and isolated DB-plus-byte restore, key/access/expiry drill and authorized release rehearsal; daily surviving-copy24h fallback, no disaster SLA."
+        "Fresh global-reference/template bootstrap and isolated DB-plus-byte restore, key/access/expiry drill and authorized release rehearsal; daily surviving-copy 24h fallback, no disaster SLA."
       ],
       "owning_paths": [
         "apps/web/src/server/operations/",

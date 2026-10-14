@@ -21,7 +21,7 @@ Measure distinct current applicable person/program obligations with valid nonrev
 
 <a id="req-team-017"></a>
 
-### REQ-TEAM-017 — Dated60day attendance AND volunteering evidence
+### REQ-TEAM-017 — Dated 60 day attendance AND volunteering evidence
 
 Retain the SME 60 days of unbroken attendance AND volunteering, described as steady attendance and serving. Use dated observed records where available and a dated human planter attestation for unobserved behavior, recording exact Person, both behaviors, sustained start/end or asOf period, question/reference version, actor and correction lineage. CRM tenure, lifetime attendance totals and active membership alone cannot establish continuity. Less than 60 days, one behavior alone or insufficient evidence is Unknown/unestablished; do not invent attendance percentages, event quotas, absence allowances, service calendar, expiry or hidden eighth manual-signal key. Missing app observations do not disprove a dated attestation; unresolved contradiction is visible and a model cannot supply testimony. A qualifying signal only invites a human leadership conversation; interview/4 Cs remain dated human judgments, missing records are next steps, and no readiness/role/promotion/phase effect occurs. Candidate identity evidence is plant-audience only; organizations receive their permitted aggregate projection and private care is never an input.
 
@@ -79,7 +79,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-003 — Optional ministry and role imports
 
-**REQ-TEAM-003.** Retain ten predefined ministry templates and separately selected role catalog through the versioned immutable reference manifest. Preview independently chosen ministries and roles, exact rows and edit able destination choices. Skip/cancel/no selection and all reads create zero structure. Permit later additional selected roles after partial/custom setup; custom same name is never auto-conflated. Unique tenant/templateKey prevents renamed-template duplicates. Reviewed import validates every key/version/authority, creates selected teams/roles/responsibilities and receipt together or explicitly resumes named missing rows under one intent; response loss/retry/concurrent winner never duplicates. Existing customization/occupied leadership survives. Disclosed eligible Owner lead/Senior Pastor assignment uses ordinary selected vacant role only, with no entire automatic template import.
+**REQ-TEAM-003.** Retain ten predefined ministry templates and separately selected role catalog through the versioned immutable reference manifest. Preview independently chosen ministries and roles, exact rows and editable destination choices. Skip/cancel/no selection and all reads create zero structure. Permit later additional selected roles after partial/custom setup; custom same name is never auto-conflated. Unique tenant/templateKey prevents renamed-template duplicates. Reviewed import validates every key/version/authority, creates selected teams/roles/responsibilities and receipt together or explicitly resumes named missing rows under one intent; response loss/retry/concurrent winner never duplicates. Existing customization/occupied leadership survives. Disclosed eligible Owner lead/Senior Pastor assignment uses ordinary selected vacant role only, with no entire automatic template import.
 
 **Target operations:** `teams.previewTemplateImport`, `teams.initialize`.
 

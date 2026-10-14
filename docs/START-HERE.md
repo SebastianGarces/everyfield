@@ -8,9 +8,9 @@ An account has at most one active tenant seat. Plants and organizations are sepa
 
 Every durable Evry action requires review of its exact effects and human approval, followed by fresh authority/revision checks. Authorized reads and drafts need no blanket write grant. Evry has no pastoral judgment, prayer or biblical-counsel role. Native weekly private care belongs only to its original author and remains outside assistant/model/PI/organization/export/generic audit and existence-revealing telemetry paths.
 
-Genuine historical acquisitions survive a person's later withdrawal: current cohort size shrinks, while an invalid historical entry can be corrected with history. Rejoining is not another new person. Discovery reading requires one eligible actual reader to complete all six canonical articles above the threshold; different people's partial reading cannot be pooled. Creating a plant enters Phase1 independently of checklist completion.
+Genuine historical acquisitions survive a person's later withdrawal: current cohort size shrinks, while an invalid historical entry can be corrected with history. Rejoining is not another new person. Discovery reading requires one eligible actual reader to complete all six canonical articles above the threshold; different people's partial reading cannot be pooled. Creating a plant enters Phase 1 independently of checklist completion.
 
-Personal-account and Owner-requested workspace deletion suspend normal affected access immediately and hold affected content privately for 30 days solely for cancellation. Restricted cancellation ends strictly at the deadline. Coherent eligible live purge starts a seven-day recovery-copy horizon. Shared church-owned facts survive personal removal with minimal attribution. Restore must reapply current deletion/access witnesses before opening service and cannot reset expiry. Provider cleanup is asynchronous; exact universal physical day37 erasure is not promised.
+Personal-account and Owner-requested workspace deletion suspend normal affected access immediately and hold affected content privately for 30 days solely for cancellation. Restricted cancellation ends strictly at the deadline. Coherent eligible live purge starts a seven-day recovery-copy horizon. Shared church-owned facts survive personal removal with minimal attribution. Restore must reapply current deletion/access witnesses before opening service and cannot reset expiry. Provider cleanup is asynchronous; exact universal physical day 37 erasure is not promised.
 
 Safe feedback summaries create and triage issues automatically in a separate public repository; private originals and bounded own-user status remain separate. No raw fallback or publication of private records is allowed. The other agent's owner-provided merged workflow determines development routing; this specification adds no competing rubric, auto-merge or deployment authority.
 
@@ -23,6 +23,8 @@ Requirement JSON in `docs/catalog/requirements/` is the behavior authority. Prod
 ## Reading an assigned package
 
 Read AGENTS.md, this orientation, the global security/audit contracts and the evidence-backed progress workflow. Generate the assigned packet with the documented package-context tool. It selects concrete requirements, cases, operations, schema and direct-prerequisite interfaces from the verified context manifest. Do not recursively load all upstream packets or the entire repository. Read original reference passages and relevant approved design sections on demand. Schema/contract and final integration owners necessarily read broader indexed sets; context budgets never justify dropping requirements.
+
+[The glossary](product/glossary.md) explains receipt, projection, witness, subject, Unknown and revision terms.
 
 Current domain chapters:
 

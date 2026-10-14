@@ -24,7 +24,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Ordinaryapp/build/preview credentials attempt list/read/write backupbucket; dedicated restrictedkey succeeds.",
+      "description": "Ordinaryapp/build/preview credentials attempt list/read/write backup bucket; dedicated restricted key succeeds.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -120,7 +120,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Dated encrypted fullcandidate/checksums,keyescrow,subjectexpiry and oldcopy recopy.",
+      "description": "Dated encrypted full candidate/checksums,key escrow,subject expiry and old copy recopy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -207,7 +207,7 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "description": "Shared provider/account outage loses primary+backup versus surviving24hour-fresh complete dailycopy.",
+      "description": "Shared provider/account outage loses primary+backup versus surviving 24 hour-fresh complete daily copy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -296,7 +296,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Beforecustomerdata gate lacks actual costapproval,hostschedule,key-exclusion and coherentrestore evidence.",
+      "description": "Beforecustomerdata gate lacks actual cost approval,host schedule,key-exclusion and coherent restore evidence.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -491,7 +491,7 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "description": "Pending30day private hold with revoked normalsession; fresh restricted status/cancel proof.",
+      "description": "Pending 30 day private hold with revoked normal session; fresh restricted status/cancel proof.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -586,7 +586,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Cancel at deadline-minus1ms,exactdeadline,purgelease and stale oldrequest after newrequest.",
+      "description": "Cancel at deadline-minus 1ms,exact deadline,purge lease and stale old request after new request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -698,7 +698,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Accountcreator owns private doc and created plant-owned doc/generatedfile/sharedhistory.",
+      "description": "Accountcreator owns private doc and created plant-owned doc/generated file/shared history.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -800,7 +800,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native privatecare.",
+      "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native private care.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -904,7 +904,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Pendingdeletion with unsentintent,accepted scheduledmail,sentmail and unexpired issuedURL.",
+      "description": "Pendingdeletion with unsent intent,accepted scheduled mail,sent mail and unexpired issuedURL.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1105,7 +1105,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Old snapshot/branch/objectversion recopy after livePurgedAt+7days and current witness outside image.",
+      "description": "Old snapshot/branch/object version recopy after livePurgedAt+7 days and current witness outside image.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1190,7 +1190,7 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "description": "Privacycopy and ownfeedback status during hold/purge with actual externalcopy/provider limits.",
+      "description": "Privacycopy and own feedback status during hold/purge with actual external copy/provider limits.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1274,7 +1274,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Actual paidNeon default1day vs configured7days; daily,manual,latest-preserved snapshot and restoredbranch expiry.",
+      "description": "Actual paidNeon default 1 day vs configured 7 days; daily,manual,latest-preserved snapshot and restored branch expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1363,7 +1363,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Actual Tigris seven-day deletedobject recovery, softdeletedbucket and earlier version cleanup delay.",
+      "description": "Actual Tigris seven-day deleted object recovery, soft deleted bucket and earlier version cleanup delay.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1470,7 +1470,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Restore DB point with replaced/deleted/private ready files and failed pendingupload candidate.",
+      "description": "Restore DB point with replaced/deleted/private ready files and failed pending upload candidate.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1556,7 +1556,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Timed ordinary mistake drill with accessible live providers and lastcommittedwork instants.",
+      "description": "Timed ordinary mistake drill with accessible live providers and last committed work instants.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1645,7 +1645,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Separate private backup bucket with actual restrictedhost/key/cost approval absent then configuredtested.",
+      "description": "Separate private backup bucket with actual restricted host/key/cost approval absent then configured tested.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1744,7 +1744,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Isolated old backup has pendingmail/publicissue but current externalreceipts and newer deletion witnesses.",
+      "description": "Isolated old backup has pending mail/public issue but current external receipts and newer deletion witnesses.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1946,7 +1946,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Account creator deleted versus plant owner deleted; old backup contains canceledscheduledmail/privatecare and expiry witness newer than snapshot.",
+      "description": "Account creator deleted versus plant owner deleted; old backup contains canceled scheduled mail/private care and expiry witness newer than snapshot.",
       "given": {
         "P": {
           "fixture_type": "plant",

@@ -6,7 +6,7 @@
       "feature_ids": [
         "PHASE-001"
       ],
-      "text": "One attributed idempotent existing-journey initial declaration per plant is distinct from actual new plant creation Phase 1 entry. No synthesized prior phases; retry returns original. Owner/Admin current exact plant authority. Declared phase is a number/integer0..6; no caller reason/kind. Server stores exact reserved initial-declaration sentence and kind, independent of creation.",
+      "text": "One attributed idempotent existing-journey initial declaration per plant is distinct from actual new plant creation Phase 1 entry. No synthesized prior phases; retry returns original. Owner/Admin current exact plant authority. Declared phase is a number/integer 0..6; no caller reason/kind. Server stores exact reserved initial-declaration sentence and kind, independent of creation.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.declare"
@@ -41,7 +41,7 @@
       "feature_ids": [
         "PHASE-002"
       ],
-      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer0..6; reason is string trimmed1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
+      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.transition"
@@ -64,7 +64,7 @@
       "behavior_rules": [
         {
           "operation": "phases.transition",
-          "rule": "String trimmed length1..2000; exact reserved initial-declaration reason rejected after trim"
+          "rule": "String trimmed length 1..2000; exact reserved initial-declaration reason rejected after trim"
         },
         {
           "operation": "phases.transition",
@@ -365,7 +365,7 @@
       "feature_ids": [
         "PI-004"
       ],
-      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly overmeeting warning.",
+      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -595,7 +595,7 @@
       "feature_ids": [
         "PI-012"
       ],
-      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48elapsedhours as measured misses and valid successful completion at/after source-start and by source-start+48hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
+      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -856,7 +856,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.evaluateAssessment",
-          "rule": "Provider work outside DB locks; at most3output drafts/4provider attempts per draft under one deadline/token reservation. Run/attempt metadata checkpointed by current claim; no publish from evaluation alone."
+          "rule": "Provider work outside DB locks; at most 3 output drafts/4 provider attempts per draft under one deadline/token reservation. Run/attempt metadata checkpointed by current claim; no publish from evaluation alone."
         }
       ],
       "title": "Bounded corrective draft retries"
@@ -890,11 +890,11 @@
       "behavior_rules": [
         {
           "operation": "intelligence.callProvider",
-          "rule": "Only registered adapter loads pinned allowed prompt; maxRetries0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
+          "rule": "Only registered adapter loads pinned allowed prompt; maxRetries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
         },
         {
           "operation": "intelligence.callProvider",
-          "rule": "Single cumulative reservation and invocation deadline; charge/reconcile every actual dispatch including429/5xx; no hidden SDK ladder"
+          "rule": "Single cumulative reservation and invocation deadline; charge/reconcile every actual dispatch including 429/5xx; no hidden SDK ladder"
         }
       ],
       "title": "Provider throttling, backoff and learned token pacing"
@@ -1046,7 +1046,7 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/currentclaim/currentgrant CAS and pointer publication are indivisible; never a raw insight insert."
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/current claim/current grant CAS and pointer publication are indivisible; never a raw insight insert."
         }
       ],
       "title": "Insight persistence, severity/rank and snapshot deltas"

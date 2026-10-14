@@ -122,7 +122,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Preview and generate frozen authorized merge inputs for all12 formats; oversized field, foreign subject, malformed renderer output.",
+      "description": "Preview and generate frozen authorized merge inputs for all 12 formats; oversized field, foreign subject, malformed renderer output.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2221,7 +2221,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "English term/title/body query with20page phase filter, hidden default/source-view context and database timeout.",
+      "description": "English term/title/body query with 20 page phase filter, hidden default/source-view context and database timeout.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2330,7 +2330,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Reader at0.80 then0.8001, passive restoration, completed meaningful update followed typo; departed source citation.",
+      "description": "Reader at 0.80 then 0.8001, passive restoration, completed meaningful update followed typo; departed source citation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3312,7 +3312,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "Initial96/21/7 manifest, second coherent candidate, missing vector, same-ID changed hash and rollback.",
+      "description": "Initial 96/21/7 manifest, second coherent candidate, missing vector, same-ID changed hash and rollback.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3551,7 +3551,7 @@
         "WP-033"
       ],
       "status": "future-not-run",
-      "description": "Exact96article21section7mailtemplate hashes/IDs/topology with11documenttemplate separateinventory.",
+      "description": "Exact 96 article 21 section 7 mail template hashes/IDs/topology with 11 document template separate inventory.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3638,7 +3638,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Samecanonical publishedglobal/entitledorgfork,unrelated sametitle,draft,splitreader completion.",
+      "description": "Samecanonical published global/entitled org fork,unrelated same title,draft,split reader completion.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3736,7 +3736,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Completedpriorread with hidden/departedcurrentbody and still-entitledalternate source.",
+      "description": "Completedpriorread with hidden/departed current body and still-entitled alternate source.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3815,7 +3815,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Owner0/6 and current eligible ordinary Admin/lead actual reader6/6, all progress0.8001; title-only unseated lead also6/6.",
+      "description": "Owner 0/6 and current eligible ordinary Admin/lead actual reader 6/6, all progress 0.8001; title-only unseated lead also 6/6.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3948,7 +3948,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Owner reads articles1–3 and other eligible reader4–6; each0.9; one article at exactly0.80.",
+      "description": "Owner reads articles 1–3 and other eligible reader 4–6; each 0.9; one article at exactly 0.80.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4526,7 +4526,7 @@
         "arguments": {
           "conversation": "C",
           "utterances": [
-            "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/privatecare/auth-secret data."
+            "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/private care/auth-secret data."
           ],
           "request_key": "EVRY-ACCOUNT-PRIVATE-DISCOVERY-turn-1",
           "operation_controls": [
@@ -4670,7 +4670,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/privatecare/auth-secret data."
+                "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/private care/auth-secret data."
               ],
               "request_key": "EVRY-ACCOUNT-PRIVATE-DISCOVERY-turn-1",
               "operation_controls": [
@@ -4799,7 +4799,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/privatecare/auth-secret data."
+                "Read W/D and own Discovery profile; prepare and trusted-review save/import/archive D; continue C after selecting a plant page without an actual seat; request E/People/team/meeting/health/private care/auth-secret data."
               ],
               "request_key": "EVRY-ACCOUNT-PRIVATE-DISCOVERY-turn-1",
               "operation_controls": [
@@ -6838,7 +6838,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Stored S1hide,S2edit,N1edit,global; source browse S2; later S1ends and rejoining recognition unranked.",
+      "description": "Stored S 1 hide,S 2 edit,N 1 edit,global; source browse S2; later S 1 ends and rejoining recognition unranked.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6960,7 +6960,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Completedreader oldrevision then meaningful publishednewrevision,authorized current view.",
+      "description": "Completedreader old revision then meaningful published new revision,authorized current view.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7042,7 +7042,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Typo-only edit and meaningful edit followed interveningtypo; publisher flag absent.",
+      "description": "Typo-only edit and meaningful edit followed intervening typo; publisher flag absent.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7147,7 +7147,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "Voluntary reopen/newsource progress and former-org departure with oldcompletedcredit.",
+      "description": "Voluntary reopen/new source progress and former-org departure with old completed credit.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7236,7 +7236,7 @@
         "WP-019"
       ],
       "status": "future-not-run",
-      "description": "CompletedDiscoverysix and training records, meaningfularticleupdate with no new evidence.",
+      "description": "CompletedDiscoverysix and training records, meaningful article update with no new evidence.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7340,7 +7340,7 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "description": "Customized org article and inherited article each receive publishedglobal typo/meaningful change.",
+      "description": "Customized org article and inherited article each receive published global typo/meaningful change.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7442,7 +7442,7 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "description": "Current ownorg editors with categoryemailON receive named upstreamcue; revokededitor attempts read.",
+      "description": "Current own org editors with category email ON receive named upstream cue; revoked editor attempts read.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7524,7 +7524,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "Plant-specific guide/corevalues nativeChurchDocument and extant plantlocalWiki read; plantWiki edit attempted.",
+      "description": "Plant-specific guide/corevalues nativeChurchDocument and extant plant local Wiki read; plantWiki edit attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",

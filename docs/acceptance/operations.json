@@ -351,7 +351,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "No-seat Discovery, org seat, unfinished saved onboarding, created Phase1 with0/6 and stale browser parameters.",
+      "description": "No-seat Discovery, org seat, unfinished saved onboarding, created Phase 1 with 0/6 and stale browser parameters.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -645,7 +645,7 @@
         "WP-049"
       ],
       "status": "future-not-run",
-      "description": "Review future privacy copy against hold30days/purge-completed+7days, asynchronous cleanup/external copies/shared-provider outage.",
+      "description": "Review future privacy copy against hold 30 days/purge-completed+7 days, asynchronous cleanup/external copies/shared-provider outage.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1913,7 +1913,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Durable nativefeedback original plus safe automatic publicissue and lost externalreceipt.",
+      "description": "Durable native feedback original plus safe automatic public issue and lost external receipt.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1999,7 +1999,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Bug versus featurefeedback awaiting actual merged ownertriage/routing version; uncertainclassification.",
+      "description": "Bug versus feature feedback awaiting actual merged owner triage/routing version; uncertain classification.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2077,7 +2077,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Other-worktree location mentioned but merged authoritative artifact not delivered; purported codingrequest.",
+      "description": "Other-worktree location mentioned but merged authoritative artifact not delivered; purported coding request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2159,7 +2159,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Feedbacktext includes exfiltrationinstruction/privatebody and duplicate issue retry.",
+      "description": "Feedbacktext includes exfiltration instruction/private body and duplicate issue retry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2246,7 +2246,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Existing free development allowance versus proposed recurringpaid monthlyusage/recovery/modelcost.",
+      "description": "Existing free development allowance versus proposed recurringpaid monthly usage/recovery/model cost.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2332,7 +2332,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Isolated timed DBplusfilesrestore with current deletionwitness/externalmail/issue receipt and mismatchedfile.",
+      "description": "Isolated timed DB plus files restore with current deletion witness/external mail/issue receipt and mismatched file.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2413,7 +2413,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "One Next/Neon interactive transaction faults credential/domainclaim/grant and rollback; separate migrationprincipal.",
+      "description": "One Next/Neon interactive transaction faults credential/domain claim/grant and rollback; separate migration principal.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2531,7 +2531,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "Current avatar/personphoto/commitment/generated/native/stagedfile replacement+cleanup race and foreign ID.",
+      "description": "Current avatar/person photo/commitment/generated/native/staged file replacement+cleanup race and foreign ID.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2635,7 +2635,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "Current exactobject signedURL then scope revoke,TTL expiry and guessed clientkey.",
+      "description": "Current exact object signedURL then scope revoke,TTL expiry and guessed client key.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3164,7 +3164,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Provider creates issue before timeout/localreceiptfailure; marker search inaccessible or ambiguous.",
+      "description": "Provider creates issue before timeout/local receipt failure; marker search inaccessible or ambiguous.",
       "given": {
         "P": {
           "fixture_type": "plant",

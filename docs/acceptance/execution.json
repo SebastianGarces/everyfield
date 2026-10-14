@@ -432,7 +432,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "270second route budget reached mid page with unstarted claims and slow provider call.",
+      "description": "270 second route budget reached mid page with unstarted claims and slow provider call.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -644,7 +644,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Digest catchup has more100lines across several missed periods and sharing revoked after compile.",
+      "description": "Digest catchup has more 100 lines across several missed periods and sharing revoked after compile.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -756,7 +756,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Time-only assessment demand at unchanged source; provider call reaches45second timeout, source changes during inference, and stale claimant resumes after its120second assessment lease.",
+      "description": "Time-only assessment demand at unchanged source; provider call reaches 45 second timeout, source changes during inference, and stale claimant resumes after its 120 second assessment lease.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -975,7 +975,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Import/render timeout with existing ready file; object cleanup races DBfinalization.",
+      "description": "Import/render timeout with existing ready file; object cleanup races DB finalization.",
       "given": {
         "P": {
           "fixture_type": "plant",

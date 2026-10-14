@@ -6,7 +6,7 @@
       "feature_ids": [
         "TSK-001"
       ],
-      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sortkey+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.",
+      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sort key+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.",
       "spec": "docs/product/tasks.md#req-tsk-001",
       "operations": [
         "tasks.list",
@@ -186,7 +186,7 @@
         },
         {
           "operation": "tasks.createSubtask",
-          "rule": "Actual task row and own task_status_event/receipt only. No child due/recurrence/source obligation/completion/contact hooks; required date/time/Instant/zone/recurrence/origin columns null. Child tick/reopen never acts by parent assignment, completes parent, earns task48/contact credit or invokes generic follow-up hooks."
+          "rule": "Actual task row and own task_status_event/receipt only. No child due/recurrence/source obligation/completion/contact hooks; required date/time/Instant/zone/recurrence/origin columns null. Child tick/reopen never acts by parent assignment, completes parent, earns task 48/contact credit or invokes generic follow-up hooks."
         },
         {
           "operation": "tasks.listSubtasks",
@@ -769,7 +769,7 @@
         },
         {
           "operation": "tasks.delete",
-          "rule": "An existing soft-deleted prerequisite ceases actionable blocking; predecessor/edge history remains. It gives no success/task48/contact credit. Hidden/foreign/unavailable IDs do not become a fabricated successful prerequisite; guarded update uses same current parent/graph checks."
+          "rule": "An existing soft-deleted prerequisite ceases actionable blocking; predecessor/edge history remains. It gives no success/task 48/contact credit. Hidden/foreign/unavailable IDs do not become a fabricated successful prerequisite; guarded update uses same current parent/graph checks."
         },
         {
           "operation": "tasks.edit",

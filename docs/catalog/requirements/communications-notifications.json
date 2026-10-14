@@ -104,7 +104,7 @@
       "feature_ids": [
         "COM-005"
       ],
-      "text": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+      "text": "Dispatch exact frozen per-recipient payloads through one email_intent/email_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.dispatchAttempt",
@@ -279,7 +279,7 @@
       "feature_ids": [
         "COM-012"
       ],
-      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within30days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [
         "communication.saveDraft",
@@ -618,7 +618,7 @@
         "NTF-004",
         "NTF-007"
       ],
-      "text": "Planter weekly Sunday16:00 church-local email default, daily option and no duplicate inbox digest; existing date/time rules and one logical period are retained.",
+      "text": "Planter weekly Sunday 16:00 church-local email default, daily option and no duplicate inbox digest; existing date/time rules and one logical period are retained.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [],
       "acceptance_ids": [
@@ -636,7 +636,7 @@
       "behavior_rules": [
         {
           "operation": "church.digestSchedule.set",
-          "rule": "Shared church-local weekly day/hour only, default Sunday16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
+          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
         },
         {
           "operation": "church.digestSchedule.set",
@@ -795,7 +795,7 @@
       "behavior_rules": [
         {
           "operation": "mail.acceptWebhook",
-          "rule": "Route verifies raw signature/timestamp before lookup; durable unique event/raw-body hash committed before2xx, unknown message ID retained for reconciliation. Outbound payload hash is different."
+          "rule": "Route verifies raw signature/timestamp before lookup; durable unique event/raw-body hash committed before 2xx, unknown message ID retained for reconciliation. Outbound payload hash is different."
         },
         {
           "operation": "mail.acceptWebhook",
@@ -979,7 +979,7 @@
         },
         {
           "operation": "communication.searchRecipients",
-          "rule": "First20 recipient search only, no implicit whole-audience truncation."
+          "rule": "First 20 recipient search only, no implicit whole-audience truncation."
         },
         {
           "operation": "communication.preview",
@@ -1026,7 +1026,7 @@
         },
         {
           "operation": "communication.dispatchAttempt",
-          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff23h55m never resets; unknown beyond retention reconciles only."
+          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
         },
         {
           "operation": "communication.dispatchAttempt",
@@ -1054,11 +1054,11 @@
         },
         {
           "operation": "communication.scheduleReviewed",
-          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30days, partial/unknown truthful."
+          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30 days, partial/unknown truthful."
         },
         {
           "operation": "communication.sendReviewed",
-          "rule": "Review/execution binds server-frozen whole audience/per-recipient bytes/attachments/sourceversions, not arbitrary model addresses/bytes. Recheck current recipients/exclusions; one ledger commits all intents then bounded exact-scope batches."
+          "rule": "Review/execution binds server-frozen whole audience/per-recipient bytes/attachments/source versions, not arbitrary model addresses/bytes. Recheck current recipients/exclusions; one ledger commits all intents then bounded exact-scope batches."
         },
         {
           "operation": "communication.sendReviewed",
@@ -1072,7 +1072,7 @@
         "COM-005",
         "COM-012"
       ],
-      "text": "Schedule through Resend native API within30days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
+      "text": "Schedule through Resend native API within 30 days including supported batch; no SMTP scheduling or custom long-horizon queue. Church-local display/ISO Instant uses accepted entered-DST rules.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [],
       "acceptance_ids": [
@@ -1374,7 +1374,7 @@
         "NTF-010",
         "NTF-013"
       ],
-      "text": "One email_intent/email_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before firstdispatch+23h55m within documented24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "text": "One email_intent/email_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#mail-contract",
       "operations": [
         "communication.dispatchAttempt",
@@ -1629,7 +1629,7 @@
       "feature_ids": [
         "NTF-010"
       ],
-      "text": "Verify signed raw-body provider event before lookup, persist unique event ID and processing state before2xx, retry non2xx on storage failure, and apply out-of-order facts idempotently without regression. Unknown provider IDs are durably available for reconciliation; no public tenant selector. Soft bounce differs from hard/complaint, whose address suppression remains global.",
+      "text": "Verify signed raw-body provider event before lookup, persist unique event ID and processing state before 2xx, retry non 2xx on storage failure, and apply out-of-order facts idempotently without regression. Unknown provider IDs are durably available for reconciliation; no public tenant selector. Soft bounce differs from hard/complaint, whose address suppression remains global.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "mail.acceptWebhook",

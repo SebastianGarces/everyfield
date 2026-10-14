@@ -32,7 +32,7 @@ Use one explicit staged protocol. Better Auth credential creation may succeed in
 
 ### REQ-IDN-031 — Private care is author-native only
 
-Native private weekly care requires a current same plant Owner/Admin and immutable originalAuthorAccountId equal to the authenticated account. Account/Person linkage, role/title edits and Person merge never change that author. Only that author reads, records, corrects, or sees their own history/trends/support question. Correction preserves prior revisions and history; individual private-care entry deletion is not authorized. Private-care deletion occurs only through the approved account-lifecycle purge and retention contract in REQ-IDN-032. No private body, note, existence, week/calendar, count, streak, nudge, revision or indirect signal enters Evry tools/context/proposals, model input/output, retrieval, PI, organization DTO s, ordinary exports, notifications/email, shared audit feeds, request logs, traces or evaluation fixtures. Technical logging contains no event that confirms a particular private-care stream exists. Personal deletion purges the private author stream under the account lifecycle; it never transfers to another Owner/Admin. Restricted encrypted recovery must enforce the same author and current-deletion rules before access.
+Native private weekly care requires a current same plant Owner/Admin and immutable originalAuthorAccountId equal to the authenticated account. Account/Person linkage, role/title edits and Person merge never change that author. Only that author reads, records, corrects, or sees their own history/trends/support question. Correction preserves prior revisions and history; individual private-care entry deletion is not authorized. Private-care deletion occurs only through the approved account-lifecycle purge and retention contract in REQ-IDN-032. No private body, note, existence, week/calendar, count, streak, nudge, revision or indirect signal enters Evry tools/context/proposals, model input/output, retrieval, PI, organization DTOs, ordinary exports, notifications/email, shared audit feeds, request logs, traces or evaluation fixtures. Technical logging contains no event that confirms a particular private-care stream exists. Personal deletion purges the private author stream under the account lifecycle; it never transfers to another Owner/Admin. Restricted encrypted recovery must enforce the same author and current-deletion rules before access.
 
 **Named cases:** TARGET-IDN-031, ROLE43-010, ROLE43-011, ROLE43-012.
 
@@ -108,7 +108,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 ### IDN-002 — Registration and exact domain provisioning
 
-**REQ-IDN-002.** Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8–1024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-sup plied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.
+**REQ-IDN-002.** Support planter, sending-church, network and explicit Discovery identities. Required normalized email, native password 8–1024 characters, display name and relevant organization name validate before effects. New organization provisioning produces that organization's Owner; planter onboarding produces one plant/Owner/Person; Discovery produces a profile without seat. Ordinary addressed invitations select only their advertised type/seat, never arbitrary user-supplied grants. Apply REQ-IDN-030, a unique login identifier, one active seat and idempotent provisioning. Registration's IP admission budget counts every submitted registration attempt (including success, duplicate, malformed, beta/refused and concurrent requests) at 3/hour per trustworthy known IP, distinct from login; an unavailable trustworthy IP refuses registration admission with a retryable message instead of bypassing its sole creation axis. Store/query failures refuse before grant. Do not expose account existence to senders.
 
 **Target operations:** `accounts.register`, `accounts.resumeRegistration`, `accounts.getRegistrationStatus`.
 
@@ -134,7 +134,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 ### IDN-004 — Isolated fixture-account switching
 
-**REQ-IDN-004.** Retain reproducible development/managed-preview persona switching only for fresh synthetic allow listed fixture accounts. The server checks explicit environment enablement, supported fixture ID and intended environment before issuing a fixture session. Production defaults disable and exclude the action/surface; flags or client role strings cannot create production privilege. Never clone real/customer accounts into fixtures.
+**REQ-IDN-004.** Retain reproducible development/managed-preview persona switching only for fresh synthetic allowlisted fixture accounts. The server checks explicit environment enablement, supported fixture ID and intended environment before issuing a fixture session. Production defaults disable and exclude the action/surface; flags or client role strings cannot create production privilege. Never clone real/customer accounts into fixtures.
 
 **Target operations:** `dev.switchFixtureIdentity`.
 
@@ -147,7 +147,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 ### IDN-005 — Seats, exact tenancy and current guards
 
-**REQ-IDN-005.** Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allow list are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTO s; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.
+**REQ-IDN-005.** Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allowlist are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTOs; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.
 
 **Target operations:** `access.currentActor`, `access.checkOperation`, `seats.readCurrentMembership`.
 
@@ -179,7 +179,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-007--IDN-007. **Named cases:** TARGET-IDN-007, ROLE43-018.
 
-**TARGET-IDN-007 fixture:** Two pending tabs; target address collision; wrong-account/expired/superseded token; password reset/change racing confirm; changing target addresses; non UTC process. **Expected:** One credential revision wins, no stale token resurrects it, identity remains stable, CRM contact remains independently edit able, and only own identifier/kind budget is cleared.
+**TARGET-IDN-007 fixture:** Two pending tabs; target address collision; wrong-account/expired/superseded token; password reset/change racing confirm; changing target addresses; non UTC process. **Expected:** One credential revision wins, no stale token resurrects it, identity remains stable, CRM contact remains independently editable, and only own identifier/kind budget is cleared.
 
 
 <a id="req-idn-008"></a>
@@ -212,7 +212,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 ### IDN-010 — Settings, deep links and draft protection
 
-**REQ-IDN-010.** Expose only known authorized account/church/association/team/organization/notification sections as typed DTO s. Preserve direct section URL s/hash compatibility, back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings.
+**REQ-IDN-010.** Expose only known authorized account/church/association/team/organization/notification sections as typed DTOs. Preserve direct section URLs/hash compatibility, back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings.
 
 **Target operations:** `settings.getSection`, `settings.saveSection`.
 
@@ -359,7 +359,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-021--IDN-021. **Named cases:** TARGET-IDN-021, ROLE43-016, ROLE43-017, ORG55-002, ORG55-003, AF-001, AF-002, AF-003, AF-004, AF-005, AF-006, AF-007, AF-008, AF-009, AF-010, AF-011, AF-012, AF-013, AF-014, AF-015, AF-016, AF-017, AF-018, AF-019, AF-020, AF-021, AF-022, AF-023, AF-024, AF-025, AF-026.
 
-**TARGET-IDN-021 fixture:** Plant linked 2 orgs; each side endsone; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite. **Expected:** Only exact link ends, other valid grants remain, scoped history includes all subject kinds and retry converges without resurrecting old entitlements.
+**TARGET-IDN-021 fixture:** Plant linked 2 orgs; each side ends one; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite. **Expected:** Only exact link ends, other valid grants remain, scoped history includes all subject kinds and retry converges without resurrecting old entitlements.
 
 
 <a id="req-idn-022"></a>
@@ -435,20 +435,20 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-027--IDN-027. **Named cases:** TARGET-IDN-027, ROLE43-016, ORG55-002.
 
-**TARGET-IDN-027 fixture:** Direct helper alias request and ordinary exact-link sever; forged equivalent FKwrite. **Expected:** Alias resolves to guarded typed sever or no public operation; unguarded write cannot bypass audit/consent.
+**TARGET-IDN-027 fixture:** Direct helper alias request and ordinary exact-link sever; forged equivalent FK write. **Expected:** Alias resolves to guarded typed sever or no public operation; unguarded write cannot bypass audit/consent.
 
 
 <a id="req-idn-028"></a>
 
 ### IDN-028 — Request admission, CSRF and honest session routing
 
-**REQ-IDN-028.** Cookie presence may optimize GET routing but never proves authentication. Login/session recovery remains reachable; every private route/API/action validates current session and subject. Overwrite any internal routed-URL stamp with the real URL; crawler scope is derived from real allow listed public Wiki path plus UA and returns only approved public metadata, never trusted client crawler/stamp headers. Mutating browser requests require configured canonical scheme/host/port Origin, with trusted deployment Host validation; reject missing/malformed/cross origin and HEAD/OPTIONS mutation attempts under the declared allow list. Exact independently authenticated exception routes are Resend raw-body signature webhook and sealed disable-only unsubscribe POST; GET unsubscribe is read only confirmation, wrong/expired/purpose tokens uniformly fail without mutating. Undo uses separate enable-only short proof and normal native origin. Jobs have a distinct bounded signed job end point admission, never a broad origin less prefix bypass. Safe return rejects external/protocol relative/backslash/control chars. Each admitted request still executes authoritative domain policy.
+**REQ-IDN-028.** Cookie presence may optimize GET routing but never proves authentication. Login/session recovery remains reachable; every private route/API/action validates current session and subject. Overwrite any internal routed-URL stamp with the real URL; crawler scope is derived from real allowlisted public Wiki path plus UA and returns only approved public metadata, never trusted client crawler/stamp headers. Mutating browser requests require configured canonical scheme/host/port Origin, with trusted deployment Host validation; reject missing/malformed/cross origin and HEAD/OPTIONS mutation attempts under the declared allowlist. Exact independently authenticated exception routes are Resend raw-body signature webhook and sealed disable-only unsubscribe POST; GET unsubscribe is read only confirmation, wrong/expired/purpose tokens uniformly fail without mutating. Undo uses separate enable-only short proof and normal native origin. Jobs have a distinct bounded signed job end point admission, never a broad origin less prefix bypass. Safe return rejects external/protocol relative/backslash/control chars. Each admitted request still executes authoritative domain policy.
 
 **Target operations:** `security.checkRequestOrigin`, `security.safeReturn`.
 
 **Acceptance:** AC-IDN-028--IDN-028. **Named cases:** TARGET-IDN-028.
 
-**TARGET-IDN-028 fixture:** No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UAon People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe. **Expected:** No cookie/header/crawler trick grants private access; stale login recovers without loop, exact machine proofs admit only their purpose, GET cannot write and domain authority rechecks after admission.
+**TARGET-IDN-028 fixture:** No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UA on People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe. **Expected:** No cookie/header/crawler trick grants private access; stale login recovers without loop, exact machine proofs admit only their purpose, GET cannot write and domain authority rechecks after admission.
 
 
 ## Consumer closure and proof

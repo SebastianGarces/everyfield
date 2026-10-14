@@ -2361,7 +2361,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "Window contains Alex duplicated recruitment-source events, Casey observed stage transition and Jamie unknown source; second window denominator0",
+      "description": "Window contains Alex duplicated recruitment-source events, Casey observed stage transition and Jamie unknown source; second window denominator 0",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3976,7 +3976,7 @@
     },
     {
       "id": "PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT",
-      "requirement": "Dated human attendance AND volunteering evidence keeps actual60day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
+      "requirement": "Dated human attendance AND volunteering evidence keeps actual 60 day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -4292,7 +4292,7 @@
     },
     {
       "id": "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE",
-      "requirement": "Dated human attendance AND volunteering evidence keeps actual60day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
+      "requirement": "Dated human attendance AND volunteering evidence keeps actual 60 day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -4612,7 +4612,7 @@
     },
     {
       "id": "PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE",
-      "requirement": "Dated human attendance AND volunteering evidence keeps actual60day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
+      "requirement": "Dated human attendance AND volunteering evidence keeps actual 60 day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -4930,7 +4930,7 @@
     },
     {
       "id": "PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE",
-      "requirement": "Dated human attendance AND volunteering evidence keeps actual60day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
+      "requirement": "Dated human attendance AND volunteering evidence keeps actual 60 day interval/source/criterion version; merge cannot invent observation or pastoral judgment.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -9735,7 +9735,7 @@
         "WP-014"
       ],
       "status": "future-not-run",
-      "description": "Skip prospect→leader, backward leader→at ten dee, same-stage retry, concurrent edits and declined open-duty handoff.",
+      "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12226,7 +12226,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 asOf, P moved prospect→at ten dee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 asOf, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",

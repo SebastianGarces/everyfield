@@ -12,16 +12,16 @@ Guest invitation, RSVP, actual presence, response card, human evaluation, named 
 
 ### REQ-MTG-020 — Atomic finalization with the early obligation kernel
 
-WP-024 first supplies the minimal persistence/uniqueness API for `follow_up_obligation`, managed `task`, history/audit/receipt and source-revision changes using the caller's transaction. WP-022 depends on that kernel and owns one finalize/reconcile unit of work: lock meeting/current guest-attendance revision and affected live Persons, compute exact attended identity snapshot/classification, apply approved People attendance progression, create required first-Vision obligations plus evaluation task, record current actual Attendance/snapshot/marker and audit/receipt/material revision atomically. No after-commit task call or stub weakens this boundary. A zero-at ten dee Vision still produces evaluation work. Missing lead title/account never suppresses obligations; a currently eligible selected assignee or visible Needs owner is required. Durable review includes all generated work; invalid assignment refuses or uses explicitly reviewed unowned result.
+WP-024 first supplies the minimal persistence/uniqueness API for `follow_up_obligation`, managed `task`, history/audit/receipt and source-revision changes using the caller's transaction. WP-022 depends on that kernel and owns one finalize/reconcile unit of work: lock meeting/current guest-attendance revision and affected live Persons, compute exact attended identity snapshot/classification, apply approved People attendance progression, create required first-Vision obligations plus evaluation task, record current actual Attendance/snapshot/marker and audit/receipt/material revision atomically. No after-commit task call or stub weakens this boundary. A zero-attendee Vision still produces evaluation work. Missing lead title/account never suppresses obligations; a currently eligible selected assignee or visible Needs owner is required. Durable review includes all generated work; invalid assignment refuses or uses explicitly reviewed unowned result.
 
-Repeat same finalized revision returns original receipt; concurrent calls converge. Late additions/removals/same-count replacements are reconciled by identity and expected revision, not count. Corrected first-Vision eligibility may add/supersede current obligations through a reviewed delta; completed/waived/outcome history survives and no performed work is silently deleted. A removed at ten dee's unperformed obligation is marked source-corrected/no-longer-applicable with history, not successful completion. Changing current meeting date does not rewrite immutable original follow-up 48 h origin; a correction to an erroneous origin is separately reviewed with old/new metric lineage. Finalization is independent from setting meeting status completed and from practice occurrence completion. Injected failure rolls back marker+attendance effects+obligations+task+audit; response loss returns saved receipt. WP-022 proves its actual kernel consumer before closure, WP-023 later adds outcomes/contact/ownership projections; WP-056 is additional whole-target regression.
+Repeat same finalized revision returns original receipt; concurrent calls converge. Late additions/removals/same-count replacements are reconciled by identity and expected revision, not count. Corrected first-Vision eligibility may add/supersede current obligations through a reviewed delta; completed/waived/outcome history survives and no performed work is silently deleted. A removed attendee's unperformed obligation is marked source-corrected/no-longer-applicable with history, not successful completion. Changing current meeting date does not rewrite immutable original follow-up 48 h origin; a correction to an erroneous origin is separately reviewed with old/new metric lineage. Finalization is independent from setting meeting status completed and from practice occurrence completion. Injected failure rolls back marker+attendance effects+obligations+task+audit; response loss returns saved receipt. WP-022 proves its actual kernel consumer before closure, WP-023 later adds outcomes/contact/ownership projections; WP-056 is additional whole-target regression.
 
 **Named cases:** TARGET-MTG-020.
 
 
 <a id="req-mtg-021"></a>
 
-### REQ-MTG-021 — Stable obligation and distinct48hour/contact measures
+### REQ-MTG-021 — Stable obligation and distinct 48 hour/contact measures
 
 Each generated first-Vision obligation has immutable tenant/origin meeting/Person/kind identity and captured resolved originating Instant, LocalDate/zone/formula version, applicability snapshot, assignment and current state/revision. Two distinct same-day meetings never collapse through person/day uniqueness. Source edits/task relation edits/soft deletion/waiver cannot bypass obligation identity or cause regeneration. Due day is originating meeting local date+2 calendar days; the exact 48 elapsed-hour measurement is separate and uses the actual successful originating-task completion Instant against the captured actual originating-occurrence Instant. At a frozen asOf, pending obligations younger than 48 hours are excluded until mature; mature pending obligations are measured misses. A valid successful completion at or after origin and at or before origin+48 elapsed hours enters as an early success. Future actual origins/completions or pre-origin completions are invalid and excluded; waiver is separately excluded. Database createdAt or recordedAt may be later than the actual historical event and never invalidates truthful backdated occurrence/completion evidence. Retiring a genuine originating meeting preserves its obligation and performed history; voiding an invalid origin uses reviewed correction lineage. Untraceable/manual follow-up lacks that measurement lineage and is excluded/Unknown, never guessed. Task-fulfillment timeliness requires an attributable actual originating-task completion event with its typed human follow-up outcome; a raw completed checkbox or provider acceptance alone is insufficient. Contacted, attempted_no_contact, or administrative_completion may fulfill that task; attempted/admin completion never earns actual-contact credit. Confirmed actual-contact count/freshness uses only contacted occurredAt, and absent supported contact evidence stays Unknown. Report task fulfillment and confirmed contact separately. no_longer_needed closes without successful-completion credit and permanently suppresses replay regeneration. Reopening/correcting changes effective current results with attributable history, preserving old receipt/assessment lineage. A post-launch Sunday 48 h measure with no approved origin is unmeasured/Unknown; prelaunch Vision success is never relabelled and no services module is invented.
 
@@ -93,7 +93,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-003 — Locations and venue snapshots
 
-**REQ-MTG-003.** Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when sup plied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.
+**REQ-MTG-003.** Keep name/address/contact/cost/capacity/notes and active state; capacity≥1 when supplied, valid bounded contact/email/cost input and tenant fields. Selection requires active same plant venue and copies name/address as meeting facts. Current venue edits do not rewrite old meeting snapshots; choosing a new future venue is explicit. Creation from picker joins meeting unit of work. Current list hides archived with explicit history inclusion.
 
 **Target operations:** `venues.list`, `venues.get`, `venues.create`, `venues.edit`, `venues.archive`.
 
@@ -125,7 +125,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **Acceptance:** AC-MTG-005--MTG-005. **Named cases:** TARGET-MTG-005.
 
-**TARGET-MTG-005 fixture:** Six default sections/90 total, empty, reorder/retime, 41 sections/title 121/negative/fractional minutes and edited agenda after reference update. **Expected:** Exact edit able default and order persist; invalid save has zero writes and reference update does not overwrite work.
+**TARGET-MTG-005 fixture:** Six default sections/90 total, empty, reorder/retime, 41 sections/title 121/negative/fractional minutes and edited agenda after reference update. **Expected:** Exact editable default and order persist; invalid save has zero writes and reference update does not overwrite work.
 
 
 <a id="req-mtg-006"></a>
@@ -197,7 +197,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-011 — Coherent quick guest and walk-in
 
-**REQ-MTG-011.** Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named con tactuses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.
+**REQ-MTG-011.** Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named contact uses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.
 
 **Target operations:** `meetings.createGuestContact`, `meetings.createWalkInContact`.
 
@@ -216,7 +216,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **Acceptance:** AC-MTG-012--MTG-012. **Named cases:** TARGET-MTG-012, ROLE43-008, ROLE43-015.
 
-**TARGET-MTG-012 fixture:** Zero at ten dee, duplicate/concurrent finalize, same count replacement/removal to 0, no lead and fault after obligation insert. **Expected:** Required work and marker agree atomically, retries converge and identity delta/history remain honest.
+**TARGET-MTG-012 fixture:** Zero attendee, duplicate/concurrent finalize, same count replacement/removal to 0, no lead and fault after obligation insert. **Expected:** Required work and marker agree atomically, retries converge and identity delta/history remain honest.
 
 
 <a id="req-mtg-013"></a>
@@ -281,7 +281,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **Acceptance:** AC-MTG-017--MTG-017. **Named cases:** TARGET-MTG-017.
 
-**TARGET-MTG-017 fixture:** Known Person but unrelated meeting, forged type/foreign ID, whitespace/5001 chars and valid authored at ten dee note. **Expected:** Only true owned relation creates readable provenance note; forged metadata fails and correction rules match People.
+**TARGET-MTG-017 fixture:** Known Person but unrelated meeting, forged type/foreign ID, whitespace/5001 chars and valid authored attendee note. **Expected:** Only true owned relation creates readable provenance note; forged metadata fails and correction rules match People.
 
 
 <a id="req-mtg-018"></a>
@@ -301,13 +301,13 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-019 — Inviter artifact consolidation without tree feature
 
-**REQ-MTG-019.** Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is notan approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.
+**REQ-MTG-019.** Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.
 
 **Target operations:** `meetings.invitationAttribution`, `meetings.setInviter`.
 
 **Acceptance:** AC-MTG-019--MTG-019. **Named cases:** TARGET-MTG-019.
 
-**TARGET-MTG-019 fixture:** Legacy inviter artifact, current guest RSVP, self referral, merge with matching tokens, and request old invitation tree. **Expected:** Attribution/history survive and canonical RSVPholds; no tree feature or untraceable person invention.
+**TARGET-MTG-019 fixture:** Legacy inviter artifact, current guest RSVP, self referral, merge with matching tokens, and request old invitation tree. **Expected:** Attribution/history survive and canonical RSVP holds; no tree feature or untraceable person invention.
 
 
 <a id="req-com-011"></a>

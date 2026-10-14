@@ -301,6 +301,9 @@ def audit(base, report):
     files = catalog['requirement_files'] + catalog['case_files']
     texts = {p: '\n'.join(strings(json.loads((ROOT / p).read_text()))) for p in files}
     texts.update({str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'docs/architecture').glob('*.md')})
+    # Fix 8 repairs prose spacing. Compare historical evidence without whitespace,
+    # preserving every non-whitespace character and the original audit scope.
+    normalized = {p: re.sub(r'\s+', '', text) for p, text in texts.items()}
     core = texts['docs/architecture/core.md']
     for shared_rule in ['Meaningful domain changes recheck live authority',
                         'Failure of any required write rolls everything back.',
@@ -318,7 +321,7 @@ def audit(base, report):
         locations = []
         for rule in rules:
             rule = current_rule(rule)
-            targets = [p for p, text in texts.items() if rule in text]
+            targets = [p for p, text in normalized.items() if re.sub(r'\s+', '', rule) in text]
             if not targets:
                 missing.append((op['id'] if op else 'catalog', field, rule))
             locations.append({'rule': rule, 'locations': targets})

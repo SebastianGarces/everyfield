@@ -31052,7 +31052,7 @@
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
-    "timestamptz": "UTC instant; source zone/walltime provenance stored separately.",
+    "timestamptz": "UTC instant; source zone/wall time provenance stored separately.",
     "jsonb": "Named versioned contract only; schema/type/size checked by producer, never arbitrary current authorization blob.",
     "vector": "Dimension pinned in reference_release/model contract; derivative rebuildable.",
     "uuid": "Stable UUID identity; actual kind/owner must be proved by the typed relation and subtype trigger.",

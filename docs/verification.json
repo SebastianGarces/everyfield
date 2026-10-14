@@ -66,7 +66,7 @@
     "external_page_requests": 0,
     "runtime_errors": 0,
     "canonical_progress_unchanged": true,
-    "dialog_close_regression": "Import confirmation captures its own validated candidate; cancellation and a delayed previous close event cannot clear or apply a different candidate. Fresh offline38-check run passed with zero errors.",
+    "dialog_close_regression": "Import confirmation captures its own validated candidate; cancellation and a delayed previous close event cannot clear or apply a different candidate. Fresh offline 38-check run passed with zero errors.",
     "applies_to": "Retired committed explorer only; current generation is read-only and checked by docs/check-all.py"
   },
   "preserved": {

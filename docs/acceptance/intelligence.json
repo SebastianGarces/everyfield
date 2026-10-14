@@ -5274,7 +5274,7 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Concern weeks 1, 2, 3 then correct week 2 toSteady and inspect old revisions/current display.",
+      "description": "Concern weeks 1, 2, 3 then correct week 2 to Steady and inspect old revisions/current display.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5379,7 +5379,7 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Old three-week run endsSeptember 14; current October week missing orSteady.",
+      "description": "Old three-week run ends September 14; current October week missing or Steady.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5742,7 +5742,7 @@
     },
     {
       "id": "B03-035",
-      "requirement": "Native private history/trends remain available. Engineering viewport shows 12 recent weeks with pagedolderhistory, not a retention limit; only current original author can access.",
+      "requirement": "Native private history/trends remain available. Engineering viewport shows 12 recent weeks with paged older history, not a retention limit; only current original author can access.",
       "requirement_ids": [
         "REQ-IDN-033"
       ],
@@ -5758,7 +5758,7 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Thirteen saved private weeks; latest 12 viewport plus pagedolderhistory and correction.",
+      "description": "Thirteen saved private weeks; latest 12 viewport plus paged older history and correction.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8680,7 +8680,7 @@
     },
     {
       "id": "CA019",
-      "requirement": "At 2026-10-13, valid acquisitionOctober 8 then withdrawalOctober 12 decreases current size but last genuine acquisition remainsOctober 8(5 days), so withdrawal cannot create a false stalled clock. Correcting invalidOctober 8 evidence removes/recomputes that acquisition with history; an existing person rejoining keeps their original valid first occurrence and is not a new acquisition.",
+      "requirement": "At 2026-10-13, valid acquisition October 8 then withdrawal October 12 decreases current size but last genuine acquisition remainsOctober 8(5 days), so withdrawal cannot create a false stalled clock. Correcting invalidOctober 8 evidence removes/recomputes that acquisition with history; an existing person rejoining keeps their original valid first occurrence and is not a new acquisition.",
       "requirement_ids": [
         "REQ-PPL-026"
       ],
@@ -8699,7 +8699,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "At asOf 2026-10-13 genuine first adult acquisitionOctober 8 then withdrawalOctober 12; separately correct invalidOctober 8 source and reactivate an older adult.",
+      "description": "At asOf 2026-10-13 genuine first adult acquisition October 8 then withdrawal October 12; separately correct invalidOctober 8 source and reactivate an older adult.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -17394,7 +17394,7 @@
         },
         "US_reference": {
           "fixture_type": "fixture",
-          "value": "July2023/OMB23-01 metro+micro"
+          "value": "July 2023/OMB23-01 metro+micro"
         },
         "primary_association_count": {
           "fixture_type": "fixture",
@@ -17458,7 +17458,7 @@
         "operation": "organizationIntelligence.readLocations",
         "arguments": {
           "subject": "P",
-          "US_reference": "July2023/OMB23-01 metro+micro",
+          "US_reference": "July 2023/OMB23-01 metro+micro",
           "primary_association_count": 1,
           "country_views": [
             "Country",
@@ -43257,7 +43257,7 @@
         },
         "release_policy": {
           "fixture_type": "fixture",
-          "value": "eligible human opened OR72elapsed hours after durable availability"
+          "value": "eligible human opened OR 72 elapsed hours after durable availability"
         },
         "Org-A": {
           "fixture_type": "organization",
@@ -43312,7 +43312,7 @@
           "subject": "P",
           "plant_latest_assessment": "not released to A",
           "prior_assessment": "released to A",
-          "release_policy": "eligible human opened OR72elapsed hours after durable availability",
+          "release_policy": "eligible human opened OR 72 elapsed hours after durable availability",
           "organization": "Org-A"
         }
       },
@@ -45616,7 +45616,7 @@
         },
         "content": {
           "fixture_type": "fixture",
-          "value": "authored everyfield-network:v1 with sixrules"
+          "value": "authored everyfield-network:v1 with six rules"
         },
         "model_evaluations": {
           "fixture_type": "fixture",
@@ -45673,7 +45673,7 @@
         "operation": "organizationIntelligence.read",
         "arguments": {
           "subject": "P",
-          "content": "authored everyfield-network:v1 with sixrules",
+          "content": "authored everyfield-network:v1 with six rules",
           "model_evaluations": "future-not-run",
           "organization": "Org-A"
         }
@@ -45749,7 +45749,7 @@
         },
         "budget": {
           "fixture_type": "fixture",
-          "value": "shared boundedattemptdeadline"
+          "value": "shared bounded attempt deadline"
         },
         "reference": {
           "fixture_type": "fixture",
@@ -45813,7 +45813,7 @@
             "foreignReader"
           ],
           "time_refresh": "daily-window",
-          "budget": "shared boundedattemptdeadline",
+          "budget": "shared bounded attempt deadline",
           "reference": "validatedactivation",
           "organization": "Org-A"
         }
@@ -46797,7 +46797,7 @@
         },
         "allowed_fields": {
           "fixture_type": "fixture",
-          "value": "current bounded shared plantname/state/reason/link"
+          "value": "current bounded shared plant name/state/reason/link"
         },
         "Org-A": {
           "fixture_type": "organization",
@@ -46859,7 +46859,7 @@
             "search",
             "cache"
           ],
-          "allowed_fields": "current bounded shared plantname/state/reason/link",
+          "allowed_fields": "current bounded shared plant name/state/reason/link",
           "organization": "Org-A"
         }
       },

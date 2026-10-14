@@ -17282,7 +17282,7 @@
     "required_test_layers": [
       "domain/contract",
       "PostgreSQL scope/claim/publication integration",
-      "browser andEvry denial/grounding evaluations"
+      "browser and Evry denial/grounding evaluations"
     ]
   },
   {
@@ -17378,7 +17378,7 @@
     "required_test_layers": [
       "domain/contract",
       "PostgreSQL scope/claim/publication integration",
-      "browser andEvry denial/grounding evaluations"
+      "browser and Evry denial/grounding evaluations"
     ]
   }
 ]

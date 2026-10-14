@@ -757,7 +757,7 @@
         "WP-027"
       ],
       "status": "future-not-run",
-      "description": "Team group contains duplicate role joins, paused team, more than20 people, deleted Person and missing-email member; unknown group token.",
+      "description": "Team group contains duplicate role joins, paused team, more than 20 people, deleted Person and missing-email member; unknown group token.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1667,7 +1667,7 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "description": "Original sent25hours ago with delivered-no-open, clicked, no delivery, missing/deleted/suppressed address; two replays of one review.",
+      "description": "Original sent 25 hours ago with delivered-no-open, clicked, no delivery, missing/deleted/suppressed address; two replays of one review.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1939,7 +1939,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Incomplete draft reload; schedule at30days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
+      "description": "Incomplete draft reload; schedule at 30 days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2711,7 +2711,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Meeting moves after7day reminder queued; linked guest account removed; meeting completed; CRM-only address present.",
+      "description": "Meeting moves after 7 day reminder queued; linked guest account removed; meeting completed; CRM-only address present.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2818,7 +2818,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Planter weekly Sunday16local with DST transition and multi-day missed tick; completed tasks in old interval.",
+      "description": "Planter weekly Sunday 16 local with DST transition and multi-day missed tick; completed tasks in old interval.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3414,7 +3414,7 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "description": "Disable token at180day boundary, undo token at1hour, wrong purpose/tamper/old key; scanner GET and RFC8058 POST.",
+      "description": "Disable token at 180 day boundary, undo token at 1 hour, wrong purpose/tamper/old key; scanner GET and RFC8058 POST.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3870,7 +3870,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Saved draft rev1; desired send at now+29days; second desired now+31days; provider cancellation unknown",
+      "description": "Saved draft rev1; desired send at now+29 days; second desired now+31 days; provider cancellation unknown",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4772,7 +4772,7 @@
         "meetings.list",
         "people.listPeople"
       ],
-      "description": "Tuesday resolved in plant zone; northside2 eligible unique emails and1 suppressed; location ambiguity; no meeting",
+      "description": "Tuesday resolved in plant zone; northside 2 eligible unique emails and 1 suppressed; location ambiguity; no meeting",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5714,7 +5714,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Pending review subjectOld, two core recipients, time10am; user changes subject",
+      "description": "Pending review subjectOld, two core recipients, time 10am; user changes subject",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5960,7 +5960,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Unknown whole-batch response at23hours50minutes then23hours56minutes from first dispatch, with account-private security member from another scope.",
+      "description": "Unknown whole-batch response at 23 hours 50 minutes then 23 hours 56 minutes from first dispatch, with account-private security member from another scope.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6434,7 +6434,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "API schedule at30days versus31days, batch and DSTfold/gap entered localtime.",
+      "description": "API schedule at 30 days versus 31 days, batch and DST fold/gap entered localtime.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6818,7 +6818,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "After provider acceptance authority/address/suppression changes before scheduledsend.",
+      "description": "After provider acceptance authority/address/suppression changes before scheduled send.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7403,7 +7403,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Planter Sunday16local weekly/default daily choice across DST and repeated owed period.",
+      "description": "Planter Sunday 16 local weekly/default daily choice across DST and repeated owed period.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7886,7 +7886,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Category/helper catalog contains unused teamhealth/training/assessment helpers plus live milestones.",
+      "description": "Category/helper catalog contains unused team health/training/assessment helpers plus live milestones.",
       "given": {
         "P": {
           "fixture_type": "plant",

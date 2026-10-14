@@ -859,7 +859,7 @@
         "output-inspection",
         "operator-evidence"
       ],
-      "description": "Privatecare/contact/modeltrace canaries and revokedsource across every destination; optional Responses state disabled; claimedstore:false only.",
+      "description": "Privatecare/contact/model trace canaries and revoked source across every destination; optional Responses state disabled; claimed store:false only.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1028,7 +1028,7 @@
         "output-inspection",
         "operator-evidence"
       ],
-      "description": "CurrentEvry launcher/context/review contract and configured numericbudget/reviewexpiry; attempted unsupported30day telemetryretention claim.",
+      "description": "CurrentEvry launcher/context/review contract and configured numeric budget/review expiry; attempted unsupported 30 day telemetry retention claim.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1501,7 +1501,7 @@
         "WP-054"
       ],
       "status": "future-not-run",
-      "description": "25recent user/assistant messages, >32k token context;64reference candidates,33more; completed receipt; source sharing revoked",
+      "description": "25 recent user/assistant messages, >32k token context;64 reference candidates,33 more; completed receipt; source sharing revoked",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1748,7 +1748,7 @@
         "WP-057"
       ],
       "status": "future-not-run",
-      "description": "All158 inherited plus52suite gaps and current UI/org/unmerge/runtime cases; synthetic tenants and fake providers; critical invitation/import/task/team/intelligence/notification/commitment flows",
+      "description": "All 158 inherited plus 52 suite gaps and current UI/org/unmerge/runtime cases; synthetic tenants and fake providers; critical invitation/import/task/team/intelligence/notification/commitment flows",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1973,7 +1973,7 @@
     },
     {
       "id": "EVRY-FAMILY-COMMUNICATION",
-      "requirement": "Exact frozen audience/bytes/exclusions and template fork preserved; preview sends/saves zero. Own current grants/consent/suppression rechecked at handoff. Only proven eligible failed recipients retry under original stable key<=23h; unknown/bounce/changed email not blindly resent. Provider acceptance/delivery/opens/contact remain distinct.29day schedule hands off,31day refused; unknown cancellation prevents replacement. Own suppression restoration creates no third-party privilege.",
+      "requirement": "Exact frozen audience/bytes/exclusions and template fork preserved; preview sends/saves zero. Own current grants/consent/suppression rechecked at handoff. Only proven eligible failed recipients retry under original stable key<=23h; unknown/bounce/changed email not blindly resent. Provider acceptance/delivery/opens/contact remain distinct.29 day schedule hands off,31 day refused; unknown cancellation prevents replacement. Own suppression restoration creates no third-party privilege.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -2087,7 +2087,7 @@
         "mail.suppression.restoreReviewed"
       ],
       "status": "future-not-run",
-      "description": "Two eligible prospects share one deduplicated email, one missing address and one suppressed recipient; visible template fork has exact subject/body/placeholders. Prior delivery is accepted-unknown, proven provider-failed, bounce or delivered-nonopener. Draft D exists; future schedule at29days valid and31days outside window.",
+      "description": "Two eligible prospects share one deduplicated email, one missing address and one suppressed recipient; visible template fork has exact subject/body/placeholders. Prior delivery is accepted-unknown, proven provider-failed, bounce or delivered-nonopener. Draft D exists; future schedule at 29 days valid and 31 days outside window.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2980,7 +2980,7 @@
         "settings.saveSection"
       ],
       "status": "future-not-run",
-      "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliationA plus independent affiliationB and safe private feedback exist; personal deletion holds30days while normal session revoked.",
+      "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliationA plus independent affiliationB and safe private feedback exist; personal deletion holds 30 days while normal session revoked.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3487,7 +3487,7 @@
     },
     {
       "id": "EVRY-FAMILY-INTELLIGENCE-PHASE",
-      "requirement": "Measured/attested/Unknown and denominators/dates/version lineage exact; no inferred spiritual judgment. Split readers never pool; actual single eligible reader all6 qualifies, exactly80 does not; phase1 creation independent. Same-phase no-op; human explicit phase authority only. Source writes synchronously bump revision; fixed-asOf demand and claim fence stale publication. Failure/deferred/stale truthful. Seen-or72h release respects current sharing and remains separate from private care.",
+      "requirement": "Measured/attested/Unknown and denominators/dates/version lineage exact; no inferred spiritual judgment. Split readers never pool; actual single eligible reader all 6 qualifies, exactly 80 does not; phase 1 creation independent. Same-phase no-op; human explicit phase authority only. Source writes synchronously bump revision; fixed-asOf demand and claim fence stale publication. Failure/deferred/stale truthful. Seen-or 72h release respects current sharing and remains separate from private care.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -3556,7 +3556,7 @@
         "signals.reaffirm"
       ],
       "status": "future-not-run",
-      "description": "Fixed-asOf snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit60day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase6 contact criterion. Six foundation articles are split4/2 between readers; one actual eligible reader later qualifies all6 above80. Assessment cited source later revoked; phase3 currently declared.",
+      "description": "Fixed-asOf snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit 60 day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase 6 contact criterion. Six foundation articles are split 4/2 between readers; one actual eligible reader later qualifies all 6 above 80. Assessment cited source later revoked; phase 3 currently declared.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3988,7 +3988,7 @@
         "launch.submitDebrief"
       ],
       "status": "future-not-run",
-      "description": "Launch date plannedOct25; milestone M linked to overdue task T, similarly named U unlinked. Actual launch has150 headcount, twelve unnamed guests and one named actual guest. Submitted six-area debrief independent of missing-name answer; editable summary draft unshared until publication.",
+      "description": "Launch date planned Oct 25; milestone M linked to overdue task T, similarly named U unlinked. Actual launch has 150 headcount, twelve unnamed guests and one named actual guest. Submitted six-area debrief independent of missing-name answer; editable summary draft unshared until publication.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7141,7 +7141,7 @@
         "evry.updateDraft"
       ],
       "status": "future-not-run",
-      "description": "Conversation C belongs to A in plant P, sequence4, draft revision2. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
+      "description": "Conversation C belongs to A in plant P, sequence 4, draft revision 2. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7752,7 +7752,7 @@
         "evry.reviseProposal"
       ],
       "status": "future-not-run",
-      "description": "Saved review R has exact meeting/create-guests/send steps, two frozen eligible recipients, revision1 and expiryT0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. Lease generation G is superseded by G+1.",
+      "description": "Saved review R has exact meeting/create-guests/send steps, two frozen eligible recipients, revision 1 and expiryT0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. Lease generation G is superseded by G+1.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9118,7 +9118,7 @@
     },
     {
       "id": "EVRY-FAMILY-WIKI",
-      "requirement": "Current allowed winning/source alternatives only; retained credit canonical, strict>80 requires one actual eligible reader all6 and never pooled/model-read credit. Source/version/current entitlement checked for content/citations/export; departure removes historical body/cache access. Canonical credit/meaningful local-edit label preserved. Own durable state exact reviewed; no overwrite of global source or automatic tenant fork update; draft/foreign hidden.",
+      "requirement": "Current allowed winning/source alternatives only; retained credit canonical, strict>80 requires one actual eligible reader all 6 and never pooled/model-read credit. Source/version/current entitlement checked for content/citations/export; departure removes historical body/cache access. Canonical credit/meaningful local-edit label preserved. Own durable state exact reviewed; no overwrite of global source or automatic tenant fork update; draft/foreign hidden.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -9183,7 +9183,7 @@
         "wiki.tableOfContents"
       ],
       "status": "future-not-run",
-      "description": "Global and own-org published editions share one canonical ID; draft/foreign editions inaccessible. Source order selects one winner; reader has81% on five approved foundation articles and80% on sixth; another reader completes only sixth. Bookmarks/own rating exist; chosen source later departs.",
+      "description": "Global and own-org published editions share one canonical ID; draft/foreign editions inaccessible. Source order selects one winner; reader has 81% on five approved foundation articles and 80% on sixth; another reader completes only sixth. Bookmarks/own rating exist; chosen source later departs.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9511,7 +9511,7 @@
         "WP-073"
       ],
       "status": "future-not-run",
-      "description": "Reader-A qualified4/6, Reader-B qualifiedother2/6, third reader exactly80% on one article; one eligible actual Reader-C has all6 strictly>80 through authorized canonical sources; model read tools invoked without human reading",
+      "description": "Reader-A qualified 4/6, Reader-B qualified other 2/6, third reader exactly 80% on one article; one eligible actual Reader-C has all 6 strictly>80 through authorized canonical sources; model read tools invoked without human reading",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9596,7 +9596,7 @@
         "arguments": {
           "conversation": "C",
           "utterances": [
-            "Create new plant phase1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
+            "Create new plant phase 1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
           ],
           "request_key": "EVRY-FOUNDATIONS-ONE-READER-turn-1"
         }
@@ -9648,7 +9648,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "Create new plant phase1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
+                "Create new plant phase 1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
               ],
               "request_key": "EVRY-FOUNDATIONS-ONE-READER-turn-1"
             }
@@ -9691,7 +9691,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "Create new plant phase1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
+                "Create new plant phase 1 before readings complete; inspect foundations metric before and after actual Reader-C completes sixth"
               ],
               "request_key": "EVRY-FOUNDATIONS-ONE-READER-turn-1",
               "fault": "required_source_unavailable"
@@ -9729,7 +9729,7 @@
         "WP-053"
       ],
       "status": "future-not-run",
-      "description": "Lease60sec generationG; renewal every15sec; executor-A pauses; B claims G+1 after expiry; domain receipt exists after lost reply",
+      "description": "Lease 60 sec generationG; renewal every 15 sec; executor-A pauses; B claims G+1 after expiry; domain receipt exists after lost reply",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10604,7 +10604,7 @@
         "tasks.removeSubtask"
       ],
       "status": "future-not-run",
-      "description": "Parent P assigned AdminB has child C assigned MemberA through parent_task_id with own revision2/not_started/history. Child J is assigned MemberD. Parent PA is assigned MemberA, while parent PM assigned MemberM has child X assigned MemberD; M has no Admin role. C has no actual contact outcome. Existing prior prerequisite Q is soft-deleted with retained graph/history. Template source stores inert child definitions before reviewed instantiation.",
+      "description": "Parent P assigned AdminB has child C assigned MemberA through parent_task_id with own revision 2/not_started/history. Child J is assigned MemberD. Parent PA is assigned MemberA, while parent PM assigned MemberM has child X assigned MemberD; M has no Admin role. C has no actual contact outcome. Existing prior prerequisite Q is soft-deleted with retained graph/history. Template source stores inert child definitions before reviewed instantiation.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10715,7 +10715,7 @@
         "arguments": {
           "conversation": "C",
           "utterances": [
-            "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreignparent/stale revision/wrongassignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
+            "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreign parent/stale revision/wrong assignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
           ],
           "request_key": "EVRY-REAL-CHILD-TASK-PARITY-turn-1",
           "operation_controls": [
@@ -10789,7 +10789,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreignparent/stale revision/wrongassignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
+                "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreign parent/stale revision/wrong assignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
               ],
               "request_key": "EVRY-REAL-CHILD-TASK-PARITY-turn-1",
               "operation_controls": [
@@ -10846,7 +10846,7 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreignparent/stale revision/wrongassignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
+                "AdminB creates K with explicit eligible/null assignment, while MemberA creates L only under its own assigned top-level parent with omitted inherited own assignment; each native/Evry run resets identical fixtures. Actual assigneeA reads/completes/reopens existing C; AdminB removes K, including checklist-named typed aliases; try child-of-child/foreign parent/stale revision/wrong assignee and concurrent parent deletion; instantiate/advance recurrence with fresh real children, then recompute deletedQ prerequisite state."
               ],
               "request_key": "EVRY-REAL-CHILD-TASK-PARITY-turn-1",
               "operation_controls": [
@@ -10901,7 +10901,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "Turn has24tools/128k cumulative input/16k output/180sec wall; read failure; provider unknown acceptance; sent receipt; user cancels",
+      "description": "Turn has 24 tools/128k cumulative input/16k output/180 sec wall; read failure; provider unknown acceptance; sent receipt; user cancels",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11154,7 +11154,7 @@
         "WP-085"
       ],
       "status": "future-not-run",
-      "description": "people list returned Alex+Casey and teams list returned Worship; matched200, returned2",
+      "description": "people list returned Alex+Casey and teams list returned Worship; matched 200, returned 2",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -15076,7 +15076,7 @@
         "WP-085"
       ],
       "status": "future-not-run",
-      "description": "Plant timezone America/New_York; server instant2026-09-20T00:30Z; phase3; organization context separately selected",
+      "description": "Plant timezone America/New_York; server instant 2026-09-20T00:30Z; phase 3; organization context separately selected",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -15292,7 +15292,7 @@
         "WP-085"
       ],
       "status": "future-not-run",
-      "description": "America/New_York March14 2027 02:30 nonexistent and Nov1 2026 01:30 twice",
+      "description": "America/New_York March 14 2027 02:30 nonexistent and Nov 1 2026 01:30 twice",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -15532,7 +15532,7 @@
         "WP-065"
       ],
       "status": "future-not-run",
-      "description": "Hall active capacity80; HallAnnex inactive; foreign Hall",
+      "description": "Hall active capacity 80; HallAnnex inactive; foreign Hall",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -17110,7 +17110,7 @@
     },
     {
       "id": "INH-CROSS-06",
-      "requirement": "Count200 reported; bounded paged UI; returned100 partial/cursor; no200 full profiles in model",
+      "requirement": "Count 200 reported; bounded paged UI; returned 100 partial/cursor; no 200 full profiles in model",
       "feature_ids": [
         "EVR-005",
         "EVR-008",
@@ -17141,7 +17141,7 @@
       "operation_ids": [
         "people.listPeople"
       ],
-      "description": "Exactly200 matching People; query page100 max; independent SQL count200",
+      "description": "Exactly 200 matching People; query page 100 max; independent SQL count 200",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -17872,7 +17872,7 @@
       "operation_ids": [
         "people.getPerson"
       ],
-      "description": "Foreign plant Person UUID guessed; own plant count3; no grant to foreign plant",
+      "description": "Foreign plant Person UUID guessed; own plant count 3; no grant to foreign plant",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -19616,7 +19616,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Wiki passage includes prayer; Alex recorded4Cs/interview available to Admin",
+      "description": "Wiki passage includes prayer; Alex recorded 4Cs/interview available to Admin",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -20347,7 +20347,7 @@
       "operation_ids": [
         "people.previewImport"
       ],
-      "description": "Own attached CSV inspection; database Person count3; private object count1; outbound0",
+      "description": "Own attached CSV inspection; database Person count 3; private object count 1; outbound 0",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -21417,7 +21417,7 @@
     },
     {
       "id": "INH-LAUNCH-04",
-      "requirement": "Owner/Admin equally may review Oct18 and exact date consequences; no change before approval; source Owner-only restriction superseded",
+      "requirement": "Owner/Admin equally may review Oct 18 and exact date consequences; no change before approval; source Owner-only restriction superseded",
       "feature_ids": [
         "EVR-013",
         "EVR-020",
@@ -21458,7 +21458,7 @@
         "launch.readWorkspace",
         "tasks.list"
       ],
-      "description": "Plant Admin context; planned date Oct25; milestone dependencies and existing dates captured",
+      "description": "Plant Admin context; planned date Oct 25; milestone dependencies and existing dates captured",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -21681,7 +21681,7 @@
     },
     {
       "id": "INH-LAUNCH-05",
-      "requirement": "Current guest-name question/count preserved; debrief independent; unnamed12 never creates People or decisions; reviewed form writes only",
+      "requirement": "Current guest-name question/count preserved; debrief independent; unnamed 12 never creates People or decisions; reviewed form writes only",
       "feature_ids": [
         "EVR-013",
         "EVR-020",
@@ -21713,7 +21713,7 @@
       "operation_ids": [
         "launch.readWorkspace"
       ],
-      "description": "Actual launch form headcount150, unnamed guests12, missing-name answerYes; no named attendance links",
+      "description": "Actual launch form headcount 150, unnamed guests 12, missing-name answer Yes; no named attendance links",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -21964,7 +21964,7 @@
       "operation_ids": [
         "people.listPeople"
       ],
-      "description": "One selected Alex Person; note count0; exact input Called today; prefers an evening interview.",
+      "description": "One selected Alex Person; note count 0; exact input Called today; prefers an evening interview.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -22188,7 +22188,7 @@
     },
     {
       "id": "INH-NOTIFICATIONS-03",
-      "requirement": "Review deduplicated3; marks only N1..N3 once, N4 remains unread",
+      "requirement": "Review deduplicated 3; marks only N1..N3 once, N4 remains unread",
       "feature_ids": [
         "EVR-012",
         "EVR-020",
@@ -22750,7 +22750,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "10000 People; independent matched count10000; pages100; finite24tool/128kinput/16koutput/180s budgets",
+      "description": "10000 People; independent matched count 10000; pages 100; finite 24 tool/128 kinput/16 koutput/180s budgets",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -23655,7 +23655,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Orientation Sep27 2026 10am NY duration120, Church venue, coreAlex+Jordan; long transcript exceeds bounded recent messages",
+      "description": "Orientation Sep 27 2026 10am NY duration 120, Church venue, core Alex+Jordan; long transcript exceeds bounded recent messages",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -23918,7 +23918,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "NY zone; Nov1 2026 01:30 two offsets; no selected fold",
+      "description": "NY zone; Nov 1 2026 01:30 two offsets; no selected fold",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -24146,7 +24146,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "NY zone; March14 2027 02:30 user-entered gap; no meeting",
+      "description": "NY zone; March 14 2027 02:30 user-entered gap; no meeting",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -24385,7 +24385,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Conversation-C actor-A contextplant1; calleractor-B or actor-A contextplant2",
+      "description": "Conversation-C actor-A context plant 1; caller actor-B or actor-A context plant 2",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -25277,7 +25277,7 @@
     },
     {
       "id": "INH-REGRESSION-SESSION-NAVIGATION",
-      "requirement": "Same conversation count0new; user tomorrow turn accepted; no stale controller conflict or broadened assignee context",
+      "requirement": "Same conversation count 0 new; user tomorrow turn accepted; no stale controller conflict or broadened assignee context",
       "feature_ids": [
         "EVR-005",
         "EVR-008",
@@ -27698,7 +27698,7 @@
     },
     {
       "id": "UI45-001",
-      "requirement": "Conversation-C, sequence4 and draft-D retained; no new thread",
+      "requirement": "Conversation-C, sequence 4 and draft-D retained; no new thread",
       "feature_ids": [
         "EVR-005",
         "EVR-008"
@@ -27711,7 +27711,7 @@
         "WP-051"
       ],
       "status": "future-not-run",
-      "description": "Contextual panel shows conversation-C with draft-D and messageSequence4",
+      "description": "Contextual panel shows conversation-C with draft-D and messageSequence 4",
       "given": {
         "P": {
           "fixture_type": "plant",

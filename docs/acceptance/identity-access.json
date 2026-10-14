@@ -6323,7 +6323,7 @@
     },
     {
       "id": "EVRY-INTERNAL-PURGEELIGIBLESUBJECT",
-      "requirement": "CAS pending_deletion→purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
+      "requirement": "CAS pending_deletion→purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
       "feature_ids": [
         "IDN-026",
         "OPS-001"
@@ -7694,7 +7694,7 @@
     },
     {
       "id": "ORG55-008",
-      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts≤7 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physicalday 37 promise.",
+      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts≤7 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
       "requirement_ids": [
         "REQ-IDN-026"
       ],
@@ -7717,7 +7717,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Deletion requestOctober 13; coherent live purgeNovember 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
+      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10198,7 +10198,7 @@
     },
     {
       "id": "ROLE43-013",
-      "requirement": "Actual account-attributed six-article progress requires strictly>0. 80 for each article. Owner 0/6 plus accepted Admin lead 6/6 satisfies the approved one-complete-eligible-reader proxy; disjoint 3/6 readers never union. CRM/title changes copy no credit; native creation never requires this checklist.",
+      "requirement": "Actual account-attributed six-article progress requires strictly>0.80 for each article. Owner 0/6 plus accepted Admin lead 6/6 satisfies the approved one-complete-eligible-reader proxy; disjoint 3/6 readers never union. CRM/title changes copy no credit; native creation never requires this checklist.",
       "requirement_ids": [
         "REQ-IDN-029"
       ],
@@ -10220,7 +10220,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Single eligible reader ratios 0. 80/0. 8001; Owner 0/6, accepted Admin lead 6/6; two eligible readers each disjoint 3/6.",
+      "description": "Single eligible reader ratios 0.80/0.8001; Owner 0/6, accepted Admin lead 6/6; two eligible readers each disjoint 3/6.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12239,14 +12239,14 @@
         },
         "sharing_before": {
           "fixture_type": "fixture",
-          "value": "Approved current relationship revision4 with exact organization consent revision7: people=false,meetings=true,tasks=false,ministry_teams=false,wiki=true,activity=true,shared_findings=false. Another organization has independent different choices."
+          "value": "Approved current relationship revision 4 with exact organization consent revision 7: people=false,meetings=true,tasks=false,ministry_teams=false,wiki=true,activity=true,shared_findings=false. Another organization has independent different choices."
         },
         "sharing_triggers": {
           "fixture_type": "fixture",
           "value": [
-            "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship4/consent7; reset fixture between parity runs.",
-            "Then explicit shared_findings=true alone at current relationship4/consent8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
-            "Submit stale consent7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
+            "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship 4/consent 7; reset fixture between parity runs.",
+            "Then explicit shared_findings=true alone at current relationship 4/consent 8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
+            "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
           ]
         },
         "sharing": {
@@ -12338,14 +12338,14 @@
             },
             "sharing_before": {
               "fixture_type": "fixture",
-              "value": "Approved current relationship revision4 with exact organization consent revision7: people=false,meetings=true,tasks=false,ministry_teams=false,wiki=true,activity=true,shared_findings=false. Another organization has independent different choices."
+              "value": "Approved current relationship revision 4 with exact organization consent revision 7: people=false,meetings=true,tasks=false,ministry_teams=false,wiki=true,activity=true,shared_findings=false. Another organization has independent different choices."
             },
             "sharing_triggers": {
               "fixture_type": "fixture",
               "value": [
-                "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship4/consent7; reset fixture between parity runs.",
-                "Then explicit shared_findings=true alone at current relationship4/consent8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
-                "Submit stale consent7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
+                "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship 4/consent 7; reset fixture between parity runs.",
+                "Then explicit shared_findings=true alone at current relationship 4/consent 8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
+                "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
               ]
             },
             "sharing": {
@@ -13376,7 +13376,7 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "description": "Plant linked 2 orgs; each side endsone; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite.",
+      "description": "Plant linked 2 orgs; each side ends one; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13994,7 +13994,7 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "description": "Direct helper alias request and ordinary exact-link sever; forged equivalent FKwrite.",
+      "description": "Direct helper alias request and ordinary exact-link sever; forged equivalent FK write.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -14093,7 +14093,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UAon People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe.",
+      "description": "No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UA on People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe.",
       "given": {
         "P": {
           "fixture_type": "plant",
