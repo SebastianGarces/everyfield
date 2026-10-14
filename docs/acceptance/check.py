@@ -160,9 +160,7 @@ def expects_refusal(expected):
               'foreign_context_refused', 'current_authority_refused', 'unauthenticated'}
     result = expected.get('result', {})
     return (expected.get('error_code') in denied or
-            isinstance(result, dict) and (result.get('error_code') in denied or
-                any(v is False and (k.endswith('_allowed') or k in {'authorized', 'permitted', 'allowed'})
-                    for k, v in result.items())))
+            isinstance(result, dict) and result.get('error_code') in denied)
 
 
 

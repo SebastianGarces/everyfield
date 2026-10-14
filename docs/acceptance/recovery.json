@@ -951,7 +951,8 @@
         "session-A": {
           "fixture_type": "session",
           "account": "A",
-          "expires_at": "2026-11-12T16:00:00Z"
+          "expires_at": "2026-11-12T16:00:00Z",
+          "revoked": true
         },
         "input": {
           "fixture_type": "test_setup",
@@ -981,12 +982,25 @@
           "requested_at": "2026-10-13T16:00:00Z",
           "cancel_until": "2026-11-12T16:00:00Z",
           "revision": 2
+        },
+        "restricted-proof": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "verified": true,
+          "purpose": "status_cancel",
+          "subject": "A"
+        },
+        "restricted-session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "purpose": "status_cancel",
+          "proof": "restricted-proof"
         }
       },
       "actor": {
         "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "session": "restricted-session-A",
+        "context": null
       },
       "clock": {
         "now": "2026-11-12T15:59:59.999Z",
@@ -1040,8 +1054,8 @@
           },
           "actor": {
             "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "session": "restricted-session-A",
+            "context": null
           },
           "clock": {
             "now": "2026-11-12T16:00:00Z",
@@ -1656,12 +1670,32 @@
         "witness-1": {
           "fixture_type": "lifecycle_manifest",
           "id": "witness-1"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-authorized_restricted_recovery_operator",
+          "authority": "authorized_restricted_recovery_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "maintenance.restoreWithCurrentManifest"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",

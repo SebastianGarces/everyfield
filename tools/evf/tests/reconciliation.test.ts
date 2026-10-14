@@ -183,7 +183,34 @@ test('BUG-final-head: genuinely qualified historical full plus current quick is 
   assert.throws(()=>currentProof(f.root,task,'verifier'),/No current full/);
  }finally{f.close();}
 });
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+test('BUG-12b04b1: S0 privileged calls require authority despite false allowed result keys',()=>{
+ const root=mkdtempSync(join(tmpdir(),'evf-refusal-'));
+ try{
+  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
+  const check=()=>spawnSync('python3',[join(root,'docs/acceptance/check.py'),'--root',root],{encoding:'utf8'});
+  assert.equal(check().status,0);
+  for(const [file,id,operation] of [
+   ['reference-release','REFREL-001','reference.activateGeneration'],
+   ['operations','CASE-OPS-006','fixtures.resetOwnedEnvironment'],
+   ['operations','CASE-OPS-008','dev.createIsolatedPreview']
+  ]){
+   const path=join(root,`docs/acceptance/${file}.json`),bytes=readFileSync(path,'utf8');
+   const data=JSON.parse(bytes),example=data.cases.find((c:{id:string})=>c.id===id);
+   example.actor={account:'A',session:'session-A',context:'P'};
+   delete example.given['caller-capability'];
+   writeFileSync(path,JSON.stringify(data));
+   const refused=check();
+   assert.equal(refused.status,1,`${id}: false allowed result must not bypass caller authority`);
+   assert.match(refused.stderr,new RegExp(`${id}: actor lacks authority for ${operation.replaceAll('.','\\.')}`));
+   example.expected={state:{},result:{error_code:'access_denied'},event:null};
+   writeFileSync(path,JSON.stringify(data));
+   assert.equal(check().status,0,`${id}: an explicit denial permits an unauthorized caller`);
+   writeFileSync(path,bytes);
+  }
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
 const importGit=(cwd:string,...args:string[])=>execFileSync('git',['-C',cwd,...args],{encoding:'utf8'});
 test('INV-feedback-reservations: old reservation charges current budget, recovery stays visible and untrusted actor cannot close',()=>{
  const f=fixture();try{
