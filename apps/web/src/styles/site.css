@@ -71,3 +71,13 @@ a:focus-visible, button:focus-visible, .mk-btn:focus-visible, summary:focus-visi
    .82 is the lowest value that keeps the description text at 4.5:1 (4.7:1). The active tab keeps its full bar. */
 @media (max-width: 900px) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
 @media (prefers-reduced-motion: reduce) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
+
+/* Form help text, privacy note and message titles (copy from E2). */
+.field-help { font-size: 13.5px; line-height: 1.45; color: var(--mk-text-3); }
+.form-note { font-size: 13.5px; line-height: 1.45; color: var(--mk-text-3); }
+.form-note a { color: var(--mk-link); }
+.form-msg p + p { margin-top: 4px; }
+.form-msg-title { font-weight: 600; }
+.field input::placeholder, .field textarea::placeholder { color: var(--mk-text-3); opacity: 1; }
+/* The page hero centres its text; long legal text reads left-aligned, in a column centred under the title. */
+.page-hero .legal-body { text-align: left; margin-inline: auto; }

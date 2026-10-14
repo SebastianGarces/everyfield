@@ -34,30 +34,49 @@ const journey = z.object({
 });
 const oversight = z.object({ id: z.literal("oversight"), sections: z.object({ cta }) });
 
-// Copy that E2 drafts. Every key is optional: a missing key falls back to the prototype text.
+// Copy drafted by task E2 (shared.access_page, privacy_page, terms_page). access_page is required; a missing
+// privacy or terms page shows the prototype placeholder. Present pages are checked strictly.
+const fieldCopy = z.object({
+  label: text,
+  optional: z.literal(true).optional(),
+  help: text.optional(),
+  error: text.optional(),
+  placeholder: text.optional(),
+  prompt: text.optional(),
+});
 const formCopy = z.object({
-  eyebrow: text.optional(),
-  headline: text.optional(),
-  body: text.optional(),
-  submit: text.optional(),
-  fields: z.record(z.string(), text).optional(),
+  eyebrow: text,
+  headline: text,
+  body: text,
+  submit: text,
+  submitting: text,
+  fields: z.record(z.string(), fieldCopy),
   phases: z.array(text).length(7).optional(),
 });
+const outcome = z.object({ title: text, body: text, link: text.optional() });
 const accessPage = z.object({
-  hero: z
-    .object({ eyebrow: text.optional(), headline: text.optional(), subhead: text.optional(), note: text.optional() })
-    .optional(),
-  planter_form: formCopy.optional(),
-  network_form: formCopy.optional(),
-  messages: z.record(z.string(), text).optional(),
+  hero: z.object({ eyebrow: text, headline: text, subhead: text, note: text.optional() }),
+  contact_email: z.email(),
+  planter_form: formCopy,
+  network_form: formCopy,
+  errors: z.object({ too_long: text.refine((s) => s.includes("{max}"), "too_long needs {max}") }),
+  optional_label: text,
+  privacy_note: z.object({ text, link: text }).refine((n) => n.text.includes(n.link), "privacy_note.link must appear in privacy_note.text"),
+  outcomes: z.object({
+    received: outcome,
+    invalid: outcome,
+    rate_limited_email: outcome,
+    rate_limited_ip: outcome,
+    unavailable: outcome,
+    offline: outcome,
+  }),
 });
 const legalPage = z.object({
-  title: text.optional(),
+  title: text,
   updated: text.optional(),
-  intro: text.optional(),
-  sections: z
-    .array(z.object({ heading: text, paragraphs: z.array(text).optional(), items: z.array(text).optional() }))
-    .optional(),
+  intro: z.array(text).optional(),
+  sections: z.array(z.object({ heading: text, paragraphs: z.array(text).optional(), items: z.array(text).optional() })),
+  links: z.object({ privacy: text.optional() }).optional(),
 });
 
 const schema = z.object({
@@ -97,7 +116,7 @@ const schema = z.object({
       }),
       cta,
     }),
-    access_page: accessPage.optional(),
+    access_page: accessPage,
     privacy_page: legalPage.optional(),
     terms_page: legalPage.optional(),
   }),
@@ -121,3 +140,5 @@ export const COPY = {
 export type Copy = typeof COPY;
 export type LegalCopy = z.infer<typeof legalPage>;
 export type FormCopy = z.infer<typeof formCopy>;
+export type AccessCopy = z.infer<typeof accessPage>;
+export type Outcome = z.infer<typeof outcome>;

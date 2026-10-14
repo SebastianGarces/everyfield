@@ -14,34 +14,37 @@ export const PHASES = ["0 · Discovery", "1 · Core group", "2 · Launch team", 
 /** The honeypot field. People never see it; a value means a bot. E4 answers it with a fake success. */
 export const HONEYPOT = "website";
 
-const name = z.string().trim().min(1, "required").max(120, "too_long");
-const email = z.string().trim().min(1, "required").max(254, "too_long").pipe(z.email("email")).transform((s) => s.toLowerCase());
-const shortText = z.string().trim().min(1, "required").max(160, "too_long");
+/** Longest accepted value per field, in characters. The page puts these into the "too long" message. */
+export const FIELD_MAX = { name: 120, email: 254, plant_name: 160, city: 160, sending: 160, organization: 160, role: 160, plants: 4, message: 2000 } as const;
+
+const text = (max: number) => z.string().trim().min(1, "required").max(max, "too_long");
+const name = text(FIELD_MAX.name);
+const email = text(FIELD_MAX.email).pipe(z.email("email")).transform((s) => s.toLowerCase());
 const optionalText = (max: number) => z.string().trim().max(max, "too_long").transform((s) => (s === "" ? undefined : s)).optional();
 const honeypot = z.string().max(500).optional();
 
 export const planterSchema = z.object({
   name,
   email,
-  plant_name: shortText,
-  city: shortText,
+  plant_name: text(FIELD_MAX.plant_name),
+  city: text(FIELD_MAX.city),
   phase: z.enum(PHASES, "required"),
-  sending: optionalText(160),
+  sending: optionalText(FIELD_MAX.sending),
   [HONEYPOT]: honeypot,
 });
 
 export const networkSchema = z.object({
   name,
   email,
-  organization: shortText,
-  role: shortText,
+  organization: text(FIELD_MAX.organization),
+  role: text(FIELD_MAX.role),
   plants: z
     .string()
     .trim()
     .regex(/^\d{0,4}$/, "number")
     .transform((s) => (s === "" ? undefined : Number(s)))
     .optional(),
-  message: optionalText(2000),
+  message: optionalText(FIELD_MAX.message),
   [HONEYPOT]: honeypot,
 });
 
@@ -60,9 +63,15 @@ export type AccessRequest =
 export type FieldErrorCode = "required" | "email" | "number" | "too_long";
 export type FieldErrors = Partial<Record<string, FieldErrorCode>>;
 
+/**
+ * What the server action answers (coordinator ruling, 2026-10-14). A duplicate within 24 hours and a filled
+ * honeypot both answer "received", so no answer reveals whether an email address was used before.
+ * "unavailable" means storage or mail failed; the page shows the contact fallback and never claims success.
+ */
 export type AccessRequestResult =
   | { status: "received" }
   | { status: "invalid"; fieldErrors: FieldErrors }
+  | { status: "rate_limited"; reason: "email" | "ip" }
   | { status: "unavailable" };
 
 const CODES: readonly string[] = ["required", "email", "number", "too_long"] satisfies FieldErrorCode[];

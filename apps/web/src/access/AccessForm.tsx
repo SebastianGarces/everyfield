@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type AccessRequestKind, type FieldErrorCode, type FieldErrors } from "./contract";
 
@@ -9,28 +9,34 @@ export type FieldSpec = {
   label: string;
   type: "text" | "email" | "select" | "area" | "number";
   optional?: boolean;
-  autoComplete?: string;
+  help?: string;
+  /** Message for a missing or wrongly formatted value. */
+  error: string;
+  /** Message for a value over the limit ({max} already filled in). */
+  tooLong: string;
+  placeholder?: string;
+  /** First, empty option of a select. */
+  prompt?: string;
   options?: readonly string[];
+  autoComplete?: string;
 };
-export type FormMessages = {
-  received_title: string;
-  received_body: string;
-  invalid: string;
-  unavailable: string;
-  sending: string;
-} & Record<FieldErrorCode, string>;
-
-type Props = {
-  kind: AccessRequestKind;
-  id: string;
+export type Outcome = { title: string; body: string; link?: string };
+export type OutcomeKey = "received" | "invalid" | "rate_limited_email" | "rate_limited_ip" | "unavailable" | "offline";
+export type FormText = {
   eyebrow: string;
   headline: string;
   body: string;
   submit: string;
-  fields: FieldSpec[];
-  messages: FormMessages;
+  submitting: string;
+  optionalLabel: string;
+  privacyNote: { text: string; link: string };
+  contactEmail: string;
+  outcomes: Record<OutcomeKey, Outcome>;
 };
-type Phase = { s: "editing"; errors: FieldErrors; tried: boolean } | { s: "sending" } | { s: "received" } | { s: "unavailable" };
+type Props = { kind: AccessRequestKind; id: string; fields: FieldSpec[]; text: FormText };
+
+type Notice = Exclude<OutcomeKey, "received" | "invalid">;
+type Phase = { s: "editing"; errors: FieldErrors; tried: boolean; notice?: Notice } | { s: "sending" } | { s: "received" };
 
 const ARROW = (
   <svg className="i " viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -43,56 +49,66 @@ const CHECK = (
   </svg>
 );
 
-/** Turns every e-mail address in a sentence into a mailto link. */
-function withMailto(text: string) {
-  return text.split(/([^\s@]+@[^\s@]+\.[a-z]{2,})/i).map((part, i) =>
-    i % 2 ? <a key={i} href={"mailto:" + part.replace(/[.,;:]+$/, "")}>{part}</a> : part,
-  );
+/** Links each e-mail address in a sentence. */
+function withMailto(text: string): ReactNode[] {
+  return text.split(/([^\s@]+@[^\s@]+\.[a-z]{2,})/i).map((part, i) => {
+    if (!(i % 2)) return part;
+    const addr = part.replace(/[.,;:]+$/, "");
+    return <span key={i}><a href={"mailto:" + addr}>{addr}</a>{part.slice(addr.length)}</span>;
+  });
+}
+/** Links the first occurrence of `words` in `text` to `href`. */
+function withLink(text: string, words: string, href: string): ReactNode {
+  const i = text.indexOf(words);
+  if (i < 0) return text;
+  return <>{text.slice(0, i)}<a href={href}>{words}</a>{text.slice(i + words.length)}</>;
 }
 
 /**
- * One early access form (planter or network). Markup follows the prototype's form card; this adds labels tied to
- * inputs, field errors, a hidden honeypot, a sending state, and the received and unavailable messages.
+ * One early access form (planter or network). Markup follows the prototype's form card. It adds labels tied to
+ * inputs, help text, field errors, a hidden honeypot, a sending state and the outcome messages from the copy.
  * The same contract validates here (instant feedback) and in the server action (authority).
+ * A failed send keeps every answer in the form.
  */
-export function AccessForm({ kind, id, eyebrow, headline, body, submit, fields, messages }: Props) {
+export function AccessForm({ kind, id, fields, text }: Props) {
   const uid = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const msgRef = useRef<HTMLDivElement>(null);
   // True while the pointer is down on the submit button. A blur check then would show an error, shift the
   // layout and move the button out from under the pointer, so the click would miss. Submit checks every field.
   const pressing = useRef(false);
+  const focusAfterReply = useRef(false);
   const [phase, setPhase] = useState<Phase>({ s: "editing", errors: {}, tried: false });
   const [, startTransition] = useTransition();
   const errors = phase.s === "editing" ? phase.errors : {};
-  // After the server answers, move focus to what changed: the first field error, or the result message.
-  const focusAfterReply = useRef(false);
+  const sending = phase.s === "sending";
 
   const read = (): Record<string, string> => {
-    const data = new FormData(formRef.current!);
     const out: Record<string, string> = {};
-    for (const [k, v] of data) if (typeof v === "string") out[k] = v;
+    for (const [k, v] of new FormData(formRef.current!)) if (typeof v === "string") out[k] = v;
     return out;
   };
   const focusFirst = (errs: FieldErrors) => {
     const first = fields.find((f) => errs[f.name]);
     if (first) formRef.current?.querySelector<HTMLElement>(`[name="${first.name}"]`)?.focus();
   };
+  // After the server answers, move focus to what changed: the first field error, or the message.
   useEffect(() => {
     if (!focusAfterReply.current || phase.s === "sending") return;
     focusAfterReply.current = false;
-    if (phase.s === "editing") focusFirst(phase.errors);
+    if (phase.s === "editing" && !phase.notice) focusFirst(phase.errors);
     else msgRef.current?.focus();
   });
   // After the first submit, or once a field shows an error, errors follow what the person types.
   const recheck = (name: string, onBlur: boolean) => {
     if (phase.s !== "editing" || (onBlur && pressing.current)) return;
     if (!onBlur && !phase.tried && !phase.errors[name]) return;
-    const v = validateAccessRequest(kind, read());
-    const next = { ...phase.errors };
+    const values = read();
+    const v = validateAccessRequest(kind, values);
     const code = v.ok ? undefined : v.fieldErrors[name];
-    // On blur, only flag a field the person has filled in; empty fields are flagged on submit.
-    if (code && (onBlur && !phase.tried ? read()[name] : true)) next[name] = code;
+    const next = { ...phase.errors };
+    // On blur before the first submit, only flag a field the person has filled in.
+    if (code && (phase.tried || !onBlur || values[name])) next[name] = code;
     else delete next[name];
     setPhase({ ...phase, errors: next });
   };
@@ -100,7 +116,7 @@ export function AccessForm({ kind, id, eyebrow, headline, body, submit, fields, 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     pressing.current = false;
-    if (phase.s === "sending") return;
+    if (sending) return;
     const values = read();
     const v = validateAccessRequest(kind, values);
     if (!v.ok) {
@@ -113,53 +129,60 @@ export function AccessForm({ kind, id, eyebrow, headline, body, submit, fields, 
       let next: Phase;
       try {
         const r = await submitAccessRequest(kind, values);
-        next = r.status === "invalid" ? { s: "editing", errors: r.fieldErrors, tried: true } : { s: r.status };
+        if (r.status === "received") next = { s: "received" };
+        else if (r.status === "invalid") next = { s: "editing", errors: r.fieldErrors, tried: true };
+        else if (r.status === "rate_limited") next = { s: "editing", errors: {}, tried: true, notice: r.reason === "email" ? "rate_limited_email" : "rate_limited_ip" };
+        else next = { s: "editing", errors: {}, tried: true, notice: "unavailable" };
       } catch {
-        next = { s: "unavailable" };
+        // The request did not reach the server, or the reply was lost.
+        next = { s: "editing", errors: {}, tried: true, notice: navigator.onLine ? "unavailable" : "offline" };
       }
       focusAfterReply.current = true;
       setPhase(next);
     });
   }
 
-  const sending = phase.s === "sending";
-  const errorCount = Object.keys(errors).length;
   const head = (
     <>
-      <span className="eyebrow">{eyebrow}</span>
-      <h2 className="display h3">{headline}</h2>
+      <span className="eyebrow">{text.eyebrow}</span>
+      <h2 className="display h3">{text.headline}</h2>
     </>
   );
 
   if (phase.s === "received") {
+    const o = text.outcomes.received;
     return (
       <div className="form-card" id={id}>
         {head}
         <div className="form-msg show form-ok" role="status" tabIndex={-1} ref={msgRef}>
           <span className="form-ok-icon">{CHECK}</span>
           <div>
-            <p className="form-ok-title">{messages.received_title}</p>
-            <p>{messages.received_body}</p>
+            <p className="form-ok-title">{o.title}</p>
+            <p>{o.body}</p>
           </div>
         </div>
       </div>
     );
   }
 
+  const notice = phase.s === "editing" && phase.notice ? text.outcomes[phase.notice] : null;
+  const invalid = phase.s === "editing" && !phase.notice && Object.keys(errors).length ? text.outcomes.invalid : null;
+  const message = (code: FieldErrorCode, f: FieldSpec) => (code === "too_long" ? f.tooLong : f.error);
+
   return (
     <form className="form-card" id={id} ref={formRef} onSubmit={onSubmit} noValidate aria-busy={sending} aria-describedby={`${uid}-body`}>
       {head}
-      <p className="small" id={`${uid}-body`}>{body}</p>
+      <p className="small" id={`${uid}-body`}>{text.body}</p>
       {fields.map((f) => {
-        const fid = `${uid}-${f.name}`, err = errors[f.name], errId = `${fid}-err`;
+        const fid = `${uid}-${f.name}`, err = errors[f.name];
+        const describedBy = [f.help ? `${fid}-help` : "", err ? `${fid}-err` : ""].filter(Boolean).join(" ") || undefined;
         const common = {
           id: fid,
           name: f.name,
           required: !f.optional,
           "aria-invalid": err ? true : undefined,
-          "aria-describedby": err ? errId : undefined,
+          "aria-describedby": describedBy,
           autoComplete: f.autoComplete,
-          disabled: sending,
           onBlur: () => recheck(f.name, true),
           onChange: () => recheck(f.name, false),
         } as const;
@@ -167,18 +190,27 @@ export function AccessForm({ kind, id, eyebrow, headline, body, submit, fields, 
           <div className="field" key={f.name}>
             <label htmlFor={fid}>
               {f.label}
-              {f.optional ? <> <small>(optional)</small></> : null}
+              {f.optional ? <> <small>{text.optionalLabel}</small></> : null}
             </label>
             {f.type === "select" ? (
-              <select {...common} defaultValue={f.options?.[0]}>
+              <select {...common} defaultValue={f.prompt ? "" : f.options?.[0]}>
+                {f.prompt ? <option value="" disabled>{f.prompt}</option> : null}
                 {f.options?.map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : f.type === "area" ? (
-              <textarea {...common} maxLength={2000} />
+              <textarea {...common} readOnly={sending} placeholder={f.placeholder} />
             ) : (
-              <input {...common} type={f.type === "number" ? "text" : f.type} inputMode={f.type === "number" ? "numeric" : f.type === "email" ? "email" : undefined} spellCheck={f.type === "email" ? false : undefined} />
+              <input
+                {...common}
+                readOnly={sending}
+                type={f.type === "number" ? "text" : f.type}
+                inputMode={f.type === "number" ? "numeric" : f.type === "email" ? "email" : undefined}
+                spellCheck={f.type === "email" ? false : undefined}
+                placeholder={f.placeholder}
+              />
             )}
-            {err ? <p className="field-error" id={errId}>{messages[err]}</p> : null}
+            {f.help ? <p className="field-help" id={`${fid}-help`}>{f.help}</p> : null}
+            {err ? <p className="field-error" id={`${fid}-err`}>{message(err, f)}</p> : null}
           </div>
         );
       })}
@@ -194,14 +226,24 @@ export function AccessForm({ kind, id, eyebrow, headline, body, submit, fields, 
         onPointerUp={() => setTimeout(() => { pressing.current = false; }, 0)}
         onPointerCancel={() => { pressing.current = false; }}
       >
-        {sending ? messages.sending : submit}
+        {sending ? text.submitting : text.submit}
         {sending ? <span className="mk-spin" aria-hidden="true" /> : ARROW}
       </button>
-      {phase.s === "unavailable" ? (
-        <div className="form-msg show form-fail" role="alert" tabIndex={-1} ref={msgRef}>{withMailto(messages.unavailable)}</div>
+      <p className="form-note">{withLink(text.privacyNote.text, text.privacyNote.link, "/privacy")}</p>
+      {notice ? (
+        <div className="form-msg show form-fail" role="alert" tabIndex={-1} ref={msgRef}>
+          <p className="form-msg-title">{notice.title}</p>
+          <p>{notice.link ? notice.body : withMailto(notice.body)}</p>
+          {notice.link ? <p><a href={"mailto:" + text.contactEmail}>{notice.link}</a></p> : null}
+        </div>
       ) : (
-        <div className={"form-msg" + (errorCount ? " show form-fail" : "")} role="status">
-          {errorCount ? messages.invalid : sending ? messages.sending : ""}
+        <div className={"form-msg" + (invalid ? " show form-fail" : "")} role="status">
+          {invalid ? (
+            <>
+              <p className="form-msg-title">{invalid.title}</p>
+              <p>{invalid.body}</p>
+            </>
+          ) : null}
         </div>
       )}
     </form>
