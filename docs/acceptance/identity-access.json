@@ -10232,12 +10232,32 @@
               "tenant": "P",
               "role": "Member",
               "active": true
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -10267,12 +10287,32 @@
               "tenant": "Q",
               "role": "Owner",
               "active": true
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "Q"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "Q"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -10302,12 +10342,32 @@
               "tenant": "P",
               "role": "Admin",
               "active": false
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -10963,12 +11023,32 @@
             "pending_Admin",
             "revoked_Admin"
           ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_internal_application_caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.checkOperation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -10998,12 +11078,32 @@
               "tenant": "P",
               "role": "Member",
               "active": false
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -11033,12 +11133,32 @@
               "tenant": "P",
               "role": "Admin",
               "active": false
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -11068,12 +11188,32 @@
               "tenant": "P",
               "role": "Admin",
               "active": false
+            },
+            "caller-capability": {
+              "fixture_type": "operation_capability",
+              "principal": "synthetic-trusted_internal_application_caller",
+              "authority": "trusted_internal_application_caller",
+              "actor": {
+                "account": null,
+                "session": null,
+                "context": null
+              },
+              "verified": true,
+              "operation_ids": [
+                "access.checkOperation"
+              ],
+              "environment": "isolated-test",
+              "subject_actor": {
+                "account": "A",
+                "session": "session-A",
+                "context": "P"
+              }
             }
           },
           "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
+            "account": null,
+            "session": null,
+            "context": null
           },
           "clock": {
             "now": "2026-10-13T16:00:00Z",
@@ -12823,12 +12963,32 @@
           },
           "seat_role": "Member",
           "client_claimed_role": "Owner"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-trusted_interactive_domain_caller",
+          "authority": "trusted_interactive_domain_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.currentActor"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",

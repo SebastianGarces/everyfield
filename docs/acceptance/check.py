@@ -169,7 +169,8 @@ def expects_refusal(expected):
 def authority_errors(example, given, operations, name):
     actor = example.get('actor', {})
     account, context = actor.get('account'), actor.get('context')
-    held = {'anonymous_public', 'public_or_sealed_expiring_proof'}
+    held = {'anonymous_public', 'public_or_sealed_expiring_proof',
+            'public_or_verified_invitation_context'}
     authenticated = (account in given and actor.get('session') in given and
                      given[actor['session']].get('account') == account)
     if authenticated:
@@ -223,7 +224,15 @@ def authority_errors(example, given, operations, name):
                                             'expected': expected}, given, operations, name))
             continue
         operation = operations.get(oid)
-        if not operation or expects_refusal(expected):
+        if not operation:
+            continue
+        refusal = expects_refusal(expected)
+        # A query returning a negative policy decision still needs an authorized
+        # caller. That decision is evidence, not refusal to invoke the query.
+        query_refused = (expected.get('error_code') or
+                         (expected.get('result', {}).get('error_code')
+                          if isinstance(expected.get('result'), dict) else None))
+        if refusal and (operation['kind'] != 'query' or query_refused):
             continue
         allowed = {token for rule in operation.get('authority', [])
                    for entry in rule['actors'] for token in entry.split('|')}
