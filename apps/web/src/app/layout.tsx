@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
-import "../styles/prototype.css";
-import "../styles/site.css";
+import "../styles/marketing.css";
 import { PAGES, SITE_NAME, fullTitle } from "../marketing/meta";
 import { SITE_URL } from "../site";
 

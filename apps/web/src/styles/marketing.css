@@ -1,0 +1,97 @@
+/* Tailwind CSS v4 entry for the marketing site.
+   1. design/handoff/tokens.css is the single token source: it imports Tailwind and defines the --ef-* values,
+      the shadcn names and the @theme utilities (bg-ink, text-text-2, rounded-card, font-display ...).
+   2. The marketing layer below adds only what the marketing pages need and the product tokens do not have.
+   Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600).
+   3. The prototype CSS of the string-markup sections (prototype.css, site.css; deleted in R3) sits in the legacy layer,
+      between Tailwind's base and utilities: it still overrides preflight, and the new components' utilities override
+      its element rules (a { color: inherit }, h1-h4 { margin: 0 } and the rest). */
+@layer theme, base, legacy, components, utilities;
+@import "../../../../design/handoff/tokens.css";
+@import "./prototype.css" layer(legacy);
+@import "./site.css" layer(legacy);
+
+/* The string-markup sections (removed in R3) are not Tailwind sources: their class names are prototype CSS classes. */
+@source not "../marketing/markup.ts";
+@source not "../marketing/engines.ts";
+@source not "../marketing/scene-data.ts";
+@source not "../marketing/logo-symbols.ts";
+@source not "../styles";
+@source not "../../scripts";
+
+/* The legacy sections were written against browser defaults, which Tailwind's preflight changes. These two are the only
+   ones the parity harness found: content links lose their underline and <small> shrinks to 80% instead of "smaller".
+   Same layer as the prototype CSS, so its own class rules (text-decoration: none on buttons, nav and footer) still win.
+   Deleted with the legacy layer in R3. */
+@layer legacy {
+  a { text-decoration-line: underline; }
+  small { font-size: smaller; }
+}
+
+/* Fonts come from next/font (layout.tsx), so the token font stacks point at its variables. */
+:root {
+  --ef-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --ef-font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme {
+  /* Marketing surfaces. Canvas #FCFBF8 and the warm secondary surface are marketing only. */
+  --color-mk-canvas: #FCFBF8;
+  --color-mk-surface-2: #F5F3EE;
+  --color-mk-line: rgba(24, 29, 25, .08);
+  --color-mk-line-strong: rgba(24, 29, 25, .14);
+  /* Secondary text on the ink footer card: 8.5:1 on #181D19. */
+  --color-mk-on-ink-2: #B1B7C2;
+
+  --spacing-page: clamp(16px, 3vw, 40px);
+  --spacing-section: clamp(72px, 8vw, 120px);
+  --container-mk: 1440px;
+
+  /* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
+  --breakpoint-mk-xs: 441px;
+  --breakpoint-mk-sm: 641px;
+  --breakpoint-mk-lg: 1025px;
+  --breakpoint-mk-nav: 1121px;
+
+  --text-mk-hero: clamp(44px, 6vw, 88px);
+  --text-mk-hero--line-height: 1.04;
+  --text-mk-h1: clamp(40px, 4.6vw, 76px);
+  --text-mk-h1--line-height: 1.04;
+  --text-mk-h2: clamp(30px, 3.4vw, 56px);
+  --text-mk-h2--line-height: 1.08;
+  --text-mk-h3: clamp(22px, 1.8vw, 28px);
+  --text-mk-h3--line-height: 1.15;
+  --text-mk-lead: clamp(18px, 1.4vw, 21px);
+  --text-mk-lead--line-height: 1.5;
+
+  --shadow-mk-card: 0 1px 2px rgba(24, 29, 25, .04), 0 6px 18px -10px rgba(24, 29, 25, .10);
+  --shadow-mk-media: 0 2px 6px rgba(24, 29, 25, .06), 0 24px 48px -16px rgba(24, 29, 25, .22);
+  --shadow-mk-pill: inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgba(24, 29, 25, .06), 0 14px 32px -16px rgba(24, 29, 25, .3);
+  --shadow-mk-menu: 0 20px 30px -20px rgba(0, 0, 0, .3);
+
+  --ease-mk: cubic-bezier(.2, .8, .2, 1);
+  /* Hero ease-out, used by the floating pill. */
+  --ease-mk-out: cubic-bezier(.33, 1, .68, 1);
+}
+
+/* Display type: Bricolage 500, tight tracking, balanced lines. Size and line height come from a text-* class
+   (text-mk-h2 and the rest carry their line height), so this utility sets neither. */
+@utility mk-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  font-stretch: 100%;
+  text-wrap: balance;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--color-mk-canvas); color: var(--color-ink);
+    font-family: var(--font-sans); font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  /* Keyboard focus: one ring for every link and button. Light controls on the ink footer use a white ring. */
+  a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+}
