@@ -98,7 +98,14 @@
     "docs/reference/task-templates.ts",
     "docs/refresh-explorer-plan.py",
     "docs/schema/README.md",
+    "docs/schema/capabilities/a-identity-people-teams-ops.json",
+    "docs/schema/capabilities/b-meetings-tasks-launch-comms.json",
+    "docs/schema/capabilities/c-knowledge-intelligence-evry.json",
+    "docs/schema/check.py",
+    "docs/schema/design-rules.md",
     "docs/schema/relations.md",
+    "docs/schema/render-diagram.py",
+    "docs/schema/render-docs.py",
     "docs/schema/target.json"
   ]
 }

@@ -76,7 +76,7 @@
         "tests/contracts/common/"
       ],
       "interfaces": [
-        "Frozen training_assignment_episode/history fields, explicit Person/program/current-pair invariants and typed attestations with subject IDs; current target schema names are authoritative."
+        "Reviewed training_assignment/event fields, explicit Person/program/current-pair invariants and typed attestations with subject IDs; current target schema names are authoritative."
       ],
       "acceptance_gates": [
         "contract round trips",
@@ -161,12 +161,12 @@
         "WP-003 reviewed output/registered interfaces"
       ],
       "outputs": [
-        "fresh source-preserving schema with multi plant_affiliation and per-org fixed-category sharing, revisions/audit/private storage",
+        "fresh source-preserving schema with independent affiliation and per-org fixed-category sharing, revisions/audit/private storage",
         "Proposed owned_document/owned_document_revision scope integrity distinct from88 source tables and generated artifacts.",
         "Target-only creation-entry journal integrity/once-per-church discriminator and nullability rules, preserving declaration slot; existing source declarations unchanged.",
         "Proposed organization run/assessment storage, adult-classification and current-commitment fields with dated audit history; preserve all 88 source declarations.",
         "Scoped organization assessment/finding/reference-version feedback via a typed variant of existing feedback model; dedicated same-org references, author/history/revision and exact reviewed Evry write. No overloaded plant FK or automatic rubric rewrite.",
-        "Proposed launch_person_attendance same-plant Launch\u2192Person relation; questionnaire/draft/submission/summary projection and typed Launch event history reuse existing Launch models.",
+        "Proposed launch_guest same-plant Launch\u2192Person relation; questionnaire/draft/submission/summary projection and typed Launch event history reuse existing Launch models.",
         "Create fresh PostgreSQL target schema and private object namespaces; exact typed organization keys, per-reference deletion, assignment/reader/history rows and schema review. No customer import."
       ],
       "owning_paths": [
@@ -176,7 +176,7 @@
         "packages/db/src/schema/organization-intelligence.ts"
       ],
       "interfaces": [
-        "docs/schema/target.json frozen proposed target table/column/FK contract; packages/db short UoW/pool and typed schema exports."
+        "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports."
       ],
       "acceptance_gates": [
         "fresh DB migration succeeds",

@@ -3,8 +3,16 @@
 import argparse,hashlib,json,math,sys
 from pathlib import Path
 def read(root,path):return json.loads((root/path).read_text())
+def load_schema(root):
+    schema=read(root,'docs/schema/target.json')['tables']
+    packages={p['id'] for p in read(root,'docs/plan/dag.json')['packages']}
+    for table in schema:
+        producers=set(table['producer_work_packages'])
+        if not producers or not producers<=packages:
+            raise ValueError('Schema table '+table['name']+' must name actual producer packages')
+    return schema
 def compile_manifest(root):
-    dag=read(root,'docs/plan/dag.json');catalog=read(root,'docs/catalog/index.json');features=read(root,catalog['feature_source']);acceptance=read(root,catalog['acceptance_source']);operations=read(root,catalog['operation_source'])['operations'];schema=read(root,'docs/schema/target.json')['tables'];reqs={};cases={}
+    dag=read(root,'docs/plan/dag.json');catalog=read(root,'docs/catalog/index.json');features=read(root,catalog['feature_source']);acceptance=read(root,catalog['acceptance_source']);operations=read(root,catalog['operation_source'])['operations'];schema=load_schema(root);reqs={};cases={}
     for path in catalog['requirement_files']:
         for x in read(root,path)['requirements']:reqs[x['id']]={'path':path,'record':x}
     for path in catalog['case_files']:
