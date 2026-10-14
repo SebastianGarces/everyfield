@@ -1,31 +1,56 @@
+import { ArrowRight02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import type { ReactNode } from "react";
-import { footerHTML, navHTML } from "./chrome";
-import { LOGO_SYMBOLS } from "./logo-symbols";
+import { SiteFooter } from "@/components/frame/SiteFooter";
+import { SiteNav } from "@/components/frame/SiteNav";
+import { SkipLink } from "@/components/frame/SkipLink";
+import { Icon } from "@/components/Icon";
+import { Logo, LogoSymbols } from "@/components/Logo";
+import { MotionProvider } from "@/components/MotionProvider";
+import { ACCESS_PATH } from "@/site";
+import { COPY } from "./copy";
 import { Motion } from "./Motion";
 
-type Props = { path: string } & ({ html: string; children?: never } | { html?: never; children: ReactNode });
+type Props = {
+  path: string;
+  /** Pages with Motion animations (home and /oversight) set this; the others load no animation code. */
+  animated?: boolean;
+} & ({ html: string; children?: never } | { html?: never; children: ReactNode });
+
+// Static frame pieces, rendered on the server and handed to the client nav as elements.
+const navLogo = <Logo variant="nav" />;
+const pillLogo = <Logo variant="pill" />;
+const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
+const menuIcon = <Icon icon={Menu01Icon} />;
 
 /**
- * The page frame from the prototype: logo symbols, the in-flow nav, the floating nav pill, #view and the footer.
- * Sections come either as prototype markup (html) or as React children (the access forms).
+ * The page frame: skip link, logo sprite, header (in-flow and floating pill), main and footer.
+ * Sections come either as prototype markup (html, removed in R3) or as React children.
  */
-export function Site({ path, html, children }: Props) {
-  const nav = navHTML(path);
+export function Site({ path, animated = false, html, children }: Props) {
+  const S = COPY.shared;
+  const links = S.nav.map((n) => ({ href: n.href, label: n.label, current: n.href === path }));
+  const cta = { href: ACCESS_PATH, label: S.nav_cta, current: path === ACCESS_PATH };
+  const main =
+    html !== undefined ? (
+      <main id="view" tabIndex={-1} className="focus:outline-none" dangerouslySetInnerHTML={{ __html: html }} />
+    ) : (
+      <main id="view" tabIndex={-1} className="focus:outline-none">
+        {children}
+      </main>
+    );
   return (
     <>
-      <a className="skip-link" href="#view">Skip to content</a>
-      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO_SYMBOLS }} />
-      <header className="site-nav" id="site-nav" dangerouslySetInnerHTML={{ __html: nav }} />
-      {/* The floating copy of the nav. Only one of the two headers is exposed at a time (navPill in engines.ts). */}
-      <header className="nav-pill" id="nav-pill" inert aria-hidden="true" dangerouslySetInnerHTML={{ __html: nav }} />
-      {html !== undefined ? <main id="view" tabIndex={-1} dangerouslySetInnerHTML={{ __html: html }} /> : <main id="view" tabIndex={-1}>{children}</main>}
-      <footer className="site-footer" id="site-footer" dangerouslySetInnerHTML={{ __html: footerHTML() }} />
+      <SkipLink />
+      <LogoSymbols />
+      <SiteNav links={links} cta={cta} logo={navLogo} pillLogo={pillLogo} arrow={arrow} menuIcon={menuIcon} />
+      {animated ? <MotionProvider>{main}</MotionProvider> : main}
+      <SiteFooter />
       <Motion />
     </>
   );
 }
 
-/** Prototype markup inside a React tree. display: contents keeps the sections as layout children of #view. */
+/** Prototype markup inside a React tree (removed in R3). display: contents keeps the sections as layout children of #view. */
 export function Html({ html }: { html: string }) {
   return <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: html }} />;
 }

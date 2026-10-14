@@ -6,5 +6,5 @@ import { Site } from "@/marketing/Site";
 export const metadata: Metadata = pageMetadata(PAGES.oversight);
 
 export default function Oversight() {
-  return <Site path="/oversight" html={oversightHTML()} />;
+  return <Site path="/oversight" animated html={oversightHTML()} />;
 }

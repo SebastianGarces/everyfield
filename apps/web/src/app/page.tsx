@@ -6,5 +6,5 @@ import { Site } from "@/marketing/Site";
 export const metadata: Metadata = pageMetadata(PAGES.home);
 
 export default function Home() {
-  return <Site path="/" html={homeHTML()} />;
+  return <Site path="/" animated html={homeHTML()} />;
 }

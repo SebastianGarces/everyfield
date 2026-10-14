@@ -1,4 +1,5 @@
 import "server-only";
+import { ACCESS_PATH } from "@/site";
 import { COPY, type Copy } from "./copy";
 // Sample data shared with the engine in engines.ts.
 import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_SIGNS, CX_TEAMS, CX_TYPES, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SD_AREAS, SD_PIPE, SD_SCOPES, type PanelKind } from "./scene-data";
@@ -10,8 +11,7 @@ import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_SIGNS, CX_TEAMS, CX_TYPES, HA_NAME,
 // Product visuals use a demo church (Harvest Point); that sample data is part of the approved design.
 
 /* ---------- Routes ---------- */
-// Every link to the request page goes to the top of /access, where the visitor picks a form. No form anchors.
-export const ACCESS = "/access";
+const ACCESS = ACCESS_PATH;
 const ROUTE: Record<string, string> = {
   // The planters page is not live yet; its buttons go to the request page.
   "See the seven phases": ACCESS,

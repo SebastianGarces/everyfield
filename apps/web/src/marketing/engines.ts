@@ -1,6 +1,6 @@
 // Client port of the prototype's motion engines (design/everyfield-marketing.html): the home hero loop (ha*),
 // the chapter and auto-list engine (cx*), the phases rail (ph*), the sending paths (ovs*), section reveals,
-// EvryBot life, the floating nav pill, the mobile menu and the FAQ. The markup comes from markup.ts.
+// EvryBot life and the FAQ. The markup comes from markup.ts. The header, pill and menus are React (components/frame).
 // startMotion() runs once per page load and returns a cleanup. Every engine renders a still frame under
 // prefers-reduced-motion. Comments that start with "Revision" keep the prototype's design notes.
 import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_TEAMS, HA_DRAFT, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SCENES, SD_PIPE, SD_SCOPES, isPanelKind, type PanelKind } from "./scene-data";
@@ -846,35 +846,7 @@ function botFollow(e: PointerEvent) {
   });
 }
 
-/* ---------- Chrome: floating nav pill, mobile menu, FAQ ---------- */
-let pillOn: boolean | null = null, pillTicking = false;
-function navClose() {
-  ["site-nav", "nav-pill"].forEach((id) => {
-    const el = document.getElementById(id); if (!el) return;
-    el.classList.remove("open");
-    one(el, ".nav-toggle")?.setAttribute("aria-expanded", "false");
-  });
-}
-/* Floating pill: shown once the scroll passes the in-flow nav height. */
-function navPill(force?: boolean) {
-  pillTicking = false;
-  const nav = document.getElementById("site-nav"), pill = document.getElementById("nav-pill");
-  if (!nav || !pill) return;
-  const on = window.scrollY > nav.offsetHeight;
-  if (on === pillOn && !force) return;
-  if (on !== pillOn) navClose();
-  pillOn = on;
-  pill.classList.toggle("on", on);
-  // Expose exactly one header, so assistive tech finds one banner and one "Main" nav. While the in-flow header holds
-  // focus it stays the exposed one (the pill shows but stays inert); once focus leaves, the pill takes over.
-  const pillLive = on && !nav.contains(document.activeElement);
-  expose(pill, pillLive);
-  expose(nav, !pillLive);
-}
-function expose(el: HTMLElement, live: boolean) {
-  el.inert = !live;
-  if (live) el.removeAttribute("aria-hidden"); else el.setAttribute("aria-hidden", "true");
-}
+/* ---------- FAQ (the header, pill and menus are React: components/frame/SiteNav.tsx) ---------- */
 function faqSet(item: Element | null, open: boolean) {
   if (!item) return;
   item.classList.toggle("open", open);
@@ -886,17 +858,7 @@ function onClick(e: MouseEvent) {
   const pp = target.closest(".ovs-pp");
   if (pp && OVS.root) { if (REDUCED.matches) ovsGo((OVS.k + 1) % 3); else { OVS.paused = !OVS.paused; ovsBtn(); ovsSched(); } return; }
   const q = target.closest(".faq-q");
-  if (q) { faqSet(q.closest(".faq-i"), q.getAttribute("aria-expanded") !== "true"); return; }
-  const tg = target.closest(".nav-toggle");
-  if (tg) { const nav = tg.closest(".site-nav, .nav-pill")!; const open = nav.classList.toggle("open"); tg.setAttribute("aria-expanded", String(open)); return; }
-  if (target.closest(".nav-links a")) navClose();
-}
-function onKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape") return;
-  const open = document.querySelector(".site-nav.open, .nav-pill.open");
-  if (!open) return;
-  navClose();
-  one(open, ".nav-toggle")?.focus();
+  if (q) faqSet(q.closest(".faq-i"), q.getAttribute("aria-expanded") !== "true");
 }
 /* A link to #faq-<id> opens that answer. */
 function openHashTarget() {
@@ -916,19 +878,14 @@ export function startMotion(): () => void {
   const life = new AbortController(), opts = { signal: life.signal };
   let engines = new AbortController();
   initEngines(engines.signal);
-  navPill(true);
   openHashTarget();
 
   const kickAll = () => { haKick(); cxKick(); if (OVS.root) ovsSched(); };
   document.addEventListener("click", onClick, opts);
-  document.addEventListener("keydown", onKeydown, opts);
   document.addEventListener("visibilitychange", kickAll, opts);
   document.addEventListener("pointermove", botFollow, opts);
   window.addEventListener("hashchange", openHashTarget, opts);
-  // The in-flow header stays exposed while it holds focus; hide it once focus leaves (see navPill).
-  document.getElementById("site-nav")?.addEventListener("focusout", () => requestAnimationFrame(() => navPill(true)), opts);
   window.addEventListener("scroll", () => {
-    if (!pillTicking) { pillTicking = true; requestAnimationFrame(() => navPill()); }
     if (!CX.ticking && CX.list.length) { CX.ticking = true; requestAnimationFrame(() => cxScroll()); }
   }, { passive: true, signal: life.signal });
   /* Revision 13: the stacked step share depends on the viewport height. */
@@ -953,6 +910,5 @@ export function startMotion(): () => void {
     clearTimeout(blink);
     haStop(); cxStop(); ovsStop();
     revealObservers.forEach((o) => o.disconnect());
-    pillOn = null;
   };
 }
