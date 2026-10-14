@@ -142,9 +142,30 @@ test("INV-access: failure to save mail receipt remains unavailable and retry can
   assert.equal(delivered.size, 1);
   assert.equal(calls[0]?.key, calls[1]?.key);
   assert.deepEqual(calls[0]?.payload, calls[1]?.payload);
-  await db.query("UPDATE early_access_request SET mailed_at = NULL, mail_id = NULL, created_at = now() - interval '24 hours'");
-  assert.deepEqual(await submit("planter", planter), { status: "unavailable" });
-  assert.equal(calls.length, 2);
+});
+
+test("INV-access: stale pending mail allows a fresh request and key instead of blocking the visitor", async () => {
+  for (const [index, age] of ["23 hours 1 second", "3 days"].entries()) {
+    const original = { ...planter, email: `stale${index}@example.org` };
+    assert.deepEqual(await submit("planter", original, "192.0.2.1", async () => new Response("", { status: 500 })), { status: "unavailable" });
+    const pending = (await db.query<{ id: string }>("SELECT id FROM early_access_request WHERE email = $1", [original.email])).rows[0];
+    assert.ok(pending);
+    await db.query("UPDATE early_access_request SET created_at = now() - $2::interval WHERE id = $1", [pending.id, age]);
+    const replacement = { ...original, plant_name: "Updated plant" };
+    assert.deepEqual(await submit("planter", replacement), { status: "received" });
+    const rows = (await db.query("SELECT id, data->>'plant_name' AS plant, mail_id, mailed_at FROM early_access_request WHERE email = $1 ORDER BY created_at", [original.email])).rows;
+    assert.equal(rows.length, 2);
+    assert.deepEqual(rows[0], { id: pending.id, plant: "Hope Church", mail_id: null, mailed_at: null });
+    assert.notEqual(rows[1].id, pending.id);
+    assert.equal(rows[1].plant, "Updated plant");
+    assert.equal(rows[1].mail_id, `mail-${index + 1}`);
+    assert.ok(rows[1].mailed_at instanceof Date);
+    assert.equal(calls[index]?.key, `early-access/${rows[1].id}`);
+    assert.deepEqual(await submit("planter", replacement), { status: "received" });
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM early_access_request WHERE email = $1", [original.email])).rows[0].n, 2);
+    assert.equal(delivered.size, index + 1);
+    assert.equal(calls.length, index + 1);
+  }
 });
 
 test("INV-access: concurrent duplicates create one row and one provider email", async () => {

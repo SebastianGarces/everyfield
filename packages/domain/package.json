@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
-    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+    "test": "tsx --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts"
   },
   "dependencies": {
     "@everyfield/db": "workspace:*",

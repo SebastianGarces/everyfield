@@ -81,7 +81,11 @@ export async function reserveAccessRequest(input: {
     await client.query("INSERT INTO early_access_attempt (email, ip_key) VALUES ($1, $2)", [input.email, input.ip ?? "unknown"]);
     const duplicate = await client.query<{ id: string; created_at: Date; mail_payload: unknown; mailed_at: Date | null }>(`
       SELECT id, created_at, mail_payload, mailed_at FROM early_access_request
-      WHERE email = $1 AND kind = $2 AND (created_at > clock_timestamp() - interval '24 hours' OR mailed_at IS NULL)
+      WHERE email = $1 AND kind = $2
+        AND created_at > clock_timestamp() - CASE
+          WHEN mailed_at IS NULL THEN interval '23 hours'
+          ELSE interval '24 hours'
+        END
       ORDER BY created_at DESC LIMIT 1
     `, [input.email, input.kind]);
     const existing = duplicate.rows[0];
