@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/cron/access-retention", "schedule": "0 5 * * *" }]
+}
