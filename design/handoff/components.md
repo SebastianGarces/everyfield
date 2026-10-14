@@ -5,7 +5,7 @@ Do not edit the table by hand. Change the Inventory in `design/everyfield-ui.htm
 
 ## How to build them
 
-Components live in `packages/ui` (see `docs/architecture/architecture.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
+Components live in `packages/ui` (see `docs/architecture/README.md`). Start each one from the shadcn/ui component named in the last column when there is one, then restyle it with the tokens in [`tokens.css`](tokens.css). "none" means a plain styled element with no behavior primitive. Keep the prototype's names as the React component names, so search finds both.
 
 Rules that apply to every component:
 

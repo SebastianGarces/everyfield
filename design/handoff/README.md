@@ -16,14 +16,15 @@ The build stack is in [`docs/architecture/README.md`](../../docs/architecture/RE
 | [`assets/`](assets/) | The Everyfield mark and wordmark as SVG, colored with `currentColor` | No, generated |
 | [`components.md`](components.md) | All 106 components, their parts, variants and the shadcn primitive to start from | No, generated |
 | [`foundations.md`](foundations.md) | Rules for color, gradient cards, type, icons, shape, layout, motion, the Evry character and accessibility | Yes |
-| [`screens.md`](screens.md) | Every screen with a proposed route, work packages, drawn states, phone needs, overlays, emails, and the [screen-to-feature map](screens.md#screen-to-feature-map) with the flows that are not drawn | Yes |
+| [`screens.md`](screens.md) | Every screen with its route, work packages, drawn states, phone needs, overlays, emails, and the [screen-to-feature map](screens.md#screen-to-feature-map) with the flows that are not drawn | Yes |
 | [`export.py`](export.py) | Writes the generated files and checks them | Yes |
 
 After any change to the prototype, run the export and commit the result with it.
 
 ```sh
 python3 design/handoff/export.py          # write tokens.css, assets and components.md
-python3 design/handoff/export.py --check  # fail if anything is stale or a route is missing from screens.md
+python3 design/handoff/export.py --check  # fail if anything is stale, a route is missing from screens.md,
+                                          # a routed feature has no status in the map, or a map row names a non-owner
 ```
 
 ## How to read the prototype
@@ -61,13 +62,13 @@ Four places in the prototype disagree with current requirements on purpose. The 
 
 The prototype adds keyboard access to clickable cards and rows with a script. The build uses real buttons and links instead.
 
-## Suggested first step
+## Who builds the design system
 
-No work package owns the design system today. `packages/ui` exists in the architecture but no package builds it. Before feature work starts on screens, one slice should set up `tokens.css`, the two fonts through `next/font`, the icon package, `AppShell`, and the base components: Button, Card, Badge, Input, Tabs, Dialog, Popover, Skeleton, StatePanel and the Evry character. Otherwise each feature package rebuilds them its own way. This is a recommendation for the integration owner. This handoff does not change the plan in `docs/plan/`.
+WP-088 (prototype design system and application shell) builds `packages/ui`: `tokens.css`, the two fonts through `next/font`, Hugeicons, `AppShell` and every component in [components.md](components.md). Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088; its contract and API parts do not.
 
 ## Not designed yet
 
-Some flows have requirements but no drawing. Compose them from existing components and patterns. Their owning UI packages do this; this handoff does not draw them. The full list with features and owners is in the [screen-to-feature map](screens.md#flows-not-drawn).
+Some flows have requirements but no drawing. Compose them from existing components and patterns. Their owning UI packages do this; this handoff does not draw them. The list with features and owners is in the [screen-to-feature map](screens.md#flows-not-drawn). Every feature with a route has one status there, and `export.py --check` enforces it.
 
 Two flows need a note here because the prototype is close to them:
 
