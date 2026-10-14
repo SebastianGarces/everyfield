@@ -4497,7 +4497,7 @@
     ],
     "routes": [
       "/notifications",
-      "/settings/association",
+      "/settings/sharing",
       "/network"
     ]
   },
