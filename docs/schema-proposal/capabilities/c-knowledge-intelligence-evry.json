@@ -1,0 +1,1816 @@
+{
+  "group": "C",
+  "modules": [
+    "wiki",
+    "reference",
+    "documents",
+    "intelligence",
+    "evry"
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-C-001",
+      "name": "Canonical Wiki identities and source publications",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-009"
+      ],
+      "persists": true,
+      "entities": [
+        "canonical article",
+        "global or exact organization source",
+        "article revision",
+        "organization publication state"
+      ],
+      "facts": [
+        "Stable logical article ID independent of title or slug; exact global or organization ID and sending-church/network kind for each source.",
+        "Immutable source revision number, safe body, content hash, title, excerpt, content type, phase, section, slug, published state/time and meaningful-update designation.",
+        "Related/parent/guide references resolve canonical identities; global revisions name their reference generation, organization revisions name the upstream revision they edited.",
+        "Current per-organization article state distinguishes inherited, published edit, hide and draft; current version and expected publication revision; attributed author and correction/publish history.",
+        "Meaningful revision lineage preserves an unread earlier meaningful update through later typo-only edits.",
+        "Each changed published global revision has an upstream notice identity and exact current organization editor audience, including typo-only revisions; notice intent is committed with publication."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Unique revision identity within article and source; immutable content hash cannot change under that identity.",
+        "Organization sources and editorial state belong to the same exact organization and kind; same-title additions have different canonical IDs.",
+        "Global content admits only the fixed safe MDX grammar; organization nodes never execute MDX code.",
+        "Current source entitlement gates every body, draft, historical revision, excerpt and citation. A hide denies its own hidden body and suppresses default reads.",
+        "Upstream notices are in-app only and cannot silently adopt or overwrite organization edits/hides."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Retained reader/citation identity cannot restore departed organization text.",
+      "current_tables": [
+        "wiki_article",
+        "wiki_source",
+        "wiki_article_version",
+        "organization_wiki_article_state",
+        "inbox_entry",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "Sources: docs/product/knowledge-documents.md, Article resolution and editing. No plant Wiki editor or third CMS. Native notice delivery reuses communication inventory storage."
+    },
+    {
+      "id": "CAP-C-002",
+      "name": "Explicit plant Wiki source preference order",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-008",
+        "WIKI-009"
+      ],
+      "persists": true,
+      "entities": [
+        "plant source order",
+        "ranked affiliation recognition"
+      ],
+      "facts": [
+        "Plant identity, separate sending-church and sending-network order groups, expected order revision.",
+        "Each explicitly ranked eligible affiliation recognition and exact organization/kind has one position; head is the preferred source.",
+        "Recognition episode identifies rejoining as a new unranked candidate; attributable explicit order changes retain history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "No duplicate, foreign-plant or wrong-kind order entries; positions are unique within one group.",
+        "Per-article resolution considers sending churches first, then networks, then global; inactive/inherited/missing entries fall through.",
+        "Competing sources without an explicit order remain source_order_required; no implicit name/date/join-order winner.",
+        "Rejoining does not recover prior rank automatically, and source preference grants no other authority."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "current_tables": [
+        "plant_wiki_source_order",
+        "plant_wiki_source_order_entry",
+        "plant_affiliation",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "Only the preference and its lineage require stored facts. Current winning source is computed per article from current rights/publication."
+    },
+    {
+      "id": "CAP-C-003",
+      "name": "Wiki navigation and contextual reference mappings",
+      "feature_ids": [
+        "WIKI-002",
+        "WIKI-008"
+      ],
+      "persists": true,
+      "entities": [
+        "section hierarchy",
+        "article topology",
+        "context guide mapping"
+      ],
+      "facts": [
+        "Stable section and article IDs, parent relationships, deterministic display order, title/slug and phase classification.",
+        "Canonical related article references and route/wildcard-to-guide article mappings pinned to the applicable source/revision or release."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Hierarchy and related/guide targets name real identities; duplicate/missing targets do not fabricate content.",
+        "Resolver removes hidden and unauthorized content before constructing navigation, siblings, excerpts or counts."
+      ],
+      "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified.",
+      "current_tables": [
+        "reference_section",
+        "wiki_article_version",
+        "reference_release"
+      ],
+      "notes": "Headings/TOC/breadcrumbs and encoded routes can be derived from safe content/topology; no separate saved TOC or navigation result. Organization publication topology follows current source rights."
+    },
+    {
+      "id": "CAP-C-004",
+      "name": "Account-owned reading and completion evidence",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-004"
+      ],
+      "persists": true,
+      "entities": [
+        "reader progress",
+        "reading evidence event",
+        "completion evidence"
+      ],
+      "facts": [
+        "Actual reader account and canonical article; attributed source/revision/hash and reading policy version.",
+        "Not-started/in-progress/completed state, observed reached fraction, resume position, last actual viewed instant and actual progress events.",
+        "Completion instant, observed fraction and immutable source/revision/hash seen at completion; meaningful update sequence last read.",
+        "Optional plant context records where an observation occurred without changing account ownership."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One reader/article progress identity; source evidence must name the article and an accessible published revision.",
+        "Passive reopen changes viewed time only, never downgrades completion or invents a new completion.",
+        "Discovery needs one currently eligible actual reader with each of six exact canonical articles strictly above 0.80; different readers cannot pool partial credit.",
+        "Restored scroll/fragment/background layout is not actual reading; accessible sequential blocks use the same observed-progress contract.",
+        "Meaningful updates preserve earned credit while identifying unread new text; typo-only changes do not erase the marker."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Minimal legitimate completion identity survives a source departure without body access.",
+      "current_tables": [
+        "wiki_read_progress",
+        "wiki_read_event",
+        "app_account",
+        "account_person_link"
+      ],
+      "notes": "Sources: knowledge-documents.md, Reading and Discovery evidence. Statistics and six-article eligibility derive from evidence plus current native identity grants; no per-plant copy or quiz result."
+    },
+    {
+      "id": "CAP-C-005",
+      "name": "Own canonical article bookmarks",
+      "feature_ids": [
+        "WIKI-005"
+      ],
+      "persists": true,
+      "entities": [
+        "reader bookmark"
+      ],
+      "facts": [
+        "Reader account, canonical article, explicit desired saved state and expected revision; optional source/revision provenance."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "At most one bookmark per reader and canonical article; repeated set/unset converges.",
+        "Bookmark lists use current visible-source resolution; hidden/departed entries reveal neither body nor counts."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry.",
+      "current_tables": [
+        "wiki_bookmark"
+      ],
+      "notes": "No bookmark-specific historical timeline is required; durable command replay uses shared receipts."
+    },
+    {
+      "id": "CAP-C-006",
+      "name": "Own article helpfulness vote",
+      "feature_ids": [
+        "WIKI-006"
+      ],
+      "persists": true,
+      "entities": [
+        "article vote"
+      ],
+      "facts": [
+        "Reader account, current plant context, canonical article/source/revision and helpful or unhelpful value with expected revision."
+      ],
+      "history": "current-only",
+      "invariants": [
+        "At most one current own vote per permitted plant/article/source scope; closed value set and same-scope references.",
+        "Account-private Discovery does not manufacture a plant vote; another reader cannot overwrite it."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry.",
+      "current_tables": [
+        "wiki_article_feedback"
+      ],
+      "notes": "No admin analysis capability or additional voting history requirement beyond command no-op/revision semantics."
+    },
+    {
+      "id": "CAP-C-007",
+      "name": "Wiki read, search, print, source view and public preview behavior",
+      "feature_ids": [
+        "WIKI-001",
+        "WIKI-002",
+        "WIKI-003",
+        "WIKI-007",
+        "WIKI-008",
+        "WIKI-009",
+        "WIKI-011"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Every current/historical body, snippet, count, export and stream rechecks current entitlement; cache invalidation alone grants nothing.",
+        "Search uses current corpus and bounded query; print/PDF reflects exact currently rendered entitled content.",
+        "Sessionless previews contain only public global Wiki content on the supported exact routes, with no personal/tenant shell."
+      ],
+      "retention": "No additional persistent search/preview/export records. Browser-downloaded copies cannot be recalled.",
+      "current_tables": [],
+      "notes": "Reuses canonical source versions, order and topology above. FTS indexes are derivatives; no stored search query/result or generated_document for Wiki PDF. Fetching a guide alone creates no reading event."
+    },
+    {
+      "id": "CAP-C-008",
+      "name": "Approved source, rubric and operational template inventories",
+      "feature_ids": [
+        "REF-001",
+        "REF-002",
+        "REF-004",
+        "REF-005",
+        "REF-006",
+        "PI-016",
+        "WIKI-010"
+      ],
+      "persists": true,
+      "entities": [
+        "approved source artifact",
+        "reference release manifest",
+        "template version",
+        "Discovery identity mapping"
+      ],
+      "facts": [
+        "Immutable source artifact revision, identity, original bytes/location and checksum; authoritative Playbook, original rubric v0/v1 and SME dispositions remain separately resolvable.",
+        "Separately versioned operational adapter, assembled plant prompt hash and distinct Network Intelligence rubric/policy version and hash.",
+        "Global starter manifest pins 96 articles, 21 sections and seven system communication templates, exact IDs/topology/content hashes and the six Discovery canonical IDs.",
+        "Exact task/ministry/document/mail template kind, logical ID, source revision/hash and approved payload; twenty task templates, ten ministry templates and launch inventory of nine milestones/23 ordinary tasks remain explicit.",
+        "Manifest/schema version, source credit, content-owner approval and resolution of editorial contradictions."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Stable identities and hashes, not names, identify immutable versions; same ID/hash replay is no-op and changed bytes under the same ID fail.",
+        "Global approved packages contain no customer records, organization-private content, credentials or reader state.",
+        "Rubric/Playbook original bytes and historical formulas are not rewritten by operational adapters or organization Wiki edits.",
+        "Seven message templates are distinct from eleven generated-document templates; selected imports never overwrite tenant work automatically."
+      ],
+      "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified.",
+      "current_tables": [
+        "reference_release",
+        "reference_template_version",
+        "reference_section",
+        "wiki_article_version"
+      ],
+      "notes": "Sources: reference-release.md and methodology-intelligence.md. Storage may be packaged immutable files plus a manifest; this inventory does not mandate a database row for each static definition."
+    },
+    {
+      "id": "CAP-C-009",
+      "name": "Versioned retrieval passages and embedding provenance",
+      "feature_ids": [
+        "REF-007",
+        "PI-017"
+      ],
+      "persists": true,
+      "entities": [
+        "reference passage",
+        "derivation profile",
+        "embedding derivative"
+      ],
+      "facts": [
+        "Release/generation, article/source/revision/hash, phase/section and deterministic passage identity with ordinal/content hash.",
+        "Chunker name/version/settings and embedding model/profile/version/dimensions, expected eligible passage counts/hashes and full vector checksums.",
+        "Stored eligible passage content/vector and derivation completeness/checkpoint tied to exact manifest and active worker generation.",
+        "Citation provenance retains logical article/source/revision/generation; the whole exact rubric is pinned outside embeddings."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "No missing, duplicate, obsolete or dimension-invalid derivative can count as a complete generation.",
+        "A stale manifest or lost claim cannot mark derivation complete; no copying unversioned old vectors.",
+        "Global vectors are eligible only for the global version actually selected by the resolver. Organization derivatives inherit exact current source rights.",
+        "Dense/sparse ranking results and query embeddings cannot confer body entitlement; missing grounding never becomes fabricated citations."
+      ],
+      "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified. Revoked organization excerpts/caches must be withheld even in old citations.",
+      "current_tables": [
+        "reference_chunk",
+        "reference_release",
+        "wiki_article_version",
+        "job"
+      ],
+      "notes": "No persistent query embedding or ranking cache is required. Rebuildable derivatives need provenance and complete activation evidence, not one capability per retrieval helper."
+    },
+    {
+      "id": "CAP-C-010",
+      "name": "Atomic reference validation, activation and rollback history",
+      "feature_ids": [
+        "REF-008",
+        "WIKI-010",
+        "PI-016",
+        "PI-017"
+      ],
+      "persists": true,
+      "entities": [
+        "reference candidate",
+        "validation receipt",
+        "activation event"
+      ],
+      "facts": [
+        "Frozen candidate release/generation/manifest/hash, building/validated/failed state, complete/validated instants and truthful failure reason/checkpoint.",
+        "Passed check IDs and artifact hashes, exact required derivative sets, actual content/operator approval and reviewed diff provenance.",
+        "Monotonic activation number, selected complete release, previous activation, expected prior activation, reason, actor and activated instant.",
+        "Current global publication mapping changes with the complete approved generation; consumer runs pin activation identity as well as content hash."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Validated payload is immutable; incomplete candidates cannot replace the serving generation.",
+        "One atomic expected-current activation wins; active generation is the maximum committed activation, with no second mutable isActive authority.",
+        "Rollback is a new reviewed activation of a revalidated complete generation, never erased history or rewound attribution.",
+        "Required content/derivative/template/rubric coherence and protected no-tenant payload checks precede activation."
+      ],
+      "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified.",
+      "current_tables": [
+        "reference_release",
+        "reference_activation",
+        "command_receipt",
+        "audit_event",
+        "job"
+      ],
+      "notes": "Sources: docs/architecture/reference-release.md. Postcommit cache wake-up is repairable; provider work is outside activation. No organization edition adoption gate."
+    },
+    {
+      "id": "CAP-C-011",
+      "name": "Generated-document catalog and immutable rendering definitions",
+      "feature_ids": [
+        "REF-003",
+        "DOC-001",
+        "DOC-004",
+        "DOC-005",
+        "DOC-006",
+        "DOC-007",
+        "DOC-008",
+        "DOC-009",
+        "DOC-010",
+        "DOC-011",
+        "DOC-012",
+        "DOC-013",
+        "DOC-014"
+      ],
+      "persists": true,
+      "entities": [
+        "document template version",
+        "offered format",
+        "template context mapping"
+      ],
+      "facts": [
+        "Eleven stable template identities, saved display names, immutable approved content/version/hash, category, phase and curated Wiki/meeting/team context mappings.",
+        "Twelve offered format combinations: commitment card PDF, response card PDF, sign-in sheet PDF, Vision agenda PDF and DOCX, core member expectations DOCX, launch-team commitment DOCX, follow-up letter DOCX, board/elder agenda DOCX, first-year budget XLSX, budget worksheet XLSX and launch checklists PDF.",
+        "Closed merge-field definitions, required/default rules, approved rendering profile, shared content layout and spreadsheet cell/formula definitions."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Format must belong to the selected immutable template; eleven templates and seven communication templates have distinct identities.",
+        "Exact original approved template content and live XLSX formulas are preserved; retired unknown mappings supply no invented link."
+      ],
+      "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified.",
+      "current_tables": [
+        "reference_template_version",
+        "reference_release"
+      ],
+      "notes": "Sources: knowledge-documents.md, Generated documents and templates. Template payload can be a versioned packaged artifact. Budget templates generate files only, no finance records."
+    },
+    {
+      "id": "CAP-C-012",
+      "name": "Document preview and merge resolution",
+      "feature_ids": [
+        "DOC-002"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Explicit nonempty closed-field input wins authorized defaults; actual named leader and plant-local launch date supply truthful defaults.",
+        "Required fields, per-field 2,000-character and combined 16-KiB limits apply before rendering.",
+        "Preview and saved output share immutable template/version, frozen inputs and renderer profile; preview alone creates no durable document."
+      ],
+      "retention": "No additional preview storage. Exact inputs are retained only on authorized generation.",
+      "current_tables": [],
+      "notes": "Reuses document template definitions and native plant/person/launch facts. PDF preview is exact bytes; DOCX/XLSX preview is structural within the documented parsing/render bounds."
+    },
+    {
+      "id": "CAP-C-013",
+      "name": "Saved generated-document bytes and reproducible provenance",
+      "feature_ids": [
+        "DOC-003"
+      ],
+      "persists": true,
+      "entities": [
+        "generated artifact",
+        "generation attempt"
+      ],
+      "facts": [
+        "Immutable account or plant scope, creator/minimal attribution, saved template name/version/content hash, renderer version and frozen authorized merge input provenance.",
+        "Offered format, safe download filename, MIME, byte length/hash, immutable object reference, generated instant and pending/ready/failed state.",
+        "Failure/resume/compensation identity ties an incomplete generation to its exact upload and command receipt."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Ready requires uploaded immutable bytes and coherent finalization; no ready record may reference missing bytes.",
+        "Saved downloads return original bytes despite later template/contact changes; archived template uses saved-name fallback.",
+        "Saved scope is real and current, not inferred from creator or caller-selected object key; artifacts are bounded to 8 MiB."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Account-owned generated artifacts instead follow the private account lifecycle. Latest-100 history display is not a retention limit.",
+      "current_tables": [
+        "generated_document",
+        "upload_intent",
+        "object_metadata",
+        "reference_template_version",
+        "command_receipt"
+      ],
+      "notes": "No automatic ingestion of edited exports, signatures, response cards, financial facts or training credit."
+    },
+    {
+      "id": "CAP-C-014",
+      "name": "Private file upload, immutable replacement and cleanup lifecycle",
+      "feature_ids": [
+        "DOC-015"
+      ],
+      "persists": true,
+      "entities": [
+        "upload intent",
+        "private object metadata",
+        "subject object binding"
+      ],
+      "facts": [
+        "Authorized account/plant owner and exact purpose/subject, expected MIME/type, size/hash, immutable server-selected key and pending/ready/failed lifecycle.",
+        "Upload/finalization identity and reference revision/fence; replacement has a new immutable object identity.",
+        "Object readiness, deletion/cleanup status and reference/claim evidence for orphan reconciliation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Metadata and subject binding have the same owner; no caller key or foreign/expired/incomplete object is accepted.",
+        "Commitment PDF/JPEG/PNG up to 10 MiB passes signature/MIME/decoding validation.",
+        "Cleanup deletes only currently unreferenced/unclaimed objects and cannot race a finalized replacement.",
+        "Fresh signed-download issuance checks live authority/subject/readiness and has five-minute TTL."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Account-private bytes follow the account lifecycle; signed URLs remain valid only for their actual issued TTL, not instant recall.",
+      "current_tables": [
+        "upload_intent",
+        "object_metadata",
+        "job",
+        "person_commitment"
+      ],
+      "notes": "Shared file infrastructure is reused by owned/generated documents and Evry attachments. Signed URLs and decoding intermediates need no durable copy."
+    },
+    {
+      "id": "CAP-C-015",
+      "name": "Native owned text, values designation and archive revisions",
+      "feature_ids": [
+        "DOC-016"
+      ],
+      "persists": true,
+      "entities": [
+        "owned document",
+        "immutable document revision"
+      ],
+      "facts": [
+        "Exactly one immutable owner, account or plant; title, document kind/core_values designation, current ready revision and archive state.",
+        "Sanitized native text/headings/lists/tables/links, content hash, revision number, author attribution and expected-current-revision.",
+        "Attributable save/edit/correction/archive history and prior selected revisions referenced by assessments."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Every revision and referenced object has the document owner; creator is attribution, not ownership.",
+        "Only saved ready nonempty current unarchived designated native text is structural values evidence.",
+        "Empty/title-only/unsaved/failed import supplies no values evidence; archive removes current evidence without rewriting past assessments.",
+        "Plant documents have native plant rights, never inherited organization Wiki or affiliation rights."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Account originals follow Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry.",
+      "current_tables": [
+        "owned_documents",
+        "owned_document_revisions",
+        "object_metadata",
+        "command_receipt",
+        "audit_event"
+      ],
+      "notes": "No model theological/quality judgment, publication approval or third content system. Sources: knowledge-documents.md, Native owned writing."
+    },
+    {
+      "id": "CAP-C-016",
+      "name": "Native document import and explicit account-to-plant copy lineage",
+      "feature_ids": [
+        "DOC-016"
+      ],
+      "persists": true,
+      "entities": [
+        "document import provenance",
+        "selected revision copy"
+      ],
+      "facts": [
+        "Private original upload object/hash/format, safe parse outcome and selected editable native revision.",
+        "Copied destination document names one authorized source account document/revision/hash and one actual plant owner; copied-by attribution and command receipt.",
+        "Failed parse state remains distinguishable from successful ready text and never replaces the prior ready revision."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "UTF-8 text and modern DOCX parse into safe editable content; unsupported DOC/macros/external fetch/executable nodes are denied.",
+        "Import bounds: 10 MiB upload, 40 MiB expanded DOCX, 2,000 entries, two million extracted characters and 15 seconds.",
+        "Copy is explicit and selects one revision; immutable source lineage does not transfer original ownership or copy unrelated assets.",
+        "Later original edits cannot silently update the independent plant copy."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Original/import bytes remain account-private under Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry.",
+      "current_tables": [
+        "owned_documents",
+        "owned_document_revisions",
+        "upload_intent",
+        "object_metadata",
+        "command_receipt"
+      ],
+      "notes": "This separates source provenance from the stored native text above, without prescribing separate tables or import services."
+    },
+    {
+      "id": "CAP-C-017",
+      "name": "Immutable intelligence fact snapshots and evidence lineage",
+      "feature_ids": [
+        "PI-001",
+        "PI-002",
+        "PI-003",
+        "PI-004",
+        "PI-005",
+        "PI-006",
+        "PI-007",
+        "PI-008",
+        "PI-009",
+        "PI-010",
+        "PI-011",
+        "PI-012",
+        "PI-013",
+        "PI-014"
+      ],
+      "persists": true,
+      "entities": [
+        "plant fact snapshot",
+        "typed evidence reference"
+      ],
+      "facts": [
+        "Exact plant, fixed asOf, plant-local calendar, phase at snapshot, source/material revision, snapshot hash, schema/formula/policy versions and reference activation/generation.",
+        "Typed measured, calculated, human-attested and unknown provenance; real zero, recorded false, unanswered, retracted, partial and unavailable remain distinct.",
+        "Adult current lower bound/exact total/completeness and genuine first acquisition windows/clock; historical actual occurrences, identity deduplication and source-quality flags.",
+        "Completed Vision cadence/last-two attendance, cohesion population/denominator/disengaged counts and separately recorded leader presence.",
+        "Stable ministry responsibility coverage/filled slots/distinct people; saved assigned training obligations/completion and human-record presence/count/date; no raw interview/FourCs judgments.",
+        "Launch target/local countdown/status/milestones/actual outcome, live task ownership, mature originating-obligation 48-hour completion numerator/denominator/exclusions and actual dated contact success separately.",
+        "Planter-only recorded growth-source composition/unknown count and eight-lens evidence subdimensions with independent attestation ages.",
+        "Exact fact-path/value/date/number/source citation and scope used by the resulting assessment, so later corrections do not rewrite past evidence."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "One consistent database snapshot fixes every source read and asOf; foreign or future/invalid occurrences do not become measured facts.",
+        "Real withdrawal changes current size without erasing historical acquisition; merge/rejoin never invent another acquisition.",
+        "Missing evidence is Unknown, never substituted zero or rounded completion; time windows and original formulas remain attributable.",
+        "Task completion, actual contact, provider acceptance and attendance are separate evidence kinds.",
+        "Private-care body/existence/calendar/nudges and raw interview/FourCs judgments never enter snapshots/model-purpose context.",
+        "No approved post-launch originating mechanism means its guest follow-up metric stays unmeasured; prelaunch Vision data cannot substitute."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Preserve original snapshot versions and source attribution for historical trends; the twelve-result view is not a deletion horizon.",
+      "current_tables": [
+        "intelligence_assessment_run",
+        "plant",
+        "person_commitment",
+        "meeting",
+        "meeting_participation",
+        "follow_up_obligation",
+        "follow_up_outcome",
+        "task",
+        "plant_attestation",
+        "person_attestation",
+        "training_assignment_episode",
+        "training_completion"
+      ],
+      "notes": "Stores run evidence, not a second current CRM/meeting/task system. Domain-native inventories own operational facts. Full formula rules are in methodology-intelligence.md, Deterministic facts and evidence."
+    },
+    {
+      "id": "CAP-C-018",
+      "name": "Human intelligence attestations and correction lineage",
+      "feature_ids": [
+        "PI-014",
+        "PI-015"
+      ],
+      "persists": true,
+      "entities": [
+        "plant human attestation",
+        "person operational attestation"
+      ],
+      "facts": [
+        "Exact plant, stable question/key and reference version, recorded answer/unknown/retracted state, actual occurrence/asOf, recorded instant, author and correction/reaffirmation lineage.",
+        "Seven legacy keys: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested.",
+        "Separate typed criterion evidence identifies named worship person/agreement, chosen planting area/promotion plan/reference and actual human relationship as applicable.",
+        "Leadership candidate attestation names actual person, both attendance and volunteering, sustained 60-day period/asOf, question/reference/author and correction lineage."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Expected revision and idempotent correction/retract/reaffirm retain prior answers; models never create an attestation.",
+        "Giving, prayer rhythm and prayer in gatherings each have independent 30-day reaffirmation ages; stale true is aged, not false or newly true.",
+        "Values/funding/systems/Prayer Leader retain nonexpiring semantics; no unrelated answer refreshes another.",
+        "Human person operational evidence is planter-only; organization input sees only permitted aggregates."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "current_tables": [
+        "plant_attestation",
+        "person_attestation",
+        "record_correction",
+        "command_receipt"
+      ],
+      "notes": "Native phases/people inventory may also reference these shared evidence facts. These are not private care or an eighth legacy toggle, and imply no role promotion."
+    },
+    {
+      "id": "CAP-C-019",
+      "name": "Durable intelligence demand and material refresh identity",
+      "feature_ids": [
+        "PI-021",
+        "PI-022",
+        "PI-037"
+      ],
+      "persists": true,
+      "entities": [
+        "assessment demand",
+        "subject material revision",
+        "leased job"
+      ],
+      "facts": [
+        "Typed plant or exact organization subject, demand kind, source revision, reference activation/release, policy version, requested asOf, eligible/retry instant and state.",
+        "Daily UTC refresh-window identity independent of unchanged source/rubric; explicit request key/body digest for manual/operator refresh.",
+        "Current job/claim generation, owner/expiry/heartbeat, attempt count, last complete availability and current publication identity.",
+        "Synchronous plant/organization material revision; superseded/coalesced/failed/operator-review outcomes preserve actual demand/attempt history."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Same request key/body replays, changed body conflicts; time refresh cannot be suppressed by source/rubric identity alone.",
+        "Each material native/Evry/bulk/correction mutation commits history/receipt/audit and one affected-subject revision bump together.",
+        "Never-assessed, changed-reference/source and seven-day-stale eligibility is determined from durable state even if wake-ups are lost.",
+        "Single active subject execution, lease generation fencing and current deletion/access state govern publication; private care creates no material revision or demand."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "current_tables": [
+        "assessment_demand",
+        "job",
+        "plant",
+        "organization",
+        "command_receipt"
+      ],
+      "notes": "Sources: assessment.md and REQ-PI-021/022/037. Fairness/batch scheduling is behavior over this state, not a second queue."
+    },
+    {
+      "id": "CAP-C-020",
+      "name": "Assessment attempts, bounded usage and truthful diagnostics",
+      "feature_ids": [
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-035",
+        "PI-042"
+      ],
+      "persists": true,
+      "entities": [
+        "assessment run attempt",
+        "provider dispatch evidence",
+        "validation failure"
+      ],
+      "facts": [
+        "Demand/run/job/claim generation, immutable captured snapshot/hash/asOf and exact rubric/prompt/model/parameters/reference/policy identities.",
+        "Captured/drafting/validated/complete/deferred/failed/superseded lifecycle, actual draft/attempt counters, retry due instant and last draft violation codes.",
+        "Reserved/reconciled cumulative input/output tokens, dispatch/latency/deadline state, provider throttle/Retry-After evidence and bounded retry pacing.",
+        "Distinct provider, output, persistence and deadline failure causes; safe final diagnostics and optional tracing identity never override durable results."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "At most three drafts and four provider attempts per draft share one deadline and 60,000 input/12,000 output token budgets; implicit SDK retries are disabled.",
+        "Current claim generation/source/reference/grant must match before authoritative result publication.",
+        "Failed/deferred/invalid new runs preserve the prior valid complete result; callback failure cannot demote a committed complete run.",
+        "Diagnostics reflect the actual last draft failure, with no raw prompts/model output/private manifests or care metadata in broad telemetry."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. No extra prompt/output archive is required by observability; approved immutable result content is retained separately.",
+      "current_tables": [
+        "intelligence_assessment_run",
+        "organization_intelligence_runs",
+        "job",
+        "assessment_demand"
+      ],
+      "notes": "Source: assessment.md, Bounded execution. Telemetry can share the run/job attempt record; optional external tracing is not mandatory storage."
+    },
+    {
+      "id": "CAP-C-021",
+      "name": "Complete intelligence results, focus, citations and historic views",
+      "feature_ids": [
+        "PI-018",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-034"
+      ],
+      "persists": true,
+      "entities": [
+        "complete plant assessment",
+        "insight",
+        "criterion and lens result",
+        "snapshot delta"
+      ],
+      "facts": [
+        "Run identity and original phase/asOf/formula/schema/rubric/reference/source versions; durable generated overall summary and available instant.",
+        "Validated bounded insight title/body, audience/category, canonical urgency and original storage vocabulary, stable concern ID, evidence/citations and within-result rank.",
+        "One primary focus/two supplements, positives separately, eight evidence-aware lens standings and deterministic nineteen-key criterion evidence with distinct judgment standing.",
+        "Original fact snapshots, exact source passage hashes, deltas and complete-result lineage for dated trends and snapshot drill-down.",
+        "Current complete publication pointer and truthful pending/failed/deferred/reference-not-ready state; timeline refers to actual native phase/launch history."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Complete result/summary/insights/current pointer publish atomically only after source/reference/claim/grant checks.",
+        "Urgency positive/info/watch/urgent maps to original storage info/low/medium/high; critical is reserved and cannot be emitted ordinarily.",
+        "Met/Not met/Unknown/Not tracked remains separate from Attention/Watch/Noted/Strength/Not addressed.",
+        "Unknown blocks advisory ready without being failure; Phase 6 has no exit criteria. Current phase changes do not relabel old assessments.",
+        "Title/body/summary bounds are 3-140/10-1,200/10-600 characters; numbers/citations must exactly resolve persisted evidence."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Latest twelve complete snapshots is a viewport; no product-wide permanent retention duration is specified.",
+      "current_tables": [
+        "intelligence_assessment_run",
+        "intelligence_insight",
+        "plant",
+        "phase_transition",
+        "launch_event",
+        "reference_chunk"
+      ],
+      "notes": "Reads/focus/scorecards/trends/cold-start views derive from saved results/native facts and call no model. No cross-plant ranking or separate stored timeline copy is required."
+    },
+    {
+      "id": "CAP-C-022",
+      "name": "Assessment first-open evidence and bounded organization release",
+      "feature_ids": [
+        "PI-024",
+        "PI-031",
+        "PI-032"
+      ],
+      "persists": true,
+      "entities": [
+        "assessment seen acknowledgment",
+        "assessment release"
+      ],
+      "facts": [
+        "Exact complete result and durable availability instant; genuine eligible human acknowledgment identity/instant and release instant/state.",
+        "Paired plant/oversight concern identifier and same supporting evidence, safe shared category projection and current source/grant revisions.",
+        "Previous still-authorized released result while the current result is embargoed."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Release follows eligible human first-open or 72 elapsed hours after durable availability, never component render.",
+        "Release grants no additional sharing; every category and exact organization affiliation remains current.",
+        "Oversight receives aggregate-safe structured results, not raw snapshots/individuals/growth-source composition/private notes.",
+        "Not shared/Limited visibility/Unknown remains distinct from On track or zero; unrelated category match is not a paired concern."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "current_tables": [
+        "intelligence_assessment_run",
+        "intelligence_insight",
+        "plant_affiliation",
+        "organization_sharing_settings"
+      ],
+      "notes": "Seen/release facts can live with the result; this inventory does not require standalone entities/tables for them."
+    },
+    {
+      "id": "CAP-C-023",
+      "name": "Personal feedback on exact plant or organization findings",
+      "feature_ids": [
+        "PI-033",
+        "PI-043"
+      ],
+      "persists": true,
+      "entities": [
+        "own finding feedback",
+        "feedback correction event"
+      ],
+      "facts": [
+        "Author account, exact typed plant insight/run or organization assessment/finding target, rubric/reference revision, useful/not-useful value and optional bounded comment.",
+        "Own expected revision/idempotency and attributed feedback history with original target evidence."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Exactly one valid target kind, same plant or exact organization scope, and current authorized reader.",
+        "Another author cannot overwrite it; feedback changes no score/model/rubric and never auto-publishes a new reference.",
+        "Evry feedback is a durable write requiring exact review."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Shared target facts survive minimal author anonymization under the shared deletion policy.",
+      "current_tables": [
+        "intelligence_feedback",
+        "intelligence_insight",
+        "intelligence_assessment_run",
+        "organization_intelligence_assessments"
+      ],
+      "notes": "No coach feedback or automatic training/rubric loop."
+    },
+    {
+      "id": "CAP-C-024",
+      "name": "Exact-organization Network Intelligence runs and contributor lineage",
+      "feature_ids": [
+        "PI-043"
+      ],
+      "persists": true,
+      "entities": [
+        "organization assessment run",
+        "protected contributor manifest",
+        "portfolio finding"
+      ],
+      "facts": [
+        "Exact organization ID/kind, fixed asOf/run/demand/claim/source/reference identities and separate network rubric version/hash/policy.",
+        "Distinct contributing plant identities with direct affiliation recognition, category/sharing/source revisions and released plant-result identity.",
+        "Allowed aggregate evidence/windows/quality flags and concern counts; immutable input manifest/hash and validated portfolio findings/history.",
+        "Bounded named rows contain only currently shared plant name, lens state, reason from actually shared structured finding and authorized canonical link; regional slices bind their relevant contributors.",
+        "Current publication and safe failure/previous-result identity use shared demand/run execution."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "At least two distinct eligible plants with relevant observed evidence at each actual grouping level support a pattern; duplicate affiliations count once.",
+        "Only direct active exact-org shared_findings/category grants contribute; pending/ended/parent-network relationships do not.",
+        "NI model input excludes individuals/directory names/raw assessments/interviews/FourCs/private notes/street/care; named permitted rows are attached server-side.",
+        "Revocation withholds obsolete patterns/history immediately; prose cannot be called re-evaluated by simply subtracting a contributor.",
+        "Independently permitted identity/link with findings OFF says Not shared and contributes nothing; missing evidence stays Unknown."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Historical results never preserve an expired contributor grant; protected lineage remains server-only.",
+      "current_tables": [
+        "organization_intelligence_runs",
+        "organization_intelligence_contributor",
+        "organization_intelligence_assessments",
+        "organization",
+        "plant_affiliation",
+        "organization_sharing_settings"
+      ],
+      "notes": "Source: methodology-intelligence.md and assessment.md. No per-feature engine, per-plant metric table, ranking, extra anonymity threshold or second consent."
+    },
+    {
+      "id": "CAP-C-025",
+      "name": "Reporting geography and as-of correction history",
+      "feature_ids": [
+        "PI-044"
+      ],
+      "persists": true,
+      "entities": [
+        "pinned geography reference",
+        "primary reporting association",
+        "location correction"
+      ],
+      "facts": [
+        "Actual plant city/locality, country and country-qualified state/province distinct from human chosen planting-area evidence.",
+        "Pinned July 2023 OMB 23-01 US metro/micro CBSA identities/type, official place/county relationships, multistate membership and dataset release/hash.",
+        "One primary reporting association per plant, explicit selected/unresolved ambiguity, reference version, expected revision and correction committed/effective instant with prior lineage.",
+        "Historic run retains original asOf geography association/reference; current placement is separately labeled.",
+        "Region/state-province/Country/Whole portfolio result slices and relevant deduplicated contributor set bind the exact organization run."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "No guessed first-county/nearest-city assignment or invented foreign metro standard; actual state is independent of CBSA states.",
+        "Reference adoption deliberately versions associations and revalidates ambiguity rather than overwriting old reports.",
+        "Each grouping derives directly from eligible plants, never summed overlapping subtotals; missing region need not exclude valid broader levels.",
+        "Current grants gate location history/export/Evry; oversight stores/exposes no street address or coordinates for this capability."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Preserve geography versions referenced by historical runs.",
+      "current_tables": [
+        "plant",
+        "record_correction",
+        "reference_release",
+        "organization_intelligence_runs",
+        "organization_intelligence_contributor",
+        "organization_intelligence_assessments"
+      ],
+      "notes": "Sources: methodology-intelligence.md, Network Intelligence and reporting geography. Actual-location fields may be shared with identity inventory; no separate operational region service is required."
+    },
+    {
+      "id": "CAP-C-026",
+      "name": "Intelligence rendering, validation and offline evaluation behavior",
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-036"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Saved current/history reads use current authority with zero model calls; deterministic counts/criteria are not fresh model claims.",
+        "Methodology/quality checks use exact source versions and synthetic permitted fixtures; absent measurement is never success.",
+        "Private care and prohibited human judgment fields are excluded even from retained messages before purpose-specific compilation."
+      ],
+      "retention": "No additional database state for rendered tiles, evaluation fixtures, ranking candidates or operator language audits.",
+      "current_tables": [],
+      "notes": "Reuses native facts, immutable reference files, saved runs, feedback and shared jobs. Runtime retry evidence is stored above, not a separate evaluator platform. Phase/care modules belong to inventory B."
+    },
+    {
+      "id": "CAP-C-027",
+      "name": "Private conversations, explicit messages and reconnect sequences",
+      "feature_ids": [
+        "EVR-005",
+        "EVR-008",
+        "EVR-021",
+        "EVR-031"
+      ],
+      "persists": true,
+      "entities": [
+        "private conversation",
+        "submitted message",
+        "saved conversation event"
+      ],
+      "facts": [
+        "Initiating account owner and exactly one authenticated-self account, plant or typed organization context; title/state and list/search identity.",
+        "Explicit submitted user/assistant messages, role/body, occurrence/entry instants, stable request identity and sequence/cursor scoped to the conversation.",
+        "Saved events/cards/receipt references needed for complete history, restart and reconnect; exact cited source identities remain addressable.",
+        "Native page/panel context hints do not replace the selected real tenancy context."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One immutable private initiating account and exact context; cross-account/context message or cursor use is denied.",
+        "A context change is explicit and authorized; Discovery owns no phantom plant seat.",
+        "Observe/GET/stream replays saved events only; explicit idempotent submission is required for a new mutation.",
+        "Every new model call re-filters current and retained content for rights/purpose, including revoked sources and forbidden human/private-care fields."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Tenant effects and command receipts remain governed by their owning domain, not private conversation deletion.",
+      "current_tables": [
+        "assistant_conversation",
+        "assistant_message",
+        "assistant_artifact",
+        "app_account"
+      ],
+      "notes": "Source: evry.md. Unsent text/focus/panel layout can remain client state; no database field is required just for opening or expanding the panel."
+    },
+    {
+      "id": "CAP-C-028",
+      "name": "Source-bound assistant cards, references and selections",
+      "feature_ids": [
+        "EVR-006",
+        "EVR-009",
+        "EVR-010",
+        "EVR-024",
+        "EVR-031",
+        "EVR-400"
+      ],
+      "persists": true,
+      "entities": [
+        "saved assistant artifact",
+        "verified source reference",
+        "returned row selection"
+      ],
+      "facts": [
+        "Conversation/message/event binding, typed read/clarification/review/progress/receipt/boundary card kind and bounded safe display payload.",
+        "Exact source identity/version/projection/purpose and result completeness/cursor; compatible selected IDs bind an actual returned result and current source.",
+        "Saved draft/receipt references and any artifact object/hash/expiry; summary provenance identifies the original scoped messages/references."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Returned selections name actual compatible authorized rows; model summaries/citations cannot grant access.",
+        "Context limits are 24 recent messages, 32,000 tokens, 64 verified references and 16,000 characters per retrieved section.",
+        "Redact revoked excerpts and purpose-forbidden content from old cards/history before display/model compilation.",
+        "Compaction failure preserves exact saved draft/receipt and safe recent messages; summary never authorizes replay."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Referenced tenant results retain their own retention policy and current rights.",
+      "current_tables": [
+        "assistant_artifact",
+        "assistant_message",
+        "assistant_conversation"
+      ],
+      "notes": "Rendering shapes and transient selection menus need no separate records; save only artifacts/references needed for truthful replay."
+    },
+    {
+      "id": "CAP-C-029",
+      "name": "Revisioned candidate plans and clarification state",
+      "feature_ids": [
+        "EVR-023"
+      ],
+      "persists": true,
+      "entities": [
+        "planning draft",
+        "clarification response"
+      ],
+      "facts": [
+        "Conversation owner/context, bounded candidate notes/clarification questions/answers/todo, current revision and attributed update identity.",
+        "References to actual saved messages and exact current proposal, preserving submitted content across retries."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Candidate notes are private context, never an approval witness or domain authority.",
+        "Draft updates require exact owner/context/revision and cannot execute native effects."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry.",
+      "current_tables": [
+        "assistant_plan",
+        "assistant_message",
+        "assistant_artifact"
+      ],
+      "notes": "No general workflow engine or table for each authored operational skill."
+    },
+    {
+      "id": "CAP-C-030",
+      "name": "Immutable exact-effect proposals and dependency recipes",
+      "feature_ids": [
+        "EVR-011",
+        "EVR-015",
+        "EVR-018",
+        "EVR-033",
+        "EVR-034"
+      ],
+      "persists": true,
+      "entities": [
+        "review proposal revision",
+        "declared effect dependency"
+      ],
+      "facts": [
+        "Conversation owner/exact context, immutable proposal revision/digest, exact targets/arguments/exclusions and all induced effects.",
+        "Reviewed dates/timezone/DST choices, exact recipients/outbound bytes/attachment hashes/file-template-render digests and resource/grant revisions.",
+        "Stable effect identities, declared dependencies and bound prior dependency output references; saved recipe identity/source revision for explicit reuse.",
+        "Published review instant/expiry, candidate/superseded/canceled status and exact visible review payload; past proposal revisions remain inspectable."
+      ],
+      "history": "immutable versions",
+      "invariants": [
+        "Editing target/body/date/audience/attachment/owner/consequence creates a new proposal and supersedes old approval.",
+        "Recipe reuse resolves current facts and needs a new exact review; workflow hints cannot supply authority.",
+        "Compound invitation/finalization reviews expose all meeting/guest/send/task obligations together.",
+        "Digest covers actual canonical effects and audience/bytes; alias counts are not new operations."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Completed domain receipt/audit identity persists under the native shared-record lifecycle.",
+      "current_tables": [
+        "assistant_plan",
+        "assistant_artifact",
+        "operation_execution",
+        "audit_event"
+      ],
+      "notes": "Model planning content can be opaque bounded payload; effect targets, dependencies, scope and freshness are constrained facts. This inventory prescribes no table layout."
+    },
+    {
+      "id": "CAP-C-031",
+      "name": "Trusted human approval, expiry and cancellation witnesses",
+      "feature_ids": [
+        "EVR-012",
+        "EVR-033"
+      ],
+      "persists": true,
+      "entities": [
+        "review approval",
+        "approval lifecycle event"
+      ],
+      "facts": [
+        "Exact proposal ID/revision/digest/effect-manifest hash, initiating/approving account and exact context.",
+        "Trusted review-control witness, grant/resource versions, approved instant, expiry and superseded/canceled/expired state.",
+        "Cancellation identity and instant, retaining completed receipts independently."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Every durable native domain/file/draft/bookmark/read-state/outbound effect requires exact visible trusted approval.",
+        "Conversational yes or model confidence is not a witness.",
+        "Each immutable review expires 15 minutes after publication; now at or after expiry refuses unresolved effect start.",
+        "Fresh authority/lifecycle/consent/revision is rechecked when an effect starts; no automatic reapproval.",
+        "Cancel stops unstarted effects without falsely undoing completed or provider-accepted work."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Retained shared domain receipts do not permit replay after private approval/context expires.",
+      "current_tables": [
+        "assistant_approval",
+        "assistant_plan",
+        "operation_execution",
+        "command_receipt"
+      ],
+      "notes": "Future provider-native scheduling is authorized at the exact reviewed handoff, not through indefinite model approval."
+    },
+    {
+      "id": "CAP-C-032",
+      "name": "Idempotent assistant execution, effect claims and durable results",
+      "feature_ids": [
+        "EVR-013",
+        "EVR-014",
+        "EVR-015",
+        "EVR-018",
+        "EVR-033",
+        "EVR-429"
+      ],
+      "persists": true,
+      "entities": [
+        "operation execution",
+        "effect claim",
+        "durable result",
+        "domain command receipt"
+      ],
+      "facts": [
+        "Exact approved proposal/account/context, operation/request identity/body digest, start/completion and actual partial/success/failure state.",
+        "Stable per-effect key/kind/payload/audience digest, dependency/prior-output lineage, claim generation, job/lease identity and unresolved/skipped/completed state.",
+        "Exact native command receipt/audit binding, resource/history effects, provider key/acceptance/unknown-outcome receipt and safe result/error codes.",
+        "Append-only saved result revisions and recorded instants preserve retries, dependency skips, cancellation and reconciliation."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Native mutation/history/material revision/receipt/safe audit/effect intent commits in one domain transaction.",
+        "A lost response returns the existing same-request receipt, never a fresh execution.",
+        "Unknown external outcome is reconciled before retry; stable provider key is reused and retry stops 23 hours after first provider attempt.",
+        "Claim generation and fresh approval/grant/resource state fence unresolved effects; changed arguments cannot reuse approval.",
+        "Provider acceptance, delivery, opens/clicks and actual contact remain different outcomes; successful inverse requires a separately eligible reviewed command."
+      ],
+      "retention": "Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses. Private review/messages follow account privacy lifecycle; exact minimal receipt/effect attribution is retained with the tenant fact.",
+      "current_tables": [
+        "operation_execution",
+        "operation_effect",
+        "operation_result",
+        "command_receipt",
+        "audit_event",
+        "job"
+      ],
+      "notes": "Reuses shared native execution/receipt/effect storage. No second Evry mutation database, autonomous durable write or generic compensation engine."
+    },
+    {
+      "id": "CAP-C-033",
+      "name": "Assistant run lease, budgets, cancel and recovery state",
+      "feature_ids": [
+        "EVR-016",
+        "EVR-021",
+        "EVR-029"
+      ],
+      "persists": true,
+      "entities": [
+        "assistant turn",
+        "active run claim"
+      ],
+      "facts": [
+        "Exact account/context/conversation/turn request, active job identity, monotonically increasing claim generation, lease owner/expiry and heartbeat.",
+        "Saved stream sequence/cursor, started/stop/cancel state, exact stop reason and partial result/completeness references.",
+        "Actual tool-call/model retry counters, reserved/reconciled input/output tokens, wall deadline and safe resumable draft/receipt identity."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "One active run per account/context/conversation; lease is 60 seconds renewed every 15 seconds, and every authoritative publication checks its generation.",
+        "Turn limits: 24 actual tool invocations, 8,000 output tokens per call, 128,000 cumulative input/16,000 output tokens and 180 seconds.",
+        "At most eight declared composed reads, each charged to the tool budget; read timeout 30 seconds, one transient read retry and two model retries.",
+        "Lease loss/cancel prevents new work while actual in-flight results remain observable; reconnect never executes implicitly."
+      ],
+      "retention": "Personal private content follows account deletion: immediate normal-access suspension, a private 30-day cancellation hold, then eligible live purge and a seven-day recovery-copy horizon. Cancellation is strictly before its deadline; restore cannot reopen deleted access or reset expiry. Shared completed effect receipts remain in their native domain.",
+      "current_tables": [
+        "assistant_conversation",
+        "job",
+        "assistant_message",
+        "operation_execution"
+      ],
+      "notes": "The app-owned serial loop is behavior over shared jobs/events. No persisted arbitrary code interpreter, external routing engine or separate lease service."
+    },
+    {
+      "id": "CAP-C-034",
+      "name": "Conversation-bound staged file handles",
+      "feature_ids": [
+        "EVR-025",
+        "EVR-422"
+      ],
+      "persists": true,
+      "entities": [
+        "assistant attachment",
+        "private staged object binding"
+      ],
+      "facts": [
+        "Initiating owner, exact context/conversation/turn and server-issued handle bound to upload intent/object/hash/MIME/size.",
+        "Explicit upload instant, 24-hour staging expiry, staged/claimed/bound/failed state and exact reviewed destination/domain effect reference."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "At most ten handles per turn; CSV 10 MiB, photo 5 MiB, commitment PDF/JPG/PNG 10 MiB and DOCX/text 20 MiB staging limits.",
+        "Digest/MIME/size/owner/context/expiry are checked before inspect/bind; native operation-specific limits still apply.",
+        "No arbitrary URL/filesystem reader; cleanup CAS refuses claimed/bound objects.",
+        "Binding to a real domain effect requires exact approval and current native subject authority."
+      ],
+      "retention": "Unbound staging expires 24 hours after explicit upload. Bound objects use their native owner/deletion retention; account-private staging follows account suspension and purge.",
+      "current_tables": [
+        "assistant_attachment",
+        "upload_intent",
+        "object_metadata",
+        "assistant_conversation"
+      ],
+      "notes": "Inspection/preview does not add a new native import or attachment system; bound files reuse DOC-015 object lifecycle."
+    },
+    {
+      "id": "CAP-C-035",
+      "name": "Bounded assistant usage and qualification evidence",
+      "feature_ids": [
+        "EVR-004",
+        "EVR-019",
+        "EVR-027",
+        "EVR-030"
+      ],
+      "persists": true,
+      "entities": [
+        "normalized turn usage",
+        "model qualification receipt"
+      ],
+      "facts": [
+        "Turn/model/provider/version identity, token/cache/total usage, normalized cost basis, latency/attempt outcome and safe stop/failure code.",
+        "Synthetic evaluation corpus/version/hash, exact model/runtime configuration, measured qualification result and hard privacy/authority/effect/replay/parity gate outcome.",
+        "Optional trace correlation stores no raw protected prompt/output/credential/care metadata."
+      ],
+      "history": "append-only events",
+      "invariants": [
+        "Model choice follows measured qualification; quality averages cannot override a single hard privacy/authority violation.",
+        "Optional tracing failure cannot change completed domain results or expose secrets.",
+        "Qualification evidence uses synthetic permitted fixtures and does not confer paid-provider/deployment authority."
+      ],
+      "retention": "Keep bounded safe usage and qualification provenance needed to reproduce model selection; no extra raw prompt/output archive or fixed telemetry retention period is specified.",
+      "current_tables": [
+        "assistant_conversation",
+        "job",
+        "operation_result"
+      ],
+      "notes": "Qualification receipts may be versioned offline artifacts, not mandatory application tables. Source chapters require no separate provider broker or routing platform."
+    },
+    {
+      "id": "CAP-C-036",
+      "name": "Assistant policy, authorized catalogs, date resolution and bounded read composition",
+      "feature_ids": [
+        "EVR-001",
+        "EVR-002",
+        "EVR-003",
+        "EVR-007",
+        "EVR-017",
+        "EVR-020",
+        "EVR-022",
+        "EVR-026",
+        "EVR-027",
+        "EVR-028",
+        "EVR-030",
+        "EVR-032",
+        "EVR-424",
+        "EVR-425"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Closed native actor/operation/purpose/projection catalog and current account grants are authoritative; source aliases/model confidence add no privilege.",
+        "No pastoral judgment, prayer composition, spiritual suitability, private-care tool, coach grant or background-check field.",
+        "Natural-language dates use the native plant-local calendar and explicit DST/ambiguous choices recorded in the exact review.",
+        "Read composition has bounded declared dependencies and actual invocation accounting; no arbitrary coding authority."
+      ],
+      "retention": "No additional persisted policy/catalog/skill/calendar-query state; use versioned code/reference definitions and shared native context.",
+      "current_tables": [],
+      "notes": "Reuses current identity/calendar facts, conversation refs, run budgets and saved qualification evidence above. Nonpersistent reads/drafts run immediately; durable native effects use the shared review protocol."
+    },
+    {
+      "id": "CAP-C-037",
+      "name": "Evry People, households, human records and imports",
+      "feature_ids": [
+        "EVR-100",
+        "EVR-101",
+        "EVR-102",
+        "EVR-103",
+        "EVR-104",
+        "EVR-105",
+        "EVR-106",
+        "EVR-107",
+        "EVR-108",
+        "EVR-109",
+        "EVR-110",
+        "EVR-111",
+        "EVR-112",
+        "EVR-113",
+        "EVR-114",
+        "EVR-115",
+        "EVR-116",
+        "EVR-117",
+        "EVR-118",
+        "EVR-119",
+        "EVR-120",
+        "EVR-121",
+        "EVR-122",
+        "EVR-123",
+        "EVR-124",
+        "EVR-125",
+        "EVR-126",
+        "EVR-127",
+        "EVR-128",
+        "EVR-129",
+        "EVR-130",
+        "EVR-131",
+        "EVR-132",
+        "EVR-133",
+        "EVR-134",
+        "EVR-135",
+        "EVR-136",
+        "EVR-137",
+        "EVR-138",
+        "EVR-139",
+        "EVR-140",
+        "EVR-141",
+        "EVR-142",
+        "EVR-143",
+        "EVR-144",
+        "EVR-145",
+        "EVR-146",
+        "EVR-147",
+        "EVR-148",
+        "EVR-149",
+        "EVR-150",
+        "EVR-151",
+        "EVR-401",
+        "EVR-402",
+        "EVR-403",
+        "EVR-423"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Authorized native human-record reads are separate from PI/NI model purpose; retained messages are filtered accordingly. No background-check data or implicit new contact fact."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "person",
+        "household",
+        "person_4c_assessment",
+        "person_interview",
+        "person_commitment",
+        "person_activity",
+        "person_merge",
+        "record_correction",
+        "person_tag",
+        "person_tag_definition",
+        "person_skill",
+        "upload_intent",
+        "object_metadata"
+      ],
+      "notes": "Reuses inventory A People/household/contact/commitment/human-record/correction/merge/Unmerge/import/export data. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-038",
+      "name": "Evry meeting, attendance, response-card and location operations",
+      "feature_ids": [
+        "EVR-152",
+        "EVR-153",
+        "EVR-154",
+        "EVR-155",
+        "EVR-156",
+        "EVR-157",
+        "EVR-158",
+        "EVR-159",
+        "EVR-160",
+        "EVR-161",
+        "EVR-162",
+        "EVR-163",
+        "EVR-164",
+        "EVR-165",
+        "EVR-166",
+        "EVR-167",
+        "EVR-168",
+        "EVR-169",
+        "EVR-170",
+        "EVR-171",
+        "EVR-172",
+        "EVR-173",
+        "EVR-174",
+        "EVR-175",
+        "EVR-176",
+        "EVR-177",
+        "EVR-178",
+        "EVR-179",
+        "EVR-180",
+        "EVR-404",
+        "EVR-408",
+        "EVR-409",
+        "EVR-426",
+        "EVR-427"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Compound finalization exposes induced obligations; attendance/actual occurrence is not inferred from scheduling or provider delivery."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "meeting",
+        "meeting_participation",
+        "meeting_invitation",
+        "meeting_evaluation",
+        "meeting_checklist_item",
+        "meeting_location",
+        "vision_response",
+        "follow_up_obligation"
+      ],
+      "notes": "Reuses inventory B meeting/guest/attendance/RSVP/card/evaluation/location/finalization facts. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-039",
+      "name": "Evry tasks, one-level child tasks and template offers",
+      "feature_ids": [
+        "EVR-181",
+        "EVR-182",
+        "EVR-183",
+        "EVR-184",
+        "EVR-185",
+        "EVR-186",
+        "EVR-187",
+        "EVR-188",
+        "EVR-189",
+        "EVR-190",
+        "EVR-191",
+        "EVR-192",
+        "EVR-193",
+        "EVR-194",
+        "EVR-195",
+        "EVR-196",
+        "EVR-197",
+        "EVR-198",
+        "EVR-199",
+        "EVR-200",
+        "EVR-201",
+        "EVR-202",
+        "EVR-203",
+        "EVR-204",
+        "EVR-262",
+        "EVR-405",
+        "EVR-406",
+        "EVR-407"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Checklist items are actual one-level child Tasks with independent status/assignee/history, no second checkbox completion system."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "task",
+        "task_relation",
+        "task_dependency",
+        "task_status_event",
+        "follow_up_obligation",
+        "follow_up_outcome",
+        "phase_template_offer_response",
+        "template_import_receipt"
+      ],
+      "notes": "Reuses inventory B task/assignment/dependency/follow-up/history/template-offer data. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-040",
+      "name": "Evry ministry teams, roles and saved training rosters",
+      "feature_ids": [
+        "EVR-205",
+        "EVR-206",
+        "EVR-207",
+        "EVR-208",
+        "EVR-209",
+        "EVR-210",
+        "EVR-211",
+        "EVR-212",
+        "EVR-213",
+        "EVR-214",
+        "EVR-215",
+        "EVR-216",
+        "EVR-217",
+        "EVR-218",
+        "EVR-219",
+        "EVR-220",
+        "EVR-221",
+        "EVR-222",
+        "EVR-223",
+        "EVR-224",
+        "EVR-225",
+        "EVR-226",
+        "EVR-227",
+        "EVR-228",
+        "EVR-229",
+        "EVR-230",
+        "EVR-231",
+        "EVR-232",
+        "EVR-410",
+        "EVR-411",
+        "EVR-412"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Reviewed roster expansion saves exact distinct people; future team changes cannot silently alter saved applicable training obligations."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "ministry_team",
+        "team_role",
+        "team_membership",
+        "team_responsibility",
+        "training_program",
+        "training_assignment_episode",
+        "training_assignment_event",
+        "training_completion"
+      ],
+      "notes": "Reuses inventory A ministry/role/responsibility/membership/training-assignment/completion facts. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-041",
+      "name": "Evry communications, templates, delivery and audience operations",
+      "feature_ids": [
+        "EVR-233",
+        "EVR-234",
+        "EVR-235",
+        "EVR-236",
+        "EVR-237",
+        "EVR-238",
+        "EVR-239",
+        "EVR-240",
+        "EVR-241",
+        "EVR-242",
+        "EVR-243",
+        "EVR-244",
+        "EVR-245",
+        "EVR-246",
+        "EVR-247",
+        "EVR-248",
+        "EVR-249",
+        "EVR-250",
+        "EVR-251",
+        "EVR-252",
+        "EVR-253",
+        "EVR-413",
+        "EVR-414",
+        "EVR-428"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Exact outgoing bytes, dates, recipients and consequences are reviewed. Acceptance/delivery/open/click do not establish actual human contact."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "message_template",
+        "communication",
+        "communication_recipient",
+        "email_intent",
+        "email_attempt",
+        "provider_event_receipt"
+      ],
+      "notes": "Reuses inventory B message/template/exact audience/draft/schedule/send/cancel/replace/resend/delivery records. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-042",
+      "name": "Evry launch, phases, attestations and intelligence operations",
+      "feature_ids": [
+        "EVR-254",
+        "EVR-255",
+        "EVR-256",
+        "EVR-257",
+        "EVR-258",
+        "EVR-259",
+        "EVR-260",
+        "EVR-261",
+        "EVR-263",
+        "EVR-264",
+        "EVR-265",
+        "EVR-266",
+        "EVR-269",
+        "EVR-270",
+        "EVR-271",
+        "EVR-272",
+        "EVR-273",
+        "EVR-419",
+        "EVR-420"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "No private-care adapter or generated pastoral judgment. Phase movement, saved attestations/acknowledgments/feedback require exact review and never follow advisory readiness automatically."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "launch",
+        "launch_event",
+        "launch_milestone",
+        "launch_person_attendance",
+        "phase_transition",
+        "plant_attestation",
+        "person_attestation",
+        "intelligence_assessment_run",
+        "intelligence_insight",
+        "intelligence_feedback"
+      ],
+      "notes": "Reuses inventory B launch/phase/debrief/published-summary facts and the intelligence evidence/results/feedback above. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-043",
+      "name": "Evry generated and owned document operations",
+      "feature_ids": [
+        "EVR-274",
+        "EVR-275",
+        "EVR-276",
+        "EVR-277",
+        "EVR-415",
+        "EVR-416"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Generation/replacement/import/save/copy are durable effects. Reading and fresh signed downloads recheck current document ownership, never organization Wiki grants."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "generated_document",
+        "reference_template_version",
+        "owned_documents",
+        "owned_document_revisions",
+        "object_metadata"
+      ],
+      "notes": "Reuses the document template/frozen-input/exact-byte/owned-revision data above. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-044",
+      "name": "Evry Wiki reading, source retrieval and personal state",
+      "feature_ids": [
+        "EVR-278",
+        "EVR-279",
+        "EVR-280",
+        "EVR-281",
+        "EVR-282",
+        "EVR-283",
+        "EVR-284",
+        "EVR-417",
+        "EVR-418"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Saving bookmark/vote/progress is exactly reviewed; assistant fetch alone is no reading evidence and old citations cannot restore departed-source text."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "wiki_article",
+        "wiki_article_version",
+        "plant_wiki_source_order",
+        "wiki_read_progress",
+        "wiki_read_event",
+        "wiki_bookmark",
+        "wiki_article_feedback"
+      ],
+      "notes": "Reuses the current Wiki source-order/revision/reading/bookmark/vote data above. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-045",
+      "name": "Evry dashboard, notifications and safe feedback intake",
+      "feature_ids": [
+        "EVR-285",
+        "EVR-286",
+        "EVR-287",
+        "EVR-288",
+        "EVR-289",
+        "EVR-290",
+        "EVR-421"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Native current actor/purpose/projection and same-scope contracts remain authoritative.",
+        "Every durable effect, including saved drafts and read-state changes, uses the exact proposal/approval/execution records above.",
+        "Read-state/feedback writes are exactly reviewed. Public issue summary uses the closed safe serializer and never private original content, attachment, prompts, logs or care existence."
+      ],
+      "retention": "No additional assistant-domain records; referenced native facts and shared private conversation/receipt records retain their existing policies.",
+      "current_tables": [
+        "inbox_entry",
+        "notification_preference",
+        "product_feedback",
+        "feedback_publication"
+      ],
+      "notes": "Reuses inventory A dashboard/current scope and operations feedback facts plus inventory B inbox/preference/read-state facts. No table or stored field is introduced for each source helper."
+    }
+  ],
+  "observations": [
+    {
+      "current_tables": [
+        "wiki_read_progress",
+        "wiki_read_event",
+        "wiki_bookmark",
+        "wiki_article_feedback"
+      ],
+      "observation": "Reading completion/history needs provenance, but bookmarks and helpfulness expose only current own state. Uniform created/updated timestamps and separate historical copies for every personal state are not all required. Visible statistics derive from current entitled corpus."
+    },
+    {
+      "current_tables": [
+        "plant_wiki_source_order",
+        "plant_wiki_source_order_entry",
+        "organization_wiki_article_state"
+      ],
+      "observation": "Order revision, exact recognition/rank and publication/hide lineage are required. Repeated per-entry timestamps/revisions need a concurrency or user-history reason; preference is the first ranked entry, not another stored preference flag."
+    },
+    {
+      "current_tables": [
+        "wiki_article_version",
+        "reference_section",
+        "reference_release"
+      ],
+      "observation": "TOC, breadcrumb and read-time estimates can derive from safe content/topology. related_article_ids is relational meaning rather than opaque data; minimizing columns cannot hide constrained identity links in JSON. Immutable global source bundles can remain packaged bytes with exact manifests."
+    },
+    {
+      "current_tables": [
+        "reference_release",
+        "reference_activation",
+        "reference_chunk",
+        "reference_template_version"
+      ],
+      "observation": "Release/chunk/template hashes and activation history have real consumers. Only candidate build-state needs mutability; validated bytes do not need duplicate revision/updated state, and active release derives from the last activation rather than a second active flag."
+    },
+    {
+      "current_tables": [
+        "generated_document",
+        "upload_intent",
+        "object_metadata"
+      ],
+      "observation": "Original saved bytes/hash/MIME, owner, frozen template/input provenance and truthful upload/finalization states are required. Generic generated scope branches and repeated metadata need an actual supported account/plant operation; organization Wiki editing alone is not document ownership."
+    },
+    {
+      "current_tables": [
+        "owned_documents",
+        "owned_document_revisions"
+      ],
+      "observation": "The requirement admits exactly account or plant ownership. Generic organization ownership fields add unused states, while current revision, archive, core_values designation and immutable copy/import lineage are necessary. Plain text can derive from safe editor nodes unless a named search query justifies a stored derivative."
+    },
+    {
+      "current_tables": [
+        "assessment_demand",
+        "job",
+        "intelligence_assessment_run",
+        "organization_intelligence_runs"
+      ],
+      "observation": "Demand, leased attempt, immutable captured run and current publication have different identities and must remain distinguishable. Separate plant/organization run structures share much execution metadata; that duplication is not a requirement to copy the retry engine, but protected subject/result shapes must retain exact integrity."
+    },
+    {
+      "current_tables": [
+        "intelligence_assessment_run",
+        "intelligence_insight",
+        "organization_intelligence_assessments",
+        "organization_intelligence_contributor"
+      ],
+      "observation": "Snapshots and model output need immutable history and exact contributor lineage. Display scorecards/focus/trends are views, not separate records. Queryable audience/category/severity/rank/finding targets and constrained contributor links are not opaque JSON even when narrative model output is."
+    },
+    {
+      "current_tables": [
+        "assistant_conversation",
+        "assistant_message",
+        "assistant_artifact",
+        "assistant_plan",
+        "assistant_approval",
+        "operation_execution",
+        "operation_effect",
+        "operation_result"
+      ],
+      "observation": "The 253 Evry features do not imply 253 storage shapes. Conversation events, candidate drafts, immutable reviewed proposals, approval witnesses and effect receipts supply shared state; native operations reuse their own entities. Repeated generic scope/revision/timestamp fields on immutable child records require a concrete integrity/history consumer."
+    },
+    {
+      "current_tables": [
+        "assistant_attachment",
+        "upload_intent",
+        "object_metadata",
+        "job"
+      ],
+      "observation": "Conversation handle ownership/expiry and domain binding are required, while actual byte metadata and cleanup claims can reuse shared upload/object/job lifecycle. No second attachment byte store or provider-specific runtime platform is required."
+    }
+  ]
+}
