@@ -227,6 +227,9 @@ FEATURES = HERE.parent.parent / "docs" / "catalog" / "features.json"
 ID = re.compile(r"\b((?:REQ-)?[A-Z]+-\d{3})(?: to ([A-Z]+-\d{3}))?")
 
 
+STATUSES = ("designed", "not designed", "future feature")
+
+
 def expand(text):
     ids = []
     for first, last in ID.findall(text):
@@ -247,12 +250,14 @@ def feature_map(screens):
     mapped, problems = set(), []
     for line in screens[start:end].splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if not line.startswith("|") or len(cells) < 3 or set(cells[1]) <= set("-"):
+        if not line.startswith("|") or len(cells) < 3 or set(cells[1]) <= set("-") or cells[-1] == "Status":
             continue
         ids = [i for i in expand(cells[1]) if not i.startswith("REQ-")]
         unknown = [i for i in ids if i not in features]
         if unknown:
             problems.append(f"unknown feature IDs in map row '{cells[0]}': {', '.join(unknown)}")
+        if not cells[-1].startswith(STATUSES):
+            problems.append(f"map row '{cells[0]}' has status '{cells[-1]}'; start it with one of: {', '.join(STATUSES)}")
         mapped.update(ids)
         if len(cells) == 4:
             owners = {wp for i in ids if i in features for wp in features[i]["work_packages"]}
