@@ -1,0 +1,15 @@
+{
+  "name": "everyfield",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @everyfield/web dev",
+    "build": "pnpm --filter @everyfield/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "check": "pnpm typecheck && pnpm lint && pnpm build"
+  }
+}

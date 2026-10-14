@@ -3,6 +3,10 @@ node_modules/
 .pnpm-store/
 
 # Build outputs
+.next/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
 dist/
 build/
 out/
@@ -17,10 +21,9 @@ out/
 .DS_Store
 Thumbs.db
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Environment (values never go in git; .env.example lists names only)
+.env*
+!.env.example
 
 # Logs
 *.log
