@@ -7902,7 +7902,200 @@
           "external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-ACCOUNT-LINK-MERGE",
@@ -8349,7 +8542,200 @@
           "new_external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "Q1",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "account-link",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "account-link",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "account-link",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-ACCOUNT-LINK-UNMERGE",

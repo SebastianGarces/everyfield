@@ -302,7 +302,200 @@
           "external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
@@ -751,7 +944,200 @@
           "new_external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "Q1",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "task-person-follow-up",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "task-person-follow-up",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
@@ -1155,7 +1541,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -1163,7 +1549,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -1695,7 +2081,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -1703,7 +2089,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         }
@@ -1808,7 +2194,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -1816,7 +2202,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -1931,7 +2317,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -1939,7 +2325,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -2057,7 +2443,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -2065,7 +2451,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -2184,7 +2570,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -2192,7 +2578,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -2313,7 +2699,7 @@
           "id": "T",
           "plant": "P",
           "due_date": "2026-01-31",
-          "status": "pending",
+          "status": "not_started",
           "series": "S",
           "revision": 4
         },
@@ -2321,7 +2707,7 @@
           "fixture_type": "recurrence",
           "id": "S",
           "kind": "monthly",
-          "interval": 1,
+          "interval": "monthly",
           "end_date": null,
           "source_version": 1
         },
@@ -2330,7 +2716,7 @@
           "id": "C1",
           "parent": "T",
           "title": "Call venue",
-          "status": "completed"
+          "status": "complete"
         }
       },
       "actor": {
@@ -2355,12 +2741,12 @@
       "expected": {
         "state": {
           "T": {
-            "status": "completed"
+            "status": "complete"
           },
           "successor_children": [
             {
               "title": "Call venue",
-              "status": "pending",
+              "status": "not_started",
               "assignee": null
             }
           ]
@@ -2411,7 +2797,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2024-02-29",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2419,7 +2805,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "yearly",
-              "interval": 1,
+              "interval": "yearly",
               "end_date": null,
               "source_version": 1
             },
@@ -2428,7 +2814,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2453,12 +2839,12 @@
           "expected": {
             "state": {
               "T": {
-                "status": "completed"
+                "status": "complete"
               },
               "successor_children": [
                 {
                   "title": "Call venue",
-                  "status": "pending",
+                  "status": "not_started",
                   "assignee": null
                 }
               ]
@@ -2510,7 +2896,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-31",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2518,7 +2904,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "monthly",
-              "interval": 1,
+              "interval": "monthly",
               "end_date": "2026-02-28",
               "source_version": 1
             },
@@ -2527,7 +2913,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2552,12 +2938,12 @@
           "expected": {
             "state": {
               "T": {
-                "status": "completed"
+                "status": "complete"
               },
               "successor_children": [
                 {
                   "title": "Call venue",
-                  "status": "pending",
+                  "status": "not_started",
                   "assignee": null
                 }
               ]
@@ -2609,7 +2995,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-31",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2617,7 +3003,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "monthly",
-              "interval": 1,
+              "interval": "monthly",
               "end_date": "2026-02-27",
               "source_version": 1
             },
@@ -2626,7 +3012,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2651,7 +3037,7 @@
           "expected": {
             "state": {
               "T": {
-                "status": "completed"
+                "status": "complete"
               },
               "successor_children": []
             },
@@ -2702,7 +3088,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-01",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2710,7 +3096,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "weekly",
-              "interval": 1,
+              "interval": "weekly",
               "end_date": null,
               "source_version": 1
             },
@@ -2719,7 +3105,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2744,12 +3130,12 @@
           "expected": {
             "state": {
               "T": {
-                "status": "completed"
+                "status": "complete"
               },
               "successor_children": [
                 {
                   "title": "Call venue",
-                  "status": "pending",
+                  "status": "not_started",
                   "assignee": null
                 }
               ]
@@ -2801,7 +3187,7 @@
               "id": "T",
               "plant": "P",
               "due_date": null,
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2809,7 +3195,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "weekly",
-              "interval": 1,
+              "interval": "weekly",
               "end_date": null,
               "source_version": 1
             },
@@ -2818,7 +3204,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2843,12 +3229,12 @@
           "expected": {
             "state": {
               "T": {
-                "status": "completed"
+                "status": "complete"
               },
               "successor_children": [
                 {
                   "title": "Call venue",
-                  "status": "pending",
+                  "status": "not_started",
                   "assignee": null
                 }
               ]
@@ -2900,7 +3286,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-31",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2908,7 +3294,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "monthly",
-              "interval": 1,
+              "interval": "monthly",
               "end_date": null,
               "source_version": 1
             },
@@ -2917,7 +3303,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -2940,7 +3326,7 @@
           "expected": {
             "state": {
               "T": {
-                "status": "pending"
+                "status": "not_started"
               },
               "successor_count": 0
             },
@@ -2985,7 +3371,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-31",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -2993,7 +3379,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "monthly",
-              "interval": 1,
+              "interval": "monthly",
               "end_date": null,
               "source_version": 1
             },
@@ -3002,7 +3388,7 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             }
           },
           "actor": {
@@ -3066,7 +3452,7 @@
               "id": "T",
               "plant": "P",
               "due_date": "2026-01-31",
-              "status": "pending",
+              "status": "not_started",
               "series": "S",
               "revision": 4
             },
@@ -3074,7 +3460,7 @@
               "fixture_type": "recurrence",
               "id": "S",
               "kind": "monthly",
-              "interval": 1,
+              "interval": "monthly",
               "end_date": null,
               "source_version": 1
             },
@@ -3083,13 +3469,13 @@
               "id": "C1",
               "parent": "T",
               "title": "Call venue",
-              "status": "completed"
+              "status": "complete"
             },
             "successor": {
               "fixture_type": "task",
               "id": "T2",
               "series": "S",
-              "status": "pending"
+              "status": "not_started"
             }
           },
           "actor": {
@@ -3189,7 +3575,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3197,7 +3583,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3340,7 +3726,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3348,7 +3734,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3466,7 +3852,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3474,7 +3860,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3598,7 +3984,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3606,7 +3992,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3717,7 +4103,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3725,7 +4111,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3837,7 +4223,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3845,7 +4231,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -3854,15 +4240,15 @@
           "tasks": [
             {
               "id": "T1",
-              "status": "pending"
+              "status": "not_started"
             },
             {
               "id": "T2",
-              "status": "completed"
+              "status": "complete"
             },
             {
               "id": "T3",
-              "status": "waived"
+              "status": "no_longer_needed"
             }
           ],
           "target": "B",
@@ -3890,15 +4276,15 @@
           "tasks": [
             {
               "id": "T1",
-              "status": "pending"
+              "status": "not_started"
             },
             {
               "id": "T2",
-              "status": "completed"
+              "status": "complete"
             },
             {
               "id": "T3",
-              "status": "waived"
+              "status": "no_longer_needed"
             }
           ],
           "target": "B",
@@ -3981,7 +4367,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -3989,7 +4375,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -4000,7 +4386,7 @@
           "zone": "America/Chicago",
           "old_assignee": "A",
           "current_assignee": "B",
-          "status": "pending"
+          "status": "not_started"
         }
       },
       "actor": {
@@ -4024,7 +4410,7 @@
           "zone": "America/Chicago",
           "old_assignee": "A",
           "current_assignee": "B",
-          "status": "pending"
+          "status": "not_started"
         }
       },
       "expected": {
@@ -4104,7 +4490,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -4112,7 +4498,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -4238,7 +4624,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -4246,7 +4632,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -4366,7 +4752,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -4374,7 +4760,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },
@@ -4515,7 +4901,7 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "T": {
@@ -4523,7 +4909,7 @@
           "id": "T",
           "plant": "P",
           "assignee": "A",
-          "status": "pending",
+          "status": "not_started",
           "due_date": "2026-10-13",
           "revision": 4
         },

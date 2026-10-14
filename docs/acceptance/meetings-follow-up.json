@@ -156,7 +156,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -189,7 +189,7 @@
       "action": {
         "operation": "meetings.schedule",
         "arguments": {
-          "type": "vision",
+          "type": "vision_meeting",
           "venue": "Hall",
           "venue_revision": 1,
           "starts_at": "2026-10-20T15:00:00Z"
@@ -253,7 +253,7 @@
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "starts_at": "2026-10-20T15:00:00Z",
               "revision": 4
             },
@@ -337,7 +337,7 @@
           "action": {
             "operation": "meetings.schedule",
             "arguments": {
-              "type": "vision",
+              "type": "vision_meeting",
               "venue": "Hall",
               "venue_revision": 1,
               "starts_at": "2026-10-20T15:00:00Z"
@@ -379,7 +379,7 @@
           "action": {
             "operation": "meetings.schedule",
             "arguments": {
-              "type": "vision",
+              "type": "vision_meeting",
               "venue": "Hall",
               "venue_revision": 1,
               "starts_at": "2026-10-20T15:00:00Z",
@@ -460,7 +460,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -546,7 +546,7 @@
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "starts_at": "2026-10-20T15:00:00Z",
               "revision": 4
             },
@@ -743,7 +743,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -833,7 +833,7 @@
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "starts_at": "2026-10-20T15:00:00Z",
               "revision": 4
             },
@@ -924,7 +924,7 @@
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "starts_at": "2026-10-20T15:00:00Z",
               "revision": 4
             },
@@ -1127,7 +1127,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -1221,7 +1221,7 @@
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "starts_at": "2026-10-20T15:00:00Z",
               "revision": 4
             },
@@ -1429,7 +1429,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -1645,7 +1645,7 @@
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-20T15:00:00Z",
           "revision": 4
         },
@@ -1910,7 +1910,200 @@
           "external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-MEETING-CHECKLIST-PERSON-MERGE",
@@ -2355,7 +2548,200 @@
           "new_external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "Q1",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-checklist-person",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "meeting-checklist-person",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-MEETING-CHECKLIST-PERSON-UNMERGE",
@@ -2815,7 +3201,200 @@
           "external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "Q1",
+              "retiring": "P2",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.mergePeople",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 3
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "plant": "P",
+                "revision": 3
+              },
+              "original-history": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-MERGE",
@@ -3266,7 +3845,200 @@
           "new_external_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "Q1",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "not_found",
+              "body": null,
+              "existence": null,
+              "writes": 0,
+              "receipts_added": 0
+            },
+            "event": null
+          },
+          "name": "foreign-person-refused"
+        },
+        {
+          "given": {
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE-1",
+              "repeat": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0,
+              "receipts_added": 0,
+              "body": null,
+              "existence": null
+            },
+            "event": null
+          },
+          "name": "member-mutation-refused"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "revision": 7,
+              "material_revision": 11,
+              "phase": "Phase1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.deletePerson",
+            "arguments": {
+              "survivor": "P1",
+              "retiring": "P2",
+              "consumer": "meeting-invitation-rsvp-attendance-card",
+              "expected_revisions": {
+                "P1": 4,
+                "P2": 3,
+                "reference-1": 2
+              },
+              "request_key": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE-1",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
+            }
+          },
+          "expected": {
+            "state": {
+              "P1": {
+                "id": "P1",
+                "plant": "P",
+                "name": "Alex Rivera",
+                "revision": 4
+              },
+              "P2": {
+                "id": "P2",
+                "plant": "P",
+                "name": "Alex Chen",
+                "revision": 3
+              },
+              "reference-1": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "plant": "P",
+                "revision": 2
+              },
+              "original-history": {
+                "consumer": "meeting-invitation-rsvp-attendance-card",
+                "person": "P2",
+                "occurred_at": "2026-10-01T12:00:00Z"
+              }
+            },
+            "result": {
+              "error_code": "required_write_failed",
+              "receipts_added": 0,
+              "audit_rows_added": 0,
+              "history_rows_added": 0
+            },
+            "event": null
+          },
+          "name": "required-write-fault-rolls-back"
+        }
+      ]
     },
     {
       "id": "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNMERGE",
@@ -3672,14 +4444,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -3799,14 +4571,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -3946,14 +4718,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4084,14 +4856,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4209,14 +4981,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4329,14 +5101,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         }
@@ -4434,14 +5206,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4553,14 +5325,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4685,14 +5457,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4810,14 +5582,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -4931,14 +5703,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -5054,14 +5826,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -5158,21 +5930,21 @@
           "fixture_type": "person",
           "id": "Alex",
           "plant": "P",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
-          "stage": "Leader",
+          "stage": "leader",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "revision": 4,
           "lead_person": null,
           "attendance": []
@@ -5247,21 +6019,21 @@
               "fixture_type": "person",
               "id": "Alex",
               "plant": "P",
-              "stage": "Contact",
+              "stage": "prospect",
               "revision": 4
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
-              "stage": "Leader",
+              "stage": "leader",
               "revision": 4
             },
             "M": {
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "revision": 4,
               "lead_person": null,
               "attendance": []
@@ -5337,21 +6109,21 @@
               "fixture_type": "person",
               "id": "Alex",
               "plant": "P",
-              "stage": "Contact",
+              "stage": "prospect",
               "revision": 4
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
-              "stage": "Leader",
+              "stage": "leader",
               "revision": 4
             },
             "M": {
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "revision": 5,
               "attendance": [],
               "status": "completed"
@@ -5462,14 +6234,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -5598,14 +6370,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -5734,14 +6506,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -5853,14 +6625,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         }
@@ -5959,14 +6731,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -6077,14 +6849,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -6189,14 +6961,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -6299,21 +7071,21 @@
           "fixture_type": "person",
           "id": "Alex",
           "plant": "P",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
-          "stage": "Leader",
+          "stage": "leader",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "revision": 4,
           "lead_person": null,
           "attendance": [
@@ -6400,21 +7172,21 @@
               "fixture_type": "person",
               "id": "Alex",
               "plant": "P",
-              "stage": "Contact",
+              "stage": "prospect",
               "revision": 4
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
-              "stage": "Leader",
+              "stage": "leader",
               "revision": 4
             },
             "M": {
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "revision": 4,
               "lead_person": null,
               "attendance": [
@@ -6499,21 +7271,21 @@
               "fixture_type": "person",
               "id": "Alex",
               "plant": "P",
-              "stage": "Contact",
+              "stage": "prospect",
               "revision": 4
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
-              "stage": "Leader",
+              "stage": "leader",
               "revision": 4
             },
             "M": {
               "fixture_type": "meeting",
               "id": "M",
               "plant": "P",
-              "type": "vision",
+              "type": "vision_meeting",
               "revision": 5,
               "attendance": [
                 "Alex",
@@ -6644,14 +7416,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },
@@ -6822,14 +7594,14 @@
           "plant": "P",
           "first_name": "Alex",
           "age_classification": "adult",
-          "stage": "Contact",
+          "stage": "prospect",
           "revision": 4
         },
         "M": {
           "fixture_type": "meeting",
           "id": "M",
           "plant": "P",
-          "type": "vision",
+          "type": "vision_meeting",
           "starts_at": "2026-10-10T15:00:00Z",
           "revision": 4
         },

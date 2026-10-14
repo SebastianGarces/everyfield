@@ -5,6 +5,7 @@ from collections import defaultdict
 import datetime
 import json
 from pathlib import Path
+import re
 import sys
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -82,9 +83,54 @@ def repeats_requirement(value, own_texts, forbidden, field=None):
     return False
 
 
+def closed_vocabularies(target):
+    """Derive column vocabularies from the schema CHECKs and type contracts."""
+    vocabularies = {}
+    contracts = target['type_contracts']
+    for table in target['tables']:
+        for check in table.get('checks', []):
+            for column, literals in re.findall(r"\b(\w+)\s+in\s*\(([^()]+)\)", check, re.I):
+                if re.fullmatch(r"\s*'[^']*'(?:\s*,\s*'[^']*')*\s*", literals):
+                    vocabularies[table['name'], column] = re.findall(r"'([^']*)'", literals)
+        for column in table['columns']:
+            values = contracts.get(table['name'] + '.' + column['name'],
+                                   contracts.get(column['type']))
+            if isinstance(values, list):
+                vocabularies[table['name'], column['name']] = list(values)
+            key = table['name'], column['name']
+            if key in vocabularies and column['nullable']:
+                vocabularies[key].append(None)
+    return vocabularies
+
+
+def vocabulary_errors(value, fixtures, vocabularies, location, table=None):
+    """Check typed fixtures and expected rows, including inherited subcase rows."""
+    errors = []
+    if isinstance(value, dict):
+        table = value.get('fixture_type', table)
+        for key, item in value.items():
+            column_table, column = key.rsplit('.', 1) if '.' in key else (table, key)
+            allowed = vocabularies.get((column_table, column))
+            if allowed and (item is not None or None not in allowed):
+                if not isinstance(item, (str, int, float, bool)) or str(item).casefold() not in {
+                        str(option).casefold() for option in allowed}:
+                    errors.append(f'{location}.{key}: invalid {column_table}.{column} value '
+                                  f'{item!r}; allowed {allowed}')
+            child_table = fixtures.get(key)
+            if child_table is None and isinstance(item, list) and key.endswith('s'):
+                child_table = key[:-1]
+            errors.extend(vocabulary_errors(item, fixtures, vocabularies, f'{location}.{key}',
+                                            child_table))
+    elif isinstance(value, list):
+        for i, item in enumerate(value):
+            errors.extend(vocabulary_errors(item, fixtures, vocabularies, f'{location}[{i}]', table))
+    return errors
+
+
 def check(root):
     index = read(root / 'docs/catalog/index.json')
     schema = read(root / 'docs/acceptance/case.schema.json')
+    vocabularies = closed_vocabularies(read(root / 'docs/schema/target.json'))
     requirements = {r['id']: r for file in index['requirement_files']
                     for r in read(root / file)['requirements']}
     bundles = read(root / index['acceptance_source'])
@@ -117,6 +163,10 @@ def check(root):
                 groups[case['group']].append(case)
             def expectations(example, name, parent_given=None):
                 given = {**(parent_given or {}), **example.get('given', {})}
+                fixtures = {key: row.get('fixture_type') for key, row in given.items()}
+                for field in ('given', 'expected'):
+                    errors.extend(vocabulary_errors(example.get(field, {}), fixtures, vocabularies,
+                                                    name + '.' + field))
                 signature = json.dumps([given, example.get('actor'), example.get('clock'),
                                         example.get('action')], sort_keys=True)
                 expected = json.dumps(example.get('expected'), sort_keys=True)

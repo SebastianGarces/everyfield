@@ -715,7 +715,7 @@
           "fixture_type": "task",
           "plant": "P",
           "title": "Keep edited title",
-          "status": "pending"
+          "status": "not_started"
         }
       },
       "actor": {
