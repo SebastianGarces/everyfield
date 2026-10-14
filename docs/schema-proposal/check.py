@@ -15,12 +15,11 @@ ROOT = HERE.parent.parent
 LIBRARY_TABLES = {'auth_user', 'auth_account', 'auth_session', 'auth_verification'}
 CLOSED_VALUE_COLUMNS = {
     'mail': ['purpose'], 'notice': ['purpose'], 'effect': ['kind'],
-    'operation': ['name', 'stop_reason', 'provider'], 'mail_request': ['provider'],
-    'provider_event': ['provider'], 'job_cursor': ['kind'],
+    'operation': ['name', 'stop_reason'],
     'evidence_link': ['purpose', 'projection', 'source_purpose'],
     'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
-    'recovery_copy': ['environment'],
 }
+OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 CURRENT_DOMAINS = {
     'identity': 'auth_user auth_account auth_session auth_verification auth_throttle app_account platform_grant',
     'tenancy': 'tenancy_membership access_invitation plant organization organization_network_link plant_affiliation organization_sharing_settings discovery_profile discovery_association association_invitation association_event account_person_link',
@@ -47,6 +46,25 @@ def read(path):
 
 def key_columns(key):
     return tuple(key['columns'])
+
+
+def scope_exception_name(table, fk):
+    return (f"{table}({', '.join(fk['columns'])}) -> "
+            f"{fk['references']['table']}({', '.join(fk['references']['columns'])})")
+
+
+def owner_columns(table):
+    """Recognize tenant aliases from root FKs and unconditional (id, owner) keys."""
+    if any(c['name'] == 'tenant_id' for c in table['columns']):
+        return {'tenant_id'}
+    owners = set()
+    for fk in table['foreign_keys']:
+        if fk['references']['table'] in {'tenant', 'plant', 'organization', 'account'}:
+            owners.update(set(fk['columns']) & OWNER_COLUMNS)
+    for key in table['unique_keys']:
+        if not key.get('where') and len(key['columns']) == 2 and 'id' in key['columns']:
+            owners.update(set(key['columns']) & OWNER_COLUMNS)
+    return owners
 
 
 def forced_null_columns(expression):
@@ -101,8 +119,8 @@ def closed_values(checks, column):
     return set()
 
 
-def validate_schema(schema, label, proposal=False):
-    """Validate names, key arity/types and non-partial FK candidate keys."""
+def validate_schema(schema, label, proposal=False, documented_exceptions=None):
+    """Validate the graph; the CLI also supplies README's exception names."""
     errors = []
     tables = schema['tables']
     by_name = {t['name']: t for t in tables}
@@ -181,10 +199,17 @@ def validate_schema(schema, label, proposal=False):
                 continue
             target = by_name[target_name]
             target_columns = {c['name']: c for c in target['columns']}
-            if proposal and 'tenant_id' in columns and 'tenant_id' in target_columns:
-                paired = ('tenant_id', 'tenant_id') in zip(local, remote)
-                if not paired and not fk.get('scope_exception', '').strip():
-                    errors.append(f'{prefix}: mixed-scope parent {target_name} lacks compound (parent_id, tenant_id) FK')
+            if proposal:
+                child_owners, parent_owners = owner_columns(table), owner_columns(target)
+                exception = fk.get('scope_exception', '').strip()
+                exception_name = scope_exception_name(name, fk)
+                if (exception and documented_exceptions is not None
+                        and exception_name not in documented_exceptions):
+                    errors.append(f'{prefix}: scope exception not named in README: {exception_name}')
+                paired = any(left in child_owners and right in parent_owners
+                             for left, right in zip(local, remote))
+                if child_owners and parent_owners and not paired and not exception:
+                    errors.append(f'{prefix}: tenant-owned parent {target_name} lacks compound owner FK or named scope exception')
             missing_remote = sorted(set(remote) - target_columns.keys())
             if missing_remote:
                 errors.append(f'{prefix}: FK names missing {target_name} columns {missing_remote}')
@@ -268,7 +293,9 @@ def run(root, proposal_path):
         raise ValueError(f'expected three capability files, found {len(files)}')
     capability_files = [read(path) for path in files]
     features = read(root / 'docs/catalog/features.json')
-    errors = validate_schema(current, 'current') + validate_schema(proposal, 'proposal', True)
+    readme = (root / 'docs/schema-proposal/README.md').read_text(encoding='utf-8')
+    documented_exceptions = set(re.findall(r'^- `([^`]+ -> [^`]+)`: .+', readme, re.M))
+    errors = validate_schema(current, 'current') + validate_schema(proposal, 'proposal', True, documented_exceptions)
     errors.extend(validate_catalog_sets(proposal, read(root / 'docs/catalog/operations.json')['operations']))
     coverage_errors, coverage_lines = coverage(capability_files, features, proposal)
     errors.extend(coverage_errors)
@@ -337,7 +364,12 @@ def self_test(root):
         ('missing unique column', 'unique', 1, 'key names missing columns'),
         ('unmapped persistent capability', 'capability', 1, 'persistent capabilities without a table'),
         ('missing active feature', 'feature', 1, 'active features missing from capabilities'),
-        ('mixed-scope child without compound FK', 'tenant_fk', 1, 'mixed-scope parent conversation lacks compound'),
+        ('mixed-scope child without compound FK', 'tenant_fk', 1, 'tenant-owned parent conversation lacks compound owner FK'),
+        ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
+        ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
+        ('INV-tenancy: publication FK without account owner', 'account_fk', 1, 'tenant-owned parent feedback lacks compound owner FK'),
+        ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
+        ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
         ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation conversation_id has no FK'),
         ('nullable global owner bypass', 'nullable_tenant', 1, 'tenant_id must be nonnull'),
         ('unconditional NULL CHECK', 'null_check', 1, 'CHECK forces column title to stay null'),
@@ -355,6 +387,7 @@ def self_test(root):
         (fixture / 'docs/catalog/operations.json').write_text(json.dumps(read(root / 'docs/catalog/operations.json')))
         for label, fault, status, expected in cases:
             candidate, cap_files = copy.deepcopy(schema), copy.deepcopy(capabilities)
+            readme = (root / 'docs/schema-proposal/README.md').read_text(encoding='utf-8')
             auth_account = next(t for t in candidate['tables'] if t['name'] == 'auth_account')
             fk = auth_account['foreign_keys'][0]
             if fault == 'fk_table':
@@ -378,6 +411,21 @@ def self_test(root):
                 entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
                 parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'conversation')
                 parent['columns'], parent['references']['columns'] = ['conversation_id'], ['id']
+            elif fault in {'plant_fk', 'organization_fk', 'account_fk', 'undocumented_exception', 'documented_exception'}:
+                table_name, column = {
+                    'plant_fk': ('mail', 'recipient_person_id'),
+                    'organization_fk': ('article_editor_state', 'draft_revision_id'),
+                    'account_fk': ('feedback_publication', 'feedback_id'),
+                    'undocumented_exception': ('mail', 'recipient_person_id'),
+                    'documented_exception': ('mail', 'recipient_person_id'),
+                }[fault]
+                table = next(t for t in candidate['tables'] if t['name'] == table_name)
+                parent = next(f for f in table['foreign_keys'] if column in f['columns'])
+                parent['columns'], parent['references']['columns'] = [column], ['id']
+                if fault.endswith('exception'):
+                    parent['scope_exception'] = 'Fixture cross-owner source requires explicit current entitlement.'
+                    if fault == 'documented_exception':
+                        readme += '\n- `' + scope_exception_name(table_name, parent) + '`: ' + parent['scope_exception'] + '\n'
             elif fault == 'missing_parent':
                 entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
                 entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'conversation']
@@ -398,6 +446,7 @@ def self_test(root):
                 operation = next(t for t in candidate['tables'] if t['name'] == 'operation')
                 operation['checks'] = ["name in ('invented.command')" if c.startswith('name in') else c for c in operation['checks']]
             (fixture / 'docs/schema-proposal/schema.json').write_text(json.dumps(candidate))
+            (fixture / 'docs/schema-proposal/README.md').write_text(readme)
             for path, content in zip(capability_paths, cap_files):
                 (fixture / 'docs/schema-proposal/capabilities' / path.name).write_text(json.dumps(content))
             result = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--root', str(fixture)],

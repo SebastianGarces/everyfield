@@ -885,7 +885,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Cancellation proof names the exact deletion witness; addressed proof boundary locks the witness and validates requester, subject, purpose, original deadline and current cancellation authority."
         }
       ],
       "checks": [
@@ -1142,7 +1143,14 @@
       "primary_key": [
         "id"
       ],
-      "unique_keys": [],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "kind"
+          ]
+        }
+      ],
       "foreign_keys": [
         {
           "columns": [
@@ -4613,7 +4621,8 @@
               "program_id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Same-program compound FK fixes compatibility to program_id; both versions inherit the same plant through their compound program FK. No cross-plant version is possible."
         }
       ],
       "checks": [
@@ -4743,7 +4752,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -4755,7 +4765,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Pinned training article source may be global or an entitled organization revision; native assignment validates canonical article, published state and current exact source rights."
         },
         {
           "columns": [
@@ -4916,7 +4927,8 @@
               "program_id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Same-program compound FK fixes the version to program_id; assignment and version inherit the same plant through their compound program FK. No cross-plant assignment is possible."
         },
         {
           "columns": [
@@ -6652,7 +6664,8 @@
               "plant_id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Launch uses plant_id as its primary key; task CHECK launch_id = plant_id enforces the same plant whenever this optional relation exists."
         },
         {
           "columns": [
@@ -8873,10 +8886,10 @@
           "default": "1"
         },
         {
-          "name": "organization_id",
+          "name": "tenant_id",
           "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+          "nullable": false,
+          "note": "Exact organization or sole restricted global tenant; never NULL. Tenant-kind trigger permits only organization/global."
         },
         {
           "name": "source_revision_id",
@@ -8905,15 +8918,21 @@
           "columns": [
             "release_key"
           ]
+        },
+        {
+          "columns": [
+            "id",
+            "tenant_id"
+          ]
         }
       ],
       "foreign_keys": [
         {
           "columns": [
-            "organization_id"
+            "tenant_id"
           ],
           "references": {
-            "table": "organization",
+            "table": "tenant",
             "columns": [
               "id"
             ]
@@ -8922,34 +8941,37 @@
         },
         {
           "columns": [
-            "source_revision_id"
+            "source_revision_id",
+            "tenant_id"
           ],
           "references": {
             "table": "article_revision",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
         },
         {
           "columns": [
-            "id"
+            "id",
+            "tenant_id"
           ],
           "references": {
             "table": "record",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
-          "on_delete": "restrict",
-          "scope_exception": "Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable."
+          "on_delete": "restrict"
         }
       ],
       "checks": [
         "revision >= 1",
         "state in ('building', 'validated', 'failed')",
-        "(organization_id is null) = (source_revision_id is null)"
+        "(tenant_id = '00000000-0000-0000-0000-000000000000'::uuid) = (source_revision_id is null)"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -8991,10 +9013,10 @@
           "note": ""
         },
         {
-          "name": "origin_organization_id",
+          "name": "tenant_id",
           "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+          "nullable": false,
+          "note": "Exact organization owner for its own item, or sole global tenant for packaged canonical definitions. No separate origin provenance is required."
         }
       ],
       "primary_key": [
@@ -9006,15 +9028,21 @@
             "kind",
             "canonical_key"
           ]
+        },
+        {
+          "columns": [
+            "id",
+            "tenant_id"
+          ]
         }
       ],
       "foreign_keys": [
         {
           "columns": [
-            "origin_organization_id"
+            "tenant_id"
           ],
           "references": {
-            "table": "organization",
+            "table": "tenant",
             "columns": [
               "id"
             ]
@@ -9023,12 +9051,14 @@
         },
         {
           "columns": [
-            "id"
+            "id",
+            "tenant_id"
           ],
           "references": {
             "table": "record",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
@@ -9130,7 +9160,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -9142,7 +9173,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Packaged reference versions are global-only; trusted subtype trigger binds the record to the global tenant and validates that both release and item are global approved definitions."
         },
         {
           "columns": [
@@ -9154,7 +9186,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Packaged reference versions are global-only; trusted subtype trigger binds the record to the global tenant and validates that both release and item are global approved definitions."
         }
       ],
       "checks": [],
@@ -9256,7 +9289,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Serving reference activation is global-only; trusted activation boundary verifies a complete approved global release and binds its record to the global tenant."
         },
         {
           "columns": [
@@ -9326,10 +9360,10 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
         },
         {
-          "name": "organization_id",
+          "name": "tenant_id",
           "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+          "nullable": false,
+          "note": "Exact organization or sole restricted global tenant; never NULL. Tenant-kind trigger permits only organization/global."
         },
         {
           "name": "release_id",
@@ -9441,17 +9475,15 @@
         {
           "columns": [
             "article_id",
+            "tenant_id",
             "revision_number"
-          ],
-          "where": "organization_id is null"
+          ]
         },
         {
           "columns": [
-            "article_id",
-            "organization_id",
-            "revision_number"
-          ],
-          "where": "organization_id is not null"
+            "id",
+            "tenant_id"
+          ]
         }
       ],
       "foreign_keys": [
@@ -9465,14 +9497,15 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
-            "organization_id"
+            "tenant_id"
           ],
           "references": {
-            "table": "organization",
+            "table": "tenant",
             "columns": [
               "id"
             ]
@@ -9481,12 +9514,14 @@
         },
         {
           "columns": [
-            "release_id"
+            "release_id",
+            "tenant_id"
           ],
           "references": {
             "table": "reference_release",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
@@ -9501,7 +9536,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Entitled upstream content may belong to global or another organization source; publication validates source rights, canonical article identity and immutable lineage."
         },
         {
           "columns": [
@@ -9513,7 +9549,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -9537,27 +9574,29 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
-            "id"
+            "id",
+            "tenant_id"
           ],
           "references": {
             "table": "record",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
-          "on_delete": "restrict",
-          "scope_exception": "Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable."
+          "on_delete": "restrict"
         }
       ],
       "checks": [
         "content_type in ('safe_mdx', 'safe_nodes')",
         "phase is null or phase between 0 and 6",
-        "organization_id is null or content_type = 'safe_nodes'",
-        "num_nonnulls(organization_id,release_id) = 1"
+        "tenant_id = '00000000-0000-0000-0000-000000000000'::uuid or content_type = 'safe_nodes'",
+        "(tenant_id = '00000000-0000-0000-0000-000000000000'::uuid) = (release_id is not null)"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -9667,28 +9706,33 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
-            "current_revision_id"
+            "current_revision_id",
+            "organization_id"
           ],
           "references": {
             "table": "article_revision",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
         },
         {
           "columns": [
-            "draft_revision_id"
+            "draft_revision_id",
+            "organization_id"
           ],
           "references": {
             "table": "article_revision",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
@@ -9703,7 +9747,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Inherited upstream revision is a cross-owner source; editing validates exact source rights, canonical article identity and published lineage."
         },
         {
           "columns": [
@@ -9764,12 +9809,6 @@
           "default": "gen_random_uuid()"
         },
         {
-          "name": "organization_id",
-          "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-        },
-        {
           "name": "kind",
           "type": "text",
           "nullable": false,
@@ -9818,19 +9857,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
-        },
-        {
-          "columns": [
-            "organization_id"
-          ],
-          "references": {
-            "table": "organization",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         }
       ],
       "checks": [
@@ -9863,7 +9891,7 @@
           "note": ""
         },
         {
-          "name": "affiliation_id",
+          "name": "organization_id",
           "type": "uuid",
           "nullable": false,
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
@@ -9906,7 +9934,8 @@
         },
         {
           "columns": [
-            "affiliation_id"
+            "plant_id",
+            "organization_id"
           ]
         },
         {
@@ -9932,12 +9961,14 @@
         },
         {
           "columns": [
-            "affiliation_id"
+            "plant_id",
+            "organization_id"
           ],
           "references": {
             "table": "affiliation",
             "columns": [
-              "id"
+              "plant_id",
+              "organization_id"
             ]
           },
           "on_delete": "restrict"
@@ -9965,6 +9996,20 @@
             "columns": [
               "id",
               "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "columns": [
+            "organization_id",
+            "group_kind"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id",
+              "kind"
             ]
           },
           "on_delete": "restrict"
@@ -10123,7 +10168,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -10135,7 +10181,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Private account reading refers to global or entitled organization content; read boundary validates canonical article, exact plant context and current source rights."
         },
         {
           "columns": [
@@ -10159,7 +10206,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Private completion evidence pins an entitled published source revision; completion boundary validates canonical article and exact reader/source rights."
         },
         {
           "columns": [
@@ -10218,10 +10266,10 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
         },
         {
-          "name": "organization_id",
+          "name": "tenant_id",
           "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+          "nullable": false,
+          "note": "Exact organization or sole restricted global tenant; never NULL. Tenant-kind trigger permits only organization/global."
         },
         {
           "name": "ordinal",
@@ -10269,34 +10317,38 @@
       "foreign_keys": [
         {
           "columns": [
-            "release_id"
+            "release_id",
+            "tenant_id"
           ],
           "references": {
             "table": "reference_release",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
         },
         {
           "columns": [
-            "revision_id"
+            "revision_id",
+            "tenant_id"
           ],
           "references": {
             "table": "article_revision",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
           "on_delete": "restrict"
         },
         {
           "columns": [
-            "organization_id"
+            "tenant_id"
           ],
           "references": {
-            "table": "organization",
+            "table": "tenant",
             "columns": [
               "id"
             ]
@@ -10305,16 +10357,17 @@
         },
         {
           "columns": [
-            "id"
+            "id",
+            "tenant_id"
           ],
           "references": {
             "table": "record",
             "columns": [
-              "id"
+              "id",
+              "tenant_id"
             ]
           },
-          "on_delete": "restrict",
-          "scope_exception": "Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable."
+          "on_delete": "restrict"
         }
       ],
       "checks": [],
@@ -11695,12 +11748,6 @@
           "note": ""
         },
         {
-          "name": "affiliation_id",
-          "type": "uuid",
-          "nullable": false,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-        },
-        {
           "name": "recognition_operation_id",
           "type": "uuid",
           "nullable": false,
@@ -11789,18 +11836,6 @@
         },
         {
           "columns": [
-            "affiliation_id"
-          ],
-          "references": {
-            "table": "affiliation",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "columns": [
             "recognition_operation_id"
           ],
           "references": {
@@ -11824,7 +11859,8 @@
               "tenant_id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Organization contributor intentionally pins another-owner plant result; the compound plant FK plus exact pair affiliation, recognition, release and category grants constrain eligibility."
         },
         {
           "columns": [
@@ -11838,7 +11874,8 @@
               "plant_id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Organization contributor pins the source plant geography at assessment time; compound plant FK enforces source identity, and serialized portfolio boundary validates exact relationship and grants."
         },
         {
           "columns": [
@@ -11850,6 +11887,20 @@
             "columns": [
               "id",
               "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "columns": [
+            "plant_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "affiliation",
+            "columns": [
+              "plant_id",
+              "organization_id"
             ]
           },
           "on_delete": "restrict"
@@ -12072,7 +12123,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -12084,7 +12136,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Account-private feedback targets an entitled global or organization article revision; feedback boundary validates canonical article, exact source organization and current plant-context rights."
         },
         {
           "columns": [
@@ -12238,7 +12291,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -12425,7 +12479,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership."
         },
         {
           "columns": [
@@ -12854,7 +12909,7 @@
     {
       "name": "mail",
       "domain": "communication",
-      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Public-invite purpose alone permits a restricted global variant without an owner. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for public_invite payload or body-free outcome stubs; a tenant-kind trigger prevents ordinary global sends.",
+      "purpose": "One frozen logical recipient send for transactional, notification and communication mail. Public-invite purpose alone permits a restricted global variant under the global tenant. Encrypted payload is opaque after the reviewed boundary; address, purpose and status are scalar dispatch gates. After lifecycle purge only a restricted body-free external locator/outcome stub may remain; it cannot dispatch. Global tenant is allowed only for public_invite payload or body-free outcome stubs; a literal CHECK prevents ordinary global payloads.",
       "library_owned": false,
       "columns": [
         {
@@ -13078,12 +13133,14 @@
         },
         {
           "columns": [
-            "recipient_person_id"
+            "recipient_person_id",
+            "tenant_id"
           ],
           "references": {
             "table": "person",
             "columns": [
-              "id"
+              "id",
+              "plant_id"
             ]
           },
           "on_delete": "restrict"
@@ -13166,7 +13223,8 @@
         "(frozen_payload is null) = (recipient_address_encrypted is null)",
         "frozen_payload is not null or state in ('unknown','refused','accepted','scheduled','sent','cancelled','failed')",
         "(frozen_payload is null) = (address_hash is null)",
-        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'public_invite', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')"
+        "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'public_invite', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
+        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or purpose = 'public_invite' or frozen_payload is null"
       ],
       "jsonb_keys": {
         "frozen_payload": [
@@ -13192,7 +13250,7 @@
     {
       "name": "mail_request",
       "domain": "communication",
-      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin. Public-invite purpose alone permits a restricted global variant without an owner.",
+      "purpose": "Immutable provider key, exact ordered batch and nonresetting replay origin. Public-invite purpose alone permits a restricted global variant under the global tenant.",
       "library_owned": false,
       "columns": [
         {
@@ -13207,12 +13265,6 @@
           "type": "uuid",
           "nullable": false,
           "note": "Stable actual owner identity, including the sole restricted global root. Never NULL; cannot grant access after body purge."
-        },
-        {
-          "name": "provider",
-          "type": "text",
-          "nullable": false,
-          "note": "The selected transactional mail provider from the current product contract."
         },
         {
           "name": "provider_key",
@@ -13239,7 +13291,6 @@
       "unique_keys": [
         {
           "columns": [
-            "provider",
             "provider_key"
           ]
         },
@@ -13278,9 +13329,7 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [
-        "provider in ('resend')"
-      ],
+      "checks": [],
       "jsonb_keys": {},
       "capabilities": [
         "CAP-B-037"
@@ -13571,12 +13620,6 @@
           "default": "gen_random_uuid()"
         },
         {
-          "name": "provider",
-          "type": "text",
-          "nullable": false,
-          "note": "The selected transactional mail provider from the current product contract."
-        },
-        {
           "name": "event_key",
           "type": "text",
           "nullable": false,
@@ -13637,7 +13680,6 @@
       "unique_keys": [
         {
           "columns": [
-            "provider",
             "event_key"
           ]
         }
@@ -13670,8 +13712,7 @@
         }
       ],
       "checks": [
-        "kind in ('accepted', 'scheduled', 'sent', 'delivered', 'bounced', 'complained', 'opened', 'clicked', 'cancelled')",
-        "provider in ('resend')"
+        "kind in ('accepted', 'scheduled', 'sent', 'delivered', 'bounced', 'complained', 'opened', 'clicked', 'cancelled')"
       ],
       "jsonb_keys": {
         "safe_payload": [
@@ -14882,7 +14923,7 @@
     {
       "name": "operation",
       "domain": "operations",
-      "purpose": "Native or approved assistant request identity, execution and factual final receipt. No owner columns means restricted global operational work; otherwise exactly one owner applies. Security operations never persist passwords or bearer proofs here. The global variant is restricted to approved reference/platform work and body-free operational records.",
+      "purpose": "Native or approved assistant request identity, execution and factual final receipt. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. Security operations never persist passwords or bearer proofs here. The global variant is restricted to approved reference/platform work and body-free operational records.",
       "library_owned": false,
       "columns": [
         {
@@ -15025,12 +15066,6 @@
           "note": ""
         },
         {
-          "name": "provider",
-          "type": "text",
-          "nullable": true,
-          "note": "Closed logical provider route. model_id pins the immutable qualified vendor/model profile; qualification/setup is not authorized by this proposal."
-        },
-        {
           "name": "cache_tokens",
           "type": "integer",
           "nullable": true,
@@ -15164,8 +15199,7 @@
         "reserved_output between 0 and 16000",
         "num_nonnulls(actor_id,actor_tombstone) <= 1",
         "name in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.getHistory', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.classifyPublicPreview', 'auth.getSession', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'calendar.getContext', 'calendar.resolve', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.getDeletionStatus', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.deliveryTotals', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.searchRecipients', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.forMeeting', 'communication.templates.fork', 'communication.templates.get', 'communication.templates.list', 'communication.templates.update', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.inspectPreviewProvenance', 'dev.switchFixtureIdentity', 'discovery.convertToPlant', 'discovery.create', 'discovery.getProfile', 'documents.archive', 'documents.designateCoreValues', 'documents.download', 'documents.generate', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.importTextOrWord', 'documents.listOwned', 'documents.preview', 'documents.purgeOwnedForDeletion', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.reconcileOrphans', 'documents.resolveContext', 'documents.saveNative', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.auditProofCoverage', 'engineering.installChosenHooks', 'engineering.inventoryTools', 'engineering.trackWork', 'engineering.validateRequirements', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.askClarification', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.classifyRequest', 'evry.cleanupAttachments', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.recordEffectResult', 'evry.resolveReferences', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.admin.list', 'feedback.createConfiguredIssue', 'feedback.getOwnStatus', 'feedback.listOwn', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.listContactHistory', 'followups.readObligations', 'followups.recordOutcome', 'geography.listReportingRegionCandidates', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.buildFactSnapshot', 'intelligence.callProvider', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.formatCitedFact', 'intelligence.markAssessmentSeen', 'intelligence.markMaterialRevision', 'intelligence.publishAssessment', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.selectAssessmentCandidates', 'intelligence.settleRun', 'intelligence.submitFeedback', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.renderTransactional', 'mail.sendTransactional', 'mail.suppression.listForSelf', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.requestInvitation', 'marketing.sitemap', 'marketing.terms', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.addAttendeeNote', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.captureAttendanceBatch', 'meetings.cardBreakdown', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.finalizeAttendance', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.inviteGuest', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.summaryStats', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.describeEmailOptOut', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.feed', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.inspectAssociationReceipt', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.meetingAudience', 'notifications.oversightDigestCadence.set', 'notifications.preferences.get', 'notifications.preferences.set', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'notifications.unreadCount', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'onboarding.getResume', 'ops.applyVersionedMigration', 'ops.errorCorrelation', 'ops.flushTelemetry', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.reportError', 'ops.schemaValidate', 'ops.traceModelAttempt', 'ops.traceOperation', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizationLaunchSummary.readPublished', 'organizations.correctReportingLocation', 'organizations.getProfile', 'organizations.updateProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.checkForDuplicates', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergePeople', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.propagateAddress', 'people.reactivateCommitment', 'people.readPipelineMetrics', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.classifyChange', 'phases.declare', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'phases.transition', 'plant.previewTimezoneChange', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'platformAdmin.authorize', 'privacy.getSharing', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.auditLanguage', 'reference.bootstrapApprovedBundle', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'reference.validateBundle', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.getHistory', 'signals.listDefinitions', 'signals.reaffirm', 'storage.createAuthorizedDownload', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'storage.readAuthorizedObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.count', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.eligibleAssignees', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.importTemplate', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.statusHistory', 'tasks.waive', 'teams.addResponsibility', 'teams.aggregateHealth', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.importRoles', 'teams.initialize', 'teams.leaderCandidates', 'teams.leadershipEffects', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.offerResponsibilities', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.reactivateMembership', 'teams.readRequiredTrainingParticipants', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.searchMembers', 'teams.setRequiredTrainingParticipants', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.get', 'venues.history', 'venues.list', 'venues.restore', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.bookmarks.set', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.feedback.setMine', 'wiki.navigation', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.getDraft', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.recordView', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.reading.updateProgress', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.setSourceOrder', 'wiki.tableOfContents')",
-        "stop_reason in ('budget_limit', 'cancelled', 'completed', 'deadline', 'expired_approval', 'input_token_limit', 'output_token_limit', 'permission_denied', 'provider_error', 'read_timeout', 'revision_conflict', 'tool_limit', 'unavailable', 'validation_failed')",
-        "provider in ('qualified_model')"
+        "stop_reason in ('budget_limit', 'cancelled', 'completed', 'deadline', 'expired_approval', 'input_token_limit', 'output_token_limit', 'permission_denied', 'provider_error', 'read_timeout', 'revision_conflict', 'tool_limit', 'unavailable', 'validation_failed')"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -15193,7 +15227,7 @@
     {
       "name": "effect",
       "domain": "operations",
-      "purpose": "Exact reviewed or native row effect, resumable import row and immutable outcome witness. No owner columns means restricted global operational work; otherwise exactly one owner applies. Closed kind is the approved native operation catalog; manifest rows exist before any approval. The global variant is restricted to approved reference/platform work and body-free operational records.",
+      "purpose": "Exact reviewed or native row effect, resumable import row and immutable outcome witness. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. Closed kind is the approved native operation catalog; manifest rows exist before any approval. The global variant is restricted to approved reference/platform work and body-free operational records.",
       "library_owned": false,
       "columns": [
         {
@@ -15504,7 +15538,7 @@
     {
       "name": "effect_dependency",
       "domain": "operations",
-      "purpose": "Declared reviewed effect DAG and exact prior output dependency. No owner columns means restricted global operational work; otherwise exactly one owner applies. The global variant is restricted to approved reference/platform work and body-free operational records.",
+      "purpose": "Declared reviewed effect DAG and exact prior output dependency. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. The global variant is restricted to approved reference/platform work and body-free operational records.",
       "library_owned": false,
       "columns": [
         {
@@ -15592,7 +15626,7 @@
     {
       "name": "event",
       "domain": "operations",
-      "purpose": "Append-only owned semantic history, command outcome and safe correction/audit diffs. No owner columns means restricted global operational work; otherwise exactly one owner applies. Queryable stage/status/date transitions and reading observations have scalar columns; private care has no target. The global variant is restricted to approved reference/platform work and body-free operational records.",
+      "purpose": "Append-only owned semantic history, command outcome and safe correction/audit diffs. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. Queryable stage/status/date transitions and reading observations have scalar columns; private care has no target. The global variant is restricted to approved reference/platform work and body-free operational records.",
       "library_owned": false,
       "columns": [
         {
@@ -15977,7 +16011,7 @@
     {
       "name": "job",
       "domain": "operations",
-      "purpose": "Durable typed owed work and generation-fenced current claim. No owner columns means restricted global operational work; otherwise exactly one owner applies. The global variant is restricted to approved reference/platform work and body-free operational records. A sweep job per kind and tenant uses checkpoint_key for an opaque durable last-served position, never a live-subject FK.",
+      "purpose": "Durable typed owed work and generation-fenced current claim. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. The global variant is restricted to approved reference/platform work and body-free operational records. A sweep job per kind and tenant uses checkpoint_key for an opaque durable last-served position, never a live-subject FK.",
       "library_owned": false,
       "columns": [
         {
@@ -16164,7 +16198,8 @@
         "attempt_count >= 0 and max_attempts >= 1",
         "claim_generation >= 0",
         "(lease_owner is null) = (lease_until is null)",
-        "subject_record_id is not null or producer_key = 'sweep'"
+        "subject_record_id is not null or producer_key = 'sweep'",
+        "tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid or kind in ('mail', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge')"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -16486,12 +16521,14 @@
         },
         {
           "columns": [
-            "feedback_id"
+            "feedback_id",
+            "account_id"
           ],
           "references": {
             "table": "feedback",
             "columns": [
-              "id"
+              "id",
+              "account_id"
             ]
           },
           "on_delete": "restrict"
@@ -16573,13 +16610,6 @@
           "type": "text",
           "nullable": false,
           "note": ""
-        },
-        {
-          "name": "revision",
-          "type": "bigint",
-          "nullable": false,
-          "note": "",
-          "default": "1"
         }
       ],
       "primary_key": [
@@ -16641,9 +16671,7 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [
-        "revision >= 1"
-      ],
+      "checks": [],
       "jsonb_keys": {},
       "capabilities": [
         "CAP-A-047"
@@ -16842,7 +16870,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge."
         },
         {
           "columns": [
@@ -16854,7 +16883,8 @@
               "id"
             ]
           },
-          "on_delete": "restrict"
+          "on_delete": "restrict",
+          "scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge."
         },
         {
           "columns": [
@@ -16907,7 +16937,7 @@
     {
       "name": "evidence_link",
       "domain": "operations",
-      "purpose": "Queryable source, selection, citation, grant or inverse-move witness attached to an actual consumer. No owner columns means restricted global operational work; otherwise exactly one owner applies. IDs and revisions used for authorization or inverse checks are relational, never JSON arrays. The global variant is restricted to approved reference/platform work and body-free operational records.",
+      "purpose": "Queryable source, selection, citation, grant or inverse-move witness attached to an actual consumer. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. IDs and revisions used for authorization or inverse checks are relational, never JSON arrays. The global variant is restricted to approved reference/platform work and body-free operational records.",
       "library_owned": false,
       "columns": [
         {
