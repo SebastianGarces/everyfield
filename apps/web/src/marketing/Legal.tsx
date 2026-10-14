@@ -19,34 +19,24 @@ function linked(text: string, privacyWords?: string): ReactNode[] {
   return out;
 }
 
-/**
- * The privacy and terms pages. They render whatever copy shared.privacy_page / shared.terms_page holds
- * (task E2). Without copy they show the prototype's placeholder.
- */
-export function Legal({ path, fallbackTitle, copy }: { path: string; fallbackTitle: string; copy?: LegalCopy }) {
-  const title = copy?.title ?? fallbackTitle;
-  const privacy = copy?.links?.privacy;
+/** The privacy and terms pages, rendered from shared.privacy_page / shared.terms_page (task E2). */
+export function Legal({ path, copy }: { path: string; copy: LegalCopy }) {
+  const privacy = copy.links?.privacy;
   return (
     <Site path={path}>
       <section className="hero page-hero" id="top">
         <div className="wrap">
-          <h1 className="display hero-title" style={{ fontSize: "var(--mk-fs-h1)" }}>{title}</h1>
+          <h1 className="display hero-title" style={{ fontSize: "var(--mk-fs-h1)" }}>{copy.title}</h1>
           <div className="legal-body" style={{ marginTop: 36 }}>
-            {copy ? (
-              <>
-                {copy.updated ? <p className="legal-updated">{copy.updated}</p> : null}
-                {copy.intro?.map((p, i) => <p key={i}>{linked(p, privacy)}</p>)}
-                {copy.sections.map((s) => (
-                  <section key={s.heading} className="legal-sec">
-                    <h2 className="display h3">{s.heading}</h2>
-                    {s.paragraphs?.map((p, i) => <p key={i}>{linked(p, privacy)}</p>)}
-                    {s.items?.length ? <ul>{s.items.map((it, i) => <li key={i}>{linked(it, privacy)}</li>)}</ul> : null}
-                  </section>
-                ))}
-              </>
-            ) : (
-              <p>{`The full ${title.toLowerCase()} will be published here before EveryField launches.`}</p>
-            )}
+            {copy.updated ? <p className="legal-updated">{copy.updated}</p> : null}
+            {copy.intro?.map((p, i) => <p key={i}>{linked(p, privacy)}</p>)}
+            {copy.sections.map((s) => (
+              <section key={s.heading} className="legal-sec">
+                <h2 className="display h3">{s.heading}</h2>
+                {s.paragraphs?.map((p, i) => <p key={i}>{linked(p, privacy)}</p>)}
+                {s.items?.length ? <ul>{s.items.map((it, i) => <li key={i}>{linked(it, privacy)}</li>)}</ul> : null}
+              </section>
+            ))}
             <p>{COPY.shared.footer.fineprint}</p>
           </div>
         </div>

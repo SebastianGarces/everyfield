@@ -34,8 +34,8 @@ const journey = z.object({
 });
 const oversight = z.object({ id: z.literal("oversight"), sections: z.object({ cta }) });
 
-// Copy drafted by task E2 (shared.access_page, privacy_page, terms_page). access_page is required; a missing
-// privacy or terms page shows the prototype placeholder. Present pages are checked strictly.
+// Copy drafted by task E2 (shared.access_page, privacy_page, terms_page). All three are required:
+// a missing or malformed page fails the build, so no placeholder legal page can be published.
 const fieldCopy = z.object({
   label: text,
   optional: z.literal(true).optional(),
@@ -117,8 +117,8 @@ const schema = z.object({
       cta,
     }),
     access_page: accessPage,
-    privacy_page: legalPage.optional(),
-    terms_page: legalPage.optional(),
+    privacy_page: legalPage,
+    terms_page: legalPage,
   }),
   directions: z.tuple([journey, oversight], z.unknown()),
 });

@@ -865,8 +865,15 @@ function navPill(force?: boolean) {
   if (on !== pillOn) navClose();
   pillOn = on;
   pill.classList.toggle("on", on);
-  pill.inert = !on;
-  pill.setAttribute("aria-hidden", String(!on));
+  // Expose one header at a time, so assistive tech finds one banner and one "Main" nav. The in-flow header stays
+  // live while it holds focus; otherwise the visible pill carries the links.
+  const hideNav = on && !nav.contains(document.activeElement);
+  expose(pill, on);
+  expose(nav, !hideNav);
+}
+function expose(el: HTMLElement, live: boolean) {
+  el.inert = !live;
+  if (live) el.removeAttribute("aria-hidden"); else el.setAttribute("aria-hidden", "true");
 }
 function faqSet(item: Element | null, open: boolean) {
   if (!item) return;
@@ -918,6 +925,8 @@ export function startMotion(): () => void {
   document.addEventListener("visibilitychange", kickAll, opts);
   document.addEventListener("pointermove", botFollow, opts);
   window.addEventListener("hashchange", openHashTarget, opts);
+  // The in-flow header stays exposed while it holds focus; hide it once focus leaves (see navPill).
+  document.getElementById("site-nav")?.addEventListener("focusout", () => requestAnimationFrame(() => navPill(true)), opts);
   window.addEventListener("scroll", () => {
     if (!pillTicking) { pillTicking = true; requestAnimationFrame(() => navPill()); }
     if (!CX.ticking && CX.list.length) { CX.ticking = true; requestAnimationFrame(() => cxScroll()); }
