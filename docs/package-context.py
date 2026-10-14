@@ -387,25 +387,31 @@ def check_case_actions(root, package=None):
                 yield from action_operations(child)
 
     failures, checked = [], 0
+    current_pairs = set()
     for path in catalog['case_files']:
         for case in read(root, path)['cases']:
             actions = set(action_operations(case.get('action'))) | set(action_operations(case.get('subcases')))
             for pid in case.get('work_packages', []):
-                if package and pid != package:
-                    continue
                 for oid in sorted(actions):
                     # SQL/build/configuration proof actions have no domain package owner;
                     # acceptance/check.py validates those named inspection actions.
                     if oid not in operations:
                         continue
-                    checked += 1
                     owner = operations[oid]['owning_package']
-                    if owner not in ancestors(pid):
-                        entry = (pid, case['id'], oid, owner)
+                    entry = (pid, case['id'], oid, owner)
+                    unordered = owner not in ancestors(pid)
+                    if unordered:
+                        current_pairs.add(entry)
+                    if package and pid != package:
+                        continue
+                    checked += 1
+                    if unordered:
                         if entry in baseline:
                             counts[slices[pid]] += 1
                         if entry not in baseline or (slices[pid] == 'S0' and s0_policy == 'fail') or package:
                             failures.append(f'{pid}/{case["id"]}: {oid} belongs to later or unordered {owner}')
+    for pid, case_id, oid, owner in sorted(baseline - current_pairs):
+        failures.append(f'{pid}/{case_id}: stale baseline entry for {oid} owned by {owner}')
     print('Open case-action baseline by owning slice: ' + ', '.join(f'{sid}={count}' for sid, count in counts.items()))
     if counts['S0'] and s0_policy == 'warn':
         print(f'WARN: {counts["S0"]} open S0 baseline entries await Round 2-4, which must clear them and set s0_policy to fail.')

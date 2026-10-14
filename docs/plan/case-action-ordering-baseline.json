@@ -1191,7 +1191,6 @@
     {"case_id":"PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE","owner":"WP-081","action_operation":"people.unmergePeople","action_owner":"WP-015"},
     {"case_id":"EVRY-FAMILY-NOTIFICATIONS","owner":"WP-082","action_operation":"evry.runEvaluation","action_owner":"WP-055"},
     {"case_id":"EVRY-FAMILY-IDENTITY-PLATFORM","owner":"WP-083","action_operation":"evry.runEvaluation","action_owner":"WP-055"},
-    {"case_id":"EVRY-FAMILY-IDENTITY-PLATFORM","owner":"WP-084","action_operation":"evry.runEvaluation","action_owner":"WP-055"},
-    {"case_id":"EVRY-FAMILY-RUNTIME-CONVERSATION","owner":"WP-085","action_operation":"evry.runEvaluation","action_owner":"WP-055"}
+    {"case_id":"EVRY-FAMILY-IDENTITY-PLATFORM","owner":"WP-084","action_operation":"evry.runEvaluation","action_owner":"WP-055"}
   ]
 }
