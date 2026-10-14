@@ -20,7 +20,7 @@ Stable publisher registry versions were checked on **2026-10-13**. No package wa
 
 ### Selected design libraries
 
-The [design handoff](../design/handoff/README.md) selects these. Versions were read from the npm registry on **2026-10-14**. Their registry evidence is not yet in [dependencies.json](dependencies.json); record it when you pin them. No package was installed.
+The [design handoff](../design/handoff/README.md) selects these. Versions were read from the npm registry on **2026-10-14**. Motion registry evidence is recorded in [dependencies.json](dependencies.json); record the other design libraries when you pin them. No package was installed.
 
 | Package | Stable checked version | Purpose |
 |---|---|---|
@@ -28,6 +28,7 @@ The [design handoff](../design/handoff/README.md) selects these. Versions were r
 | [@hugeicons/core-free-icons](https://registry.npmjs.org/@hugeicons%2fcore-free-icons/latest) | 4.3.5 | Free Hugeicons set only, tree-shaken per icon |
 | [@react-email/components](https://registry.npmjs.org/@react-email%2fcomponents/latest) | 1.0.12 | Email templates with fixed light colors and a 600px column |
 | [@react-email/render](https://registry.npmjs.org/@react-email%2frender/latest) | 2.1.0 | Renders React Email templates to HTML and plain text; peer of `resend` |
+| [motion](https://registry.npmjs.org/motion/latest) | 14.2.0 | Animation for marketing and product UI |
 
 The icon library is Hugeicons. Do not add lucide or a second icon set.
 
