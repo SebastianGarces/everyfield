@@ -3,6 +3,7 @@ import { AccessForm, type FieldSpec, type FormText } from "@/access/AccessForm";
 import { FIELD_MAX, PHASES } from "@/access/contract";
 import { COPY, type FormCopy } from "@/marketing/copy";
 import { hero } from "@/marketing/markup";
+import { PAGES, pageMetadata } from "@/marketing/meta";
 import { Html, Site } from "@/marketing/Site";
 
 // Copy: shared.access_page in design/marketing-copy.json (task E2).
@@ -66,11 +67,7 @@ const networkFields = fieldsFor(
   A.network_form,
 );
 
-export const metadata: Metadata = {
-  title: A.hero.headline,
-  description: A.hero.subhead,
-  alternates: { canonical: "/access" },
-};
+export const metadata: Metadata = pageMetadata(PAGES.access);
 
 export default function Access() {
   const heroCopy = { ...A.hero, cta_primary: "Request early access", cta_secondary: "Talk to us about your network", note: A.hero.note ?? COPY.journey.cta.note };
