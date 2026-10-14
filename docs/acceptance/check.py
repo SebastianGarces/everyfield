@@ -63,19 +63,23 @@ def validate(value, schema, definitions, location):
     return errors
 
 
-def strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from strings(item)
-
-
 def normalize(text):
     return ' '.join(text.split()).casefold()
+
+
+def repeats_requirement(value, own_texts, forbidden, field=None):
+    if isinstance(value, str):
+        text = normalize(value)
+        # Terse legacy clauses also name literal versions and semantic error codes.
+        # Those typed fields remain observations; prose/other fields get no exemption.
+        literal_code = field in {'selected_version', 'error_code'} and len(value.split()) < 3
+        return ((text in own_texts and not literal_code)
+                or (text in forbidden and len(value.split()) >= 3))
+    if isinstance(value, dict):
+        return any(repeats_requirement(v, own_texts, forbidden, k) for k, v in value.items())
+    if isinstance(value, list):
+        return any(repeats_requirement(v, own_texts, forbidden, field) for v in value)
+    return False
 
 
 def check(root):
@@ -106,7 +110,9 @@ def check(root):
             if cid in cases:
                 errors.append(f'{label}: duplicate case ID')
             cases[cid] = case
-            own_text = normalize(case.get('requirement', ''))
+            requirement = case.get('requirement', '')
+            own_texts = {normalize(requirement),
+                         normalize(requirements.get(requirement, {}).get('text', requirement))}
             if case.get('group'):
                 groups[case['group']].append(case)
             def expectations(example, name, parent_given=None):
@@ -122,12 +128,7 @@ def check(root):
                 operation = example.get('action', {}).get('operation')
                 if operation not in operation_ids | proof_actions:
                     errors.append(f'{name}: unknown operation {operation}')
-                # A nested scalar identity such as S1 can also be a terse catalog clause.
-                # Prose, checks and a whole-string result cannot echo even a terse clause.
-                if any((normalize(s) in forbidden or normalize(s) == own_text)
-                       and (len(s.split()) >= 3 or s in example.get('expected', {}).get('checks', [])
-                            or s == example.get('expected', {}).get('result'))
-                       for s in strings(example.get('expected', {}))):
+                if repeats_requirement(example.get('expected', {}), own_texts, forbidden):
                     errors.append(f'{name}: expected repeats requirement text')
                 try:
                     ZoneInfo(example['clock']['zone'])
