@@ -316,19 +316,6 @@
           "type": "text",
           "nullable": true,
           "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
-        },
-        {
-          "name": "credential_revision",
-          "type": "bigint",
-          "nullable": false,
-          "default": "0 on initial identity provisioning",
-          "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
-        },
-        {
-          "name": "security_operation_id",
-          "type": "uuid",
-          "nullable": true,
-          "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
         }
       ],
       "primary_key": [
@@ -366,8 +353,7 @@
         }
       ],
       "checks": [
-        "Only approved credential/password login provider enabled; optional adapter fields do not approve OAuth scope.",
-        "Significant credential change atomically binds new credential revision and security_operation_id within adapter-owned SQL statement/transaction. Metadata support and stale credential/session race fences must pass AUTH-005/008; no domain UoW claim."
+        "Only approved credential/password login provider enabled; optional adapter fields do not approve OAuth scope."
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -520,12 +506,6 @@
           "nullable": true,
           "meaning": "Optional adapter security metadata; collection disabled by default.",
           "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
-        },
-        {
-          "name": "credential_revision",
-          "type": "bigint",
-          "nullable": false,
-          "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
         }
       ],
       "primary_key": [
@@ -562,8 +542,7 @@
         }
       ],
       "checks": [
-        "Adapter storage and cookie/session renewal/revocation equivalent to selected Better Auth API must be proved. Never expose token material.",
-        "Issued revision is the credential generation actually verified by the adapter; cannot stamp current generation after stale password verification. Actual hook/transaction fence required; unsupported mapping fails closed before use."
+        "Adapter storage and cookie/session renewal/revocation equivalent to selected Better Auth API must be proved. Never expose token material."
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -713,12 +692,6 @@
         {
           "name": "consumed_at",
           "type": "timestamptz",
-          "nullable": true,
-          "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
-        },
-        {
-          "name": "credential_revision",
-          "type": "bigint",
           "nullable": true,
           "note": "Pinned adapter-owned field; compatibility must be proved before implementation."
         }
@@ -874,30 +847,6 @@
           "note": ""
         },
         {
-          "name": "credential_revision",
-          "type": "integer",
-          "nullable": false,
-          "note": ""
-        },
-        {
-          "name": "auth_mutation_state",
-          "type": "text",
-          "nullable": false,
-          "note": ""
-        },
-        {
-          "name": "security_operation_id",
-          "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-        },
-        {
-          "name": "preserved_session_id",
-          "type": "uuid",
-          "nullable": true,
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-        },
-        {
           "name": "personal_timezone",
           "type": "text",
           "nullable": true,
@@ -934,40 +883,6 @@
           ],
           "references": {
             "table": "auth_user",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          }
-        },
-        {
-          "columns": [
-            "security_operation_id",
-            "id"
-          ],
-          "references": {
-            "table": "operation",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          }
-        },
-        {
-          "columns": [
-            "preserved_session_id"
-          ],
-          "references": {
-            "table": "auth_session",
             "columns": [
               "id"
             ]
@@ -1034,7 +949,6 @@
         "revision >= 1",
         "registration_state in ('pending_domain', 'active')",
         "registration_kind in ('planter', 'sending_church', 'network', 'discovery')",
-        "auth_mutation_state in ('idle', 'pending', 'reconcile')",
         "id <> '00000000-0000-0000-0000-000000000000'::uuid"
       ],
       "jsonb_keys": {},
@@ -1457,12 +1371,6 @@
           "name": "proposed_email",
           "type": "text",
           "nullable": true,
-          "note": ""
-        },
-        {
-          "name": "credential_revision",
-          "type": "integer",
-          "nullable": false,
           "note": ""
         },
         {
@@ -9233,12 +9141,6 @@
         {
           "name": "token_hash",
           "type": "text",
-          "nullable": false,
-          "note": ""
-        },
-        {
-          "name": "credential_revision",
-          "type": "integer",
           "nullable": false,
           "note": ""
         },
@@ -26033,6 +25935,12 @@
           "type": "text",
           "nullable": false,
           "note": ""
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "nullable": true,
+          "note": "Closed platform audit action. NULL for domain-only history; platform projections exclude private narratives and care metadata."
         }
       ],
       "primary_key": [
@@ -26182,7 +26090,9 @@
       "checks": [
         "num_nonnulls(mail_attempt_id,mail_request_id,mail_position) in (0,3)",
         "kind in ('create', 'edit', 'correct', 'retire', 'restore', 'merge', 'unmerge', 'stage_change', 'classification_change', 'commitment_change', 'assign', 'remove', 'accept', 'revoke', 'resend', 'role_change', 'leader_change', 'tick', 'untick', 'archive', 'earn', 'revoke_credit', 'offer_answer', 'publish', 'hide', 'read', 'progress', 'complete', 'reopen', 'waive', 'supersede', 'finalize', 'reconcile', 'noop', 'triage', 'suppress', 'suppression_clear', 'preference', 'model_attempt', 'tool_attempt', 'effect_result', 'mail_member', 'outcome', 'declaration', 'movement')",
-        "num_nonnulls(actor_id,actor_tombstone,system_cause) = 1"
+        "num_nonnulls(actor_id,actor_tombstone,system_cause) = 1",
+        "action in ('identity.credential_observed', 'identity.domain_accepted', 'identity.credential_changed', 'identity.credential_reconciled', 'identity.email_changed', 'identity.sessions_revoked', 'membership.created', 'membership.role_changed', 'membership.ended', 'invitation.claimed', 'invitation.revoked', 'plant.created', 'plant.profile_changed', 'organization.profile_changed', 'affiliation.approved', 'affiliation.ended', 'sharing.changed', 'people.created', 'people.updated', 'people.retired', 'people.restored', 'people.stage_changed', 'people.merged', 'people.unmerged', 'people.recorded', 'people.corrected', 'teams.changed', 'roles.changed', 'training.assigned', 'training.assignment_removed', 'training.completed', 'training.revoked', 'training.corrected', 'meetings.changed', 'meetings.finalized', 'meetings.corrected', 'meetings.rsvp_recorded', 'meetings.response_recorded', 'tasks.changed', 'tasks.completed', 'tasks.waived', 'followup.recorded', 'followup.corrected', 'phase.created', 'phase.declared', 'phase.transitioned', 'attestation.recorded', 'attestation.corrected', 'launch.changed', 'launch.outcome_recorded', 'launch.debrief_submitted', 'launch.summary_published', 'launch.corrected', 'wiki.published', 'wiki.hidden', 'wiki.source_order_changed', 'reference.activated', 'documents.saved', 'documents.copied', 'files.finalized', 'intelligence.requested', 'intelligence.published', 'intelligence.superseded', 'intelligence.feedback_recorded', 'communication.approved', 'communication.send_intended', 'mail.accepted', 'mail.delivered', 'mail.refused', 'mail.reconciled', 'mail.cancelled', 'feedback.received', 'feedback.publication_intended', 'feedback.published', 'feedback.reconciled', 'execution.started', 'execution.completed', 'execution.partial', 'execution.cancelled', 'execution.reconciled', 'account.deletion_requested', 'plant.deletion_requested', 'deletion.cancelled', 'deletion.live_purge_completed', 'recovery.copy_expired', 'recovery.restored', 'security.access_denied', 'security.bulk_export', 'security.audit_inspected', 'security.audit_exported', 'security.operator_accessed')",
+        "action is null or diff is null or (jsonb_typeof(diff) = 'object' and octet_length(convert_to(diff::text, 'UTF8')) <= 2048)"
       ],
       "jsonb_keys": {
         "diff": [
@@ -27719,7 +27629,7 @@
       ],
       "checks": [
         "revision >= 1",
-        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn')",
+        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "attempt_count >= 0 and max_attempts >= 1",
         "claim_generation >= 0",
@@ -28738,16 +28648,22 @@
           "note": "Historical non-content subject key; retained after the live requester FK is cleared."
         },
         {
-          "name": "credential_revision",
-          "type": "bigint",
-          "nullable": true,
-          "note": ""
-        },
-        {
           "name": "counterparty_organization_id",
           "type": "uuid",
           "nullable": true,
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+        },
+        {
+          "name": "cancel_until",
+          "type": "timestamptz",
+          "nullable": true,
+          "note": "Immutable original cancellation deadline, requested_at plus 30 days; never reset by restore."
+        },
+        {
+          "name": "cancelled_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "note": "Observed successful cancellation strictly before cancel_until, fenced by request_id and request_revision."
         }
       ],
       "primary_key": [
@@ -28882,12 +28798,21 @@
         "cleanup_state in ('not_started', 'in_progress', 'inaccessible', 'confirmed')",
         "plant_id is null or kind = 'plant'",
         "copy_expires_at is null or copy_expires_at <= live_purged_at + interval '168 hours'",
-        "kind in ('account', 'plant', 'seat', 'affiliation', 'credential_generation')",
+        "kind in ('account', 'plant', 'seat', 'affiliation')",
         "state in ('active', 'pending_deletion', 'purging', 'purged', 'cancelled', 'revoked')",
         "num_nonnulls(account_id,plant_id,seat_id,affiliation_id) <= 1",
-        "account_id is null or kind in ('account','credential_generation')",
+        "account_id is null or kind in ('account')",
         "seat_id is null or kind = 'seat'",
-        "affiliation_id is null or kind = 'affiliation'"
+        "affiliation_id is null or kind = 'affiliation'",
+        "kind not in ('account', 'plant') or state in ('active', 'pending_deletion', 'purging', 'purged', 'cancelled')",
+        "kind in ('account', 'plant') or state in ('active', 'revoked')",
+        "state not in ('pending_deletion', 'purging', 'purged', 'cancelled') or (request_id is not null and requested_at is not null and cancel_until is not null and request_revision >= 1)",
+        "cancel_until is null or (requested_at is not null and cancel_until = requested_at + interval '720 hours')",
+        "(state = 'cancelled') = (cancelled_at is not null)",
+        "cancelled_at is null or (cancelled_at >= requested_at and cancelled_at < cancel_until)",
+        "(state = 'purged') = (live_purged_at is not null)",
+        "state <> 'purged' or (live_purged_at >= cancel_until and copy_expires_at is not null)",
+        "copy_expires_at is null or (live_purged_at is not null and copy_expires_at >= live_purged_at)"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -31060,8 +30985,8 @@
   "as_of": "2026-10-14",
   "implementation_authorized": false,
   "table_count": 100,
-  "column_count": 1245,
-  "foreign_key_count": 410,
+  "column_count": 1237,
+  "foreign_key_count": 408,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -31089,11 +31014,6 @@
       "sending_church",
       "network",
       "discovery"
-    ],
-    "account.auth_mutation_state": [
-      "idle",
-      "pending",
-      "reconcile"
     ],
     "admission_attempt.kind": [
       "login",
@@ -32933,7 +32853,8 @@
       "feedback_publication",
       "object_cleanup",
       "lifecycle_purge",
-      "assistant_turn"
+      "assistant_turn",
+      "document_render"
     ],
     "job.state": [
       "ready",
@@ -32969,8 +32890,7 @@
       "account",
       "plant",
       "seat",
-      "affiliation",
-      "credential_generation"
+      "affiliation"
     ],
     "lifecycle_witness.state": [
       "active",
@@ -33651,13 +33571,106 @@
       "partner_church",
       "meeting_guest_list",
       "other"
+    ],
+    "event.action": [
+      "identity.credential_observed",
+      "identity.domain_accepted",
+      "identity.credential_changed",
+      "identity.credential_reconciled",
+      "identity.email_changed",
+      "identity.sessions_revoked",
+      "membership.created",
+      "membership.role_changed",
+      "membership.ended",
+      "invitation.claimed",
+      "invitation.revoked",
+      "plant.created",
+      "plant.profile_changed",
+      "organization.profile_changed",
+      "affiliation.approved",
+      "affiliation.ended",
+      "sharing.changed",
+      "people.created",
+      "people.updated",
+      "people.retired",
+      "people.restored",
+      "people.stage_changed",
+      "people.merged",
+      "people.unmerged",
+      "people.recorded",
+      "people.corrected",
+      "teams.changed",
+      "roles.changed",
+      "training.assigned",
+      "training.assignment_removed",
+      "training.completed",
+      "training.revoked",
+      "training.corrected",
+      "meetings.changed",
+      "meetings.finalized",
+      "meetings.corrected",
+      "meetings.rsvp_recorded",
+      "meetings.response_recorded",
+      "tasks.changed",
+      "tasks.completed",
+      "tasks.waived",
+      "followup.recorded",
+      "followup.corrected",
+      "phase.created",
+      "phase.declared",
+      "phase.transitioned",
+      "attestation.recorded",
+      "attestation.corrected",
+      "launch.changed",
+      "launch.outcome_recorded",
+      "launch.debrief_submitted",
+      "launch.summary_published",
+      "launch.corrected",
+      "wiki.published",
+      "wiki.hidden",
+      "wiki.source_order_changed",
+      "reference.activated",
+      "documents.saved",
+      "documents.copied",
+      "files.finalized",
+      "intelligence.requested",
+      "intelligence.published",
+      "intelligence.superseded",
+      "intelligence.feedback_recorded",
+      "communication.approved",
+      "communication.send_intended",
+      "mail.accepted",
+      "mail.delivered",
+      "mail.refused",
+      "mail.reconciled",
+      "mail.cancelled",
+      "feedback.received",
+      "feedback.publication_intended",
+      "feedback.published",
+      "feedback.reconciled",
+      "execution.started",
+      "execution.completed",
+      "execution.partial",
+      "execution.cancelled",
+      "execution.reconciled",
+      "account.deletion_requested",
+      "plant.deletion_requested",
+      "deletion.cancelled",
+      "deletion.live_purge_completed",
+      "recovery.copy_expired",
+      "recovery.restored",
+      "security.access_denied",
+      "security.bulk_export",
+      "security.audit_inspected",
+      "security.audit_exported",
+      "security.operator_accessed"
     ]
   },
   "auth_adapter_configuration": {
     "session_storage": "PostgreSQL database sessions only; no secondary store",
     "adapter_transactions": true,
     "cookie_cache": false,
-    "auth_owned_extra_fields": "Server-owned input:false, returned:false; before hooks bind allowed metadata, after hooks are post-commit outcome signals only. Pinned-adapter SQL/schema/race proof required.",
+    "auth_owned_extra_fields": "Use supported Better Auth field mappings only; no application credential-generation or security-operation columns.",
     "session_expires_in_seconds": 2592000,
     "session_update_age_seconds": 1296000,
     "reset_token_expires_in_seconds": 3600,
@@ -33675,7 +33688,9 @@
     },
     "throttle_row_max_age_seconds": 86400,
     "identity_ids": "UUID through supported configured generator",
-    "identity_generation_missing": "Deny domain authority, authenticated own proof/resume only; no default current-generation stamp after stale authentication."
+    "password_change_revoke_other_sessions": true,
+    "revoke_sessions_on_password_reset": true,
+    "security_event": "Append the application event after the supported Better Auth call reports success. Unknown result must not be reported as success or blindly retried."
   },
   "root_scope_contract": {
     "owner": "One nonnull tenant identity for account, plant, organization or restricted global work; live roots and current grants are still required.",
@@ -34874,7 +34889,7 @@
     },
     {
       "table": "event",
-      "field": "target_record_id/value snapshots",
+      "field": "target_record_id/from_value/to_value/diff",
       "policy": "Person-kind historical identity and original occurrence/correction evidence are immutable."
     }
   ],
@@ -34887,5 +34902,23 @@
       "docs/product/meetings-follow-up.md:200 REQ-MTG-011"
     ],
     "change_policy": "Sebastian may change this reviewed starting list through review; builders follow the literal authority until then."
-  }
+  },
+  "schema_amendments": [
+    {
+      "id": "FIX2-AUTH",
+      "reason": "Use Better Auth built-in password-change/reset revocation; remove credential-generation fence columns and witness kind."
+    },
+    {
+      "id": "FIX2-LIFECYCLE",
+      "reason": "Represent immutable deletion deadline, pending hold, successful cancellation and completed live purge with nullable timestamps and literal state-shape CHECKs."
+    },
+    {
+      "id": "FIX2-AUDIT",
+      "reason": "Unify platform audit with event while preserving domain kind; nullable action has a literal closed CHECK and bounded audit diff."
+    },
+    {
+      "id": "FIX2-JOB",
+      "reason": "Add document_render to job.kind for the already required durable render handler; restricted backup/expiry remain outside ordinary job dispatch."
+    }
+  ]
 }

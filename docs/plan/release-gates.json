@@ -62,9 +62,9 @@
     },
     {
       "id": "G-SETUP",
-      "title": "Real environment/account and restricted backup setup",
+      "title": "Authorized environment setup, with backup setup before customer data",
       "owner": "Platform/operations",
-      "closure": "Actual project/repository IDs, scoped credentials, paid-account privacy settings and restricted scheduled operator backup invocation are configured only under later authorization; prove no backup keys in ordinary app/build/preview.",
+      "closure": "Actual project/repository IDs, scoped ordinary credentials and approved privacy settings are configured only under applicable authorization. During the build, use Neon and Tigris native seven-day history. Restricted scheduled backup host, encrypted daily copies, dedicated backup keys and current witness sync are deferred to G-RECOVERY before customer data; prove keys absent from ordinary app/build/preview at that gate. Backup machinery is not a build kickoff prerequisite.",
       "status": "future-configuration-proof",
       "work_packages": [
         "WP-003",
@@ -72,7 +72,8 @@
         "WP-049",
         "WP-050",
         "WP-058"
-      ]
+      ],
+      "backup_setup_stage": "before-customer-data"
     },
     {
       "id": "G-RUNTIME",
@@ -89,9 +90,9 @@
     },
     {
       "id": "G-RECOVERY",
-      "title": "Before real customer data",
+      "title": "Before customer data",
       "owner": "DB/file/operations + release owner",
-      "closure": "Measured coherent DB+bytes restore meets ordinary1hRPO/4hRTO; fresh surviving daily24h fallback, current deletion barriers, receipt reconciliation, recoverable scoped keys and provider expiry/cleanup demonstrate accepted boundaries; reviewed privacy disclosure.",
+      "closure": "Before customer data, configure and prove encrypted daily DB-plus-byte copies, expiring daily snapshots, current deletion/access witness sync and the restricted scheduled backup host with recoverable scoped keys excluded from ordinary app/build/preview. Measure coherent restore for ordinary one-hour RPO/four-hour RTO, a fresh surviving accessible daily 24-hour-loss fallback, current pending/cancelled/completed deletion barriers, original seven-day copy expiry, external receipt non-replay and provider cleanup. Review privacy disclosure. During the build rely on native seven-day Neon/Tigris history; this gate does not block building the recovery producers.",
       "status": "future-not-run",
       "work_packages": [
         "WP-037",
@@ -99,7 +100,8 @@
         "WP-056",
         "WP-057",
         "WP-058"
-      ]
+      ],
+      "stage": "before-customer-data"
     }
   ],
   "owner_product_questions": [],

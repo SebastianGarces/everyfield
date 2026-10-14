@@ -639,8 +639,8 @@
     {
       "id": "AUDIT-003",
       "requirement": "Redaction and bounded event",
-      "fixture": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signedURL canaries and metadata2048/2049UTF8bytes.",
-      "expected": "Action allowlist drops/refuses forbidden metadata, <=2048accepted correct shape, >2048rejects and rolls mutation back. No default rows/diff dump.",
+      "fixture": "Add credentials/tokens/address/private narrative/prompt/mail/attachment/signedURL canaries and event.diff at 2048/2049 UTF-8 bytes for a closed event.action.",
+      "expected": "Action allowlist drops/refuses forbidden audit fields, <=2048accepted correct shape, >2048rejects and rolls mutation back. Domain-only history cannot leak through the platform projection; no default whole-row dump.",
       "feature_ids": [
         "EVR-100",
         "OPS-003",
@@ -934,8 +934,8 @@
     {
       "id": "AUTH-005",
       "requirement": "Credential/session/proof concurrency",
-      "fixture": "Password change/reset/email-change race with real pinned adapter; own current session and other sessions; trusted-IP limiter bursts, successful own-key cleanup.",
-      "expected": "Exact intended session preservation/revocation and stale proof invalidation under credential revision; no session/cookie-only stale actor. Identifier/kind cleanup never clears other account/IP windows; no tokens/logged emails.",
+      "fixture": "Password change with built-in revokeOtherSessions enabled and reset with revokeSessionsOnPasswordReset enabled, real pinned database adapter transactions, cookie cache disabled and no secondary store. Check initiating/other/prior sessions, expired or consumed proof, refused/unknown call and app-event failure after successful auth. Test concurrent trusted-IP limits and own-key cleanup.",
+      "expected": "Supported password change preserves only its eligible initiating session and revokes other sessions; successful reset revokes all prior sessions. Append the app security event after the supported call succeeds; no success event for refused/unknown outcome, no async password replay, and an app-event failure cannot undo credentials or restore revoked sessions. No custom credential-generation columns/fence. Identifier/kind cleanup leaves other account/IP windows intact; no tokens or logged email values.",
       "feature_ids": [
         "IDN-001",
         "IDN-007",
@@ -1056,7 +1056,7 @@
     {
       "id": "SCHEMA-001",
       "requirement": "Enumerated physical target keys and ownership",
-      "fixture": "Two plants, two sending churches, one network and two accounts; attempt each compound FK with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Direct SQL owner controls cover every non-tagged child\u2192tagged parent, including exact organization run\u2192demand/job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover none/all-null; local_date/date-only; resolved_instant/date+time+instant+confirmed zone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Direct SQL profile controls use partial independently nullable plant locality/profile, name lengths 1/255/256, street500/501, locality255/256, description10000/10001 and organization phone100/101/email254/255/HTTPS URL2048/2049; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with account_id=owner_account_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task SQL controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
+      "fixture": "Two plants, two sending churches, one network and two accounts; attempt each compound FK with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Direct SQL owner controls cover every non-tagged child\u2192tagged parent, including exact organization assessment\u2192job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Direct SQL profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task SQL controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
       "expected": "Every enumerated valid same-owner insert/update succeeds; wrong owner/kind/null shape rejected by actual DDL/trigger. Catalog matches the current enumerated physical tables and documented fields, unique keys and immutability; no source-only coaching/background fields. Conditional serialized scope triggers and compound owner keys enforce those controls independently of runtime grants. A full one-level child Task retains its own assignee/completion history; Checklist names resolve only to the approved child-task row and history. Persisted job states and pre_launch_practice type are canonical, with display aliases explicitly mapped only. Profiles persist only closed typed columns; null clears only the selected nullable field, with no geography/timezone inference. Own-org Owner/Admin edits succeed with CAS/audit; Member/foreign/plant-role edits deny. Authenticated-self Discovery context reaches only its currently authorized own preplant docs/global Wiki/Discovery floor, zero plant/org grants or auth/secret/private-care model surfaces.",
       "feature_ids": [
         "EVR-001",
@@ -1100,7 +1100,16 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "tenant",
+        "record",
+        "plant",
+        "organization",
+        "plant_geography",
+        "task",
+        "conversation"
+      ]
     },
     {
       "id": "SCHEMA-002",
@@ -1132,7 +1141,12 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "seat",
+        "invitation",
+        "account"
+      ]
     },
     {
       "id": "SCHEMA-003",
@@ -1165,7 +1179,12 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "affiliation",
+        "assessment",
+        "assessment_contributor"
+      ]
     },
     {
       "id": "SCHEMA-004",
@@ -1195,7 +1214,12 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "training_assignment",
+        "training_credit",
+        "training_version"
+      ]
     },
     {
       "id": "SCHEMA-005",
@@ -1226,7 +1250,13 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "launch_guest",
+        "launch_debrief",
+        "document",
+        "evidence_link"
+      ]
     },
     {
       "id": "SCHEMA-006",
@@ -1257,7 +1287,12 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "reading",
+        "article_revision",
+        "reference_item"
+      ]
     },
     {
       "id": "SCHEMA-007",
@@ -1291,13 +1326,18 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "private_calendar",
+        "private_week",
+        "private_week_revision"
+      ]
     },
     {
       "id": "SCHEMA-008",
       "requirement": "Immutable native document ownership and selected copy",
       "fixture": "Private account document+revisions/import, reviewed selected carry-forward into newplant copy, forge current/prior revision from another doc/owner, then original account purge. Create a selected copy with current source-account read plus target-plant Owner/Admin proof; forge another private owner or stale source/plant lifecycle; try rebinding provenance or foreign owner current revision/import/object. Purge the original account and inspect every tagged private binding alongside the independent plant copy.",
-      "expected": "Same document/owner triggers reject foreign revision; copy is new plant-owned bytes with hash provenance. Original private content purged, shared plant copy survives with minimal author attribution and no permanent personal dependency. Only the provenance-only copied_from_document_id may cross account\u2192plant at fresh authorized copy. New selected revision/bytes belong to destination; current/import/object bindings remain same-owner. Original purge detaches nullable copied_from_document_id and retains source hash, never a body/read grant/dependency. Account-private bindings/body purge, shared plant content survives with minimum attribution; assistant/recipient-private variants purge by their actual private owner.",
+      "expected": "Same document/owner triggers reject foreign revision; copy is new plant-owned bytes with hash provenance. Original private content purged, shared plant copy survives with minimal author attribution and no permanent personal dependency. Only the provenance-only document.copied_from_revision_id may cross account\u2192plant at fresh authorized copy. New selected revision/bytes belong to destination; current/import/object bindings remain same-owner. Original purge detaches nullable document.copied_from_revision_id and retains source hash, never a body/read grant/dependency. Account-private bindings/body purge, shared plant content survives with minimum attribution; assistant/recipient-private variants purge by their actual private owner.",
       "feature_ids": [
         "DOC-003",
         "DOC-016",
@@ -1322,12 +1362,17 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "document",
+        "document_revision",
+        "file_object"
+      ]
     },
     {
       "id": "SCHEMA-009",
       "requirement": "Every Person consumer registers",
-      "fixture": "Enumerate all 28 normalized FK and7snapshot references; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
+      "fixture": "Enumerate all 24 declared Person FK and 4 frozen/generic references; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
       "expected": "Every consumer declares collision/rewrite/inverse/retirement policy and later producer fixtures; crossplant rejects. Move manifest records exact pre/post rows; immutable snapshots/historical merge identities preserved, operational selectors hide retired person.",
       "feature_ids": [
         "LCH-006",
@@ -1358,7 +1403,12 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "person",
+        "person_merge",
+        "evidence_link"
+      ]
     },
     {
       "id": "SCHEMA-010",
@@ -1388,13 +1438,18 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "person_merge",
+        "event",
+        "operation"
+      ]
     },
     {
       "id": "SCHEMA-011",
       "requirement": "Per-reference purge and nonresetting witness",
-      "fixture": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after30day fence; purge with cyclic current pointers and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, validated findings, regional slices, named lens rows, contributor/run manifest, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy.",
-      "expected": "Normal access denied from request, cancellation-only proof; exact request revision arbitrates cancel/purge. Shared records survive personal deletion; private bytes/credentials purge. Plant purge preserves independent orgs. Current witness applied before reopening; copy expiry seven days from completed live purge never reset. No publicorgdelete. Request/revocation immediately denies affected copied NI history/current inputs and fences jobs/publication, clears affected current pointer and advances exact org revision. At plant live purge, whole affected mixed run/result and contributor/body/feedback/registered derivatives purge; surviving B/org remain and can recompute. No preserved body snapshot; separate minimum org receipt only. All source-containing recovery copies expire on A original live-purge+7-day clock, never org ownership/recopy/restore reset.",
+      "fixture": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after30day fence; purge with dependent current revision links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
+      "expected": "Normal access denied from request, cancellation-only proof; exact request revision arbitrates cancel/purge. Shared records survive personal deletion; private bytes/credentials purge. Plant purge preserves independent orgs. Current witness applied before reopening; copy expiry seven days from completed live purge never reset. No publicorgdelete. Request/revocation immediately denies affected copied NI history/current inputs and fences jobs/publication, withholds the affected derived current assessment and advances exact org revision. At plant live purge, whole affected assessment, assessment_fact, finding, assessment_contributor, linked reader_feedback and registered derivatives purge; surviving B/org remain and can recompute. No preserved body snapshot; separate minimum org receipt only. All source-containing recovery copies expire on A original live-purge+7-day clock, never org ownership/recopy/restore reset. Current pending hold denies normal access; current cancelled request restores only independently valid grants; current completed purge denies resurrection. Deadline and completed-purge timestamp CHECKs reject inconsistent state shapes, and copy expiry never resets.",
       "feature_ids": [
         "DOC-016",
         "IDN-026",
@@ -1423,13 +1478,20 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "lifecycle_witness",
+        "assessment",
+        "assessment_fact",
+        "finding",
+        "assessment_contributor"
+      ]
     },
     {
       "id": "SCHEMA-012",
       "requirement": "Material revision and publication transaction",
-      "fixture": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation.",
-      "expected": "Every allowed material writer advances source revision atomically; time-only demand creates fresh identity/asOf. CAS source/reference/current grants+claim generation rejects stale publish; prior valid current result survives; private care never invalidates or enters inputs.",
+      "fixture": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation. Compare the installed material-trigger table set with every assessment input builder table, including conditional inputs; mutate an input and fail/roll back the transaction.",
+      "expected": "Every assessment input mutation advances plant.material_revision through database triggers in the same transaction; time-only demand creates fresh identity/asOf. CAS source/reference/current grants+claim generation rejects stale publish; prior valid current result survives; private care never invalidates or enters inputs. The intelligence producer owns the trigger set. Missing input triggers or unexplained extra tables fail closure; a rolled-back mutation changes neither facts nor revision.",
       "feature_ids": [
         "PI-021",
         "PI-022",
@@ -1456,13 +1518,20 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "plant",
+        "organization",
+        "assessment",
+        "assessment_fact",
+        "job"
+      ]
     },
     {
       "id": "SCHEMA-013",
       "requirement": "Durable job/effect/intent boundaries",
       "fixture": "Concurrent tick claims, invocation loss before/after DB commit/provider acceptance, lease reclaim, late success, duplicate/out-of-order callbacks and unknown beyond provider-key window. Replay execution presentation labels pending/completed/blocked_unknown against canonical persisted ready/succeeded/reconcile; verify full child-task completion/reopen and recurring parent successor/child-copy fault rollback. Member owns parent A while child B belongs to another account: create using inherited current parent duty, reject explicit different-account/null assignee, then attempt B tick/reopen before/after reassignment. Owner/Admin valid explicit same-plant/null assignee controls succeed, omitted inherits parent. Member owns B under another assignee parent: valid child tick/reopen but parent edit forbidden. Race parent deletion with child creation. Import inert checklist definitions and complete recurring parent with completed child rows; fault each child/history/audit/intent insertion.",
-      "expected": "One claim/effect/logical slot; stale generation cannot publish. Committed intent survives crash; unknown never blindly resends/newkeys. Signed deduped callbacks preserve truthful state; bounded retry/reconcile terminal path and fair budget. Aliases never introduce another job enum or turn unknown into success/retry. Proper child tasks have their own status/history; recurrence creates fresh child rows with cleared completion facts and no child due/recurrence/contact hooks, and any child-copy/history/intent failure rolls back the affected completion transaction. Parent is never auto-finished by child ticks; no competing live checkbox counter/state exists. Parent-duty child creation never substitutes for child-own-duty completion; current reassignment determines the legal actor. General edit/assignment/deletion remains Owner/Admin. Parent delete covers concurrent children and records their history. Imported/successor checklist entries are real fresh task rows with optional eligible assignee, no child deadlines/recurrence/contact hooks and no inherited completion facts. All source checklist aliases reach those operations; top-level reports exclude independent child credit.",
+      "expected": "One claim/effect/logical slot; stale generation cannot publish. Committed intent survives crash; unknown never blindly resends/newkeys. Signed deduped callbacks preserve truthful state; bounded retry/reconcile terminal path and bounded execution budget; fairness, reserved slots and per-kind alert tuning are deferred to measured-load proof. Aliases never introduce another job enum or turn unknown into success/retry. Proper child tasks have their own status/history; recurrence creates fresh child rows with cleared completion facts and no child due/recurrence/contact hooks, and any child-copy/history/intent failure rolls back the affected completion transaction. Parent is never auto-finished by child ticks; no competing live checkbox counter/state exists. Parent-duty child creation never substitutes for child-own-duty completion; current reassignment determines the legal actor. General edit/assignment/deletion remains Owner/Admin. Parent delete covers concurrent children and records their history. Imported/successor checklist entries are real fresh task rows with optional eligible assignee, no child deadlines/recurrence/contact hooks and no inherited completion facts. All source checklist aliases reach those operations; top-level reports exclude independent child credit.",
       "feature_ids": [
         "COM-005",
         "EVR-183",
@@ -1502,7 +1571,15 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "job",
+        "mail",
+        "effect",
+        "provider_event",
+        "task",
+        "recurrence"
+      ]
     },
     {
       "id": "SCHEMA-014",
@@ -1536,7 +1613,15 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "reference_item",
+        "reference_version",
+        "reference_release",
+        "reference_activation",
+        "article_revision",
+        "passage"
+      ]
     },
     {
       "id": "SCHEMA-015",
@@ -1564,7 +1649,11 @@
         "sql"
       ],
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
-      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
+      "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof.",
+      "schema_tables": [
+        "feedback",
+        "feedback_publication"
+      ]
     },
     {
       "id": "SEC-01",
@@ -2242,5 +2331,6 @@
       "pass_rule": "All specified valid controls succeed and all specified invalid/partial paths meet the exact expected state and disclosure boundary.",
       "fallback": "Do not close or enable the affected implementation slice on failure; repair its selected protocol and repeat only affected proof."
     }
-  ]
+  ],
+  "schema_authority": "docs/schema/target.json"
 }

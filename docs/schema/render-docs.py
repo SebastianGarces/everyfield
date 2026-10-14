@@ -21,6 +21,8 @@ def render(root):
               'The schema has %s tables, %s columns, %s declared FKs and %s JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.' % counts, '',
               'Run documentation/tooling checks from the repository root:', '', '```sh',
               'python3 docs/schema/check.py', 'python3 docs/schema/check.py --self-test',
+              'python3 docs/schema/check-architecture.py',
+              'python3 docs/schema/check-person-references.py',
               'python3 docs/schema/render-docs.py --check',
               'python3 docs/schema/render-diagram.py',
               'python3 docs/package-context.py --check-manifest', '```', '',
@@ -56,6 +58,12 @@ def render(root):
                'Capability inventories cover %s feature IDs and %s persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.' %
                (len({f for c in caps for f in c['feature_ids']}), sum(c['persists'] for c in caps)), '',
                (here / 'design-rules.md').read_text().strip(), '']
+    readme += ['## Architecture alignment amendments', '',
+               'Fix 2 records these small gap fixes to the adopted starting schema. They do not authorize application implementation.', '',
+               '| ID | Change |', '|---|---|']
+    for amendment in schema.get('schema_amendments', []):
+        readme.append('| %s | %s |' % (amendment['id'], amendment['reason']))
+    readme += ['', 'The architecture and Person checks compare documentation identifiers and registries with this authority. They do not execute database triggers, auth or restore. Material revisions come from intelligence-owned database triggers on assessment input tables, proved against the input builder. Before customer data, G-RECOVERY adds encrypted daily copies, witness synchronization and the restricted backup host; build recovery uses native seven-day Neon/Tigris history.', '']
     relations = ['# Adopted schema relations', '',
                  'Generated from `target.json`. Compound FK owner pairs and named exceptions are part of the authority. FKs establish identity/integrity; current authorization still comes from the native operation. SQL and trigger proof have not run.', '',
                  '| Child columns | Parent columns | On delete | Scope exception |', '|---|---|---|---|']

@@ -7,8 +7,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `auth_account(user_id)` | `auth_user(id)` | RESTRICT |  |
 | `auth_session(user_id)` | `auth_user(id)` | RESTRICT |  |
 | `account(auth_user_id)` | `auth_user(id)` | restrict |  |
-| `account(security_operation_id, id)` | `operation(id, tenant_id)` | restrict |  |
-| `account(preserved_session_id)` | `auth_session(id)` | restrict |  |
 | `account(avatar_object_id, id)` | `file_object(id, tenant_id)` | restrict |  |
 | `account(id)` | `tenant(id)` | restrict |  |
 | `account(id)` | `record(id)` | restrict | Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind. |

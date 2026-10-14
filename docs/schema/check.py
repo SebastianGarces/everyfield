@@ -18,7 +18,7 @@ CLOSED_VALUE_COLUMNS = {
     'operation': ['name', 'stop_reason'],
     'evidence_link': ['purpose', 'projection', 'source_purpose'],
     'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
-    'person': ['source'],
+    'person': ['source'], 'event': ['action'], 'job': ['kind'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 OWNER_ROOTS = {'account', 'plant', 'organization'}
