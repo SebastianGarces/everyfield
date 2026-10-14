@@ -67,10 +67,15 @@ a:focus-visible, button:focus-visible, .mk-btn:focus-visible, summary:focus-visi
 /* Footer column titles are h3 (after the footer h2) so the heading order holds; same look as the prototype's h4. */
 .ft-cols h3 { font-size: 13px; font-weight: 600; color: #FFFFFF; margin-bottom: 14px; }
 
-/* The prototype dims unselected auto-list tabs to .32 on phones and under reduced motion (about 2:1 contrast).
-   .82 is the lowest value that keeps the description text at 4.5:1 (4.7:1). The active tab keeps its full bar. */
-@media (max-width: 900px) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
-@media (prefers-reduced-motion: reduce) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
+/* The prototype dims unselected chapter steps and tabs to .32 (about 2:1 contrast) in every mode. .82 is the lowest
+   value that keeps the step description at 4.5:1 (4.7:1). The active step keeps full text and its progress bar. */
+.cx-step:not(.on) .cx-txt { opacity: .82; }
+/* Phones and reduced motion: like the prototype, week steps show at full strength and only auto-list tabs dim. */
+@media (max-width: 900px) { .cx-step:not(.on) .cx-txt { opacity: 1; } .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
+@media (prefers-reduced-motion: reduce) { .cx-step:not(.on) .cx-txt { opacity: 1; } .cx-auto .cx-step:not(.on) .cx-txt { opacity: .82; } }
+/* The week title dims the words of other steps to a 32% mix. It is large display text (3:1 needed);
+   a 52% mix gives about 3.4:1. The active word stays full ink. */
+@media (min-width: 901px) { .cx-ttl { color: color-mix(in srgb, var(--mk-text) 52%, var(--mk-canvas)); } }
 
 /* Form help text, privacy note and message titles (copy from E2). */
 .field-help { font-size: 13.5px; line-height: 1.45; color: var(--mk-text-3); }

@@ -24,7 +24,7 @@ The migration is transactional and safe to repeat. The export includes both form
 
 ## Request handling
 
-Validation and the public operation live in `packages/early-access`. PostgreSQL, the migration, retention, and export live in `packages/database`. The Next server action only supplies the form data and trusted Vercel IP address. Locally, requests use the shared unknown-IP limit; client forwarding headers cannot bypass it.
+Validation and the public operation live in `packages/domain/src/early-access/`. PostgreSQL, the migration, retention, and export live in `packages/db/`. The Next server action only supplies the form data and trusted Vercel IP address. Locally, requests use the shared unknown-IP limit; client forwarding headers cannot bypass it.
 
 Email is trimmed and lowercased. Valid attempts, including duplicates, count toward rolling limits of five per email in 24 hours and twenty per IP in one hour. Rate limits take precedence over duplicate receipts. A delivered request suppresses another request with the same email and form for 24 hours. A filled honeypot returns received before validation and stores or sends nothing.
 

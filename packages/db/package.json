@@ -1,5 +1,5 @@
 {
-  "name": "@everyfield/database",
+  "name": "@everyfield/db",
   "private": true,
   "type": "module",
   "exports": {

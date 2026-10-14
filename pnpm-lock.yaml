@@ -10,12 +10,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@everyfield/database':
+      '@everyfield/db':
         specifier: workspace:*
-        version: link:../../packages/database
-      '@everyfield/early-access':
+        version: link:../../packages/db
+      '@everyfield/domain':
         specifier: workspace:*
-        version: link:../../packages/early-access
+        version: link:../../packages/domain
       next:
         specifier: 16.4.0
         version: 16.4.0(@babel/core@7.29.7)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -51,7 +51,7 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
-  packages/database:
+  packages/db:
     dependencies:
       pg:
         specifier: ^8.16.3
@@ -76,11 +76,11 @@ importers:
         specifier: ^8.57.0
         version: 8.71.2(eslint@9.39.5)(typescript@6.0.3)
 
-  packages/early-access:
+  packages/domain:
     dependencies:
-      '@everyfield/database':
+      '@everyfield/db':
         specifier: workspace:*
-        version: link:../database
+        version: link:../db
       zod:
         specifier: 4.6.7
         version: 4.6.7

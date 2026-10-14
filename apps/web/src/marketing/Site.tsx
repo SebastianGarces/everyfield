@@ -16,7 +16,8 @@ export function Site({ path, html, children }: Props) {
       <a className="skip-link" href="#view">Skip to content</a>
       <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO_SYMBOLS }} />
       <header className="site-nav" id="site-nav" dangerouslySetInnerHTML={{ __html: nav }} />
-      <div className="nav-pill" id="nav-pill" inert aria-hidden="true" dangerouslySetInnerHTML={{ __html: nav }} />
+      {/* The floating copy of the nav. Only one of the two headers is exposed at a time (navPill in engines.ts). */}
+      <header className="nav-pill" id="nav-pill" inert aria-hidden="true" dangerouslySetInnerHTML={{ __html: nav }} />
       {html !== undefined ? <main id="view" tabIndex={-1} dangerouslySetInnerHTML={{ __html: html }} /> : <main id="view" tabIndex={-1}>{children}</main>}
       <footer className="site-footer" id="site-footer" dangerouslySetInnerHTML={{ __html: footerHTML() }} />
       <Motion />

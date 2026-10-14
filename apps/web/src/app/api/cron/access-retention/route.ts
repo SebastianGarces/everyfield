@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { expireAccessRequests } from "@everyfield/database";
+import { expireAccessRequests } from "@everyfield/db";
 
 export const runtime = "nodejs";
 

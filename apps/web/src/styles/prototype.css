@@ -280,7 +280,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--mk-canvas); color: var(--mk-text);
   font-family: var(--mk-font-body); font-size: var(--mk-fs-body); line-height: var(--mk-lh-body);
-  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; padding-bottom: 88px;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
   transition: background-color .3s;
 }
 img, svg { display: block; }

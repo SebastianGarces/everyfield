@@ -6,7 +6,7 @@ const config: NextConfig = {
   turbopack: { root: path.join(import.meta.dirname, "../..") },
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   poweredByHeader: false,
-  transpilePackages: ["@everyfield/early-access", "@everyfield/database"],
+  transpilePackages: ["@everyfield/domain", "@everyfield/db"],
 };
 
 export default config;

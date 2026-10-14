@@ -1,1 +1,1 @@
-export * from "@everyfield/early-access/contract";
+export * from "@everyfield/domain/early-access/contract";

@@ -1,6 +1,6 @@
 import { isIP } from "node:net";
 import { z } from "zod";
-import { database, recordAccessMail, reserveAccessRequest } from "@everyfield/database";
+import { database, recordAccessMail, reserveAccessRequest } from "@everyfield/db";
 import { HONEYPOT, isAccessKind, validateAccessRequest, type AccessRequest, type AccessRequestResult } from "./contract";
 
 const mailSchema = z.object({ from: z.string().min(1), to: z.array(z.email()).length(1), reply_to: z.email(), subject: z.string().min(1), text: z.string().min(1) });

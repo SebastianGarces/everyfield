@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { receiveAccessRequest } from "@everyfield/early-access";
+import { receiveAccessRequest } from "@everyfield/domain/early-access";
 import type { AccessRequestFields, AccessRequestKind, AccessRequestResult } from "./contract";
 
 export async function submitAccessRequest(kind: AccessRequestKind, fields: AccessRequestFields): Promise<AccessRequestResult> {

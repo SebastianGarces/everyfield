@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import pg from "pg";
-import { database, expireAccessRequests, exportAccessRequests } from "@everyfield/database";
-import { receiveAccessRequest } from "../src/index.js";
+import { database, expireAccessRequests, exportAccessRequests } from "@everyfield/db";
+import { receiveAccessRequest } from "../src/early-access/index.js";
 import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.js";
 
 if (process.env.EARLY_ACCESS_TEST_DATABASE !== "1") throw new Error("Use a disposable Neon branch and set EARLY_ACCESS_TEST_DATABASE=1");

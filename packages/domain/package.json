@@ -1,10 +1,10 @@
 {
-  "name": "@everyfield/early-access",
+  "name": "@everyfield/domain",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./contract": "./src/contract.ts"
+    "./early-access": "./src/early-access/index.ts",
+    "./early-access/contract": "./src/early-access/contract.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -12,7 +12,7 @@
     "test": "tsx --test --test-concurrency=1 test/*.test.ts"
   },
   "dependencies": {
-    "@everyfield/database": "workspace:*",
+    "@everyfield/db": "workspace:*",
     "zod": "4.6.7"
   },
   "devDependencies": {
