@@ -194,7 +194,8 @@ type Inst = { el: HTMLElement; kind: PanelKind; q: Record<string, HTMLElement | 
 type Chapter = {
   root: HTMLElement; id: string; vis: HTMLElement; head: HTMLElement; steps: HTMLElement[]; bgs: HTMLElement[]; insts: Inst[]; mobs: Inst[];
   active: number; prev: number; since: number; on: boolean; seen: boolean; target: number; at: number; tm: ReturnType<typeof setTimeout> | 0;
-  stack: boolean; lock: number[]; lead: number; listH: number; fits: boolean; auto: boolean; prog: number; kbd: boolean; dur: number;
+  /* desk: the panel column shows (wide layout, or any auto list). Read once per measure, never per frame. */
+  desk: boolean; stack: boolean; lock: number[]; lead: number; listH: number; fits: boolean; auto: boolean; prog: number; kbd: boolean; dur: number;
   bars: HTMLElement[]; words: HTMLElement[]; tabs: HTMLElement[];
 };
 const cxRst = (t: number, a: number) => 1 - sine(P(t, a, 450));
@@ -434,7 +435,6 @@ function cxInst(el: HTMLElement): Inst {
   if (!isPanelKind(kind)) throw new Error("unknown panel " + kind);
   return { el, kind, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: all(el, "[data-st]") };
 }
-const cxDesk = (ch: Chapter) => !!ch.vis.offsetParent;
 const cxStill = (I: Inst) => SCENES[I.kind].still;
 /* Panel crossfade, with the hero's curves: old card out 250 ms sine (6 px up), new card in after 150 ms, 380 ms ease-out (8 px lift). */
 function cxRender(ch: Chapter) {
@@ -486,7 +486,7 @@ function cxGo(ch: Chapter) {
 function cxScroll(jump?: boolean) {
   CX.ticking = false;
   CX.list.forEach((ch) => {
-    if (ch.auto || !cxDesk(ch)) return;
+    if (ch.auto || !ch.desk) return;
     const hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * 0.6;
     let k = 0;
     if (ch.stack) ch.steps.forEach((s, i) => { if (i && s.getBoundingClientRect().top < ch.lock[i]! + ch.lead) k = i; });
@@ -509,7 +509,7 @@ function cxFrame(now: number) {
   CX.last = now;
   CX.list.forEach((ch) => {
     if (!ch.root.isConnected) return;
-    if (ch.on && cxDesk(ch)) {
+    if (ch.on && ch.desk) {
       any = true;
       if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= ch.dur) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       const I = ch.insts[ch.active]!, S = SCENES[I.kind];
@@ -518,7 +518,7 @@ function cxFrame(now: number) {
       cxRender(ch); if (ch.auto) cxBars(ch);
     }
     ch.mobs.forEach((M) => {
-      if (!M.on || cxDesk(ch)) return;
+      if (!M.on || ch.desk) return;
       any = true;
       const S = SCENES[M.kind];
       M.since += dt; M.t = S.once ? Math.min(M.t + dt, S.end ?? S.L) : (M.t + dt) % S.L;
@@ -560,11 +560,12 @@ function cxStack(ch: Chapter, on: boolean) {
 }
 /* The heading and the panel unpin together, with the last step under the heading: no long empty gap. */
 function cxMeasureAll() {
+  CX.list.forEach((ch) => { ch.desk = !!ch.vis.offsetParent; });
   CX.list.forEach((ch) => {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
     if (ch.auto) return;
     const ol = ch.steps[0]!.parentElement!, right = ch.vis.closest<HTMLElement>(".cx-right")!, grid = ch.vis.closest<HTMLElement>(".cx-grid")!;
-    const desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
+    const desk = ch.desk, x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
     cxStack(ch, desk && !REDUCED.matches);
     ol.style.marginBottom = !desk ? "" : ch.stack ? -ch.listH + "px" : -ch.steps[ch.steps.length - 1]!.offsetHeight + "px";
@@ -624,7 +625,7 @@ function cxInit(signal: AbortSignal) {
     return {
       root, id: root.id, vis, head: one(root, ".cx-head")!, steps: all(root, ".cx-step"), bgs: all(vis, ".cx-bg"),
       insts: all(vis, ".cx-card").map(cxInst), mobs: all(root, ".cx-mob .cx-card").map(cxInst),
-      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, stack: false, lock: [], lead: 0, listH: 0, fits: true,
+      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, desk: false, stack: false, lock: [], lead: 0, listH: 0, fits: true,
       auto: root.classList.contains("cx-auto"), prog: 0, kbd: false, dur: 0,
       bars: all(root, ".cx-bar i"), words: all(root, ".cx-ttl .cx-w"), tabs: all(root, ".cx-tab"),
     };
