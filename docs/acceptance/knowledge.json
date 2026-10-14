@@ -3638,7 +3638,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Samecanonical published global/entitled org fork,unrelated same title,draft,split reader completion.",
+      "description": "Same canonical published global/entitled org fork, unrelated same title, draft, split reader completion.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3736,7 +3736,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Completedpriorread with hidden/departed current body and still-entitled alternate source.",
+      "description": "Completed prior read with hidden/departed current body and still-entitled alternate source.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3948,7 +3948,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Owner reads articles 1\u20133 and other eligible reader 4\u20136; each 0.9; one article at exactly 0.80.",
+      "description": "Owner reads articles 1–3 and other eligible reader 4–6; each 0.9; one article at exactly 0.80.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6838,7 +6838,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Stored S1 hide, S2 edit, N1 edit,global; source browse S2; later S1 ends and rejoining recognition unranked.",
+      "description": "Stored S1 hide, S2 edit, N1 edit, global; source browse S2; later S1 ends and rejoining recognition unranked.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6960,7 +6960,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Completedreader old revision then meaningful published new revision,authorized current view.",
+      "description": "Completedreader old revision then meaningful published new revision, authorized current view.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7236,7 +7236,7 @@
         "WP-019"
       ],
       "status": "future-not-run",
-      "description": "CompletedDiscoverysix and training records, meaningful article update with no new evidence.",
+      "description": "Completed Discovery six and training records, meaningful article update with no new evidence.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7524,7 +7524,7 @@
         "WP-034"
       ],
       "status": "future-not-run",
-      "description": "Plant-specific guide/corevalues nativeChurchDocument and extant plant local Wiki read; plantWiki edit attempted.",
+      "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plantWiki edit attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",

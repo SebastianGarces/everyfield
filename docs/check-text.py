@@ -17,9 +17,16 @@ SPLIT_WORDS = {
     'spread sheet': 'spreadsheet', 'con tactuses': 'contact uses',
     'DTO s': 'DTOs', 'URL s': 'URLs', 'allow listed': 'allowlisted',
     'allow list': 'allowlist',
+    'get sit sown': 'gets its own', 'use searlier': 'uses earlier',
+    'guest sus ing': 'guests using', 'ref swith': 'refs with',
+    'A/Bus ers': 'A/B users',
 }
 # Observed corruptions, deliberately not a spellchecker or a compound-word ban.
 JOINED_WORDS = {
+    "meeting'searlier": "meeting's earlier",
+    'Twoorgs': 'Two orgs', 'Qjoins': 'Q joins',
+    'Samecanonical': 'Same canonical', 'Completedpriorread': 'Completed prior read',
+    'strictly>0.80': 'strictly > 0.80',
     'rubricv': 'rubric v', 'notan': 'not an', 'nothheld': 'not held', 'remainnot_started': 'remain not_started',
     'physicalday': 'physical day', 'elapsedhours': 'elapsed hours',
     'elapsedhour': 'elapsed hour', 'pertenantpage': 'per tenant page',
@@ -334,17 +341,21 @@ BAD = re.compile(r'(?<![\w])(?:' + '|'.join(re.escape(x).replace(r'\ ', r'[ \t]+
                  sorted(SPLIT_WORDS | JOINED_WORDS, key=len, reverse=True)) + r')(?![\w])')
 TOKEN = re.compile(r'\b[A-Za-z0-9]+\b')
 NUMBER_JOIN = re.compile(r'[a-z]\d|\d[a-z]{3,}')
-# Units may touch the number, but must be separated from following prose.
-UNIT_WORD = re.compile(r'\b(?:\d+(?:MiB|[hk])[a-z]{3,}|\d+[ \t]+(?:k(?:input|output)|hcontact))\b')
-MONTH_JOIN = re.compile(
-    r'\b[a-z]+(?:January|February|March|April|May|June|July|August|September|October|November|December)\b')
+# Pattern checks apply to unseen prose too. Compact quantities are accepted only
+# when the entire token is a valid standard unit, so 24h passes but 24hcontact fails.
+CAPITAL_JOIN = re.compile(r'\b[A-Za-z][A-Za-z0-9]*[a-z][A-Z][A-Za-z0-9]*\b')
+QUANTITY = re.compile(r'\b\d+(?:[A-Za-z]+\d*)+[A-Za-z]*\b')
+COMPACT_UNIT = re.compile(r'\d+(?:ms|sec|min|h|d|m|s|k|K|MB|MiB|GB|GiB|KB|KiB|B|px|am|pm|Cs|xx)(?:\d+(?:h|m|s))*')
+PUNCTUATION_JOIN = re.compile(r'[,;](?=[A-Za-z0-9])')
+SPLIT_TIMESTAMP = re.compile(r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December) \d+ T \d{2}:\d{2}\b')
 SPLIT_LABEL = re.compile(r'\b[SN][ \t]+\d+(?=[ \t]+(?:hide|edit|ends)\b)')
 DECIMAL = re.compile(r'\b\d+\. +\d+\b')
 # Mask complete technical units, never individual word fragments within prose.
 TECHNICAL = re.compile(
     r'`[^`\n]*`|https?://[^\s<>]+|\]\([^)]*\)|'
+    r'\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|'
     r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|'
-    r'\b\d{4}-\d\d-\d\d(?:T[\d:.]+Z)?\b|'
+    r'\b\d{4}-\d\d-\d\d(?:T[\d:.]+(?:Z|[+-]\d\d:\d\d)?)?\b|'
     r'\b[0-9a-f]{7,64}\b|'
     r'\b(?!remainnot_started\b)\w+_\w+(?:[._]\w+)*\b|'
     r'\b[A-Za-z]+(?:\.[A-Za-z_]\w*)+\b|'
@@ -352,23 +363,29 @@ TECHNICAL = re.compile(
 
 
 def prose(text):
-    return TECHNICAL.sub(lambda m: ' ' * len(m.group()), text)
+    cleaned = TECHNICAL.sub(lambda m: ' ' * len(m.group()), text)
+    return QUANTITY.sub(lambda m: ' ' * len(m.group()) if COMPACT_UNIT.fullmatch(m.group()) else m.group(), cleaned)
 
 
 def problems(text, allowed):
     cleaned = prose(text)
     for match in BAD.finditer(cleaned):
         yield match.start(), match.group(), 'damaged word spacing'
-    for pattern, reason in ((UNIT_WORD, 'unit joined to word'),
-                            (MONTH_JOIN, 'word joined to month'),
+    for pattern, reason in ((CAPITAL_JOIN, 'word joined to capitalized word'),
+                            (PUNCTUATION_JOIN, 'missing space after punctuation'),
+                            (SPLIT_TIMESTAMP, 'split timestamp'),
                             (SPLIT_LABEL, 'split fixture label')):
         for match in pattern.finditer(cleaned):
-            yield match.start(), match.group(), reason
+            if match.group() not in allowed:
+                yield match.start(), match.group(), reason
+    for match in QUANTITY.finditer(cleaned):
+        if match.group() not in allowed and not COMPACT_UNIT.fullmatch(match.group()):
+            yield match.start(), match.group(), 'digit joined to word or damaged unit'
     for match in DECIMAL.finditer(cleaned):
         yield match.start(), match.group(), 'split decimal'
     for match in TOKEN.finditer(cleaned):
         token = match.group()
-        if token not in allowed and NUMBER_JOIN.search(token):
+        if token not in allowed and not COMPACT_UNIT.fullmatch(token) and NUMBER_JOIN.search(token):
             yield match.start(), token, 'joined word/number'
 
 
@@ -381,6 +398,10 @@ def strings(value, pointer='', key=''):
             yield from strings(item, f'{pointer}/{i}', key)
     elif isinstance(value, dict):
         for name, item in value.items():
+            # Raw SQL and literal case inputs/results are code/data, not prose.
+            # Descriptions, requirements and schema invariants remain checked.
+            if name in {'checks', 'expression', 'where', 'default_sql', 'given', 'actor', 'clock', 'action', 'expected', 'fixture', 'fixtures'}:
+                continue
             escaped = name.replace('~', '~0').replace('/', '~1')
             yield from strings(item, f'{pointer}/{escaped}', name)
 
@@ -390,7 +411,7 @@ def current_files(root):
     originals = {item['path'] for item in manifest['files']}
     return sorted(p for p in [root / 'README.md', *(root / 'docs').rglob('*')]
                   if p.suffix in {'.md', '.json'} and p.relative_to(root).as_posix()
-                  not in originals | {'docs/text-allowlist.json'})
+                  not in originals | {'docs/text-allowlist.json', 'docs/catalog/rule-placement.json'})
 
 
 def check(root):

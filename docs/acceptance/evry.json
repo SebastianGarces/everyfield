@@ -1028,7 +1028,7 @@
         "output-inspection",
         "operator-evidence"
       ],
-      "description": "CurrentEvry launcher/context/review contract and configured numeric budget/review expiry; attempted unsupported 30 day telemetry retention claim.",
+      "description": "Current Evry launcher/context/review contract and configured numeric budget/review expiry; attempted unsupported 30 day telemetry retention claim.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1501,7 +1501,7 @@
         "WP-054"
       ],
       "status": "future-not-run",
-      "description": "25 recent user/assistant messages, >32k token context;64 reference candidates,33 more; completed receipt; source sharing revoked",
+      "description": "25 recent user/assistant messages, >32k token context; 64 reference candidates, 33 more; completed receipt; source sharing revoked",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1973,7 +1973,7 @@
     },
     {
       "id": "EVRY-FAMILY-COMMUNICATION",
-      "requirement": "Exact frozen audience/bytes/exclusions and template fork preserved; preview sends/saves zero. Own current grants/consent/suppression rechecked at handoff. Only proven eligible failed recipients retry under original stable key<=23h; unknown/bounce/changed email not blindly resent. Provider acceptance/delivery/opens/contact remain distinct.29 day schedule hands off,31 day refused; unknown cancellation prevents replacement. Own suppression restoration creates no third-party privilege.",
+      "requirement": "Exact frozen audience/bytes/exclusions and template fork preserved; preview sends/saves zero. Own current grants/consent/suppression rechecked at handoff. Only proven eligible failed recipients retry under original stable key<=23h; unknown/bounce/changed email not blindly resent. Provider acceptance/delivery/opens/contact remain distinct.29 day schedule hands off, 31 day refused; unknown cancellation prevents replacement. Own suppression restoration creates no third-party privilege.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -4907,7 +4907,7 @@
     },
     {
       "id": "EVRY-FAMILY-NOTIFICATIONS",
-      "requirement": "Read never marks. SelectedN1..N3 change once and N4 remains unread; foreign/stale selected precise refusal. Explicit choices preserved, existing category/channel mapping only; one dated consolidated catch-up and current-consent org digest. No rules engine/new alert family/private-care nudge. Disable-only token does not restore general session; unknown delivery reconciled before same-key retry; lease fence no duplicate notification/email.",
+      "requirement": "Read never marks. Selected N1..N3 change once and N4 remains unread; foreign/stale selected precise refusal. Explicit choices preserved, existing category/channel mapping only; one dated consolidated catch-up and current-consent org digest. No rules engine/new alert family/private-care nudge. Disable-only token does not restore general session; unknown delivery reconciled before same-key retry; lease fence no duplicate notification/email.",
       "feature_ids": [
         "EVR-020"
       ],
@@ -5361,7 +5361,7 @@
         "oversight.readLaunchReadiness"
       ],
       "status": "future-not-run",
-      "description": "Org A directly recognizes plants P/Q/R; P/Q share health and different per-category permissions, R healthOff. Org B and parent network have separate links. Region is versioned, one ambiguous city unresolved; one authorized ordinary directory lead-name artifact is in older conversation. A Member can read and give own feedback, Admin can request refresh/profile location correction.",
+      "description": "Org A directly recognizes plants P/Q/R; P/Q share health and different per-category permissions, R health OFF. Org B and parent network have separate links. Region is versioned, one ambiguous city unresolved; one authorized ordinary directory lead-name artifact is in older conversation. A Member can read and give own feedback, Admin can request refresh/profile location correction.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7748,7 +7748,7 @@
         "evry.reviseProposal"
       ],
       "status": "future-not-run",
-      "description": "Saved review R has exact meeting/create-guests/send steps, two frozen eligible recipients, revision 1 and expiryT0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. Lease generation G is superseded by G+1.",
+      "description": "Saved review R has exact meeting/create-guests/send steps, two frozen eligible recipients, revision 1 and expiry T0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. Lease generation G is superseded by G+1.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9973,7 +9973,7 @@
         "WP-074"
       ],
       "status": "future-not-run",
-      "description": "Org-A and org-B both direct affiliates; A healthOn/locationOff, B locationOn; network parent seat has no direct grant; older allowed directory message contains lead Person display name; retained A citation later revoked",
+      "description": "Org-A and org-B both direct affiliates; A health ON/location OFF, B location ON; network parent seat has no direct grant; older allowed directory message contains lead Person display name; retained A citation later revoked",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -19131,7 +19131,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Exact network Member; one direct approved plant health categoryOn; no individual interviews consent/projection",
+      "description": "Exact network Member; one direct approved plant health category ON; no individual interviews consent/projection",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -22209,7 +22209,7 @@
       "operation_ids": [
         "notifications.feed"
       ],
-      "description": "Projected feed owns IDsN1,N2,N3,N4; those three=N1..N3; N4 unselected unread",
+      "description": "Projected feed owns IDs N1, N2, N3, N4; those three=N1..N3; N4 unselected unread",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -28198,7 +28198,7 @@
         "WP-054"
       ],
       "status": "future-not-run",
-      "description": "Review rev1 subjectOld approved; shared native form changes subjectNew",
+      "description": "Review rev1 subject Old approved; shared native form changes subject New",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -28428,7 +28428,7 @@
         "WP-053"
       ],
       "status": "future-not-run",
-      "description": "Unapproved,canceled,expired,revoked,foreign-context and stale-resource proposals",
+      "description": "Unapproved, canceled, expired, revoked, foreign-context and stale-resource proposals",
       "given": {
         "P": {
           "fixture_type": "plant",

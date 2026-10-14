@@ -28,8 +28,44 @@
       ],
       "behavior_rules": [
         {
+          "feature": "PPL-001",
+          "rule": "Supported stages values: prospect, attendee, following_up, interviewed, core_group, launch_team, leader."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported current commitment values: active, withdrawn, unknown, any."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported operator values: all, any, none."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported record type values: currently_authorized_assessment, currently_authorized_interview, currently_authorized_commitment, ordinary_note, follow_up."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported operator values: exists, not_exists."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported operator values: eq, gte, lte."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported contact availability values: email, phone, either, neither, any."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Supported archived values: exclude, include, only."
+        },
+        {
+          "feature": "PPL-001",
+          "rule": "Before DB query/count/group, reject hidden assessment/interview/full-signature/document/witness existence/date/rating filters and sorts. Visible stage/current Person-level commitment lifecycle remains allowed summary. Never silently drop forbidden predicates."
+        },
+        {
           "operation": "people.getPerson",
-          "rule": "Visible information for plant_member: items, returned, completeness, nextCursor, evidence, exclusions."
+          "rule": "Visible information for plant_member: items, returned, completeness, next cursor, evidence, exclusions."
         },
         {
           "operation": "people.getPerson",
@@ -71,7 +107,21 @@
         "WP-011",
         "WP-012"
       ],
-      "title": "Create, quick-add and edit person profiles"
+      "title": "Create, quick-add and edit person profiles",
+      "behavior_rules": [
+        {
+          "operation": "people.createPerson",
+          "rule": "adult|child|unknown (default unknown; never inferred)"
+        },
+        {
+          "operation": "people.updatePerson",
+          "rule": "reject (stage uses explicit status change; account link/creator/storage/private author/revision cannot be patched)"
+        },
+        {
+          "operation": "people.createPerson",
+          "rule": "real Person creation receipt, no account/commitment/consent"
+        }
+      ]
     },
     {
       "id": "REQ-PPL-003",
@@ -129,6 +179,18 @@
       "behavior_rules": [
         {
           "operation": "people.ensureAccountPerson",
+          "rule": "Same invitation/seat transaction; unique live account/plant Person link and current eligibility check; ambiguous email requires explicit review, no actorless public linkage."
+        },
+        {
+          "operation": "people.getOwnAccountPerson",
+          "rule": "Return only the own-account Person link, never an arbitrary internal account link."
+        },
+        {
+          "operation": "people.getOwnAccountPerson",
+          "rule": "Resolve actual account link only under trusted current plant context; no client account/Person selector, no inferred Discovery or other-account link."
+        },
+        {
+          "operation": "people.ensureAccountPerson",
           "rule": "Already disclosed and selected owning native invitation/seat consequence; not separate model command"
         }
       ],
@@ -160,7 +222,21 @@
       "work_packages": [
         "WP-012"
       ],
-      "title": "Private person photo lifecycle"
+      "title": "Private person photo lifecycle",
+      "behavior_rules": [
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_owner: authorized content reference, mime type, exact bytes hash, expires at, native download path."
+        },
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_admin: authorized content reference, mime type, exact bytes hash, expires at, native download path."
+        },
+        {
+          "operation": "people.getPersonPhoto",
+          "rule": "Visible information for plant_member: authorized content reference, mime type, exact bytes hash, expires at, native download path."
+        }
+      ]
     },
     {
       "id": "REQ-PPL-006",
@@ -171,7 +247,8 @@
       "spec": "docs/product/people.md#req-ppl-006",
       "operations": [
         "people.changeStatus",
-        "tasks.planHandoff"
+        "tasks.planHandoff",
+        "people.getStatusWarnings"
       ],
       "acceptance_ids": [
         "AC-PPL-006--PPL-006"
@@ -191,10 +268,16 @@
       "behavior_rules": [
         {
           "operation": "people.getStatusWarnings",
-          "rule": "Visible information for plant_member: warnings, recordedEvidence, allowedStages, hardGate."
+          "rule": "Visible information for plant_member: warnings, recorded evidence, allowed stages, hard gate."
         }
       ],
-      "title": "Manual recruitment-stage movement, warnings, reasons and handoff"
+      "title": "Manual recruitment-stage movement, warnings, reasons and handoff",
+      "operation_refs": [
+        {
+          "operation_id": "people.getStatusWarnings",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-PPL-007",
@@ -225,7 +308,7 @@
       "behavior_rules": [
         {
           "operation": "people.getPipelineData",
-          "rule": "Visible information for plant_member: groups, personIds, ordinaryProfileFields, counts, inactivityWarnings, completeness."
+          "rule": "Visible information for plant_member: groups, person ids, ordinary profile fields, counts, inactivity warnings, completeness."
         }
       ],
       "title": "Recruitment pipeline grouping, ordering, inactivity and follow-up warnings"
@@ -259,11 +342,11 @@
       "behavior_rules": [
         {
           "operation": "people.getActivities",
-          "rule": "Visible information for plant_member: items(ordinaryNote,stageEvent,permittedOperationalActivity), recordCursor, completeness."
+          "rule": "Visible information for plant_member: items(ordinary note, stage event, permitted operational activity), record cursor, completeness."
         },
         {
           "operation": "people.getActivities",
-          "rule": "Supported recordTypes values: note, activity, interview, assessment, commitment, follow_up."
+          "rule": "Supported record types values: note, activity, interview, assessment, commitment, follow_up."
         },
         {
           "operation": "people.getActivities",
@@ -275,7 +358,7 @@
         },
         {
           "operation": "people.deleteNote",
-          "rule": "Current same-plant Owner/Admin AND note.personId matches request Person AND note.kind=authored_note AND note.originalAuthorAccountId==actual account; cannot edit another author/system event."
+          "rule": "Current same-plant Owner/Admin AND the note Person matches request Person AND note.kind=authored_note AND the note original author account==actual account; cannot edit another author/system event."
         },
         {
           "operation": "people.getActivities",
@@ -298,7 +381,8 @@
         "people.removeFromHousehold",
         "people.setHouseholdRole",
         "people.propagateAddress",
-        "people.deleteHousehold"
+        "people.deleteHousehold",
+        "people.getHousehold"
       ],
       "acceptance_ids": [
         "AC-PPL-009--PPL-009"
@@ -316,7 +400,7 @@
       "behavior_rules": [
         {
           "operation": "people.addToHousehold",
-          "rule": "Supported memberRole values: head, spouse, child, other."
+          "rule": "Supported member role values: head, spouse, child, other."
         },
         {
           "operation": "people.addToHousehold",
@@ -324,7 +408,7 @@
         },
         {
           "operation": "people.getHousehold",
-          "rule": "Visible information for plant_member: householdId, name, address, members, memberRoles, revision."
+          "rule": "Visible information for plant_member: household id, name, address, members, member roles, revision."
         },
         {
           "operation": "people.removeFromHousehold",
@@ -351,7 +435,13 @@
           "rule": "Removing a person from a household ends their current membership and preserves its history."
         }
       ],
-      "title": "Household lifecycle, member roles and deliberate address propagation"
+      "title": "Household lifecycle, member roles and deliberate address propagation",
+      "operation_refs": [
+        {
+          "operation_id": "people.getHousehold",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-PPL-010",
@@ -460,11 +550,11 @@
         },
         {
           "operation": "people.getAssessments",
-          "rule": "Current same-plant Owner/Admin exact Person record scope only; chronological latest by eventLocalDate then recordedAt then ID; Member/org/Discovery never receives full human qualification fields."
+          "rule": "Current same-plant Owner/Admin exact Person record scope only; chronological latest by event local date then recorded at then ID; Member/org/Discovery never receives full human qualification fields."
         },
         {
           "operation": "people.createAssessment",
-          "rule": "Assessment ID/computed total/revision inside CommandReceipt; stage unchanged"
+          "rule": "Assessment ID/computed total/revision inside durable operation receipt; stage unchanged"
         }
       ],
       "title": "SME 4 C’s assessment recording, latest result and history"
@@ -545,7 +635,21 @@
       "work_packages": [
         "WP-014"
       ],
-      "title": "Commitment recording, private document and Core Group entry"
+      "title": "Commitment recording, private document and Core Group entry",
+      "behavior_rules": [
+        {
+          "operation": "people.getCommitments",
+          "rule": "Visible information for plant_owner: items, latest, completeness, next cursor, evidence."
+        },
+        {
+          "operation": "people.getCommitments",
+          "rule": "Visible information for plant_admin: items, latest, completeness, next cursor, evidence."
+        },
+        {
+          "operation": "people.getCommitmentDownload",
+          "rule": "authorized private delivery reference; no raw storage key"
+        }
+      ]
     },
     {
       "id": "REQ-PPL-015",
@@ -575,7 +679,57 @@
       "work_packages": [
         "WP-015"
       ],
-      "title": "Correct assessment, interview and commitment records"
+      "title": "Correct assessment, interview and commitment records",
+      "behavior_rules": [
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Supported record type values: assessment, interview, commitment."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Supported result values: qualified, qualified_with_notes, not_qualified, follow_up?."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "reject original actor/time, witness/document replacement, full record deletion or universal undo"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/4Cs record deletion/retraction command is authorized."
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "correction receipt no stage replay"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "correction receipt with effective lifecycle/acquisition source revision"
+        },
+        {
+          "operation": "people.correctPersonRecord",
+          "rule": "human correction receipt no advanced-stage demotion"
+        },
+        {
+          "operation": "people.correctAdultClassification",
+          "rule": "Supported classification values: adult, child, unknown."
+        },
+        {
+          "operation": "people.correctAdultClassification",
+          "rule": "Correct old/new/classification occurrence lineage; do not invent acquisition at correction date or require DOB."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Supported state values: active, withdrawn, unknown?."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Correct valid ordered person lifecycle/acquisition, retain history, genuine withdrawal does not erase real acquisition; rejoin not new, stage unchanged."
+        },
+        {
+          "operation": "people.correctCommitmentLifecycle",
+          "rule": "Expected revision, reason, before/after history, derived facts reconciled; later event never demotes advanced stage; growth history preserves genuine first acquisition after withdrawal."
+        }
+      ]
     },
     {
       "id": "REQ-PPL-016",
@@ -601,7 +755,13 @@
       "work_packages": [
         "WP-015"
       ],
-      "title": "Duplicate hints and duplicate-pair review directory"
+      "title": "Duplicate hints and duplicate-pair review directory",
+      "behavior_rules": [
+        {
+          "operation": "people.checkForDuplicates",
+          "rule": "Visible information for plant_member: items, completeness."
+        }
+      ]
     },
     {
       "id": "REQ-PPL-017",
@@ -614,7 +774,8 @@
         "people.getMergeReview",
         "people.mergePeople",
         "people.previewUnmerge",
-        "people.unmergePeople"
+        "people.unmergePeople",
+        "people.mergedPersonDestination"
       ],
       "acceptance_ids": [
         "AC-PPL-017--PPL-017"
@@ -631,7 +792,31 @@
       "work_packages": [
         "WP-015"
       ],
-      "title": "Duplicate merge, reference transfer, receipt and survivor navigation"
+      "title": "Duplicate merge, reference transfer, receipt and survivor navigation",
+      "operation_refs": [
+        {
+          "operation_id": "people.mergedPersonDestination",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "feature": "PPL-017",
+          "rule": "Member hints expose only same-plant authorized ordinary identity summaries and normalized match reason; merge review and Unmerge preview and manifest/revisions/reference conflict choices remain Owner/Admin."
+        },
+        {
+          "operation": "people.mergePeople",
+          "rule": "Receipt manifests exact moved references and per-row revisions; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
+        },
+        {
+          "operation": "people.mergedPersonDestination",
+          "rule": "Visible information for plant_member: destination person id, merge receipt id, safe status."
+        },
+        {
+          "operation": "people.unmergePeople",
+          "rule": "No universal redo. Changed survivor/reference/account/photo/uniqueness manifest or downstream irreversible disclosure/chain merge -> conflict refusal and no mutation; separate typed correction may be reviewed."
+        }
+      ]
     },
     {
       "id": "REQ-PPL-018",
@@ -662,7 +847,7 @@
       "behavior_rules": [
         {
           "operation": "people.generateCsvTemplate",
-          "rule": "Visible information for plant_member: approvedColumnNames, utf8CsvBytes, mimeType, safeFilename."
+          "rule": "Visible information for plant_member: approved column names, UTF-8 CSV bytes, mime type, safe filename."
         }
       ],
       "title": "CSV template, preview, row validation, duplicate resolutions and partial import"
@@ -693,7 +878,7 @@
       "behavior_rules": [
         {
           "operation": "people.exportPeople",
-          "rule": "Visible information for plant_member: utf8CsvBytes, safeFilename, mimeType, matched, returned, completeness."
+          "rule": "Visible information for plant_member: UTF-8 CSV bytes, safe filename, mime type, matched, returned, completeness."
         }
       ],
       "title": "Filtered CSV export and file serialization"
@@ -724,7 +909,21 @@
         "WP-022",
         "WP-023"
       ],
-      "title": "Recorded events and cross-domain recruitment auto-advancement"
+      "title": "Recorded events and cross-domain recruitment auto-advancement",
+      "behavior_rules": [
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "Supported cause values: first_actual_vision_attendance, team_assignment, leader_appointment."
+        },
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "Recorded recruitment events can be applied only by the trusted internal producer, never by a model or client call."
+        },
+        {
+          "operation": "people.applyRecordedRecruitmentEvent",
+          "rule": "named resource + current claim/revision + caller domain tx; no model/client executor"
+        }
+      ]
     },
     {
       "id": "REQ-PPL-021",
@@ -754,7 +953,13 @@
         "WP-019",
         "WP-029"
       ],
-      "title": "Person teams, training and communication tabs"
+      "title": "Person teams, training and communication tabs",
+      "behavior_rules": [
+        {
+          "operation": "people.getPersonCommunications",
+          "rule": "Visible information for plant_member: items, person id, matched, returned, completeness, next cursor, evidence."
+        }
+      ]
     },
     {
       "id": "REQ-PPL-022",
@@ -862,84 +1067,6 @@
         "WP-053",
         "WP-056",
         "WP-057"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "followups.correctOutcome",
-          "rule": "Supported outcome values: contacted, attempted_no_contact, administrative_completion, no_longer_needed?."
-        },
-        {
-          "operation": "followups.correctOutcome",
-          "rule": "Effective contacted max recomputes after correction/void; prior evidence/history retained, old receipt/assessment interpretable, no resend or invented contact."
-        },
-        {
-          "operation": "followups.correctOutcome",
-          "rule": "Stable occurrence/obligation identity; existing recurrence successor not duplicated; only contacted updates contact freshness."
-        },
-        {
-          "operation": "followups.listContactHistory",
-          "rule": "Visible information for plant_member: items, effectiveLastConfirmedContactAt, nextCursor, completeness."
-        },
-        {
-          "operation": "followups.recordOutcome",
-          "rule": "Outcome recordedAt/original actor immutable; task completion independently chosen, only effective contacted updates freshness, waiver no success credit or regeneration; no email-delivered inference."
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "Supported recordType values: assessment, interview, commitment."
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "Supported result values: qualified, qualified_with_notes, not_qualified, follow_up?."
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "reject original actor/time, witness/document replacement, full record deletion or universal undo"
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/FourCs record deletion/retraction command is authorized."
-        },
-        {
-          "operation": "people.getPersonCommunications",
-          "rule": "Visible information for plant_member: items, personId, matched, returned, completeness, nextCursor, evidence."
-        },
-        {
-          "operation": "followups.listContactHistory",
-          "rule": "TypedContactHistoryPage and effective confirmed contact freshness"
-        },
-        {
-          "operation": "followups.listContactHistory",
-          "rule": "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation."
-        },
-        {
-          "operation": "followups.correctOutcome",
-          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records."
-        },
-        {
-          "operation": "followups.correctOutcome",
-          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
-        },
-        {
-          "operation": "followups.recordOutcome",
-          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference."
-        },
-        {
-          "operation": "followups.recordOutcome",
-          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "correction receipt no stage replay"
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "correction receipt with effective lifecycle/acquisition source revision"
-        },
-        {
-          "operation": "people.correctPersonRecord",
-          "rule": "human correction receipt no advanced-stage demotion"
-        }
       ]
     },
     {
@@ -1044,36 +1171,8 @@
       ],
       "behavior_rules": [
         {
-          "operation": "people.applyRecordedRecruitmentEvent",
-          "rule": "Supported cause values: first_actual_vision_attendance, team_assignment, leader_appointment."
-        },
-        {
-          "operation": "people.correctAdultClassification",
-          "rule": "Supported classification values: adult, child, unknown."
-        },
-        {
-          "operation": "people.correctAdultClassification",
-          "rule": "Correct old/new/classification occurrence lineage; do not invent acquisition at correction date or require DOB."
-        },
-        {
-          "operation": "people.correctCommitmentLifecycle",
-          "rule": "Supported state values: active, withdrawn, unknown?."
-        },
-        {
-          "operation": "people.correctCommitmentLifecycle",
-          "rule": "Correct valid ordered person lifecycle/acquisition, retain history, genuine withdrawal does not erase real acquisition; rejoin not new, stage unchanged."
-        },
-        {
-          "operation": "people.correctCommitmentLifecycle",
-          "rule": "Expected revision, reason, before/after history, derived facts reconciled; later event never demotes advanced stage; growth history preserves genuine first acquisition after withdrawal."
-        },
-        {
-          "operation": "people.applyRecordedRecruitmentEvent",
-          "rule": "Recorded recruitment events can be applied only by the trusted internal producer, never by a model or client call."
-        },
-        {
-          "operation": "people.applyRecordedRecruitmentEvent",
-          "rule": "named resource + current claim/revision + caller domain tx; no model/client executor"
+          "feature": "PPL-001",
+          "rule": "Supported adult classification values: adult, child, unknown."
         }
       ]
     }

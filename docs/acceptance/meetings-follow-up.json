@@ -22,7 +22,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Chicago meeting March 10 T 09:00 ; 7/3/1 civil-day offsets cross DST; timezone edit preserves its fixed Instant.",
+      "description": "Chicago meeting March 10 at 09:00; 7/3/1 civil-day offsets cross DST; timezone edit preserves its fixed Instant.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5272,7 +5272,7 @@
         "WP-021"
       ],
       "status": "future-not-run",
-      "description": "P has 2 team roles, later Qjoins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up.",
+      "description": "P has 2 team roles, later Q joins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up.",
       "given": {
         "P": {
           "fixture_type": "plant",

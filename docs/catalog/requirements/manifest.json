@@ -52,7 +52,13 @@
         "WP-033",
         "WP-034"
       ],
-      "title": "Approved global Wiki article/section bootstrap"
+      "title": "Approved global Wiki article/section bootstrap",
+      "behavior_rules": [
+        {
+          "operation": "reference.installApprovedWiki",
+          "rule": "Guarded fresh/global-only transaction; 96 published articles/21 sections exact IDs/hash/ancestry. Same digest no-op; unexpected digest stops all changes. No customer/progress/private/old-vector import."
+        }
+      ]
     },
     {
       "id": "REQ-REF-003",
@@ -162,7 +168,13 @@
       "work_packages": [
         "WP-032"
       ],
-      "title": "Seven system communication templates"
+      "title": "Seven system communication templates",
+      "behavior_rules": [
+        {
+          "operation": "reference.installMessageTemplates",
+          "rule": "Install seven approved global originals by stable identity; never overwrite tenant fork or create recipients/sends. No customer migration."
+        }
+      ]
     },
     {
       "id": "REQ-REF-007",
@@ -223,12 +235,24 @@
       ],
       "behavior_rules": [
         {
+          "operation": "reference.activateGeneration",
+          "rule": "Global advisory lock+expected-current CAS, append activation of complete validated generation. Current=max committed activation_number; no mutable is active. Increment activation number before commit; after-commit wake-up only. Old assessment workers fail reference CAS; no giant all-plant transaction."
+        },
+        {
+          "operation": "reference.rollbackActivation",
+          "rule": "Append a new activation pointing to old validated immutable release; no historical rewrite. New activation number fences prior workers even if reference bytes repeat; current source/body entitlements still apply."
+        },
+        {
+          "operation": "reference.validateBundle",
+          "rule": "Pure report query; does not mark a release active or silently approve failed semantic/model gates. Exact full-generation, links, identity, hashes and configured fixture expectations required."
+        },
+        {
           "operation": "reference.auditLanguage",
           "rule": "Offline content-language audit only; no source edits, model call, DB fixture seed or automatic release activation."
         },
         {
           "operation": "reference.readRubricManifest",
-          "rule": "Supported rubricKind values: plant, network."
+          "rule": "Supported rubric kind values: plant, network."
         },
         {
           "operation": "reference.readRubricManifest",

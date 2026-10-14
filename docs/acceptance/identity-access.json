@@ -3732,7 +3732,7 @@
     },
     {
       "id": "AF-028",
-      "requirement": "DefaultON applies only approved active aggregate categories for that exact organization; no source-new/finance/facility/private fields.",
+      "requirement": "Default ON applies only approved active aggregate categories for that exact organization; no source-new/finance/facility/private fields.",
       "requirement_ids": [
         "REQ-IDN-022",
         "REQ-IDN-023"
@@ -10198,7 +10198,7 @@
     },
     {
       "id": "ROLE43-013",
-      "requirement": "Actual account-attributed six-article progress requires strictly>0.80 for each article. Owner 0/6 plus accepted Admin lead 6/6 satisfies the approved one-complete-eligible-reader proxy; disjoint 3/6 readers never union. CRM/title changes copy no credit; native creation never requires this checklist.",
+      "requirement": "Actual account-attributed six-article progress requires strictly > 0.80 for each article. Owner 0/6 plus accepted Admin lead 6/6 satisfies the approved one-complete-eligible-reader proxy; disjoint 3/6 readers never union. CRM/title changes copy no credit; native creation never requires this checklist.",
       "requirement_ids": [
         "REQ-IDN-029"
       ],
@@ -12506,7 +12506,7 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "description": "A/Bus ers and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save.",
+      "description": "A/B users and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13490,7 +13490,7 @@
         "WP-030"
       ],
       "status": "future-not-run",
-      "description": "Twoorgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. Closed seven-category mapping, independent activity toggle and shared_findings toggle; unknown category and duplicate NI consent attempt.",
+      "description": "Two orgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. Closed seven-category mapping, independent activity toggle and shared_findings toggle; unknown category and duplicate NI consent attempt.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13585,7 +13585,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "OrgA/Blinked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
+      "description": "Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
           "fixture_type": "plant",

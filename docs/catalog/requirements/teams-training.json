@@ -41,7 +41,7 @@
         },
         {
           "operation": "teams.get",
-          "rule": "Single current TeamDetails or unavailable; no page/scalar substitution"
+          "rule": "Single current authorized team details or unavailable; no page/scalar substitution"
         }
       ],
       "title": "Ministry teams and staffing"
@@ -104,20 +104,12 @@
       ],
       "behavior_rules": [
         {
-          "operation": "teams.importRoles",
-          "rule": "Previewed ministry/role selection only, team parent for every role exact. Preserve customizations/occupied leaders, canonical template identity immutable, fail entire import on stale destination/role conflict; read never initializes."
-        },
-        {
-          "operation": "teams.listImportTemplates",
-          "rule": "Visible information for plant_member: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved."
+          "operation": "teams.previewTemplateImport",
+          "rule": "Visible information for plant_owner: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
         },
         {
           "operation": "teams.previewTemplateImport",
-          "rule": "Visible information for plant_owner: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved."
-        },
-        {
-          "operation": "teams.previewTemplateImport",
-          "rule": "Visible information for plant_admin: templates, roles, responsibilities, exactCopiedEffects, existingTenantRecordsPreserved."
+          "rule": "Visible information for plant_admin: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
         }
       ],
       "title": "Initialize predefined teams and roles"
@@ -148,7 +140,7 @@
       "behavior_rules": [
         {
           "operation": "teams.leaderCandidates",
-          "rule": "Visible information for plant_member: items, personId, activeAssignments, recordedTraining, overloadWarning, completeness."
+          "rule": "Visible information for plant_member: items, person id, active assignments, recorded training, overload warning, completeness."
         },
         {
           "operation": "teams.appointLeader",
@@ -168,7 +160,8 @@
         "teams.createRole",
         "teams.editRole",
         "teams.retireRole",
-        "teams.listRoles"
+        "teams.listRoles",
+        "teams.listImportTemplates"
       ],
       "acceptance_ids": [
         "AC-TEAM-005--TEAM-005"
@@ -183,7 +176,31 @@
       "work_packages": [
         "WP-017"
       ],
-      "title": "Team roles and template import"
+      "title": "Team roles and template import",
+      "operation_refs": [
+        {
+          "operation_id": "teams.listImportTemplates",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.editRole",
+          "rule": "A role may have an explicit saved set of distinct ministry areas: worship, childrens, assimilation, small_groups, admin_finance, facilities, promotion and technology. An empty set clears the mapping. Never infer it from the role name; Prayer remains separate and is not a ninth area."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Changing a role's ministry areas requires the current mapping revision."
+        },
+        {
+          "operation": "teams.editRole",
+          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministry area keys. Original mapping revision/history retained."
+        },
+        {
+          "operation": "teams.listImportTemplates",
+          "rule": "Visible information for plant_member: templates, roles, responsibilities, exact copied effects, existing tenant records preserved."
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-006",
@@ -211,7 +228,13 @@
       "work_packages": [
         "WP-017"
       ],
-      "title": "Membership, role occupancy and tenure history"
+      "title": "Membership, role occupancy and tenure history",
+      "behavior_rules": [
+        {
+          "operation": "teams.reactivateMembership",
+          "rule": "Append new tenure episode with one active occupant; prior dates/history retained, no automatic People demotion or earned-training reset."
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-007",
@@ -226,7 +249,8 @@
         "teams.offerResponsibilities",
         "teams.editResponsibility",
         "teams.completeResponsibility",
-        "teams.deleteResponsibility"
+        "teams.deleteResponsibility",
+        "teams.addResponsibility"
       ],
       "acceptance_ids": [
         "AC-TEAM-007--TEAM-007"
@@ -240,7 +264,27 @@
       "work_packages": [
         "WP-018"
       ],
-      "title": "Team responsibilities"
+      "title": "Team responsibilities",
+      "operation_refs": [
+        {
+          "operation_id": "teams.addResponsibility",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.addResponsibility",
+          "rule": "Membership/role/training history retained; no implicit roster-based training applicability recompute."
+        },
+        {
+          "operation": "teams.offerResponsibilities",
+          "rule": "Explicit offer answer+only reviewed selected structured lines once; preview/read zero writes, changed/deleted/declined never resurrect."
+        },
+        {
+          "operation": "teams.previewResponsibilities",
+          "rule": "Visible information for plant_member: exact structured lines, current customizations, accepted or declined offer state, template version, preview digest, proposed created count."
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-008",
@@ -272,7 +316,37 @@
       "work_packages": [
         "WP-019"
       ],
-      "title": "Training programs, assignments and completion"
+      "title": "Training programs, assignments and completion",
+      "behavior_rules": [
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Human earned completion and attributable verifier/version/date history in one transaction; current program team leader may attest eligible own-team member, churchwide Owner/Admin only. Completion never creates applicability from a dynamic roster."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "A team-scoped training program requires the authorized team; a churchwide program has no team."
+        },
+        {
+          "operation": "teams.trainingMatrix",
+          "rule": "Visible information for plant_member: rows, applicable pair count, valid completed pair count, coverage status, source revision, next cursor, completeness."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant."
+        },
+        {
+          "operation": "teams.attestCompletion",
+          "rule": "Current same-plant Owner/Admin OR actual current linked leader of this exact parent team; each child belongs to parent and Person live same plant. Churchwide training Owner/Admin only; no generic People/meeting/admin grant. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening."
+        },
+        {
+          "operation": "teams.createProgram",
+          "rule": "Current same-plant Owner/Admin OR current linked own-team leader for team scope only; churchwide branch Owner/Admin only; explicit team parent validated, no null-team broadening. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-009",
@@ -300,7 +374,33 @@
       "work_packages": [
         "WP-019"
       ],
-      "title": "Correct, revoke and redo training"
+      "title": "Correct, revoke and redo training",
+      "behavior_rules": [
+        {
+          "operation": "teams.correctProgram",
+          "rule": "team id/kind changes rejected; never convert archived team program into churchwide"
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "The completion date is required when redoing training and omitted when revoking completion."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Revoke/redo appends earned/revoked/corrected history, no original date/verifier overwrite; current nonrevoked compatible projection changes."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled."
+        },
+        {
+          "operation": "teams.recompleteTraining",
+          "rule": "Current Owner/Admin OR current linked leader of the program exact team with current eligible active member/explicit assignment; churchwide Owner/Admin only; completion belongs to exact person/program/version, no program edit bundled. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+        },
+        {
+          "operation": "teams.correctProgram",
+          "rule": "program correction receipt, no silent roster recompute"
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-010",
@@ -330,7 +430,7 @@
       "behavior_rules": [
         {
           "operation": "teams.personTeamCounts",
-          "rule": "Visible information for plant_member: items, sourceRevision."
+          "rule": "Visible information for plant_member: items, source revision."
         }
       ],
       "title": "Person team assignments and training"
@@ -360,7 +460,13 @@
       "work_packages": [
         "WP-019"
       ],
-      "title": "Team and aggregate staffing health"
+      "title": "Team and aggregate staffing health",
+      "behavior_rules": [
+        {
+          "operation": "teams.aggregateHealth",
+          "rule": "Visible information for plant_member: measured team count, unknown team count, operational team count, measured scores, summary, source revision."
+        }
+      ]
     },
     {
       "id": "REQ-TEAM-012",
@@ -388,15 +494,15 @@
       "behavior_rules": [
         {
           "operation": "teams.exportOrgChart",
-          "rule": "Visible information for plant_owner: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness."
+          "rule": "Visible information for plant_owner: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
         },
         {
           "operation": "teams.exportOrgChart",
-          "rule": "Visible information for plant_admin: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness."
+          "rule": "Visible information for plant_admin: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
         },
         {
           "operation": "teams.exportOrgChart",
-          "rule": "Visible information for plant_member: chartNodes, chartEdges, noInventedHierarchy, artifactReference|null, completeness."
+          "rule": "Visible information for plant_member: chart nodes, chart edges, no invented hierarchy, artifact reference|null, completeness."
         },
         {
           "operation": "teams.exportOrgChart",
@@ -491,7 +597,7 @@
       "behavior_rules": [
         {
           "operation": "teams.assignmentEffects",
-          "rule": "InternalProtocolResult/material source revision in producer transaction"
+          "rule": "bounded internal processing result/material source revision in producer transaction"
         }
       ],
       "title": "Team assignment consequences"
@@ -534,6 +640,28 @@
         "WP-040",
         "WP-069",
         "WP-070"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_owner: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_admin: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.previewRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: deduplicated person ids, source revisions, excluded, digest."
+        },
+        {
+          "operation": "teams.readRequiredTrainingParticipants",
+          "rule": "Visible information for plant_member: person program pairs, effective date, assignment version, source references."
+        },
+        {
+          "operation": "teams.setRequiredTrainingParticipants",
+          "rule": "One versioned roster change, unique active person/program, historical assignment episodes/events retained, no later dynamic roster mutation."
+        }
       ]
     },
     {

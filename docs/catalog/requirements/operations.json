@@ -23,7 +23,29 @@
       "work_packages": [
         "WP-049"
       ],
-      "title": "Feedback dialog with private page and device details"
+      "title": "Feedback dialog with private page and device details",
+      "behavior_rules": [
+        {
+          "feature": "ADM-001",
+          "rule": "platform privilege requires separate explicit grant"
+        },
+        {
+          "operation": "feedback.getOwnStatus",
+          "rule": "Exact trusted-original-author feedback status, no nullable missing ID/page args or private originals/admin joins/contact/plant IDs/routing."
+        },
+        {
+          "operation": "feedback.listOwn",
+          "rule": "Native own bounded 25 status page; original author current active account, no raw original or other author existence."
+        },
+        {
+          "operation": "feedback.submit",
+          "rule": "The dialog stores category, description and private page/address/church/role/browser/screen/theme/version/time details with a trusted author. Canonicalize the internal address by stripping query, fragment and tokens. No screenshot or attachment is accepted. Stored success is distinct from public publication or implementation; diagnostics never enter the public issue."
+        },
+        {
+          "operation": "feedback.submit",
+          "rule": "Supported category values: bug, suggestion, question, other."
+        }
+      ]
     },
     {
       "id": "REQ-ADM-002",
@@ -47,7 +69,49 @@
       "work_packages": [
         "WP-049"
       ],
-      "title": "Platform-wide feedback triage and status transitions"
+      "title": "Platform-wide feedback triage and status transitions",
+      "behavior_rules": [
+        {
+          "operation": "feedback.admin.changeStatus",
+          "rule": "Revisioned exact triage status/no-op/correction with actor/time; external issue close does not mean implemented/resolved/deployed."
+        },
+        {
+          "operation": "feedback.admin.changeStatus",
+          "rule": "Supported to status values: new, reviewed, resolved, dismissed."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Visible information for explicit_platform_administrator: items, next cursor, private original, private opaque locator, triage status, publish status."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Authorized native private original triage"
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Visible information for explicit_platform_administrator: items, next cursor, safe public summary, category, triage status, publish status."
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Closed safe public summary/status only; opaque original resolution separately requires actual merged workflow native/private purpose"
+        },
+        {
+          "operation": "feedback.admin.list",
+          "rule": "Feedback category filters accept only bug, suggestion, question and other."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Pure trusted authorization guard evaluates actual fresh authenticated immutable-principal explicit platform grant; registered system job alone never becomes human platform admin. Does not mint grant/mutate/audit-success."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Actual active authenticated immutable principal with explicit current platform grant; no model-supplied principal or operator scope."
+        },
+        {
+          "operation": "platformAdmin.authorize",
+          "rule": "Stored explicit platform permission, owning exact-purpose operation predicate."
+        }
+      ]
     },
     {
       "id": "REQ-ADM-003",
@@ -72,7 +136,17 @@
       "work_packages": [
         "WP-049"
       ],
-      "title": "Automatic safe public feedback issues and private operator mail"
+      "title": "Automatic safe public feedback issues and private operator mail",
+      "behavior_rules": [
+        {
+          "operation": "feedback.notifyOperator",
+          "rule": "Configured actual authorized operator and safe frozen content only, same mail ledger; no raw private original/token/contact body in general notification, unknown mail remains truthful."
+        },
+        {
+          "operation": "feedback.triageIssue",
+          "rule": "Bound registered safe category-label initial triage or owner-provided merged workflow version; no caller arbitrary labels/status, competing complexity rubric or coding/merge/deploy authority. Actual receipts never claim implementation."
+        }
+      ]
     },
     {
       "id": "REQ-ADM-004",
@@ -123,11 +197,11 @@
       "behavior_rules": [
         {
           "operation": "dashboard.activity",
-          "rule": "Visible information for plant_member: namedCohortMetrics, datedActivity, safeAttribution, sourceReferences, completeness, nextCursor."
+          "rule": "Visible information for plant_member: named cohort metrics, dated activity, safe attribution, source references, completeness, next cursor."
         },
         {
           "operation": "dashboard.availableActions",
-          "rule": "Visible information for plant_member: accountKind, exactContext, safeDestination, setupGaps, currentlyAllowedActions."
+          "rule": "Visible information for plant_member: account kind, exact context, safe destination, setup gaps, currently allowed actions."
         }
       ],
       "title": "Plant metrics, activity feed, quick actions and operational prompts"
@@ -156,7 +230,7 @@
       "behavior_rules": [
         {
           "operation": "marketing.requestInvitation",
-          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20IPhour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
+          "rule": "Email-only approved public request, trusted native rate proof/server budget context; normalized-address 24h dedup/5 day/20 IP hour limits, honeypot fake success, no CRM/account/lead row or arbitrary spam-proof field."
         }
       ],
       "title": "Public product landing, interactive examples and invite-request form"
@@ -183,7 +257,13 @@
       "work_packages": [
         "WP-049"
       ],
-      "title": "Public privacy/terms, static sitemap and robots"
+      "title": "Public privacy/terms, static sitemap and robots",
+      "behavior_rules": [
+        {
+          "operation": "marketing.privacyPolicy",
+          "rule": "Anonymous static public content pure read; no sealed proof, approval, durable operation receipt or mutation audit."
+        }
+      ]
     },
     {
       "id": "REQ-ADM-008",
@@ -207,6 +287,20 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-049"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "feedback.createConfiguredIssue",
+          "rule": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback; 10 sec timeout."
+        },
+        {
+          "operation": "feedback.createConfiguredIssue",
+          "rule": "Supported state_contract values: pending, held, publishing, published, rejected, unknown."
+        },
+        {
+          "operation": "feedback.reconcileIssueLink",
+          "rule": "Actual exact frozen repo+opaque marker reconciliation records observed issue locator; caller cannot assert created/absent or override repo. Inaccessible/ambiguous search stays unknown; duplicate candidates held for review, no blind create."
+        }
       ]
     },
     {
@@ -235,84 +329,6 @@
         "WP-031",
         "WP-049",
         "WP-050"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "feedback.admin.changeStatus",
-          "rule": "Revisioned exact triage status/no-op/correction with actor/time; external issue close does not mean implemented/resolved/deployed."
-        },
-        {
-          "operation": "feedback.admin.changeStatus",
-          "rule": "Supported toStatus values: new, reviewed, resolved, dismissed."
-        },
-        {
-          "operation": "feedback.admin.list",
-          "rule": "Visible information for explicit_platform_administrator: items, nextCursor, privateOriginal, privateOpaqueLocator, triageStatus, publishStatus."
-        },
-        {
-          "operation": "feedback.admin.list",
-          "rule": "Authorized native private original triage"
-        },
-        {
-          "operation": "feedback.admin.list",
-          "rule": "Visible information for explicit_platform_administrator: items, nextCursor, safePublicSummary, category, triageStatus, publishStatus."
-        },
-        {
-          "operation": "feedback.admin.list",
-          "rule": "Closed safe public summary/status only; opaque original resolution separately requires actual merged workflow native/private purpose"
-        },
-        {
-          "operation": "feedback.admin.list",
-          "rule": "Feedback category filters accept only bug, suggestion, question and other."
-        },
-        {
-          "operation": "feedback.createConfiguredIssue",
-          "rule": "Server deterministic serializer uses category+allowlisted area+fixed text+opaque marker only and frozen actual PUBLIC repo ID/destination; no caller-submitted safe text/hash privacy proof. Normal safe auto create; unsafe/unknown holds without raw fallback;10 sec timeout."
-        },
-        {
-          "operation": "feedback.createConfiguredIssue",
-          "rule": "Supported state_contract values: pending, held, publishing, published, rejected, unknown."
-        },
-        {
-          "operation": "feedback.getOwnStatus",
-          "rule": "Exact trusted-original-author feedback status, no nullable missing ID/page args or private originals/admin joins/contact/plant IDs/routing."
-        },
-        {
-          "operation": "feedback.listOwn",
-          "rule": "Native own bounded 25 status page; original author current active account, no raw original or other author existence."
-        },
-        {
-          "operation": "feedback.notifyOperator",
-          "rule": "Configured actual authorized operator and safe frozen content only, same mail ledger; no raw private original/token/contact body in general notification, unknown mail remains truthful."
-        },
-        {
-          "operation": "feedback.reconcileIssueLink",
-          "rule": "Actual exact frozen repo+opaque marker reconciliation records observed issue locator; caller cannot assert created/absent or override repo. Inaccessible/ambiguous search stays unknown; duplicate candidates held for review, no blind create."
-        },
-        {
-          "operation": "feedback.submit",
-          "rule": "The dialog stores category, description and private page/address/church/role/browser/screen/theme/version/time details with a trusted author. Canonicalize the internal address by stripping query, fragment and tokens. No screenshot or attachment is accepted. Stored success is distinct from public publication or implementation; diagnostics never enter the public issue."
-        },
-        {
-          "operation": "feedback.submit",
-          "rule": "Supported category values: bug, suggestion, question, other."
-        },
-        {
-          "operation": "feedback.triageIssue",
-          "rule": "Bound registered safe category-label initial triage or owner-provided merged workflow version; no caller arbitrary labels/status, competing complexity rubric or coding/merge/deploy authority. Actual receipts never claim implementation."
-        },
-        {
-          "operation": "platformAdmin.authorize",
-          "rule": "Pure trusted authorization guard evaluates actual fresh authenticated immutable-principal explicit platform grant; registered system job alone never becomes human platform admin. Does not mint grant/mutate/audit-success."
-        },
-        {
-          "operation": "platformAdmin.authorize",
-          "rule": "Actual active authenticated immutable principal with explicit current platform grant; no model-supplied principal or operator scope."
-        },
-        {
-          "operation": "platformAdmin.authorize",
-          "rule": "Stored explicit platform permission, owning exact-purpose operation predicate."
-        }
       ]
     },
     {
@@ -567,7 +583,33 @@
         "WP-031",
         "WP-050"
       ],
-      "title": "External schedules and bounded HTTP job ticks"
+      "title": "External schedules and bounded HTTP job ticks",
+      "behavior_rules": [
+        {
+          "feature": "OPS-001",
+          "rule": "one modular monolith, not one service per operation; these are closed command/query/protocol variants"
+        },
+        {
+          "operation": "jobs.inspectLag",
+          "rule": "Read-only DB-clock observed content-free bounded lag by registered job family; no tenant/body/calendar private-care metadata."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Scoped actual existing registered job/manual recovery only; recheck current fence/expiry and domain retry rules, unknown external reconcile cannot become new-key resend or generic arbitrary executor."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Supported expected state values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded."
+        },
+        {
+          "operation": "jobs.manualRun",
+          "rule": "Persisted canonical job_state; pending→ready, completed→succeeded, blocked_unknown→reconcile are UI projections only."
+        },
+        {
+          "operation": "jobs.tickAssessments",
+          "rule": "Bounded same-app/Postgres tick with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD"
+        }
+      ]
     },
     {
       "id": "REQ-OPS-002",
@@ -637,7 +679,7 @@
         },
         {
           "operation": "ops.flushTelemetry",
-          "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business CommandReceipt/history requirement."
+          "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business durable operation receipt/history requirement."
         }
       ],
       "title": "Production Sentry errors and isolated optional Langfuse tracing"
@@ -667,7 +709,7 @@
       "behavior_rules": [
         {
           "operation": "domain.executeAtomicConsequences",
-          "rule": "Registered owning domain/consumer only; actual transaction UnitOfWork/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC."
+          "rule": "Registered owning domain/consumer only; actual transaction atomic transaction/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC."
         }
       ],
       "title": "Atomic domain consequences and durable advisory intents"
@@ -694,7 +736,21 @@
       "work_packages": [
         "WP-050"
       ],
-      "title": "Migration generation, journal provenance and safe operator diagnostics"
+      "title": "Migration generation, journal provenance and safe operator diagnostics",
+      "behavior_rules": [
+        {
+          "operation": "ops.applyVersionedMigration",
+          "rule": "Exact positively identified authorized DB target, protected actual config/credential context, advisory lock/checksum replay; no customer migration/live patch/db:push or submitted manifest creating permission."
+        },
+        {
+          "operation": "ops.inspectMigrationProvenance",
+          "rule": "Pure exact owned environment/journal/checksum inspection, not generic scope or unverified URL/sentinel authority."
+        },
+        {
+          "operation": "ops.schemaValidate",
+          "rule": "Read-only fresh target/migration artifact validation, no db:push/schema writes or runtime acceptance by text/count checks."
+        }
+      ]
     },
     {
       "id": "REQ-OPS-006",
@@ -743,7 +799,13 @@
       "work_packages": [
         "WP-050"
       ],
-      "title": "Isolated live database tests and hermetic build/CI checks"
+      "title": "Isolated live database tests and hermetic build/CI checks",
+      "behavior_rules": [
+        {
+          "operation": "qa.hermeticBuild",
+          "rule": "Exact registered actual build/contract/native SQL/vertical suite invocation on positively identified own checkout/test environment; mock/text counts are not behavioral proof. Frozen lock/placeholders, independent services, no unapproved actual provider/mail/model actions."
+        }
+      ]
     },
     {
       "id": "REQ-OPS-008",
@@ -767,7 +829,17 @@
       "work_packages": [
         "WP-050"
       ],
-      "title": "Managed local previews, disposable mail and worktree environment"
+      "title": "Managed local previews, disposable mail and worktree environment",
+      "behavior_rules": [
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Exact purpose-specific registered diagnostic/owned disposable mutation. Actual environment/checkout/identity/config proof trusted context, sentinel alone insufficient; no production identities/credentials, unrelated worktree, spending/provider effect/board mutation absent actual authorization."
+        },
+        {
+          "operation": "dev.cleanupPreview",
+          "rule": "Verified immutable-principal operator capability for the exact positively identified environment/target and registered operation. Not a plant/org role, ordinary job grant, model hint or submitted manifest; no unapproved spend/provider/configuration."
+        }
+      ]
     },
     {
       "id": "REQ-OPS-009",

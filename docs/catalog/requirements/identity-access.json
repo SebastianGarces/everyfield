@@ -28,7 +28,13 @@
       "work_packages": [
         "WP-005"
       ],
-      "title": "Sign-in, session lifecycle, logout and safe return navigation"
+      "title": "Sign-in, session lifecycle, logout and safe return navigation",
+      "behavior_rules": [
+        {
+          "operation": "auth.signOut",
+          "rule": "Native current cookie/session only; absent/expired/revoked session converges safely, never grants authority; deletion/status flow separate."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-002",
@@ -56,7 +62,25 @@
         "WP-005",
         "WP-008"
       ],
-      "title": "Registration and account-entity provisioning"
+      "title": "Registration and account-entity provisioning",
+      "behavior_rules": [
+        {
+          "operation": "accounts.register",
+          "rule": "Supported account kind values: plant_precreation, discovery, sending_church, sending_network."
+        },
+        {
+          "operation": "accounts.register",
+          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one domain transaction claims token+exact domain/seat/relationship+Person+receipt/audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
+        },
+        {
+          "operation": "accounts.resumeRegistration",
+          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+receipt/audit/mail intent commit under original account/intent. Retry returns saved receipt; expired/revoked token yields no grant."
+        },
+        {
+          "operation": "accounts.getRegistrationStatus",
+          "rule": "Authenticated native self identity only; no invitation account enumeration or ordinary pending-domain content."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-003",
@@ -83,7 +107,13 @@
         "WP-008",
         "WP-009"
       ],
-      "title": "Beta gate and meaningful invitation-origin registration"
+      "title": "Beta gate and meaningful invitation-origin registration",
+      "behavior_rules": [
+        {
+          "operation": "accounts.getRegistrationOptions",
+          "rule": "Only deployment gate state and current exact validated invitation context; no secret gate code/account-existence lookup."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-004",
@@ -125,7 +155,8 @@
       "operations": [
         "access.currentActor",
         "access.checkOperation",
-        "seats.readCurrentMembership"
+        "seats.readCurrentMembership",
+        "access.projectRead"
       ],
       "acceptance_ids": [
         "AC-IDN-005--IDN-005"
@@ -145,7 +176,59 @@
       "work_packages": [
         "WP-006"
       ],
-      "title": "Current tenancy, capability and own-duty guards"
+      "title": "Current tenancy, capability and own-duty guards",
+      "operation_refs": [
+        {
+          "operation_id": "access.projectRead",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "feature": "IDN-005",
+          "rule": "one active account seat across plant/typed organization contexts"
+        },
+        {
+          "feature": "IDN-005",
+          "rule": "Owner and Admin equal routine tenant administration; Owner-only workspace purge"
+        },
+        {
+          "feature": "IDN-005",
+          "rule": "ordinary lead ministry role grants no access"
+        },
+        {
+          "operation": "seats.readCurrentMembership",
+          "rule": "Read actual current account active membership only; not selectable caller membership or special rejoin restore."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Evaluate the principal current account/seat/proof/job capability, exact resource predicate, purpose, consent, lifecycle and projection for the named operation. A refusal is a permission decision, not an invocation grant or foreign-existence confirmation."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Trusted application authorization query evaluates the fresh principal and typed operation subject; no domain mutation or grant is created."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Fresh server-created server-verified actor and current context with verified account/session + exact current seat OR registered scoped job/proof principal. Unprivileged/revoked principals produce safe denial; internal invocation does not replace their domain authority."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Owning operation predicate and current stored grants/consent; no model hints, submitted actor IDs or inferred affiliations."
+        },
+        {
+          "operation": "access.projectRead",
+          "rule": "New expected revisions and exact effect review; historical external disclosures remain truthful; no universal undo."
+        },
+        {
+          "operation": "access.currentActor",
+          "rule": "Derive principal from validated native/assistant server session, not caller role/IDs; no model tool exposes actor internals."
+        },
+        {
+          "operation": "access.checkOperation",
+          "rule": "Only server-side native adapter, assistant adapter or registered job adapter may invoke the primitive; evaluated principal remains the supplied trusted fresh server-verified actor and current context, never the caller identity or a model-selected actor."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-006",
@@ -157,7 +240,8 @@
       "operations": [
         "account.finalizeAvatar",
         "account.removeAvatar",
-        "account.getAvatar"
+        "account.getAvatar",
+        "account.requestAvatarUpload"
       ],
       "acceptance_ids": [
         "AC-IDN-006--IDN-006"
@@ -174,7 +258,23 @@
         "WP-004",
         "WP-010"
       ],
-      "title": "Account avatar upload, replacement, removal and authenticated delivery"
+      "title": "Account avatar upload, replacement, removal and authenticated delivery",
+      "operation_refs": [
+        {
+          "operation_id": "account.requestAvatarUpload",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "account.requestAvatarUpload",
+          "rule": "Supported mime type values: image/jpeg, image/png, image/webp."
+        },
+        {
+          "operation": "account.finalizeAvatar",
+          "rule": "private avatar result authenticated versioned route; no raw key"
+        }
+      ]
     },
     {
       "id": "REQ-IDN-007",
@@ -307,7 +407,77 @@
         "WP-010",
         "WP-039"
       ],
-      "title": "Settings dialog, deep links and draft protection"
+      "title": "Settings dialog, deep links and draft protection",
+      "behavior_rules": [
+        {
+          "operation": "settings.getSection",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: section, subject, authorized values, revision, changed, completeness."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Visible information for organization_owner|organization_admin|organization_member: section, subject, authorized values, revision, changed, completeness."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "boolean|optional; omitted preserves stored value"
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Changing organization sharing settings requires the current revision of the exact affiliation consent."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Omitted fields preserve each exact stored category, including shared_findings; never default/reset ON, copy another organization policy or add a second NI/health toggle."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Lock/recheck actual relationship expected revision and exact sharing expected consent revision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional material revision commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "saved settings result projects only current authorized same-plant saved values/current relationship and consent revisions; organizations receive no stored consent through this mutation branch."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Supported actor values: plant_owner, plant_admin."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Current exact plant Owner/Admin; section=plant only, no org/Discovery/self-account/private-calendar branch"
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "exact domain receipt, no credential/private-calendar payload"
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "account/notifications only; trusted self active account including Member/Discovery/org account. Native credential and private-care controls delegated to exact native owner operations."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "Supported actor values: plant_owner, plant_admin, plant_member."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "plant/teams exact current plant and actual team parent; routine write Owner/Admin or separately approved exact team capability, never broad account section denial. warning<alert; zone change reviewed future schedule preview, past instants/local calendar dates preserved."
+        },
+        {
+          "operation": "settings.getSection",
+          "rule": "organization exact own typed organization seat; protected kind/id. Affiliation read exact current side; sharing write only plant Owner/Admin owning exact pair; org preference never grants data."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "plant/teams/affiliations exact current plant and actual team or approved direct relationship; routine write only current same-plant Owner/Admin. Affiliation category sharing is plant-side authority only. warning<alert; timezone change binds reviewed future schedule preview and preserves past instants/local calendar dates."
+        },
+        {
+          "operation": "settings.saveSection",
+          "rule": "organization profile branch only in own exact typed organization seat; protected kind/id. Organization authority cannot execute affiliations sharing or any plant/account branch."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-011",
@@ -318,7 +488,9 @@
       "spec": "docs/product/identity-access.md#req-idn-011",
       "operations": [
         "settings.getSection",
-        "settings.saveSection"
+        "settings.saveSection",
+        "plant.previewTimezoneChange",
+        "plant.setDigestSchedule"
       ],
       "acceptance_ids": [
         "AC-IDN-011--IDN-011"
@@ -335,7 +507,27 @@
         "WP-007",
         "WP-010"
       ],
-      "title": "Church profile, locality, timezone, inactivity and digest schedule"
+      "title": "Church profile, locality, timezone, inactivity and digest schedule",
+      "operation_refs": [
+        {
+          "operation_id": "plant.previewTimezoneChange",
+          "catalog": "docs/catalog/operations.json"
+        },
+        {
+          "operation_id": "plant.setDigestSchedule",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "plant.previewTimezoneChange",
+          "rule": "Visible information for plant_member: old timezone, new timezone, affected meeting instants, affected tasklocal calendar dates, affected digest instants, warnings, digest."
+        },
+        {
+          "operation": "plant.setDigestSchedule",
+          "rule": "Supported cadence values: daily, weekly, off."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-012",
@@ -347,7 +539,8 @@
       "operations": [
         "notifications.preferences.get",
         "notifications.preferences.set",
-        "mail.suppression.restoreReviewed"
+        "mail.suppression.restoreReviewed",
+        "emailSuppression.requestRestore"
       ],
       "acceptance_ids": [
         "AC-IDN-012--IDN-012"
@@ -368,7 +561,13 @@
           "rule": "Fresh native self-address identity proof is trusted context and exact reviewed reason; cannot grant foreign address/resurrect canceled sends."
         }
       ],
-      "title": "Per-account notification preferences, cadence and self suppression recovery"
+      "title": "Per-account notification preferences, cadence and self suppression recovery",
+      "operation_refs": [
+        {
+          "operation_id": "emailSuppression.requestRestore",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-IDN-013",
@@ -405,6 +604,10 @@
         {
           "operation": "identity.ensureOwnerPerson",
           "rule": "Already disclosed and selected owning native registration/provisioning consequence; not separate model command"
+        },
+        {
+          "operation": "identity.ensureOwnerPerson",
+          "rule": "Same provisioning transaction enforces one account/plant Person link; exact existing link or reviewed nonambiguous contact, no email identity theft; no orphan authority."
         }
       ],
       "title": "Church creation, onboarding basics and account-person bootstrap"
@@ -454,7 +657,7 @@
         },
         {
           "operation": "teams.assignRole",
-          "rule": "Active account with exactly one current same-plant seat; derive plantId from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
+          "rule": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation. AND linked live Person is the currently stored leader of this exact team; parent/role/program/meeting team equality; only the named own-team action, never generic plant admin, churchwide program, cards, RSVP or guest deletion."
         }
       ],
       "title": "Leadership attestation and onboarding prompts"
@@ -526,7 +729,7 @@
         },
         {
           "operation": "discovery.convertToPlant",
-          "rule": "own identity; creation has no preexisting phase/PlantId; ordinary-role bootstrap only"
+          "rule": "own identity; creation has no preexisting phase/plant identity; ordinary-role bootstrap only"
         },
         {
           "operation": "discovery.getProfile",
@@ -565,7 +768,25 @@
       "work_packages": [
         "WP-008"
       ],
-      "title": "Seat invitation create, pending list, resend, revoke, expire and first-seat acceptance"
+      "title": "Seat invitation create, pending list, resend, revoke, expire and first-seat acceptance",
+      "behavior_rules": [
+        {
+          "operation": "seats.invite",
+          "rule": "Supported tenancy kind values: plant, sending_church, sending_network."
+        },
+        {
+          "operation": "seats.invite",
+          "rule": "Supported ordinary role values: admin, member."
+        },
+        {
+          "operation": "seats.acceptInvitation",
+          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current revision atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
+        },
+        {
+          "operation": "seats.listInvitations",
+          "rule": "Current own exact typed workspace Owner/Admin; pending invite administrative list is not ordinary Member self/People read; no sensitive account-resolution details."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-018",
@@ -582,13 +803,7 @@
         "TARGET-IDN-018"
       ],
       "shared_contract_ids": [],
-      "work_packages": [],
-      "behavior_rules": [
-        {
-          "operation": "seats.readCurrentMembership",
-          "rule": "Read actual current account active membership only; not selectable caller membership or special rejoin restore."
-        }
-      ]
+      "work_packages": []
     },
     {
       "id": "REQ-IDN-019",
@@ -626,19 +841,19 @@
       "behavior_rules": [
         {
           "operation": "seats.changeOrdinaryRole",
-          "rule": "Supported expectedPriorRole values: admin, member."
+          "rule": "Supported expected prior role values: admin, member."
         },
         {
           "operation": "seats.changeOrdinaryRole",
-          "rule": "Supported toRole values: admin, member."
+          "rule": "Supported to role values: admin, member."
         },
         {
           "operation": "seats.list",
-          "rule": "Visible information for plant_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions."
+          "rule": "Visible information for plant_member: seats, seat id, display name, ordinary role, status, is self, allowed actions."
         },
         {
           "operation": "seats.list",
-          "rule": "Visible information for organization_member: seats, seatId, displayName, ordinaryRole, status, isSelf, allowedActions."
+          "rule": "Visible information for organization_member: seats, seat id, display name, ordinary role, status, is self, allowed actions."
         },
         {
           "operation": "seats.changeOrdinaryRole",
@@ -662,7 +877,8 @@
         "associations.invite",
         "associations.respondInvitation",
         "associations.resendInvitation",
-        "associations.revokeInvitation"
+        "associations.revokeInvitation",
+        "associations.acceptInvitation"
       ],
       "acceptance_ids": [
         "AC-IDN-020--IDN-020"
@@ -709,11 +925,11 @@
       "behavior_rules": [
         {
           "operation": "associations.acceptInvitation",
-          "rule": "Supported explicitDecision values: accept, decline."
+          "rule": "Supported explicit decision values: accept, decline."
         },
         {
           "operation": "associations.invite",
-          "rule": "Supported organizationKind values: sending_church, sending_network."
+          "rule": "Supported organization kind values: sending_church, sending_network."
         },
         {
           "operation": "associations.respondInvitation",
@@ -732,7 +948,13 @@
           "rule": "Validate exact initiator/receiving-org or explicit Discovery subject owner; independent typed link and consent, no parent grant/delegation/all-affiliate vote; authenticated original addressed decision."
         }
       ],
-      "title": "Organization relationship invitations across five subject types"
+      "title": "Organization relationship invitations across five subject types",
+      "operation_refs": [
+        {
+          "operation_id": "associations.acceptInvitation",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-IDN-021",
@@ -787,7 +1009,21 @@
       "work_packages": [
         "WP-007"
       ],
-      "title": "Relationship leaving, organization severing and association history"
+      "title": "Relationship leaving, organization severing and association history",
+      "behavior_rules": [
+        {
+          "operation": "associations.getHistory",
+          "rule": "Visible information for plant_member: items, status, event date, recorded at, safe attribution, next cursor, completeness."
+        },
+        {
+          "operation": "associations.getHistory",
+          "rule": "Visible information for organization_member: items, status, event date, recorded at, safe attribution, next cursor, completeness."
+        },
+        {
+          "operation": "associations.getHistory",
+          "rule": "Supported subject kind values: plant, sending_church, discovery."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-022",
@@ -828,7 +1064,69 @@
         "WP-007",
         "WP-030"
       ],
-      "title": "Privacy pull sharing, push consent and first-invitation defaults"
+      "title": "Privacy pull sharing, push consent and first-invitation defaults",
+      "behavior_rules": [
+        {
+          "feature": "IDN-022",
+          "rule": "no inherited affiliation grant; exact active direct relationship+current category consent"
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for plant_owner: view kind, organization id, organization kind, organization display name, plant id, active affiliation, consent revision, category toggles."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for plant_admin: view kind, organization id, organization kind, organization display name, plant id, active affiliation, consent revision, category toggles."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for plant_member: view kind, organization id, organization kind, organization display name, plant id, active affiliation."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for organization_owner: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for organization_admin: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Visible information for organization_member: view kind, organization id, organization kind, organization display name, plant id, active affiliation, own category availability."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Plant sharing requests bind the plant to the exact current authorized plant."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Organization sharing requests bind the organization to the exact current authorized organization."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Supported organization kind values: fixed sending_church, sending_network."
+        },
+        {
+          "operation": "privacy.setSharing",
+          "rule": "Supported category values: people, meetings, tasks, ministry_teams, wiki, activity, shared_findings."
+        },
+        {
+          "operation": "privacy.setSharing",
+          "rule": "Activity is independently stored push consent, not a pull aggregate. shared_findings is the one existing released-health/NI permission; no second NI consent. Each other category retains its independent exact-organization current gate."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Fresh exact current plant seat + own plant/direct addressed organization; full stored consent only current Owner/Admin, Member basic status only."
+        },
+        {
+          "operation": "privacy.getSharing",
+          "rule": "Fresh exact organization context + existing current relationship/portfolio read predicate for this actual direct plant; role alone or submitted plant id never authorizes. Own derived availability only; no stored consent/revision/all-affiliate projection."
+        },
+        {
+          "operation": "privacy.setSharing",
+          "rule": "Current same-plant Owner/Admin owns this plant per-exact-org category consent; validate current approved direct affiliation. Organization Owner/Admin approval/read does not grant consent editing."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-023",
@@ -871,7 +1169,17 @@
       "work_packages": [
         "WP-047"
       ],
-      "title": "Oversight dashboard, plant directory, consent-gated aggregates and health entry"
+      "title": "Oversight dashboard, plant directory, consent-gated aggregates and health entry",
+      "behavior_rules": [
+        {
+          "operation": "oversight.getPlant",
+          "rule": "Visible information for organization_member: plant directory name, ordinary lead ministry role person display name, approved sharing fields, four valued health, dated evidence, consent revision, source references, next cursor."
+        },
+        {
+          "operation": "oversight.getPlant",
+          "rule": "exact organization seat; direct active plant affiliation AND currently enabled per-org category; no inherited parent/network affiliation"
+        }
+      ]
     },
     {
       "id": "REQ-IDN-024",
@@ -899,7 +1207,7 @@
       "behavior_rules": [
         {
           "operation": "oversight.getSendingChurch",
-          "rule": "Visible information for organization_member: organizationDisplayName, directRelationshipState, approvedOrganizationMetadata, nextCursor."
+          "rule": "Visible information for organization_member: organization display name, direct relationship state, approved organization metadata, next cursor."
         }
       ],
       "title": "Network sending-church roster and member detail"
@@ -955,7 +1263,37 @@
         "WP-010",
         "WP-007"
       ],
-      "title": "Organization profile and account/workspace deletion boundaries"
+      "title": "Organization profile and account/workspace deletion boundaries",
+      "behavior_rules": [
+        {
+          "operation": "organizations.getProfile",
+          "rule": "Visible information for organization_owner|organization_admin|organization_member: organization id, organization kind, name, contact, profile, revision."
+        },
+        {
+          "operation": "organizations.getProfile",
+          "rule": "Only exact own typed organization seat full profile; plant relationship basic directory is a separate bounded relationship read, not plant-seat access to own-org settings/contact."
+        },
+        {
+          "operation": "organizations.updateProfile",
+          "rule": "Exact own org Owner/Admin bounded profile update with immutable kind/id, expected revision/audit; no plant-admin edit, billing/ownership transfer/delete-org/CRM expansion."
+        },
+        {
+          "operation": "organizations.getProfile",
+          "rule": "Supported actor values: organization_owner, organization_admin, organization_member."
+        },
+        {
+          "operation": "organizations.getProfile",
+          "rule": "Current active seat in the exact supplied typed organization; its own authorized profile only. No plant CRM or other organization body."
+        },
+        {
+          "operation": "organizations.updateProfile",
+          "rule": "Supported actor values: organization_owner, organization_admin."
+        },
+        {
+          "operation": "organizations.updateProfile",
+          "rule": "Current active Owner/Admin seat in the exact supplied sending_church|sending_network; only that organization source/profile. Plant roles or affiliation give no organization edit authority."
+        }
+      ]
     },
     {
       "id": "REQ-IDN-027",
@@ -981,7 +1319,17 @@
       "work_packages": [
         "WP-007"
       ],
-      "title": "Relationship removal through authorized domain operations"
+      "title": "Relationship removal through authorized domain operations",
+      "behavior_rules": [
+        {
+          "operation": "associations.end",
+          "rule": "own exact plant OR typed organization; addressed relationship subject and current ordinary role guard; direct approval only"
+        },
+        {
+          "operation": "associations.end",
+          "rule": "Explicit own Discovery profile, no tenant seat; only exact addressed approved Discovery-to-org relationship action, not plant/org administration"
+        }
+      ]
     },
     {
       "id": "REQ-IDN-028",
@@ -1011,7 +1359,7 @@
       "behavior_rules": [
         {
           "operation": "security.checkRequestOrigin",
-          "rule": "Supported mutationKind values: ambient_cookie, sealed_token, verified_provider."
+          "rule": "Supported mutation kind values: ambient_cookie, sealed_token, verified_provider."
         },
         {
           "operation": "security.safeReturn",
@@ -1066,36 +1414,6 @@
         "WP-002",
         "WP-004",
         "WP-006"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "access.checkOperation",
-          "rule": "Evaluate the principal current account/seat/proof/job capability, exact resource predicate, purpose, consent, lifecycle and projection for the named operation. A refusal is a permission decision, not an invocation grant or foreign-existence confirmation."
-        },
-        {
-          "operation": "access.checkOperation",
-          "rule": "Trusted application authorization query evaluates the fresh principal and typed operation subject; no domain mutation or grant is created."
-        },
-        {
-          "operation": "access.checkOperation",
-          "rule": "Fresh server-created ActorContext with verified account/session + exact current seat OR registered scoped job/proof principal. Unprivileged/revoked principals produce safe denial; internal invocation does not replace their domain authority."
-        },
-        {
-          "operation": "access.checkOperation",
-          "rule": "Owning operation predicate and current stored grants/consent; no model hints, submitted actor IDs or inferred affiliations."
-        },
-        {
-          "operation": "access.projectRead",
-          "rule": "New expected revisions and exact effect review; historical external disclosures remain truthful; no universal undo."
-        },
-        {
-          "operation": "access.currentActor",
-          "rule": "Derive principal from validated native/assistant server session, not caller role/IDs; no model tool exposes actor internals."
-        },
-        {
-          "operation": "access.checkOperation",
-          "rule": "Only server-side native adapter, assistant adapter or registered job adapter may invoke the primitive; evaluated principal remains the supplied trusted fresh ActorContext, never the caller identity or a model-selected actor."
-        }
       ]
     },
     {
@@ -1128,44 +1446,6 @@
         "WP-005",
         "WP-006",
         "WP-008"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "accounts.register",
-          "rule": "Supported accountKind values: plant_precreation, discovery, sending_church, sending_network."
-        },
-        {
-          "operation": "accounts.register",
-          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one domain transaction claims token+exact domain/seat/relationship+Person+receipt/audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
-        },
-        {
-          "operation": "accounts.resumeRegistration",
-          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+receipt/audit/mail intent commit under original account/intent. Retry returns saved receipt; expired/revoked token yields no grant."
-        },
-        {
-          "operation": "seats.invite",
-          "rule": "Supported tenancyKind values: plant, sending_church, sending_network."
-        },
-        {
-          "operation": "seats.invite",
-          "rule": "Supported ordinaryRole values: admin, member."
-        },
-        {
-          "operation": "accounts.getRegistrationOptions",
-          "rule": "Only deployment gate state and current exact validated invitation context; no secret gate code/account-existence lookup."
-        },
-        {
-          "operation": "accounts.getRegistrationStatus",
-          "rule": "Authenticated native self identity only; no invitation account enumeration or ordinary pending-domain content."
-        },
-        {
-          "operation": "seats.acceptInvitation",
-          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current revision atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
-        },
-        {
-          "operation": "seats.listInvitations",
-          "rule": "Current own exact typed workspace Owner/Admin; pending invite administrative list is not ordinary Member self/People read; no sensitive account-resolution details."
-        }
       ]
     },
     {
@@ -1200,116 +1480,6 @@
         "WP-052",
         "WP-053",
         "WP-056"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "account.cancelDeletion",
-          "rule": "During the 30-day personal deletion hold, restricted access permits only deletion status and timely cancellation."
-        },
-        {
-          "operation": "account.cancelDeletion",
-          "rule": "Lock exact subject/request; strict now<cancelUntil CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects."
-        },
-        {
-          "operation": "account.requestDeletion",
-          "rule": "Strictly before request +30 days; access remains restricted to cancellation; purge/restored copies never reopen expired deletion."
-        },
-        {
-          "operation": "account.setPersonalTimezone",
-          "rule": "Native self preference/calendar transaction; pending transition first strictly future Monday in requested zone, open stable week unchanged, one next ordinal; no historical rekeys, shared private metadata, or PI material revision."
-        },
-        {
-          "operation": "maintenance.purgeEligibleSubject",
-          "rule": "Coherent eligible owned DB/byte/cache/derived-copy purge after exact 30-day hold, respecting ownership detach/minimal attribution and current witness."
-        },
-        {
-          "operation": "maintenance.purgeEligibleSubject",
-          "rule": "No post-deadline user cancellation or deleted-subject resurrection; restore always current-witness fenced."
-        },
-        {
-          "operation": "maintenance.purgeEligibleSubject",
-          "rule": "Current recovery/core/execution contract and root selected internal callback encoding; no invented source symbol."
-        },
-        {
-          "operation": "maintenance.restoreWithCurrentManifest",
-          "rule": "Restore consistent DB+matching bytes with authoritative current deletion/access barrier, immutable copy expiry and actual non-replayed external facts."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: section, subject, authorizedValues, revision, changed, completeness."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "Visible information for organization_owner|organization_admin|organization_member: section, subject, authorizedValues, revision, changed, completeness."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "boolean|optional; omitted preserves stored value"
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "Changing organization sharing settings requires the current revision of the exact affiliation consent."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "Omitted fields preserve each exact stored category, including shared_findings; never default/reset ON, copy another organization policy or add a second NI/health toggle."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "Lock/recheck actual relationship expectedRevision and exact sharing expectedConsentRevision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "WP007 owns applySharingPatchInTransaction in packages/domain/src/organizations/relationships.ts. privacy.setSharing and the WP010 settings adapter use this one registered helper inside the caller DomainTransaction, not a loop of separately committing public commands. One receipt/audit and exact history/intents plus conditional MW022 material revision commit atomically. Changed policy immediately gates saved/current/cache/assistant access; exact replay/no-op does not bump."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "SettingsSectionReceipt projects only current authorized same-plant saved values/current relationship and consent revisions; organizations receive no stored consent through this mutation branch."
-        },
-        {
-          "operation": "account.cancelDeletion",
-          "rule": "own personal subject OR recorded original Owner of requested workspace; narrowly status/cancel only; strict now<deadline for cancel; no normal revoked-session/content access"
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "Supported actor values: plant_owner, plant_admin."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "Current exact plant Owner/Admin; section=plant only, no org/Discovery/self-account/private-calendar branch"
-        },
-        {
-          "operation": "churches.requestWorkspaceDeletion",
-          "rule": "Workspace deletion requires the requesting Owner to hold a current seat in that plant."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "exact domain receipt, no credential/private-calendar payload"
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "account/notifications only; trusted self active account including Member/Discovery/org account. Native credential and private-care controls delegated to exact native owner operations."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "Supported actor values: plant_owner, plant_admin, plant_member."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "plant/teams exact current plant and actual team parent; routine write Owner/Admin or separately approved exact team capability, never broad account section denial. warning<alert; zone change reviewed future schedule preview, past instants/LocalDates preserved."
-        },
-        {
-          "operation": "settings.getSection",
-          "rule": "organization exact own typed organization seat; protected kind/id. Affiliation read exact current side; sharing write only plant Owner/Admin owning exact pair; org preference never grants data."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "plant/teams/affiliations exact current plant and actual team or approved direct relationship; routine write only current same-plant Owner/Admin. Affiliation category sharing is plant-side authority only. warning<alert; timezone change binds reviewed future schedule preview and preserves past instants/LocalDates."
-        },
-        {
-          "operation": "settings.saveSection",
-          "rule": "organization profile branch only in own exact typed organization seat; protected kind/id. Organization authority cannot execute affiliations sharing or any plant/account branch."
-        }
       ]
     },
     {
@@ -1358,6 +1528,26 @@
       "behavior_rules": [
         {
           "operation": "account.cancelDeletion",
+          "rule": "During the 30-day personal deletion hold, restricted access permits only deletion status and timely cancellation."
+        },
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "Lock exact subject/request; strict now<cancel until CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects."
+        },
+        {
+          "operation": "account.requestDeletion",
+          "rule": "Strictly before request +30 days; access remains restricted to cancellation; purge/restored copies never reopen expired deletion."
+        },
+        {
+          "operation": "account.cancelDeletion",
+          "rule": "own personal subject OR recorded original Owner of requested workspace; narrowly status/cancel only; strict now<deadline for cancel; no normal revoked-session/content access"
+        },
+        {
+          "operation": "churches.requestWorkspaceDeletion",
+          "rule": "Workspace deletion requires the requesting Owner to hold a current seat in that plant."
+        },
+        {
+          "operation": "account.cancelDeletion",
           "rule": "Explicit native restricted cancellation, no Evry approval or normal session/seat required"
         }
       ]
@@ -1370,7 +1560,9 @@
       ],
       "text": "Native private care uses confirmed personal IANA timezone, distinct from church timezone, and Monday week boundaries. Missing personal-zone preference asks for confirmation, never silently adopts UTC/church/device zone. Each author has a stable week ID/ordinal with frozen start/end Instants, zone and Monday date. Serialize answer/save/correction/roll over/zone-edit against the author calendar revision. A zone edit records a pending transition at the first strictly future Monday boundary in the requested zone; keep the open stable week until that boundary and create exactly one next ordinal when roll over executes. Historical IDs/author/zone/revisions are never rekeyed; multiple date-line edits, retries and concurrent answer saves cannot create a second answer or extra week/streak credit. Current UI previews exact boundary before the native edit, with no private metadata in ordinary audit/log/Evry. Answer up sert requires the exact author/week/revision and unchanged save is no-op. History/trend remain available to the author; twelve recent weeks is the engineering initial view port with paged older history, never a retention limit.\n\nThree truly adjacent answered weeks of Strained or Struggling in the same author/dimension raise a neutral native support question, for example “Would it help to talk with someone you trust?” Mixed Strained/Struggling qualifies; two weeks, cross-author/dimension, missing week or Steady does not. Correction recomputes display from effective records while retaining prior revisions. Date an older streak by its ending week and never label it current distress. No model counsel/pastoral judgment, email/org notice, task, PI invalidation or broad retention/former-author right follows from the question. REQ-IDN-031 governs every private path.",
       "spec": "docs/product/identity-access.md#req-idn-033",
-      "operations": [],
+      "operations": [
+        "account.setPersonalTimezone"
+      ],
       "acceptance_ids": [
         "AC-IDN-010--IDN-010",
         "AC-IDN-011--IDN-011"
@@ -1402,12 +1594,14 @@
       ],
       "behavior_rules": [
         {
-          "operation": "plant.previewTimezoneChange",
-          "rule": "Visible information for plant_member: oldTimezone, newTimezone, affectedMeetingInstants, affectedTaskLocalDates, affectedDigestInstants, warnings, digest."
-        },
+          "operation": "account.setPersonalTimezone",
+          "rule": "Native self preference/calendar transaction; pending transition first strictly future Monday in requested zone, open stable week unchanged, one next ordinal; no historical rekeys, shared private metadata, or PI material revision."
+        }
+      ],
+      "operation_refs": [
         {
-          "operation": "plant.setDigestSchedule",
-          "rule": "Supported cadence values: daily, weekly, off."
+          "operation_id": "account.setPersonalTimezone",
+          "catalog": "docs/catalog/operations.json"
         }
       ]
     }

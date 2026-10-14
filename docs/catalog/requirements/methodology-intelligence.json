@@ -68,7 +68,7 @@
         },
         {
           "operation": "phases.transition",
-          "rule": "Derive fromPhase from locked current state, never caller-authoritative fromPhase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+          "rule": "Derive from phase from locked current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
         }
       ],
       "title": "Reasoned forward/backward/skipping/correcting phase transition"
@@ -208,11 +208,11 @@
       "behavior_rules": [
         {
           "operation": "tasks.readPhaseOffer",
-          "rule": "Visible information for plant_member: transitionId, actualTransitionLocalDate, currentPhase, answerState, availableVersionedTemplateRows, offerRevision, previousAnswerReceipt."
+          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous answer receipt."
         },
         {
           "operation": "wiki.recommendForPhase",
-          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phaseId, authorizedRecommendations, sourceReferences."
+          "rule": "Visible information for authenticated_self|plant_owner|plant_admin|plant_member|organization_owner|organization_admin|organization_member: phase id, authorized recommendations, source references."
         }
       ],
       "title": "Phase-driven task-template prompt and Wiki recommendations"
@@ -300,7 +300,69 @@
       "work_packages": [
         "WP-040"
       ],
-      "title": "Deterministic fact-snapshot assembly"
+      "title": "Deterministic fact-snapshot assembly",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Consistent read-only capture with one fixed as of; caller persists immutable run inside the same snapshot transaction. Private care structurally absent."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "allow: operational attendance/serving/assignment and exact cited facts, dated human-record presence/count/date."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "remove: raw interview criterion judgments, raw 4Cs scores, human qualification result, human notes or testimony, private care body, private care existence, private care calendar, private support nudge metadata."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Fact snapshots must not summarize sources removed from the caller's authorized evidence."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Separately authorized native human-record reads remain their own domain purpose; no PI/tool access inheritance."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "actual immutable originating occurrence Instant; not recorded at or storage-created at proxy"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "effective actual successful originating-task completion Instant >=start and <=as of"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "valid measured completion enters early; unresolved nonwaived enters at age>=48h; late valid completion is measured miss"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "The timeliness numerator includes only eligible valid task completions no later than 48 elapsed hours after the actual originating occurrence."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "excluded reasons: immature_pending, waived, future_actual_origin, future_actual_completion, completion_before_origin, missing_or_invalid_origin, missing_actual_completion."
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Retain valid immutable source occurrence history"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Keep occurrence/effective completion separate from recorded at/database created at; later recording does not invalidate valid backdated evidence"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Originating-obligation TASK completion timeliness; never actual-contact success rate"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Actual effective originating-task completion event under its approved branch; attempted_no_contact/administrative_completion can fulfill task; no_longer_needed remains waiver; never infer contacted from checkbox/provider acceptance"
+        },
+        {
+          "operation": "intelligence.buildFactSnapshot",
+          "rule": "Only explicitly recorded typed contacted outcome and actual occurred at changes PI013 contact freshness; task completion/attempt/administrative/provider receipt does not"
+        }
+      ]
     },
     {
       "id": "REQ-PI-002",
@@ -331,7 +393,17 @@
       "work_packages": [
         "WP-040"
       ],
-      "title": "Committed adult growth, first commitments and flat streak"
+      "title": "Committed adult growth, first commitments and flat streak",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "null=current deterministic consistent snapshot at server clock"
+        },
+        {
+          "operation": "intelligence.readFacts",
+          "rule": "The exact current section alias returns the complete cited authorized fact section with completeness and evidence envelope with only its named data branch. It does not perform additional live reads or accept client as of."
+        }
+      ]
     },
     {
       "id": "REQ-PI-003",
@@ -365,7 +437,7 @@
       "feature_ids": [
         "PI-004"
       ],
-      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
+      "text": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm, 21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -718,7 +790,37 @@
         "WP-039",
         "WP-040"
       ],
-      "title": "Seven manual attestation toggles and reaffirmation"
+      "title": "Seven manual attestation toggles and reaffirmation",
+      "behavior_rules": [
+        {
+          "feature": "PI-015",
+          "rule": "signal key: values_documented, financial_base_established, core_group_giving, prayer_leader_assigned, prayer_rhythm_established, prayer_in_gatherings, systems_tested."
+        },
+        {
+          "feature": "PI-015",
+          "rule": "Only three prayer/giving legacy keys have source 30 day reaffirmation. Funding/values/systems/prayer leader have no new expiry. Native values documents and formal Launch debrief remain their required producers; legacy booleans never override them."
+        },
+        {
+          "operation": "signals.correct",
+          "rule": "Supported action values: correct, retract."
+        },
+        {
+          "operation": "signals.correct",
+          "rule": "Correcting signal evidence requires replacement evidence; other signal actions do not require it."
+        },
+        {
+          "operation": "signals.getHistory",
+          "rule": "approved attestation key|authorized evidence selection|null; null=permitted plant human-evidence history"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "boolean; must equal the exactly reviewed existing answer"
+        },
+        {
+          "operation": "signals.reaffirm",
+          "rule": "Explicit human reaffirmation of one existing eligible prayer/giving answer; no inferred testimony, arbitrary new expiry or automatic other-signal refresh. Model cannot supply confirmation; exact review required."
+        }
+      ]
     },
     {
       "id": "REQ-PI-016",
@@ -890,7 +992,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.callProvider",
-          "rule": "Only registered adapter loads pinned allowed prompt; maxRetries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
+          "rule": "Only registered adapter loads pinned allowed prompt; max retries 0, Retry-After/backoff/deadline and one cumulative run budget; no model/client-supplied arbitrary prompt/credentials."
         },
         {
           "operation": "intelligence.callProvider",
@@ -908,7 +1010,8 @@
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.selectAssessmentCandidates",
-        "intelligence.runAssessmentBatch"
+        "intelligence.runAssessmentBatch",
+        "intelligence.requestRefresh"
       ],
       "acceptance_ids": [
         "AC-PI-021--PI-021"
@@ -929,26 +1032,24 @@
       "behavior_rules": [
         {
           "operation": "intelligence.requestRefresh",
-          "rule": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one DomainTransaction; exact replay no duplicate."
+          "rule": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one atomic transaction; exact replay no duplicate."
         },
         {
           "operation": "intelligence.runAssessmentBatch",
-          "rule": "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferredUnattempted. No independent worker deployment."
-        },
-        {
-          "operation": "intelligence.scheduleAssessment",
-          "rule": "Supported demandKind values: material, reference, time_refresh."
-        },
-        {
-          "operation": "intelligence.scheduleAssessment",
-          "rule": "Create idempotent demand only; no asOf forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source."
+          "rule": "Registered bounded Next executor only, shared current job claims/budgets; selected=skipped+attempted+deferred unattempted. No independent worker deployment."
         },
         {
           "operation": "intelligence.selectAssessmentCandidates",
           "rule": "SQL latest-complete-per-subject selection; no domain mutation, all inactive/deletion roots excluded. Never-assessed active newly created plant has no reading/readiness gate."
         }
       ],
-      "title": "Dirty-or-seven-day-stale assessment scheduling"
+      "title": "Dirty-or-seven-day-stale assessment scheduling",
+      "operation_refs": [
+        {
+          "operation_id": "intelligence.requestRefresh",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-PI-022",
@@ -985,7 +1086,21 @@
       "work_packages": [
         "WP-043"
       ],
-      "title": "Pending/complete/failed/deferred snapshots and recovery"
+      "title": "Pending/complete/failed/deferred snapshots and recovery",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.executeDemand",
+          "rule": "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/as of creates a new immutable run/demand where needed; old worker fenced."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
+        },
+        {
+          "operation": "intelligence.settleRun",
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. Only safe deferred/failed/superseded attempt status; a complete prior assessment is never demoted or replaced."
+        }
+      ]
     },
     {
       "id": "REQ-PI-023",
@@ -1079,7 +1194,13 @@
       "work_packages": [
         "WP-044"
       ],
-      "title": "Cached assessment reads, as-of and seen marker"
+      "title": "Cached assessment reads, as-of and seen marker",
+      "behavior_rules": [
+        {
+          "operation": "intelligence.markAssessmentSeen",
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Only affiliation and sharing changes advance organization material revision."
+        }
+      ]
     },
     {
       "id": "REQ-PI-025",
@@ -1178,7 +1299,7 @@
       "feature_ids": [
         "PI-028"
       ],
-      "text": "Preserve 19 stable criterion keys,18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
+      "text": "Preserve 19 stable criterion keys, 18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readExitCriteria",
@@ -1335,7 +1456,25 @@
         "WP-047",
         "WP-044"
       ],
-      "title": "Oversight privacy-safe four-valued health rollup"
+      "title": "Oversight privacy-safe four-valued health rollup",
+      "behavior_rules": [
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Visible information for organization_member: plant identity, released assessment ref, classification, shared structured concerns, allowed aggregate evidence, as of, sharing status, authorized canonical plant link, next cursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Omitting a plant selection restricts the health read to the caller's authorized portfolio."
+        },
+        {
+          "operation": "oversight.readLaunchReadiness",
+          "rule": "Visible information for organization_member: plant identity, shared launch state, near date plus known gap reading, allowed coverage training aggregates, limited visibility, as of, authorized link, next cursor."
+        },
+        {
+          "operation": "oversight.getHealth",
+          "rule": "Current exact constrained organization(id, kind) Owner/Admin/Member where existing portfolio read permits. Reauthorize current affiliation/shared_findings/category/release for every contribution, named row/link/history/export/cache/Evry. Withhold invalid old patterns; no raw manifests/assessments/individual people/private care/street/source mix. Retained Evry messages/artifacts stripped to this same NI purpose, including old individual/lead-directory content."
+        }
+      ]
     },
     {
       "id": "REQ-PI-032",
@@ -1367,6 +1506,14 @@
         {
           "operation": "intelligence.validateConcernPairing",
           "rule": "Verify matching concern identity and evidence across planter and oversight versions"
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Supported release cause values: eligible_human_opened, elapsed_72_hours."
+        },
+        {
+          "operation": "intelligence.releaseAssessmentToOversight",
+          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation."
         }
       ],
       "title": "Planter-paired concerns and seen-or-72-hour release"
@@ -1566,7 +1713,16 @@
         "WP-040",
         "WP-043"
       ],
-      "behavior_rules": [],
+      "behavior_rules": [
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Supported demand kind values: material, reference, time_refresh."
+        },
+        {
+          "operation": "intelligence.scheduleAssessment",
+          "rule": "Create idempotent demand only; no as of forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source."
+        }
+      ],
       "title": "Assessment input triggers and revision freshness"
     },
     {
@@ -1595,7 +1751,21 @@
       "work_packages": [
         "WP-039"
       ],
-      "title": "Private weekly four-dimension planter check-in"
+      "title": "Private weekly four-dimension planter check-in",
+      "behavior_rules": [
+        {
+          "feature": "PI-038",
+          "rule": "native private-care original-author only; no existence/content in model/shared audit/logs"
+        },
+        {
+          "feature": "PI-038",
+          "rule": "Native current exact Owner/Admin original-author conjunction, stable week/calendar CAS, private-only receipt/history; no model/audit/log/PI/organization existence path."
+        },
+        {
+          "operation": "privateCare.readCurrent",
+          "rule": "Read native author-private projection only; no shared audit/telemetry/model/org/PI output."
+        }
+      ]
     },
     {
       "id": "REQ-PI-039",
@@ -1678,6 +1848,34 @@
         {
           "operation": "privateCare.correct",
           "rule": "Native author save/correction; no Evry proposal"
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported spiritually values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported marriage family values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported financially values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Supported pace values: steady, strained, struggling."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Serialize native author calendar rollover/edit/save under calendar CAS; atomically own entry+private correction+private receipt only; preserve original week/zone/author, unchanged save no-op; no shared audit/material revision/telemetry/model/org/PI input."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Prior revision retained privately; no model/audit/log content or existence."
+        },
+        {
+          "operation": "privateCare.correct",
+          "rule": "Native authenticated current exact plant Owner/Admin AND immutable original account author; no Evry/model, organization, broad audit/log/export/private existence access."
         }
       ],
       "title": "Correct existing check-in without deleting history"
@@ -1706,20 +1904,6 @@
       ],
       "work_packages": [
         "WP-043"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "intelligence.executeDemand",
-          "rule": "Bounded demand capture/evaluate/publish state machine using existing shared job/lease. Fresh input/asOf creates a new immutable run/demand where needed; old worker fenced."
-        },
-        {
-          "operation": "intelligence.settleRun",
-          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
-        },
-        {
-          "operation": "intelligence.settleRun",
-          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. Only safe deferred/failed/superseded attempt status; a complete prior assessment is never demoted or replaced."
-        }
       ],
       "title": "Accurate final-draft assessment failure diagnostics"
     },
@@ -1835,7 +2019,69 @@
         "WP-057",
         "WP-058"
       ],
-      "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence"
+      "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
+      "behavior_rules": [
+        {
+          "feature": "PI-043",
+          "rule": "Database constrained root plus trusted current same-org context; no plant FK or unchecked kind/id."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "forbidden: raw contributor manifest, raw plant assessment, individual person, private care, street address, per plant metric table, ranking."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Integer>=2 exact distinct eligible contributors for this pattern at this geographic level"
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Integer>=support count or explicit Unknown; no unsupported denominator/proportion"
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Shared reads never substitute zero for unavailable or unmeasured data."
+        },
+        {
+          "feature": "PI-043",
+          "rule": "Shared reads recheck current permission before returning data."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Visible information for organization_member: organization, assessment id, run id, status, as of, material revision, reference activation number, rubric, group scope, available evidence coverage, supported findings, bounded plant lens rows, own feedback only, safe failure code, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Omitting an organization assessment selection returns the latest valid complete assessment."
+        },
+        {
+          "operation": "organizationIntelligence.read",
+          "rule": "Network Intelligence purpose strips all individual Person/profile/interview/lead-directory content from current reads AND older retained messages/citations before model input. An allowed ordinary directory lead display-name read remains a separate operation/purpose; it never feeds NI."
+        },
+        {
+          "operation": "organizationIntelligence.readHistory",
+          "rule": "Visible information for organization_member: organization, historical assessments with current grant projection, as of and original grouping reference, withheld patterns, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "The requested organization view affects presentation only and grants no refresh authority."
+        },
+        {
+          "operation": "organizationIntelligence.requestRefresh",
+          "rule": "Exactly reviewed Owner/Admin request creates one org-wide shared demand. Regional views are slices of the same run; requested view does not create an independent engine/job/cohort or accept contributor IDs."
+        },
+        {
+          "operation": "organizationIntelligence.submitFeedback",
+          "rule": "Visible information for organization_member: feedback id, organization, assessment id, finding id, rubric version, rating, comment, revision, recorded at, replayed, assessment or rubric changed."
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "Published organization launch summaries contain only bounded oversight and shared Network Intelligence evidence."
+        },
+        {
+          "operation": "organizationLaunchSummary.readPublished",
+          "rule": "Visible information for organization_member: exact published summary, publication date, source version, current consent status, source references."
+        }
+      ]
     },
     {
       "id": "REQ-PI-044",
@@ -1914,7 +2160,33 @@
         "WP-057",
         "WP-058"
       ],
-      "title": "Location Insights: Regions, state/province, Country and Whole portfolio"
+      "title": "Location Insights: Regions, state/province, Country and Whole portfolio",
+      "behavior_rules": [
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "Reporting-region candidates use current launch-progress evidence for the authorized plant."
+        },
+        {
+          "operation": "geography.listReportingRegionCandidates",
+          "rule": "Read official pinned county/place relationships only; no street/coordinates/geocoding, first-county or nearest-city guess. This plant-settings read supplies no organization plant-editor grant."
+        },
+        {
+          "operation": "organizationIntelligence.readLocationHistory",
+          "rule": "Visible information for organization_member: organization, historical grouped slices, original reference and association revisions, separately labeled current placement, withheld patterns, next cursor."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "Visible information for organization_member: organization, assessment id, as of, geography reference version, region slices, state province slices, country slices, whole portfolio slice, unknown geography coverage, bounded named lens rows, safe status."
+        },
+        {
+          "operation": "organizationIntelligence.readLocations",
+          "rule": "region|state_province|country|whole_portfolio|null; null=all available grouped slices"
+        },
+        {
+          "operation": "organizations.correctReportingLocation",
+          "rule": "One native settings correction of primary association; current plant Owner/Admin only. Validate official reference and ambiguity selection; effective commit instant, immutable old reports. No org editing power, chosen-area attestation or phase effect."
+        }
+      ]
     },
     {
       "id": "REQ-PI-045",
@@ -1980,44 +2252,16 @@
       ],
       "behavior_rules": [
         {
-          "operation": "teams.addResponsibility",
-          "rule": "Membership/role/training history retained; no implicit roster-based training applicability recompute."
-        },
-        {
-          "operation": "teams.aggregateHealth",
-          "rule": "Visible information for plant_member: measuredTeamCount, unknownTeamCount, operationalTeamCount, measuredScores, summary, sourceRevision."
-        },
-        {
-          "operation": "teams.editRole",
-          "rule": "A role may have an explicit saved set of distinct ministry areas: worship, childrens, assimilation, small_groups, admin_finance, facilities, promotion and technology. An empty set clears the mapping. Never infer it from the role name; Prayer remains separate and is not a ninth area."
-        },
-        {
-          "operation": "teams.editRole",
-          "rule": "Changing a role's ministry areas requires the current mapping revision."
-        },
-        {
-          "operation": "teams.editRole",
-          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministryAreaKeys. Original mapping revision/history retained."
+          "operation": "teams.health",
+          "rule": "Visible information for plant_member: filled roles, role denominator, distinct people, distinct teams, required training completed pairs, required training applicable pairs, Unknown, source references."
         },
         {
           "operation": "teams.health",
-          "rule": "Visible information for plant_member: filledRoles, roleDenominator, distinctPeople, distinctTeams, requiredTrainingCompletedPairs, requiredTrainingApplicablePairs, Unknown, sourceReferences."
+          "rule": "Authenticated server server-verified actor and current context/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant."
         },
         {
-          "operation": "teams.offerResponsibilities",
-          "rule": "Explicit offer answer+only reviewed selected structured lines once; preview/read zero writes, changed/deleted/declined never resurrect."
-        },
-        {
-          "operation": "teams.previewResponsibilities",
-          "rule": "Visible information for plant_member: exactStructuredLines, currentCustomizations, acceptedOrDeclinedOfferState, templateVersion, previewDigest, proposedCreatedCount."
-        },
-        {
-          "operation": "teams.reactivateMembership",
-          "rule": "Append new tenure episode with one active occupant; prior dates/history retained, no automatic People demotion or earned-training reset."
-        },
-        {
-          "operation": "teams.health",
-          "rule": "Authenticated server ActorContext/exact current subject and lifecycle, or bound registered worker/run context as specified by canonical operation. No model-supplied actor, author, organization kind or grant."
+          "operation": "teams.importRoles",
+          "rule": "Previewed ministry/role selection only, team parent for every role exact. Preserve customizations/occupied leaders, canonical template identity immutable, fail entire import on stale destination/role conflict; read never initializes."
         }
       ]
     },
@@ -2113,6 +2357,12 @@
         "WP-035",
         "WP-038",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "documents.useForChurch",
+          "rule": "Copy one selected private account-native revision into exact newly/current owned plant; require source self ownership AND target plant Owner/Admin, preserve original and provenance. No bulk transfer or owner mutation."
+        }
       ]
     }
   ]

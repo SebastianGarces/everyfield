@@ -18,6 +18,7 @@ CHECKS = [
     ('package manifest', ['docs/package-context.py', '--check-manifest']),
     ('package plan', ['docs/package-context.py', '--check-plan']),
     ('operation rules', ['docs/catalog/check-operation-rules.py']),
+    ('rule placement', ['docs/catalog/check-rule-placement.py']),
     ('operation references', ['docs/catalog/check-operation-references.py']),
     ('feature projection', ['docs/catalog/project-features.py']),
     ('acceptance cases', ['docs/acceptance/check.py']),

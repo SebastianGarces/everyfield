@@ -244,7 +244,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-012--IDN-012. **Named cases:** TARGET-IDN-012.
 
-**TARGET-IDN-012 fixture:** A/Bus ers and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save. **Expected:** Only A current allowable preference/address changes; audience and consent gates still hold, and UI reflects failure or suppressed transport honestly.
+**TARGET-IDN-012 fixture:** A/B users and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save. **Expected:** Only A current allowable preference/address changes; audience and consent gates still hold, and UI reflects failure or suppressed transport honestly.
 
 
 <a id="req-idn-013"></a>
@@ -372,7 +372,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-022--IDN-022. **Named cases:** TARGET-IDN-022, ROLE43-016, AF-027, AF-028, AF-029, AF-030, AF-031, AF-032, AF-033, AF-034, AF-035, AF-037, AF-038, AF-039, AF-040, AF-041.
 
-**TARGET-IDN-022 fixture:** Twoorgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. **Expected:** Consent is independent and preserved; each org sees only currently allowed aggregates, no CRM/private fields, and relationship listing persists.
+**TARGET-IDN-022 fixture:** Two orgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. **Expected:** Consent is independent and preserved; each org sees only currently allowed aggregates, no CRM/private fields, and relationship listing persists.
 
 
 <a id="req-idn-023"></a>
@@ -385,7 +385,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 
 **Acceptance:** AC-IDN-023--IDN-023. **Named cases:** TARGET-IDN-023, ORG55-003, ORG55-004, ORG55-005, AF-027, AF-028, AF-029, AF-030, AF-031, AF-032, AF-033, AF-034, AF-035, AF-037, AF-038, AF-039, AF-040, AF-041.
 
-**TARGET-IDN-023 fixture:** OrgA/Blinked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down. **Expected:** Exact directory displays ordinary lead name without contacts; aggregates agree with domain and current consent, revoked body never returns and emptiness does not pretend withheld equals zero.
+**TARGET-IDN-023 fixture:** Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down. **Expected:** Exact directory displays ordinary lead name without contacts; aggregates agree with domain and current consent, revoked body never returns and emptiness does not pretend withheld equals zero.
 
 
 <a id="req-idn-024"></a>

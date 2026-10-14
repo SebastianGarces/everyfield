@@ -617,7 +617,7 @@
         "request",
         "sql"
       ],
-      "description": "TenantAdmin, orgAdmin affiliatedON, generic platform admin and scoped investigator; cursor search/export and wrong resource context.",
+      "description": "TenantAdmin, orgAdmin affiliated ON, generic platform admin and scoped investigator; cursor search/export and wrong resource context.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5094,7 +5094,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "ForeignIDs,seatless/Member/deferred coach token, spoofed user/plant, revoked grant, stale approved plan, guessed object across read and effect.",
+      "description": "Foreign IDs, seatless/Member/deferred coach token, spoofed user/plant, revoked grant, stale approved plan, guessed object across read and effect.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5437,7 +5437,7 @@
         "integration",
         "output-inspection"
       ],
-      "description": "Alternate tenants through warm navigation/prefetch/requestmemo/privateRSC/download, revoke grant then read; global vs org corpus cache.",
+      "description": "Alternate tenants through warm navigation/prefetch/requestmemo/private RSC/download, revoke grant then read; global vs org corpus cache.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7849,7 +7849,7 @@
         "request",
         "sql"
       ],
-      "description": "TwoOwner/Admin accounts inplant and outside org/operator/model callers inspect own/other answers/history/existence/period/nudge paths.",
+      "description": "Two Owner/Admin accounts inplant and outside org/operator/model callers inspect own/other answers/history/existence/period/nudge paths.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8073,7 +8073,7 @@
         "request",
         "sql"
       ],
-      "description": "Feedback,attachment,reference/model text requests raw SQL, forged actor/org, another approval or NI raw manifest.",
+      "description": "Feedback, attachment, reference/model text requests raw SQL, forged actor/org, another approval or NI raw manifest.",
       "given": {
         "P": {
           "fixture_type": "plant",

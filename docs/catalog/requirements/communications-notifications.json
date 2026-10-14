@@ -23,7 +23,37 @@
       "work_packages": [
         "WP-029"
       ],
-      "title": "Communication hub, filtered history and delivery overview"
+      "title": "Communication hub, filtered history and delivery overview",
+      "behavior_rules": [
+        {
+          "feature": "COM-001",
+          "rule": "Supported statuses values: draft, scheduled, accepted, failed, unknown, cancelled, sent."
+        },
+        {
+          "operation": "communication.deliveryTotals",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: message id, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, as of."
+        },
+        {
+          "operation": "communication.deliveryTotals",
+          "rule": "Exact operation-specific parent IDs/joins and visible denominator; deliverability/lifecycle/best engagement remain distinct and unknown never counts as sent/contacted."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, visible count, as of, completeness."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Bounded scoped history/search; draft listing always enforces draft state server-side, filters cannot change it. State is aggregate projection over one mail ledger."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Supported states values: draft, scheduled, sending, sent, logged, cancelled, failed, unknown."
+        },
+        {
+          "operation": "communication.list",
+          "rule": "Supported provider outcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown."
+        }
+      ]
     },
     {
       "id": "REQ-COM-002",
@@ -49,7 +79,33 @@
       "work_packages": [
         "WP-029"
       ],
-      "title": "Message detail, recipient and person/meeting communication histories"
+      "title": "Message detail, recipient and person/meeting communication histories",
+      "behavior_rules": [
+        {
+          "operation": "communication.forMeeting",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, meeting id."
+        },
+        {
+          "operation": "communication.forPerson",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, person id."
+        },
+        {
+          "operation": "communication.get",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: communication id, revision, state, subject, body, audience counts, attachment metadata, provider outcomes, source references, completeness."
+        },
+        {
+          "operation": "communication.get",
+          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution receipt selection."
+        },
+        {
+          "operation": "communication.listRecipients",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, completeness."
+        },
+        {
+          "operation": "communication.meetingRecipientTracking",
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, next cursor, message id, meeting id, completeness."
+        }
+      ]
     },
     {
       "id": "REQ-COM-003",
@@ -73,7 +129,33 @@
       "work_packages": [
         "WP-027"
       ],
-      "title": "Compose and preview sanitized rich-text email with merge fields"
+      "title": "Compose and preview sanitized rich-text email with merge fields",
+      "behavior_rules": [
+        {
+          "operation": "communication.preview",
+          "rule": "Preview resolves current approved per-recipient merge fields and ready owned attachments; no intents/provider effects. Server freezes whole exact audience; batching≤100 per HTTP request, not total recipient truncation."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "Supported group values: core_group, launch_team, leaders, prospects, all."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "One current exact active plant Owner/Admin; every referenced parent/child same plant; lifecycle/revision rechecked at commit."
+        },
+        {
+          "operation": "communication.preview",
+          "rule": "Exact canonical actor/subject/purpose guard applies at call and commit; alias introduces no extra grant or stale scope."
+        },
+        {
+          "operation": "communication.sendReviewed",
+          "rule": "Review/execution binds server-frozen whole audience/per-recipient bytes/attachments/source versions, not arbitrary model addresses/bytes. Recheck current recipients/exclusions; one ledger commits all intents then bounded exact-scope batches."
+        },
+        {
+          "operation": "communication.sendReviewed",
+          "rule": "Aggregate current projection exposes sending/partial/accepted/delivered/failed/unknown truth; accepted is not delivery/contact."
+        }
+      ]
     },
     {
       "id": "REQ-COM-004",
@@ -97,7 +179,21 @@
       "work_packages": [
         "WP-027"
       ],
-      "title": "Recipient search and closed quick-select groups"
+      "title": "Recipient search and closed quick-select groups",
+      "behavior_rules": [
+        {
+          "operation": "communication.listAudienceTeams",
+          "rule": "Only actual active/forming same-plant team selectors; no address list or generic nullable person/meeting selector."
+        },
+        {
+          "operation": "communication.resolveAudience",
+          "rule": "Resolve whole selected approved group/team/people set; unknown selector zero, never all; current exclusions/dedup/recruitment-account exclusions visible, no 100-total-audience cap."
+        },
+        {
+          "operation": "communication.searchRecipients",
+          "rule": "First 20 recipient search only, no implicit whole-audience truncation."
+        }
+      ]
     },
     {
       "id": "REQ-COM-005",
@@ -120,7 +216,29 @@
       "work_packages": [
         "WP-028"
       ],
-      "title": "Bulk provider dispatch and per-recipient outcome correlation"
+      "title": "Bulk provider dispatch and per-recipient outcome correlation",
+      "behavior_rules": [
+        {
+          "feature": "COM-005",
+          "rule": "Supported provider outcomes values: accepted, delivered, rejected, bounced, suppressed, unknown."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Accepted/sent email cannot be recalled; unknown acceptance reconciled before retry; no duplicate replacement provider key."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Registered owning-domain adapter/job only, with verified source occurrence/receipt and exact typed scope. Fresh domain authorization remains evaluated; no model/direct HTTP invocation or arbitrary event/recipient/executor RPC."
+        },
+        {
+          "operation": "communication.dispatchAttempt",
+          "rule": "Verified source receipt/current registered type and actual stored current authorization, never supplied actor/proof IDs."
+        }
+      ]
     },
     {
       "id": "REQ-COM-006",
@@ -176,7 +294,7 @@
         },
         {
           "operation": "communication.templates.archiveOrDelete",
-          "rule": "Supported requestedAction values: archive, delete."
+          "rule": "Supported requested action values: archive, delete."
         },
         {
           "operation": "communication.templates.create",
@@ -210,7 +328,7 @@
       "behavior_rules": [
         {
           "operation": "communication.templates.forMeeting",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: templates, sourceIds, versions, meetingTypeMappings, completeness."
+          "rule": "Visible information for plant_owner|plant_admin|plant_member: templates, source ids, versions, meeting type mappings, completeness."
         },
         {
           "operation": "communication.templates.forMeeting",
@@ -240,7 +358,21 @@
       "work_packages": [
         "WP-029"
       ],
-      "title": "Reviewed resend to delivered non-openers"
+      "title": "Reviewed resend to delivered non-openers",
+      "behavior_rules": [
+        {
+          "operation": "communication.executeResend",
+          "rule": "Reviewed distinct deliberate resend/recovery operation rechecks source, ownership, confirmed delivery≥24h/nonopener or authoritative failure as applicable; never invent negative acceptance evidence or retry unknown with new key."
+        },
+        {
+          "operation": "communication.resendCandidates",
+          "rule": "Delivered-nonopener resend requires ≥24h after sent original, ≥1 confirmed delivery, no open/click and current deliverability. Proven failed recovery distinct; unknown not candidate."
+        },
+        {
+          "operation": "communication.resendCandidates",
+          "rule": "Supported selection values: delivered_nonopeners, proven_failed."
+        }
+      ]
     },
     {
       "id": "REQ-COM-010",
@@ -304,7 +436,41 @@
         "WP-029",
         "WP-031"
       ],
-      "title": "Native drafts and reviewed scheduled email"
+      "title": "Native drafts and reviewed scheduled email",
+      "behavior_rules": [
+        {
+          "operation": "communication.deleteDraft",
+          "rule": "Delete only unsent draft under expected revision; cannot cancel provider intent or erase sent history."
+        },
+        {
+          "operation": "communication.saveDraft",
+          "rule": "Native draft may be incomplete; closed create/edit revision path; saving never schedules/sends or creates mail attempt."
+        },
+        {
+          "operation": "communication.saveDraft",
+          "rule": "All composition fields may be empty/absent while draft; no provider intent"
+        },
+        {
+          "operation": "communication.cancelScheduledReviewed",
+          "rule": "Cancel each relevant original scheduled provider intent; sent/unknown remain factual, success only confirmed canceled. Cancel request alone is not cancellation proof."
+        },
+        {
+          "operation": "communication.replaceScheduledReviewed",
+          "rule": "Create reviewed replacement only after authoritative confirmed cancellation of every relevant original intent. Sent/partial/unknown blocks replacement; no duplicate delivery from uncertain cancel."
+        },
+        {
+          "operation": "communication.replaceScheduledReviewed",
+          "rule": "Supported dst choice values: unambiguous, earlier, later."
+        },
+        {
+          "operation": "communication.rescheduleReviewed",
+          "rule": "Time-only reschedule original frozen provider scheduled recipients; no content/audience replacement and no claim all changed on partial/unknown response."
+        },
+        {
+          "operation": "communication.scheduleReviewed",
+          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30 days, partial/unknown truthful."
+        }
+      ]
     },
     {
       "id": "REQ-KNOW-001",
@@ -339,188 +505,6 @@
         "WP-030",
         "WP-081",
         "WP-082"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "notifications.digestCadence.set",
-          "rule": "Own planter digest frequency daily/weekly only for currently eligible actual plant recipient; OFF is own channel choice, not a cadence or arbitrary schedule builder."
-        },
-        {
-          "operation": "notifications.digestCadence.set",
-          "rule": "Supported cadence values: daily, weekly."
-        },
-        {
-          "operation": "notifications.digestCadence.set",
-          "rule": "Current exact actual plant recipient required for planter cadence; Discovery can change own categories but not fabricate planter digest."
-        },
-        {
-          "operation": "notifications.feed",
-          "rule": "Feed pure query of due/current eligible/uncanceled visible entries; keyset predicate identical to unread/mark commands, no implicit mark or successful business mutation."
-        },
-        {
-          "operation": "notifications.feed",
-          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
-        },
-        {
-          "operation": "notifications.markAllVisibleRead",
-          "rule": "Re-evaluate same due/current visibility predicate and reviewed cutoff; do not mark newly arrived/future/revoked entries implicitly."
-        },
-        {
-          "operation": "notifications.markRead",
-          "rule": "Mark only own due currently eligible visible entry; read does not complete linked work."
-        },
-        {
-          "operation": "notifications.markSelectedRead",
-          "rule": "Mark exact owned selected visible entries under current predicate, no foreign existence."
-        },
-        {
-          "operation": "notifications.preferences.get",
-          "rule": "Authenticated own actual producer choices incl explicit equal-default choices; no phantom seat and no custom rule builder."
-        },
-        {
-          "operation": "notifications.preferences.set",
-          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
-        },
-        {
-          "operation": "notifications.preferences.set",
-          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
-        },
-        {
-          "operation": "notifications.preferences.set",
-          "rule": "Supported channel values: email, in_app."
-        },
-        {
-          "operation": "notifications.unreadCount",
-          "rule": "Unread pure scalar count uses same due/current visibility predicate; no page/mark side effect or hidden foreign/future count."
-        },
-        {
-          "operation": "shared",
-          "rule": "one active account seat across plant/typed organization contexts"
-        },
-        {
-          "operation": "shared",
-          "rule": "Owner and Admin equal routine tenant administration; Owner-only workspace purge"
-        },
-        {
-          "operation": "shared",
-          "rule": "ordinary lead ministry role grants no access"
-        },
-        {
-          "operation": "shared",
-          "rule": "no inherited affiliation grant; exact active direct relationship+current category consent"
-        },
-        {
-          "operation": "shared",
-          "rule": "native private-care original-author only; no existence/content in model/shared audit/logs"
-        },
-        {
-          "operation": "shared",
-          "rule": "platform privilege requires separate explicit grant"
-        },
-        {
-          "operation": "shared",
-          "rule": "one bounded read tool and one candidate-preparation tool per domain; closed allowed operation+projection discriminators"
-        },
-        {
-          "operation": "shared",
-          "rule": "Model tools expose no command executor."
-        },
-        {
-          "operation": "shared",
-          "rule": "Model tools expose no approval capability."
-        },
-        {
-          "operation": "shared",
-          "rule": "Model tools expose no arbitrary code, network, filesystem or SQL capability."
-        },
-        {
-          "operation": "shared",
-          "rule": "current authorization derives allowed discriminators; model hints never sole selector"
-        },
-        {
-          "operation": "shared",
-          "rule": "one modular monolith, not one service per operation; these are closed command/query/protocol variants"
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported stages values: prospect, attendee, following_up, interviewed, core_group, launch_team, leader."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported adultClassification values: adult, child, unknown."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported currentCommitment values: active, withdrawn, unknown, any."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported operator values: all, any, none."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported recordType values: currently_authorized_assessment, currently_authorized_interview, currently_authorized_commitment, ordinary_note, follow_up."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported operator values: exists, not_exists."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported operator values: eq, gte, lte."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported contactAvailability values: email, phone, either, neither, any."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported archived values: exclude, include, only."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported prerequisiteState values: incomplete, complete, any."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported category values: vision_meeting, follow_up, training, facilities, promotion, administrative, ministry_team, launch_prep, recurring, general."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported dueKind values: undated, local_date, resolved_instant, any."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported types values: vision_meeting, orientation, team_meeting, pre_launch_practice."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported statuses values: planning, ready, in_progress, completed, cancelled."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported preparationState values: complete, incomplete, any."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported statuses values: draft, scheduled, accepted, failed, unknown, cancelled, sent."
-        },
-        {
-          "operation": "shared",
-          "rule": "Supported providerOutcomes values: accepted, delivered, rejected, bounced, suppressed, unknown."
-        },
-        {
-          "operation": "shared",
-          "rule": "The notification recipient is the trusted authenticated account and cannot be selected by the caller."
-        },
-        {
-          "operation": "shared",
-          "rule": "Currently public global Wiki, own preplant account documents and own Discovery operations where native already allows."
-        },
-        {
-          "operation": "shared",
-          "rule": "Foreign account, plant/org operations without actual seat; auth credentials/native-only secrets/private care."
-        }
       ]
     },
     {
@@ -545,20 +529,6 @@
       "work_packages": [
         "WP-030",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "notifications.applyEmailOptOut",
-          "rule": "Email opt-out requires an explicit native request bound to the opt-out purpose."
-        },
-        {
-          "operation": "notifications.cancelForEntity",
-          "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant."
-        },
-        {
-          "operation": "notifications.enqueue",
-          "rule": "Supported registeredCategory values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
-        }
       ]
     },
     {
@@ -584,32 +554,6 @@
         "WP-028",
         "WP-030",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "mail.renderTransactional",
-          "rule": "Pure internal rendering of registered-purpose frozen intent; secret tokens/addresses are protected operational payload, never model/log/audit output."
-        },
-        {
-          "operation": "mail.sendTransactional",
-          "rule": "Dispatch existing fenced immutable full request exactly once-logically under one shared provider key; no arbitrary template/recipient/key inputs or second transport ledger."
-        },
-        {
-          "operation": "mail.suppression.listForSelf",
-          "rule": "Only current authenticated self address state; no address search/list or another account existence."
-        },
-        {
-          "operation": "mail.suppression.recordProviderFact",
-          "rule": "Only verified provider hard-bounce/complaint fact; normalized address derives protected existing event/intent, not client selector."
-        },
-        {
-          "operation": "notifications.inspectAssociationReceipt",
-          "rule": "Internal association producer/authorized operator receipt inspection; no invented general plant-seat customer retry console or token/address exposure."
-        },
-        {
-          "operation": "notifications.retryAssociationReceipt",
-          "rule": "Fenced existing ledger retry only actual authoritative refusal or identical-key allowed window; unknown reconciles, caller cannot supply a new provider key/recipient."
-        }
       ]
     },
     {
@@ -632,24 +576,6 @@
       "work_packages": [
         "WP-030",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "church.digestSchedule.set",
-          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
-        },
-        {
-          "operation": "church.digestSchedule.set",
-          "rule": "Expected-revision correction or explicit no-op history; unknown external effects require reconciliation."
-        },
-        {
-          "operation": "notifications.previewPlanterDigest",
-          "rule": "Preview actual currently eligible self planter current church-local period/owed catch-up, server interval/current assignment; never caller-selected recipient or send."
-        },
-        {
-          "operation": "notifications.previewPlanterDigest",
-          "rule": "Require actual current plant digest audience and exact current plant context; counts restricted by current assignment/read predicate."
-        }
       ]
     },
     {
@@ -675,24 +601,6 @@
         "WP-007",
         "WP-030",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "notifications.generateOwedOversightDigests",
-          "rule": "Actual exact recipient/context owed period computed server-side; consolidate uncovered periods into≤100 lines/current actionable authorized facts, coverage advances only matching committed intent/receipt; empty no send."
-        },
-        {
-          "operation": "notifications.oversightDigestCadence.set",
-          "rule": "Exact own-organization eligible self recipient changes cadence; never plant role, foreign org, arbitrary timezone/local schedule or reset independent channel preference."
-        },
-        {
-          "operation": "notifications.previewOversightDigest",
-          "rule": "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/defaultUTC, no arbitrary interval/plant actor/names/notes/giving/body."
-        },
-        {
-          "operation": "notifications.previewOversightDigest",
-          "rule": "Supported period values: current, owed_catchup."
-        }
       ]
     },
     {
@@ -720,24 +628,6 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "notifications.claimDue",
-          "rule": "Bounded registered claim/dispatch/reconcile/recovery protocol, exact attempt/manifest/current generation; DB clock proves expired lease, no client outcome/provider key or unknown new-key resend."
-        },
-        {
-          "operation": "notifications.claimDue",
-          "rule": "Persisted job_state ready|claimed|retry_wait|reconcile|succeeded|failed|cancelled|superseded; pending/completed/blocked_unknown are projection aliases only."
-        },
-        {
-          "operation": "notifications.meetingAudience",
-          "rule": "Internal actual meeting producer only: linked eligible account cohort/creator and live attendance/guest-list rules; not generic CRM-address fallback/model recipient-account lookup."
-        },
-        {
-          "operation": "notifications.meetingAudience",
-          "rule": "Supported reminderKind values: scheduled_announcement, day_7, day_3, day_1."
-        }
       ]
     },
     {
@@ -791,24 +681,6 @@
       "work_packages": [
         "WP-028",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "mail.acceptWebhook",
-          "rule": "Route verifies raw signature/timestamp before lookup; durable unique event/raw-body hash committed before 2xx, unknown message ID retained for reconciliation. Outbound payload hash is different."
-        },
-        {
-          "operation": "mail.acceptWebhook",
-          "rule": "Verified event insertion commits durably before success acknowledgement; storage failure returns retryable non-2xx. No provider-selected tenant authorization."
-        },
-        {
-          "operation": "mail.processDeliveryEvent",
-          "rule": "Read durable verified event and actual provider-message mapping; apply event facts idempotently by event time. No arbitrary supplied intent/outcome/provider key."
-        },
-        {
-          "operation": "mail.reconcileDeliveryState",
-          "rule": "Authoritative exact request/intent observation reconciles truthful unknown, preserves first-dispatch/cutoff and never silently resends uncertain accepted request."
-        }
       ]
     },
     {
@@ -899,96 +771,6 @@
       "work_packages": [
         "WP-027",
         "WP-029"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "communication.deleteDraft",
-          "rule": "Delete only unsent draft under expected revision; cannot cancel provider intent or erase sent history."
-        },
-        {
-          "operation": "communication.deliveryTotals",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: messageId, selected, reachable, attempted, accepted, sent, delivered, opened, clicked, bounced, failed, suppressed, unknown, asOf."
-        },
-        {
-          "operation": "communication.deliveryTotals",
-          "rule": "Exact operation-specific parent IDs/joins and visible denominator; deliverability/lifecycle/best engagement remain distinct and unknown never counts as sent/contacted."
-        },
-        {
-          "operation": "communication.forMeeting",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, meetingId."
-        },
-        {
-          "operation": "communication.forPerson",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, personId."
-        },
-        {
-          "operation": "communication.get",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: communicationId, revision, state, subject, body, audienceCounts, attachmentMetadata, providerOutcomes, sourceReferences, completeness."
-        },
-        {
-          "operation": "communication.get",
-          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated messageIds or allow cross-domain execution receipt selection."
-        },
-        {
-          "operation": "communication.list",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, visibleCount, asOf, completeness."
-        },
-        {
-          "operation": "communication.list",
-          "rule": "Bounded scoped history/search; listDrafts always enforces draft state server-side, filters cannot change it. State is aggregate projection over one mail ledger."
-        },
-        {
-          "operation": "communication.list",
-          "rule": "Supported states values: draft, scheduled, sending, sent, logged, cancelled, failed, unknown."
-        },
-        {
-          "operation": "communication.list",
-          "rule": "Supported providerOutcomes values: accepted, delivered, transient_refusal, permanent_refusal, bounced, suppressed, unknown."
-        },
-        {
-          "operation": "communication.listAudienceTeams",
-          "rule": "Only actual active/forming same-plant team selectors; no address list or generic nullable person/meeting selector."
-        },
-        {
-          "operation": "communication.listRecipients",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, messageId, completeness."
-        },
-        {
-          "operation": "communication.meetingRecipientTracking",
-          "rule": "Visible information for plant_owner|plant_admin|plant_member: items, nextCursor, messageId, meetingId, completeness."
-        },
-        {
-          "operation": "communication.preview",
-          "rule": "Preview resolves current approved per-recipient merge fields and ready owned attachments; no intents/provider effects. Server freezes whole exact audience; batching≤100 per HTTP request, not total recipient truncation."
-        },
-        {
-          "operation": "communication.preview",
-          "rule": "Supported group values: core_group, launch_team, leaders, prospects, all."
-        },
-        {
-          "operation": "communication.resolveAudience",
-          "rule": "Resolve whole selected approved group/team/people set; unknown selector zero, never all; current exclusions/dedup/recruitment-account exclusions visible, no 100-total-audience cap."
-        },
-        {
-          "operation": "communication.saveDraft",
-          "rule": "Native draft may be incomplete; closed create/edit revision path; saving never schedules/sends or creates mail attempt."
-        },
-        {
-          "operation": "communication.saveDraft",
-          "rule": "All composition fields may be empty/absent while draft; no provider intent"
-        },
-        {
-          "operation": "communication.searchRecipients",
-          "rule": "First 20 recipient search only, no implicit whole-audience truncation."
-        },
-        {
-          "operation": "communication.preview",
-          "rule": "One current exact active plant Owner/Admin; every referenced parent/child same plant; lifecycle/revision rechecked at commit."
-        },
-        {
-          "operation": "communication.preview",
-          "rule": "Exact canonical actor/subject/purpose guard applies at call and commit; alias introduces no extra grant or stale scope."
-        }
       ]
     },
     {
@@ -1018,52 +800,6 @@
         "WP-027",
         "WP-028",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "communication.cancelScheduledReviewed",
-          "rule": "Cancel each relevant original scheduled provider intent; sent/unknown remain factual, success only confirmed canceled. Cancel request alone is not cancellation proof."
-        },
-        {
-          "operation": "communication.dispatchAttempt",
-          "rule": "Whole immutable exact-scope request manifest≤100 owns one stable provider key; current fenced attempt selects existing frozen bytes/key, never caller regrouping or per-intent key. First-dispatch cutoff 23h 55m never resets; unknown beyond retention reconciles only."
-        },
-        {
-          "operation": "communication.dispatchAttempt",
-          "rule": "Accepted/sent email cannot be recalled; unknown acceptance reconciled before retry; no duplicate replacement provider key."
-        },
-        {
-          "operation": "communication.dispatchAttempt",
-          "rule": "Registered owning-domain adapter/job only, with verified source occurrence/receipt and exact typed scope. Fresh domain authorization remains evaluated; no model/direct HTTP invocation or arbitrary event/recipient/executor RPC."
-        },
-        {
-          "operation": "communication.dispatchAttempt",
-          "rule": "Verified source receipt/current registered type and actual stored current authorization, never supplied actor/proof IDs."
-        },
-        {
-          "operation": "communication.replaceScheduledReviewed",
-          "rule": "Create reviewed replacement only after authoritative confirmed cancellation of every relevant original intent. Sent/partial/unknown blocks replacement; no duplicate delivery from uncertain cancel."
-        },
-        {
-          "operation": "communication.replaceScheduledReviewed",
-          "rule": "Supported dstChoice values: unambiguous, earlier, later."
-        },
-        {
-          "operation": "communication.rescheduleReviewed",
-          "rule": "Time-only reschedule original frozen provider scheduled recipients; no content/audience replacement and no claim all changed on partial/unknown response."
-        },
-        {
-          "operation": "communication.scheduleReviewed",
-          "rule": "Schedule exact reviewed frozen complete draft and timezone/DST provenance; provider confirmed window≤30 days, partial/unknown truthful."
-        },
-        {
-          "operation": "communication.sendReviewed",
-          "rule": "Review/execution binds server-frozen whole audience/per-recipient bytes/attachments/source versions, not arbitrary model addresses/bytes. Recheck current recipients/exclusions; one ledger commits all intents then bounded exact-scope batches."
-        },
-        {
-          "operation": "communication.sendReviewed",
-          "rule": "Aggregate current projection exposes sending/partial/accepted/delivered/failed/unknown truth; accepted is not delivery/contact."
-        }
       ]
     },
     {
@@ -1140,20 +876,6 @@
         "WP-028",
         "WP-029",
         "WP-031"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "communication.executeResend",
-          "rule": "Reviewed distinct deliberate resend/recovery operation rechecks source, ownership, confirmed delivery≥24h/nonopener or authoritative failure as applicable; never invent negative acceptance evidence or retry unknown with new key."
-        },
-        {
-          "operation": "communication.resendCandidates",
-          "rule": "Delivered-nonopener resend requires ≥24h after sent original, ≥1 confirmed delivery, no open/click and current deliverability. Proven failed recovery distinct; unknown not candidate."
-        },
-        {
-          "operation": "communication.resendCandidates",
-          "rule": "Supported selection values: delivered_nonopeners, proven_failed."
-        }
       ]
     },
     {
@@ -1399,6 +1121,12 @@
         "WP-028",
         "WP-029",
         "WP-031"
+      ],
+      "behavior_rules": [
+        {
+          "operation": "mail.reconcileDeliveryState",
+          "rule": "Authoritative exact request/intent observation reconciles truthful unknown, preserves first-dispatch/cutoff and never silently resends uncertain accepted request."
+        }
       ]
     },
     {
@@ -1422,7 +1150,17 @@
       "work_packages": [
         "WP-031"
       ],
-      "title": "Tenant/organization anchored enqueue and deduplicated delivery intent"
+      "title": "Tenant/organization anchored enqueue and deduplicated delivery intent",
+      "behavior_rules": [
+        {
+          "operation": "notifications.cancelForEntity",
+          "rule": "Operation-specific mandatory current source occurrence/parent/revision; trusted owning producer derives audience/category/channel. No nullable universal event bag; Wiki upstream notice in_app-only, actual Discovery receipts target account+valid exact org Owners with no phantom plant."
+        },
+        {
+          "operation": "notifications.enqueue",
+          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-002",
@@ -1447,20 +1185,31 @@
       "work_packages": [
         "WP-031"
       ],
-      "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation"
+      "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation",
+      "behavior_rules": [
+        {
+          "operation": "notifications.claimDue",
+          "rule": "Bounded registered claim/dispatch/reconcile/recovery protocol, exact attempt/manifest/current generation; DB clock proves expired lease, no client outcome/provider key or unknown new-key resend."
+        },
+        {
+          "operation": "notifications.claimDue",
+          "rule": "Persisted job_state ready|claimed|retry_wait|reconcile|succeeded|failed|cancelled|superseded; pending/completed/blocked_unknown are projection aliases only."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-003",
       "feature_ids": [
         "NTF-003"
       ],
-      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt,id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt, id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.feed",
         "notifications.unreadCount",
         "notifications.markRead",
-        "notifications.markAllVisibleRead"
+        "notifications.markAllVisibleRead",
+        "notifications.markSelectedRead"
       ],
       "acceptance_ids": [
         "AC-NTF-003--NTF-003"
@@ -1472,7 +1221,43 @@
       "work_packages": [
         "WP-030"
       ],
-      "title": "In-app notification feed, unread filters, pagination and bell"
+      "title": "In-app notification feed, unread filters, pagination and bell",
+      "operation_refs": [
+        {
+          "operation_id": "notifications.markSelectedRead",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "notifications.feed",
+          "rule": "Feed pure query of due/current eligible/uncanceled visible entries; keyset predicate identical to unread/mark commands, no implicit mark or successful business mutation."
+        },
+        {
+          "operation": "notifications.feed",
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        },
+        {
+          "operation": "notifications.markAllVisibleRead",
+          "rule": "Re-evaluate same due/current visibility predicate and reviewed cutoff; do not mark newly arrived/future/revoked entries implicitly."
+        },
+        {
+          "operation": "notifications.markRead",
+          "rule": "Mark only own due currently eligible visible entry; read does not complete linked work."
+        },
+        {
+          "operation": "notifications.markSelectedRead",
+          "rule": "Mark exact owned selected visible entries under current predicate, no foreign existence."
+        },
+        {
+          "operation": "notifications.unreadCount",
+          "rule": "Unread pure scalar count uses same due/current visibility predicate; no page/mark side effect or hidden foreign/future count."
+        },
+        {
+          "feature": "NTF-003",
+          "rule": "The notification recipient is the trusted authenticated account and cannot be selected by the caller."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-004",
@@ -1496,7 +1281,37 @@
       "work_packages": [
         "WP-030"
       ],
-      "title": "User category/channel preferences with explicit-choice intent"
+      "title": "User category/channel preferences with explicit-choice intent",
+      "behavior_rules": [
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Own planter digest frequency daily/weekly only for currently eligible actual plant recipient; OFF is own channel choice, not a cadence or arbitrary schedule builder."
+        },
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Supported cadence values: daily, weekly."
+        },
+        {
+          "operation": "notifications.digestCadence.set",
+          "rule": "Current exact actual plant recipient required for planter cadence; Discovery can change own categories but not fabricate planter digest."
+        },
+        {
+          "operation": "notifications.preferences.get",
+          "rule": "Authenticated own actual producer choices incl explicit equal-default choices; no phantom seat and no custom rule builder."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Explicit trusted reviewed save persists even default-equal value; actual categories only, Wiki editor notice in_app only, cannot enlarge audience/change unrelated cadence/channel choices."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review."
+        },
+        {
+          "operation": "notifications.preferences.set",
+          "rule": "Supported channel values: email, in_app."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-005",
@@ -1544,7 +1359,17 @@
         "WP-020",
         "WP-031"
       ],
-      "title": "Meeting scheduled and day-offset reminders"
+      "title": "Meeting scheduled and day-offset reminders",
+      "behavior_rules": [
+        {
+          "operation": "notifications.meetingAudience",
+          "rule": "Internal actual meeting producer only: linked eligible account cohort/creator and live attendance/guest-list rules; not generic CRM-address fallback/model recipient-account lookup."
+        },
+        {
+          "operation": "notifications.meetingAudience",
+          "rule": "Supported reminder kind values: scheduled_announcement, day_7, day_3, day_1."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-007",
@@ -1568,7 +1393,25 @@
       "work_packages": [
         "WP-031"
       ],
-      "title": "Planter open-items daily/weekly digest and church local send schedule"
+      "title": "Planter open-items daily/weekly digest and church local send schedule",
+      "behavior_rules": [
+        {
+          "operation": "church.digestSchedule.set",
+          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
+        },
+        {
+          "operation": "church.digestSchedule.set",
+          "rule": "Expected-revision correction or explicit no-op history; unknown external effects require reconciliation."
+        },
+        {
+          "operation": "notifications.previewPlanterDigest",
+          "rule": "Preview actual currently eligible self planter current church-local period/owed catch-up, server interval/current assignment; never caller-selected recipient or send."
+        },
+        {
+          "operation": "notifications.previewPlanterDigest",
+          "rule": "Require actual current plant digest audience and exact current plant context; counts restricted by current assignment/read predicate."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-008",
@@ -1594,7 +1437,25 @@
         "WP-031",
         "WP-030"
       ],
-      "title": "Oversight privacy-preserving daily activity digest"
+      "title": "Oversight privacy-preserving daily activity digest",
+      "behavior_rules": [
+        {
+          "operation": "notifications.generateOwedOversightDigests",
+          "rule": "Actual exact recipient/context owed period computed server-side; consolidate uncovered periods into≤100 lines/current actionable authorized facts, coverage advances only matching committed intent/receipt; empty no send."
+        },
+        {
+          "operation": "notifications.oversightDigestCadence.set",
+          "rule": "Exact own-organization eligible self recipient changes cadence; never plant role, foreign org, arbitrary timezone/local schedule or reset independent channel preference."
+        },
+        {
+          "operation": "notifications.previewOversightDigest",
+          "rule": "Exact current organization/self overview from current sharing-approved direct plants only; own saved org zone/default utc, no arbitrary interval/plant actor/names/notes/giving/body."
+        },
+        {
+          "operation": "notifications.previewOversightDigest",
+          "rule": "Supported period values: current, owed_catchup."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-009",
@@ -1646,7 +1507,21 @@
       "work_packages": [
         "WP-028"
       ],
-      "title": "Signed delivery webhooks for notifications and bulk communication"
+      "title": "Signed delivery webhooks for notifications and bulk communication",
+      "behavior_rules": [
+        {
+          "operation": "mail.acceptWebhook",
+          "rule": "Route verifies raw signature/timestamp before lookup; durable unique event/raw-body hash committed before 2xx, unknown message ID retained for reconciliation. Outbound payload hash is different."
+        },
+        {
+          "operation": "mail.acceptWebhook",
+          "rule": "Verified event insertion commits durably before success acknowledgement; storage failure returns retryable non-2xx. No provider-selected tenant authorization."
+        },
+        {
+          "operation": "mail.processDeliveryEvent",
+          "rule": "Read durable verified event and actual provider-message mapping; apply event facts idempotently by event time. No arbitrary supplied intent/outcome/provider key."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-011",
@@ -1671,7 +1546,17 @@
         "WP-028",
         "WP-030"
       ],
-      "title": "Global address suppression and self-service restoration history"
+      "title": "Global address suppression and self-service restoration history",
+      "behavior_rules": [
+        {
+          "operation": "mail.suppression.listForSelf",
+          "rule": "Only current authenticated self address state; no address search/list or another account existence."
+        },
+        {
+          "operation": "mail.suppression.recordProviderFact",
+          "rule": "Only verified provider hard-bounce/complaint fact; normalized address derives protected existing event/intent, not client selector."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-012",
@@ -1695,7 +1580,13 @@
       "work_packages": [
         "WP-030"
       ],
-      "title": "Category email unsubscribe, one-click opt-out and bounded undo"
+      "title": "Category email unsubscribe, one-click opt-out and bounded undo",
+      "behavior_rules": [
+        {
+          "operation": "notifications.applyEmailOptOut",
+          "rule": "Email opt-out requires an explicit native request bound to the opt-out purpose."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-013",
@@ -1721,7 +1612,17 @@
         "WP-028",
         "WP-031"
       ],
-      "title": "Shared transactional email transport and protected email templates"
+      "title": "Shared transactional email transport and protected email templates",
+      "behavior_rules": [
+        {
+          "operation": "mail.renderTransactional",
+          "rule": "Pure internal rendering of registered-purpose frozen intent; secret tokens/addresses are protected operational payload, never model/log/audit output."
+        },
+        {
+          "operation": "mail.sendTransactional",
+          "rule": "Dispatch existing fenced immutable full request exactly once-logically under one shared provider key; no arbitrary template/recipient/key inputs or second transport ledger."
+        }
+      ]
     },
     {
       "id": "REQ-NTF-014",
@@ -1770,7 +1671,17 @@
         "WP-030",
         "WP-031"
       ],
-      "title": "Discovery association postcommit transactional receipts"
+      "title": "Discovery association postcommit transactional receipts",
+      "behavior_rules": [
+        {
+          "operation": "notifications.inspectAssociationReceipt",
+          "rule": "Internal association producer/authorized operator receipt inspection; no invented general plant-seat customer retry console or token/address exposure."
+        },
+        {
+          "operation": "notifications.retryAssociationReceipt",
+          "rule": "Fenced existing ledger retry only actual authoritative refusal or identical-key allowed window; unknown reconciles, caller cannot supply a new provider key/recipient."
+        }
+      ]
     }
   ]
 }

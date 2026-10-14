@@ -28,16 +28,6 @@
         "WP-003",
         "WP-004",
         "WP-050"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "dev.cleanupPreview",
-          "rule": "Exact purpose-specific registered diagnostic/owned disposable mutation. Actual environment/checkout/identity/config proof trusted context, sentinel alone insufficient; no production identities/credentials, unrelated worktree, spending/provider effect/board mutation absent actual authorization."
-        },
-        {
-          "operation": "dev.cleanupPreview",
-          "rule": "Verified immutable-principal operator capability for the exact positively identified environment/target and registered operation. Not a plant/org role, ordinary job grant, model hint or submitted manifest; no unapproved spend/provider/configuration."
-        }
       ]
     },
     {
@@ -49,7 +39,7 @@
         "OPS-005",
         "OPS-007"
       ],
-      "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate private Tigris encrypted daily bucket and measured ordinary 1hRPO/4hRTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
+      "text": "Before real customer data prove coherent database and matching private-byte restore under current access/deletion/external-effect barriers. Selected seven-day history/daily snapshots/object recovery/separate private Tigris encrypted daily bucket and measured ordinary 1h RPO/4h RTO are current targets, not a fresh destination/period questionnaire or guaranteed SLA. Actual cost approval/config/restore proof remains required.",
       "spec": "docs/architecture/execution.md#usage-and-cost-envelope",
       "operations": [],
       "acceptance_ids": [
@@ -141,28 +131,6 @@
         "WP-031",
         "WP-049",
         "WP-050"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "jobs.inspectLag",
-          "rule": "Read-only DB-clock observed content-free bounded lag by registered job family; no tenant/body/calendar private-care metadata."
-        },
-        {
-          "operation": "jobs.manualRun",
-          "rule": "Scoped actual existing registered job/manual recovery only; recheck current fence/expiry and domain retry rules, unknown external reconcile cannot become new-key resend or generic arbitrary executor."
-        },
-        {
-          "operation": "jobs.manualRun",
-          "rule": "Supported expectedState values: ready, claimed, retry_wait, reconcile, succeeded, failed, cancelled, superseded."
-        },
-        {
-          "operation": "jobs.manualRun",
-          "rule": "Persisted canonical job_state; pending→ready, completed→succeeded, blocked_unknown→reconcile are UI projections only."
-        },
-        {
-          "operation": "jobs.tickAssessments",
-          "rule": "Bounded same-app/Postgres tick with finite lease/fence/checkpoint; scheduler fairness tuning belongs to G-LOAD"
-        }
       ]
     }
   ]

@@ -120,7 +120,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Dated encrypted full candidate/checksums,key escrow,subject expiry and old copy recopy.",
+      "description": "Dated encrypted full candidate/checksums, key escrow, subject expiry and old copy recopy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -296,7 +296,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Beforecustomerdata gate lacks actual cost approval,host schedule,key-exclusion and coherent restore evidence.",
+      "description": "Beforecustomerdata gate lacks actual cost approval, host schedule, key-exclusion and coherent restore evidence.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -386,7 +386,7 @@
         "WP-010"
       ],
       "status": "future-not-run",
-      "description": "Self account request,current workspaceOwner,ordinaryAdmin/foreign requests and concurrent reads.",
+      "description": "Self account request, current workspaceOwner, ordinaryAdmin/foreign requests and concurrent reads.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -586,7 +586,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Cancel at deadline-minus 1ms,exact deadline,purge lease and stale old request after new request.",
+      "description": "Cancel at deadline-minus 1ms, exact deadline, purge lease and stale old request after new request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -904,7 +904,7 @@
         "WP-056"
       ],
       "status": "future-not-run",
-      "description": "Pendingdeletion with unsent intent,accepted scheduled mail,sent mail and unexpired issuedURL.",
+      "description": "Pendingdeletion with unsent intent, accepted scheduled mail, sent mail and unexpired issuedURL.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1274,7 +1274,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Actual paidNeon default 1 day vs configured 7 days; daily,manual,latest-preserved snapshot and restored branch expiry.",
+      "description": "Actual paid Neon default 1 day vs configured 7 days; daily, manual, latest-preserved snapshot and restored branch expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1834,7 +1834,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Daily encrypted candidate lacks one replaced object; later isolated restore with current witness,key recovered; ordinary app attempts backup-bucket access.",
+      "description": "Daily encrypted candidate lacks one replaced object; later isolated restore with current witness, key recovered; ordinary app attempts backup-bucket access.",
       "given": {
         "P": {
           "fixture_type": "plant",

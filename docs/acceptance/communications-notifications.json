@@ -5270,7 +5270,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Proposal createdT0; approval witness expiryT0+15min; clock exactly expiry",
+      "description": "Proposal created T0; approval witness expiry T0+15min; clock exactly expiry",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5487,7 +5487,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Approved review has recipientsAlex+Casey; edit replaces Casey with Jamie",
+      "description": "Approved review has recipients Alex+Casey; edit replaces Casey with Jamie",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5699,7 +5699,7 @@
     },
     {
       "id": "INH-REGRESSION-TEMPLATE-EDIT",
-      "requirement": "New digest/revision subjectWelcome to orientation; audience/time retained; old approval invalid; zero sends",
+      "requirement": "New digest/revision subject Welcome to orientation; audience/time retained; old approval invalid; zero sends",
       "feature_ids": [
         "COM-003",
         "EVR-012"
@@ -5714,7 +5714,7 @@
       ],
       "status": "future-not-run",
       "operation_ids": [],
-      "description": "Pending review subjectOld, two core recipients, time 10am; user changes subject",
+      "description": "Pending review subject Old, two core recipients, time 10am; user changes subject",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6265,7 +6265,7 @@
         "WP-029"
       ],
       "status": "future-not-run",
-      "description": "Incomplete subject/body/audience draft persists,reloads,edits,deletes and revision conflicts.",
+      "description": "Incomplete subject/body/audience draft persists, reloads, edits, deletes and revision conflicts.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6615,7 +6615,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Accepted batch replacement with canceled,sent and unknown original recipient outcomes.",
+      "description": "Accepted batch replacement with canceled, sent and unknown original recipient outcomes.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6708,7 +6708,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Batch provider results short/mixed, late sent/delivered and per-intent providerIDs.",
+      "description": "Batch provider results short/mixed, late sent/delivered and per-intent provider IDs.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7019,7 +7019,7 @@
         "WP-072"
       ],
       "status": "future-not-run",
-      "description": "Evry saves draft and separately reviews schedule,reschedule,cancel,replace exact effects.",
+      "description": "Evry saves draft and separately reviews schedule, reschedule, cancel, replace exact effects.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7325,7 +7325,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Security/invitation purpose and seatless Discovery receipt with optional category emailOFF.",
+      "description": "Security/invitation purpose and seatless Discovery receipt with optional category email OFF.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7485,7 +7485,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Two independently affiliated orgs, activity sharingOFF for one, frequency/channel edit and no activity.",
+      "description": "Two independently affiliated orgs, activity sharing OFF for one, frequency/channel edit and no activity.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7683,7 +7683,7 @@
         "WP-031"
       ],
       "status": "future-not-run",
-      "description": "Task/meeting complete,cancel,reschedule while queued reminder awaits handoff.",
+      "description": "Task/meeting complete, cancel, reschedule while queued reminder awaits handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",

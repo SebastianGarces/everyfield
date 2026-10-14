@@ -179,7 +179,7 @@
     "Low Resend valid only within 100 daily limit; burst may require repricing",
     "Seven full daily DB plus byte copies; no unproven dedup/compression savings",
     "Excludes extra seats/domain/build-transfer-observability/addon/maintenance host cost",
-    "No cached/batch model discount,long context premium,webtool/container usage or unverified ZDR assumed",
+    "No cached/batch model discount, long context premium, webtool/container usage or unverified ZDR assumed",
     "Concrete paid cost approval and actual before customer data recovery/settings proof remain required"
   ]
 }

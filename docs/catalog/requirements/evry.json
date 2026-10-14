@@ -94,7 +94,17 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Fresh tenancy, account and per-operation permission"
+      "title": "Fresh tenancy, account and per-operation permission",
+      "behavior_rules": [
+        {
+          "feature": "EVR-002",
+          "rule": "Currently public global Wiki, own preplant account documents and own Discovery operations where native already allows."
+        },
+        {
+          "feature": "EVR-002",
+          "rule": "Foreign account, plant/org operations without actual seat; auth credentials/native-only secrets/private care."
+        }
+      ]
     },
     {
       "id": "REQ-EVR-003",
@@ -132,7 +142,13 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Authorized read registration and bounded source artifacts"
+      "title": "Authorized read registration and bounded source artifacts",
+      "behavior_rules": [
+        {
+          "feature": "EVR-003",
+          "rule": "Shared model context excludes private care."
+        }
+      ]
     },
     {
       "id": "REQ-EVR-004",
@@ -332,7 +348,7 @@
       "behavior_rules": [
         {
           "operation": "evry.createConversation",
-          "rule": "Supported contextKind values: account, plant, sending_church, sending_network."
+          "rule": "Supported context kind values: account, plant, sending_church, sending_network."
         },
         {
           "operation": "evry.createConversation",
@@ -623,7 +639,7 @@
       "behavior_rules": [
         {
           "operation": "evry.recordEffectResult",
-          "rule": "Supported closedOutcome values: completed, partial, failed, refused, unknown."
+          "rule": "Supported closed outcome values: completed, partial, failed, refused, unknown."
         }
       ],
       "operation_refs": [
@@ -732,7 +748,8 @@
       ],
       "text": "Resolve natural-language dates in the authorized plant timezone with explicit local dates, times and DST ambiguity choices. Include the exact resolution in review; clarification is required when the intended date cannot be established. A model date never silently changes scheduling semantics.",
       "operations": [
-        "calendar.resolve"
+        "calendar.resolve",
+        "calendar.getContext"
       ],
       "case_ids": [
         "EVRY-FAMILY-RUNTIME-CONVERSATION",
@@ -752,9 +769,19 @@
         {
           "operation_id": "calendar.resolve",
           "catalog": "docs/catalog/operations.json"
+        },
+        {
+          "operation_id": "calendar.getContext",
+          "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Plant-local natural-language date resolution"
+      "title": "Plant-local natural-language date resolution",
+      "behavior_rules": [
+        {
+          "operation": "calendar.getContext",
+          "rule": "application assistance and reviewed execution"
+        }
+      ]
     },
     {
       "id": "REQ-EVR-018",
@@ -874,12 +901,24 @@
       "generated_operation_source": "docs/catalog/evry-tools.json",
       "behavior_rules": [
         {
-          "operation": "calendar.getContext",
-          "rule": "application assistance and reviewed execution"
+          "feature": "EVR-020",
+          "rule": "one bounded read tool and one candidate-preparation tool per domain; closed allowed operation+projection discriminators"
         },
         {
-          "operation": "tasks.eligibleAssignees",
-          "rule": "Supported purpose values: ordinary_task, committed_follow_up."
+          "feature": "EVR-020",
+          "rule": "Model tools expose no command executor."
+        },
+        {
+          "feature": "EVR-020",
+          "rule": "Model tools expose no approval capability."
+        },
+        {
+          "feature": "EVR-020",
+          "rule": "Model tools expose no arbitrary code, network, filesystem or SQL capability."
+        },
+        {
+          "feature": "EVR-020",
+          "rule": "current authorization derives allowed discriminators; model hints never sole selector"
         }
       ]
     },
@@ -1099,7 +1138,13 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Staged private file manifests, session binding and cleanup"
+      "title": "Staged private file manifests, session binding and cleanup",
+      "behavior_rules": [
+        {
+          "operation": "evry.stageAttachment",
+          "rule": "Supported file kind values: people_csv, person_photo, commitment, text, docx."
+        }
+      ]
     },
     {
       "id": "REQ-EVR-026",
@@ -1339,7 +1384,7 @@
         },
         {
           "operation": "evry.collectHistory",
-          "rule": "Strip raw Interview/FourCs judgments, scores, results and notes from BOTH current and retained messages/citations before model input; allow only permitted human-record presence/count/date and operational candidate facts. Separate native/authorized People record operations retain their own floor."
+          "rule": "Strip raw Interview/4Cs judgments, scores, results and notes from BOTH current and retained messages/citations before model input; allow only permitted human-record presence/count/date and operational candidate facts. Separate native/authorized People record operations retain their own floor."
         },
         {
           "operation": "evry.collectHistory",

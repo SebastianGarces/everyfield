@@ -151,7 +151,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 **Acceptance:** AC-MTG-007--MTG-007. **Named cases:** TARGET-MTG-007.
 
-**TARGET-MTG-007 fixture:** P has 2 team roles, later Qjoins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up. **Expected:** Unique absent guest/snapshot, explicit later reconcile, no false presence or history loss and pending effects are canceled truthfully.
+**TARGET-MTG-007 fixture:** P has 2 team roles, later Q joins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up. **Expected:** Unique absent guest/snapshot, explicit later reconcile, no false presence or history loss and pending effects are canceled truthfully.
 
 
 <a id="req-mtg-008"></a>
@@ -262,7 +262,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-016 — Attendance and quality analytics
 
-**REQ-MTG-016.** Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line use searlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting'searlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.
+**REQ-MTG-016.** Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line uses earlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting's earlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.
 
 **Target operations:** `meetings.readAnalytics`, `meetings.compareEvaluation`.
 
@@ -288,7 +288,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-018 — Reminder producers and outgoing invitation separation
 
-**REQ-MTG-018.** Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guest sus ing expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.
+**REQ-MTG-018.** Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guests using expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.
 
 **Target operations:** `meetings.planNotifications`, `communication.preview`.
 
@@ -301,7 +301,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### MTG-019 — Inviter artifact consolidation without tree feature
 
-**REQ-MTG-019.** Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.
+**REQ-MTG-019.** Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token refs with collision checks.
 
 **Target operations:** `meetings.invitationAttribution`, `meetings.setInviter`.
 
@@ -314,7 +314,7 @@ Each generated first-Vision obligation has immutable tenant/origin meeting/Perso
 
 ### COM-011 — Typed human contact log and freshness
 
-**REQ-COM-011.** Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt get sit sown label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.
+**REQ-COM-011.** Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt gets its own label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.
 
 **Target operations:** `followups.recordOutcome`, `followups.correctOutcome`, `followups.listContactHistory`.
 

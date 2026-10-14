@@ -1360,7 +1360,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Production expected/high burst and actual deployment schedule,maxDuration,handler registration measured; paid config unavailable.",
+      "description": "Production expected/high burst and actual deployment schedule, maxDuration, handler registration measured; paid config unavailable.",
       "given": {
         "P": {
           "fixture_type": "plant",

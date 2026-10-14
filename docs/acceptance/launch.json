@@ -23,7 +23,7 @@
         "WP-045"
       ],
       "status": "future-not-run",
-      "description": "Target dates 0,28,29 church-local days away and missing target.",
+      "description": "Target dates 0, 28, 29 church-local days away and missing target.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -832,7 +832,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Three distinct completed actual practice IDs,fourth and duplicate receipt.",
+      "description": "Three distinct completed actual practice IDs, fourth and duplicate receipt.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1118,7 +1118,7 @@
         "WP-066"
       ],
       "status": "future-not-run",
-      "description": "Practice date/type corrected,void duplicate,reopen and prior PI snapshot.",
+      "description": "Practice date/type corrected, void duplicate, reopen and prior PI snapshot.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4329,7 +4329,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "0 day,28 day,29 day, overdue postponed/no target/completed launch; actual zero count and absent count.",
+      "description": "0 day, 28 day, 29 day, overdue postponed/no target/completed launch; actual zero count and absent count.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5228,7 +5228,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts 3,3,2,2,3,3,2,3,2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
+      "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts 3, 3, 2, 2, 3, 3, 2, 3, 2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5378,7 +5378,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "ActualLaunch occurs on a date differing planned target; Meetingtype public_launch/Vision attempted.",
+      "description": "Actual Launch occurs on a date differing planned target; Meetingtype public_launch/Vision attempted.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5632,7 +5632,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Same-name duplicate candidates,repeated create/link receipt and concurrent attendance insert.",
+      "description": "Same-name duplicate candidates, repeated create/link receipt and concurrent attendance insert.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6274,7 +6274,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Partial six area form,draft save,valid submit,correction and empty optional prose.",
+      "description": "Partial six area form, draft save, valid submit, correction and empty optional prose.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6375,7 +6375,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "Debrief actual count/date edit,planned target unaffected and narrative claims first service.",
+      "description": "Debrief actual count/date edit, planned target unaffected and narrative claims first service.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6463,7 +6463,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Correction No→Yes 2,no-op repeat,stale revision,previousPI snapshot/advanced phase.",
+      "description": "Correction No→Yes 2, no-op repeat, stale revision, previous PI snapshot/advanced phase.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6730,7 +6730,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Publishedsummary source union Meetings+People versus org shared findings ON/PeopleOFF; second affiliate valid.",
+      "description": "Publishedsummary source union Meetings+People versus org shared findings ON/People OFF; second affiliate valid.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7094,7 +7094,7 @@
         "WP-046"
       ],
       "status": "future-not-run",
-      "description": "Current plantOwner/Admin,Member,foreign actor,expired review and revoked grant write guest/debrief.",
+      "description": "Current plantOwner/Admin, Member, foreign actor, expired review and revoked grant write guest/debrief.",
       "given": {
         "P": {
           "fixture_type": "plant",

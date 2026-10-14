@@ -2439,7 +2439,7 @@
     "id": "MTG-016",
     "title": "Meeting analytics and evaluation comparison",
     "module": "meetings",
-    "behavior": "Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line use searlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting'searlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.",
+    "behavior": "Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line uses earlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting's earlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-016",
     "requirement_ids": [
       "REQ-MTG-016"
@@ -2495,7 +2495,7 @@
     "id": "MTG-018",
     "title": "Meeting notifications and invitation communication",
     "module": "meetings",
-    "behavior": "Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guest sus ing expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.",
+    "behavior": "Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guests using expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-018",
     "requirement_ids": [
       "REQ-MTG-018",
@@ -2525,7 +2525,7 @@
     "id": "MTG-019",
     "title": "Invitation attribution",
     "module": "meetings",
-    "behavior": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.",
+    "behavior": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token refs with collision checks.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-019",
     "requirement_ids": [
       "REQ-MTG-019"
@@ -3918,7 +3918,7 @@
     "id": "COM-011",
     "title": "Person contact log derived from completed person-linked task",
     "module": "communication",
-    "behavior": "Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt get sit sown label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.",
+    "behavior": "Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt gets its own label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.",
     "spec_file": "docs/product/meetings-follow-up.md#req-com-011",
     "requirement_ids": [
       "REQ-COM-011",
@@ -4105,7 +4105,7 @@
     "id": "NTF-003",
     "title": "In-app notification feed, unread filters, pagination and bell",
     "module": "notifications",
-    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt,id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt, id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-001",
@@ -5372,7 +5372,7 @@
     "id": "WIKI-005",
     "title": "Per-user bookmarks with concurrency-safe add and visible-corpus reads",
     "module": "wiki",
-    "behavior": "Own explicit desired bookmark state, unique(reader,canonical article), idempotent set/unset and current visible-source resolution. Hidden/foreign/departed entries do not leak body/count through list.",
+    "behavior": "Own explicit desired bookmark state, unique(reader, canonical article), idempotent set/unset and current visible-source resolution. Hidden/foreign/departed entries do not leak body/count through list.",
     "spec_file": "docs/product/knowledge-documents.md#article-resolution-and-editing",
     "requirement_ids": [
       "REQ-WIKI-005"
@@ -6515,7 +6515,7 @@
     "id": "PI-004",
     "title": "Vision meeting cadence, completed attendance and trend",
     "module": "intelligence",
-    "behavior": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm,21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
+    "behavior": "Use actual completed Vision occurrences and completed distinct attendance for 14 day biweekly cadence, predictable rhythm, 21 watch/28 direct and last-two attendance trend; no scheduled-only substitute or weekly over meeting warning.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-004"
@@ -7375,7 +7375,7 @@
     "id": "PI-028",
     "title": "Phase exit criteria cluster, measured progress and evidence",
     "module": "intelligence",
-    "behavior": "Preserve 19 stable criterion keys,18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
+    "behavior": "Preserve 19 stable criterion keys, 18 methodology readiness rows plus separate software checklist. Current producer map and conjunction have no weights; Unknown blocks ready without failing. Phase 1>=30 known lower-bound alone never clears five-indicator cluster; Phase 6 terminal has no exit.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-KNOW-018",

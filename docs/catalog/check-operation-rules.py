@@ -5,6 +5,7 @@ Run with --report <outside-repository path> for every removed field's dispositio
 The baseline stays in Git, rather than retaining a second operation catalog.
 """
 import argparse
+from functools import lru_cache
 import collections
 import json
 from pathlib import Path
@@ -286,6 +287,18 @@ FIX6_RULE_REWRITES = {
 }
 
 
+@lru_cache(maxsize=1)
+def behavior_rewrites():
+    # Only exact reviewed old-to-new ledger pairs may translate historical rules.
+    ledger = json.loads((ROOT / 'docs/catalog/rule-placement.json').read_text())
+    rewrites = {re.sub(r'\s+', '', old): new for old, new in ledger['rewrites'].items()}
+    return rewrites
+
+
+def behavior_language(rule):
+    return behavior_rewrites().get(re.sub(r'\s+', '', rule), rule)
+
+
 def current_rule(rule):
     """Apply the reviewed Fix 6 prose corrections to historical rule evidence."""
     rule = FIX6_RULE_REWRITES.get(rule, RULE_REWRITES.get(rule, rule))
@@ -301,8 +314,8 @@ def current_rule(rule):
     rule = rule.replace('Affected org material input revision bumps atomically. No plant-source self-invalidation.',
                         'Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation.')
     if rule.startswith('Supported ') and rule.endswith('[].'):
-        return rule[:-3] + '.'
-    return rule
+        return behavior_language(rule[:-3] + '.')
+    return behavior_language(rule)
 
 
 def audit(base, report):
@@ -381,7 +394,7 @@ def audit(base, report):
         assert op['durable_write'] == (original['kind'] == 'command'), 'Changed durable-write classification'
         assert op['evry_review'] == (op['durable_write'] and op['evry'] and original['review']['required']), 'Changed review rule'
         actors = {(actor, rule['rule']) for rule in op['authority'] for actor in rule['actors']}
-        assert actors == {(rule['actor'], align(replace(rule['scope']))) for rule in original['authority']}, 'Changed caller authority'
+        assert actors == {(rule['actor'], behavior_language(align(replace(rule['scope'])))) for rule in original['authority']}, 'Changed caller authority'
     assert next(o for o in inventory if o['id'] == 'emailSuppression.requestRestore')['owning_package'] == 'WP-028'
     assert not (ROOT / 'docs/catalog/current-operation-aliases.json').exists(), 'Alias file survives'
     _, pattern = canonicalizer(aliases, before)

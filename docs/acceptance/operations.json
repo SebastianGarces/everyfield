@@ -2635,7 +2635,7 @@
         "WP-055"
       ],
       "status": "future-not-run",
-      "description": "Current exact object signedURL then scope revoke,TTL expiry and guessed client key.",
+      "description": "Current exact object signedURL then scope revoke, TTL expiry and guessed client key.",
       "given": {
         "P": {
           "fixture_type": "plant",

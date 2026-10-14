@@ -6,12 +6,14 @@
       "feature_ids": [
         "COM-011"
       ],
-      "text": "Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt get sit sown label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.",
+      "text": "Implement REQ-MTG-022. Replace source inference from every completed person linked task with typed human-confirmed outcome and actual occurredAt. Preserve Person/contact log/read history and task/meeting links; completed administrative task or attempt gets its own label, never delivered email/confirmed contact. Correction/reopen/void recomputes current freshness without removing history or resending effects. Communication owns log read projection; follow-up owns outcome writer and People/PI consume the same effective contact fact.",
       "spec": "docs/product/meetings-follow-up.md#req-com-011",
       "operations": [
         "followups.recordOutcome",
         "followups.correctOutcome",
-        "followups.listContactHistory"
+        "followups.listContactHistory",
+        "communication.correctContactLog",
+        "communication.recordContactFromTask"
       ],
       "acceptance_ids": [
         "AC-COM-011--COM-011"
@@ -31,7 +33,7 @@
       "behavior_rules": [
         {
           "operation": "communication.correctContactLog",
-          "rule": "Visible information for plant_member_current_task_assignee: executionId, status, affected, excluded, results, correction, correlationId."
+          "rule": "Visible information for plant_member_current_task_assignee: execution id, status, affected, excluded, results, correction, correlation id."
         },
         {
           "operation": "communication.correctContactLog",
@@ -43,18 +45,28 @@
         },
         {
           "operation": "communication.correctContactLog",
-          "rule": "Same followups.correctOutcome semantics: effective contact recomputed from valid occurredAt, old history preserved, no resend or administrative-contact inference."
+          "rule": "Same follow-up outcome correction semantics: effective contact recomputed from valid occurred at, old history preserved, no resend or administrative-contact inference."
         },
         {
           "operation": "communication.recordContactFromTask",
-          "rule": "Visible information for registered_internal_producer_or_exact_operator: contactProjectionRevision, receiptId, safeOutcome."
+          "rule": "Visible information for registered_internal_producer_or_exact_operator: contact projection revision, receipt id, safe outcome."
         },
         {
           "operation": "communication.recordContactFromTask",
-          "rule": "Same typed human-contact transaction; derive occurredAt from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer."
+          "rule": "Same typed human-contact transaction; derive occurred at from effective source outcome, update current freshness/material revision/owned history coherently. Outbox wake-up is not sole correctness writer."
         }
       ],
-      "title": "Person contact log derived from completed person-linked task"
+      "title": "Person contact log derived from completed person-linked task",
+      "operation_refs": [
+        {
+          "operation_id": "communication.correctContactLog",
+          "catalog": "docs/catalog/operations.json"
+        },
+        {
+          "operation_id": "communication.recordContactFromTask",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-001",
@@ -81,7 +93,41 @@
       "work_packages": [
         "WP-022"
       ],
-      "title": "Meeting list, detail and history"
+      "title": "Meeting list, detail and history",
+      "behavior_rules": [
+        {
+          "feature": "MTG-001",
+          "rule": "Supported types values: vision_meeting, orientation, team_meeting, pre_launch_practice."
+        },
+        {
+          "feature": "MTG-001",
+          "rule": "Supported statuses values: planning, ready, in_progress, completed, cancelled."
+        },
+        {
+          "feature": "MTG-001",
+          "rule": "Supported preparation state values: complete, incomplete, any."
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "Visible information for plant_member: items, sections, revision, evidence, completeness."
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "Supported sections values: profile, agenda, kit, evaluation, guests, attendance, cards."
+        },
+        {
+          "operation": "meetings.hasHistory",
+          "rule": "Visible information for plant_member: has authorized history, type scope, source revision."
+        },
+        {
+          "operation": "meetings.list",
+          "rule": "Visible information for plant_member: mode, items, matched, returned, groups, completeness, next cursor, evidence, exclusions."
+        },
+        {
+          "operation": "meetings.get",
+          "rule": "exact one current authorized meeting details or unavailable; never page mistaken as scalar"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-002",
@@ -111,7 +157,45 @@
       "work_packages": [
         "WP-020"
       ],
-      "title": "Create, edit, delete and change meeting status"
+      "title": "Create, edit, delete and change meeting status",
+      "behavior_rules": [
+        {
+          "operation": "meetings.changeStatus",
+          "rule": "Supported to status values: planning, ready, in_progress, completed, cancelled."
+        },
+        {
+          "operation": "meetings.completePractice",
+          "rule": "Canonical pre_launch_practice actually held completed occurrence, once per distinct ID; no Vision/kit/card/evaluation/training/followup/phase effects."
+        },
+        {
+          "operation": "meetings.correctOccurrence",
+          "rule": "approved meeting type? (explicit erroneous-fact correction only)"
+        },
+        {
+          "operation": "meetings.correctOccurrence",
+          "rule": "Preserve genuine archive versus invalid void; reviewed correction updates current fact lineage and obligation applicability without erasing performed history or changing immutable 48h origin silently."
+        },
+        {
+          "operation": "meetings.delete",
+          "rule": "Retire from current list with history; genuine practice evidence is retained. Void invalid held occurrence is separately reviewed."
+        },
+        {
+          "operation": "meetings.edit",
+          "rule": "earlier|later|null? (entered gap must return valid-time choice and refuse)"
+        },
+        {
+          "operation": "meetings.schedule",
+          "rule": "earlier|later|null (entered fold requires choice, entered gap refuses)"
+        },
+        {
+          "operation": "meetings.schedule",
+          "rule": "Lock plant Vision counter, create selected active venue/snapshot+meeting+agenda/default kit+unique roster coherently. Ordinary type/team immutable after create."
+        },
+        {
+          "operation": "meetings.completePractice",
+          "rule": "one distinct actual practice occurrence receipt, no Vision effects"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-003",
@@ -143,11 +227,11 @@
       "behavior_rules": [
         {
           "operation": "venues.get",
-          "rule": "Visible information for plant_member: items, venueId, name, address, contact, cost, capacity, notes, active, history, revision."
+          "rule": "Visible information for plant_member: items, venue id, name, address, contact, cost, capacity, notes, active, history, revision."
         },
         {
           "operation": "venues.list",
-          "rule": "Visible information for plant_member: items, matched, returned, completeness, nextCursor."
+          "rule": "Visible information for plant_member: items, matched, returned, completeness, next cursor."
         }
       ],
       "title": "Meeting venues and copied location details"
@@ -203,7 +287,21 @@
       "work_packages": [
         "WP-020"
       ],
-      "title": "Structured meeting agenda and Vision defaults"
+      "title": "Structured meeting agenda and Vision defaults",
+      "behavior_rules": [
+        {
+          "operation": "meetings.readAgenda",
+          "rule": "Visible information for plant_member: meeting id, sections, total minutes, copied default version, revision."
+        },
+        {
+          "operation": "meetings.readAgenda",
+          "rule": "Agenda reads return ordered sections with their identities, titles and minutes, the total duration, copied default version and current revision."
+        },
+        {
+          "operation": "meetings.replaceAgenda",
+          "rule": "Replacing an agenda returns a receipt with the current agenda revision."
+        }
+      ]
     },
     {
       "id": "REQ-MTG-006",
@@ -233,11 +331,11 @@
       "behavior_rules": [
         {
           "operation": "meetings.listKit",
-          "rule": "Visible information for plant_member: meetingId, items, checkedCount, totalCount, kitVersion."
+          "rule": "Visible information for plant_member: meeting id, items, checked count, total count, kit version."
         },
         {
           "operation": "meetings.populateKit",
-          "rule": "Exact canonical approved kit once with receipt; reads never seed, nonVision denied."
+          "rule": "Exact canonical approved kit once with receipt; reads never seed, non-Vision denied."
         },
         {
           "operation": "meetings.updateKitItem",
@@ -320,7 +418,8 @@
       "operations": [
         "meetings.getOwnRsvp",
         "meetings.saveOwnRsvp",
-        "meeting.answerRsvpToken"
+        "meeting.answerRsvpToken",
+        "meetings.resolveTokenRsvp"
       ],
       "acceptance_ids": [
         "AC-MTG-009--MTG-009"
@@ -346,7 +445,7 @@
         },
         {
           "operation": "meetings.getOwnRsvp",
-          "rule": "Visible information for plant_member: meetingId, ownRsvp, responseAllowed, revision."
+          "rule": "Visible information for plant_member: meeting id, own rsvp, response allowed, revision."
         },
         {
           "operation": "meetings.resolveTokenRsvp",
@@ -354,7 +453,7 @@
         },
         {
           "operation": "meetings.saveOwnRsvp",
-          "rule": "Visible information for plant_member: executionId, status, affected, excluded, results, correction, correlationId."
+          "rule": "Visible information for plant_member: execution id, status, affected, excluded, results, correction, correlation id."
         },
         {
           "operation": "meetings.getOwnRsvp",
@@ -362,7 +461,7 @@
         },
         {
           "operation": "meetings.saveOwnRsvp",
-          "rule": "Current same-plant seat AND actual account links to this exact live Person/guest within write; never accept caller personId/accountId. Native/Evry shared reply preserves attendance/cards/notes/delivery."
+          "rule": "Current same-plant seat AND actual account links to this exact live Person/guest within write; never accept caller person id/account id. Native/Evry shared reply preserves attendance/cards/notes/delivery."
         },
         {
           "operation": "meeting.answerRsvpToken",
@@ -377,7 +476,13 @@
           "rule": "Native explicitly submitted narrow bearer response; never an assistant mutation"
         }
       ],
-      "title": "Own RSVP and public token response"
+      "title": "Own RSVP and public token response",
+      "operation_refs": [
+        {
+          "operation_id": "meetings.resolveTokenRsvp",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-010",
@@ -389,7 +494,9 @@
       "operations": [
         "meetings.setAttendance",
         "meetings.captureAttendanceBatch",
-        "meetings.clearAttendance"
+        "meetings.clearAttendance",
+        "meetings.checkIn",
+        "meetings.listAttendance"
       ],
       "acceptance_ids": [
         "AC-MTG-010--MTG-010"
@@ -406,7 +513,47 @@
       "work_packages": [
         "WP-022"
       ],
-      "title": "Attendance, check-in and walk-ins"
+      "title": "Attendance, check-in and walk-ins",
+      "operation_refs": [
+        {
+          "operation_id": "meetings.checkIn",
+          "catalog": "docs/catalog/operations.json"
+        },
+        {
+          "operation_id": "meetings.listAttendance",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ],
+      "behavior_rules": [
+        {
+          "operation": "meetings.captureAttendanceBatch",
+          "rule": "Visible information for plant_member_current_team_leader: execution id, status, affected, excluded, results, correction, correlation id."
+        },
+        {
+          "operation": "meetings.captureAttendanceBatch",
+          "rule": "A team leader may capture attendance only within the operational access allowed for their own team."
+        },
+        {
+          "operation": "meetings.checkIn",
+          "rule": "one atomic transaction: fresh attendance authority + attendance mutation + history + synchronous material revision + operation + safe audit + required effect intent; provider/model outside transaction."
+        },
+        {
+          "operation": "meetings.checkIn",
+          "rule": "Existing stable meeting/person participation and obligation identities; expected revision; no duplicate first-Vision consequences."
+        },
+        {
+          "operation": "meetings.listAttendance",
+          "rule": "Visible information for plant_member: items, matched, returned, completeness, next cursor, evidence."
+        },
+        {
+          "operation": "meetings.setAttendance",
+          "rule": "Supported state values: attended, excused, absent."
+        },
+        {
+          "operation": "meetings.setAttendance",
+          "rule": "live same-plant seat linked to recorded leader Person; own team only; team_meeting attendance only; no generic meeting/card/RSVP/delete/admin authority"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-011",
@@ -432,7 +579,17 @@
       "work_packages": [
         "WP-020"
       ],
-      "title": "Quick-add meeting guests and attendees"
+      "title": "Quick-add meeting guests and attendees",
+      "behavior_rules": [
+        {
+          "operation": "meetings.createGuestContact",
+          "rule": "Supported attendance state values: attended, not_recorded."
+        },
+        {
+          "operation": "meetings.createGuestContact",
+          "rule": "coherent new Person+guest receipt, no fabricated surname/grant"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-012",
@@ -519,7 +676,13 @@
       "work_packages": [
         "WP-022"
       ],
-      "title": "Vision evaluation and trends"
+      "title": "Vision evaluation and trends",
+      "behavior_rules": [
+        {
+          "operation": "meetings.getEvaluation",
+          "rule": "Visible information for plant_member: evaluation id, factor version, eight scores, computed average, human actor, event date, recorded at, revision, correction summary."
+        }
+      ]
     },
     {
       "id": "REQ-MTG-015",
@@ -552,7 +715,7 @@
       "feature_ids": [
         "MTG-016"
       ],
-      "text": "Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line use searlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting'searlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.",
+      "text": "Preserve attended trend, new-versus-returning, completed meeting summary/growth and quality comparison with labelled type/window. Count actual attended unique Persons, not all guest rows. Zero prior attendance gets defined zero/relative growth Unavailable, never false/missing-missing; no denominator/evidence gives Unknown not 0. Evaluation base line uses earlier chronological evaluations, excludes self/same instant and labels at most latest 50 eligible earlier records; query current meeting's earlier window rather than latest global 50 which could hide history. Round base line then delta 1 decimal as retained source calculation. Corrected records feed current comparison with provenance.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-016",
       "operations": [
         "meetings.readAnalytics",
@@ -603,7 +766,7 @@
       "feature_ids": [
         "MTG-018"
       ],
-      "text": "Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guest sus ing expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.",
+      "text": "Retain announcement to linked Core Group accounts and 7/3/1 civil-day-before reminders at same church wall clock to creator+linked guests, deduplicated per logical meeting offset/recipient. Skip already-passed offsets, cancel completed/cancelled/retired meeting intents, and reschedule/reconcile guests using expected source revision and durable intent. Dispatch rechecks actual current audience/status/consent/suppression; removed recipient cannot receive queued new message. Canonical meeting invitation/reminder email templates and purpose RSVP tokens are separate Communication Hub effects with accepted/delivered/unknown outcomes; scheduled notification never claims attendance/card/contact. Use shared automatic DST resolver and one occurrence dedupe.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-018",
       "operations": [
         "meetings.planNotifications",
@@ -629,11 +792,12 @@
       "feature_ids": [
         "MTG-019"
       ],
-      "text": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token ref swith collision checks.",
+      "text": "Preserve valid stored inviter/recognized invitation response provenance and Person merge references in the bounded meeting guest/RSVP artifact model. Current inviter requires live own-plant Person and no self-referral cycle. Legacy invited/confirmed/maybe/declined/attended/no_show historical attribution may remain readable with original meaning, but does not drive presence or replace canonical RSVP. Unwritten legacy create helper/schema is not an approved stand alone invitation tree/name-only prospect subsystem; named real guest creates People through MTG-011. Merge/inverse manifest registers artifact and token refs with collision checks.",
       "spec": "docs/product/meetings-follow-up.md#req-mtg-019",
       "operations": [
         "meetings.invitationAttribution",
-        "meetings.setInviter"
+        "meetings.setInviter",
+        "meetings.reconcileInvitationResponse"
       ],
       "acceptance_ids": [
         "AC-MTG-019--MTG-019"
@@ -651,7 +815,7 @@
       "behavior_rules": [
         {
           "operation": "meetings.reconcileInvitationResponse",
-          "rule": "Visible information for registered_internal_producer_or_exact_operator: guestId, canonicalRsvp, supersededTokenIds, revision."
+          "rule": "Visible information for registered_internal_producer_or_exact_operator: guest id, canonical rsvp, superseded token ids, revision."
         },
         {
           "operation": "meetings.reconcileInvitationResponse",
@@ -662,7 +826,13 @@
           "rule": "Preserve inviter Person provenance, no self/referral cycle/account-as-witness inference; no invitation-tree subsystem."
         }
       ],
-      "title": "Invitation attribution"
+      "title": "Invitation attribution",
+      "operation_refs": [
+        {
+          "operation_id": "meetings.reconcileInvitationResponse",
+          "catalog": "docs/catalog/operations.json"
+        }
+      ]
     },
     {
       "id": "REQ-MTG-020",
@@ -697,44 +867,6 @@
         "WP-022",
         "WP-023",
         "WP-056"
-      ],
-      "behavior_rules": [
-        {
-          "operation": "meetings.getEvaluation",
-          "rule": "Visible information for plant_member: evaluationId, factorVersion, eightScores, computedAverage, humanActor, eventDate, recordedAt, revision, correctionSummary."
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "Manual create is legitimately undated."
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "Server-derived from stored Person, or explicit reviewed custom title; no caller name authority"
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "Existing obligation origin protected; no client-provided originMeetingId can fabricate 48h lineage."
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "A child Task cannot enter due/recurrence/source obligation/follow-up/contact branches or generic completion hooks. Eligible child tick/reopen delegates exact child-assignee guarded setSubtaskCompletion; Owner/Admin ordinary child title/assignment/removal uses the closed child contract. Parent duty never substitutes for child completion authority."
-        },
-        {
-          "operation": "tasks.listFollowUpOwners",
-          "rule": "Visible information for plant_member: items, obligationId, taskId, assigneeAccountId, outcome, unassignedCount, matched, completeness."
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "exact assignment receipt/current Needs owner"
-        },
-        {
-          "operation": "tasks.assignFollowUp",
-          "rule": "one active exact plant seat; row plantId matches trusted context"
-        },
-        {
-          "operation": "tasks.createFollowUp",
-          "rule": "distinct manual task receipt, excluded generated 48h metric"
-        }
       ]
     },
     {
@@ -771,52 +903,12 @@
       ],
       "behavior_rules": [
         {
-          "operation": "tasks.changeStatus",
-          "rule": "A task assignee may change only the outcome and checklist of their own task."
+          "operation": "followups.readObligations",
+          "rule": "Visible information for plant_member: items, next cursor, completeness."
         },
         {
-          "operation": "tasks.changeStatus",
-          "rule": "Supported toStatus values: not_started, in_progress, blocked, complete, no_longer_needed."
-        },
-        {
-          "operation": "tasks.changeStatus",
-          "rule": "Required complete; null other status."
-        },
-        {
-          "operation": "tasks.changeStatus",
-          "rule": "Same status writer effects as complete/reopen/waive: no_longer_needed never creates successful completion/contact credit, ordinary complete needs no contact declaration."
-        },
-        {
-          "operation": "tasks.complete",
-          "rule": "reject contact/outcome/occurredAt fields; ordinary complete never creates a contact record"
-        },
-        {
-          "operation": "tasks.complete",
-          "rule": "Explicit actual occurredAt required contacted; non-contact may use server completion Instant."
-        },
-        {
-          "operation": "tasks.complete",
-          "rule": "Exactly one branch selected by kind; no caller-created origin/obligation; no_longer_needed writes waiver without success credit"
-        },
-        {
-          "operation": "tasks.complete",
-          "rule": "no_longer_needed branch writes waiver state without completedAt/success/contact credit and persistent regeneration suppression; contacted alone updates effective actual-contact evidence; other complete outcomes may fulfill task only. Ordinary including launch_prep branch requires no contact outcome and emits none; follow_up branch records only the explicitly human-confirmed selected outcome. Expected current Task revision and protected origin checked before all effects."
-        },
-        {
-          "operation": "tasks.reopen",
-          "rule": "Retain actual completion/contact history; restore current actionable state only. Reopen older recurrence refuses existing open-successor conflict; task reopening never erases a genuine prior contacted occurrence."
-        },
-        {
-          "operation": "tasks.waive",
-          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion."
-        },
-        {
-          "operation": "tasks.waive",
-          "rule": "Current same-plant Owner/Admin OR actual currently assigned duty; terminal no_longer_needed, no completedAt/success/contact credit; protected obligation and waiver survives task edits/deletion. AND task.assigneeAccountId equals actual accountId at write time, including checklist parent/child duty."
-        },
-        {
-          "operation": "tasks.changeStatus",
-          "rule": "current assigneeAccountId=self on exact live task; no assignment/handoff/roster privilege"
+          "operation": "followups.readObligations",
+          "rule": "Supported state values: open, complete, no_longer_needed, superseded, any."
         }
       ]
     },
@@ -851,6 +943,56 @@
         "WP-023",
         "WP-029",
         "WP-040"
+      ],
+      "behavior_rules": [
+        {
+          "feature": "COM-011",
+          "rule": "Four typed human outcomes; only effective contacted occurred at freshness; no email or generic completion inference."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Supported outcome values: contacted, attempted_no_contact, administrative_completion, no_longer_needed?."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Effective contacted max recomputes after correction/void; prior evidence/history retained, old receipt/assessment interpretable, no resend or invented contact."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Stable occurrence/obligation identity; existing recurrence successor not duplicated; only contacted updates contact freshness."
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "Visible information for plant_member: items, effective last confirmed contact at, next cursor, completeness."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Outcome recorded at/original actor immutable; task completion independently chosen, only effective contacted updates freshness, waiver no success credit or regeneration; no email-delivered inference."
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "paged authorized contact history and effective confirmed contact freshness"
+        },
+        {
+          "operation": "followups.listContactHistory",
+          "rule": "Active account with exactly one current same-plant seat; derive plant id from trusted context and validate every parent/child/reference inside the operation."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records."
+        },
+        {
+          "operation": "followups.correctOutcome",
+          "rule": "Current same-plant Owner/Admin OR current exact assigned duty author correcting own outcome; exact Person/outcome/task/obligation relation and revision checked, no other-account records. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference."
+        },
+        {
+          "operation": "followups.recordOutcome",
+          "rule": "Current same-plant Owner/Admin OR Member currently assigned the exact task/obligation; standalone human contact record requires administrative Person write. Contacted requires explicit human-confirmed actual occurrence, not model inference. AND the task assignee account equals actual account id at write time, including checklist parent/child duty."
+        }
       ]
     }
   ]
