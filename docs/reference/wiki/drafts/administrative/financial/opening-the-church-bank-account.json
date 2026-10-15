@@ -167,9 +167,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source check completed 2026-10-15. Independent Opus source, scripture and screenshot review is pending; no claim approval by author."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review passed 2026-10-15 at cb7f2259250642c3ec0de166ad18bf312b6b8fb3. Rechecked all sources, 2 Corinthians 8:21 (LSB) and desktop/mobile screenshots on 9bacd5b; the FinCEN control-person section now limits the control part to nonprofit or nonstock corporations and matches FinCEN CDD FAQ E.4 (updated May 6, 2026) on unincorporated associations. E.4 quote matches the live page exactly. Lint and check-seed pass."
     },
     "rulings": [
       "Resolved editorial scope: U.S. organizational bank opening only; no bank ranking, fee quote, state-specific legal rule, BOI filing tutorial or new signer policy.",
