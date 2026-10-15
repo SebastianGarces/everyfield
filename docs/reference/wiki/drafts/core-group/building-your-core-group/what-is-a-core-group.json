@@ -45,9 +45,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": ""
+      "status": "passed",
+      "reviewer": "Opus (claude-opus-5-5) verifier, independent review",
+      "notes": "Independent review of PR #23 head d05bfaf. Scope: scripted diff against the published seed row; only the Hebrews 10:24-25 callout text changed, plus the (LSB) tag; reference, body and row fields otherwise unchanged except draft status and published_at. Verse checked word for word on read.lsbible.org, one lookup. Lint passes; warnings come from unchanged published text."
     },
     "rulings": []
   }
