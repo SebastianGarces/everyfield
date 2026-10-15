@@ -160,7 +160,7 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
               id={id + "-panel"}
               aria-labelledby={`${id}-tab-${active}`}
               data-idle={on && !reduced ? undefined : ""}
-              className="ef-ui relative isolate grid h-[560px] place-items-center overflow-hidden rounded-frame shadow-[inset_0_0_0_1px_rgba(24,29,25,.06),0_30px_60px_-40px_rgba(24,29,25,.3)] max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)] max-mk-cx:rounded-card max-mk-cx:px-4 max-mk-cx:pt-11 max-mk-cx:pb-7"
+              className="ef-ui relative isolate grid h-[560px] place-items-center overflow-hidden rounded-frame shadow-mk-frame max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)] max-mk-cx:rounded-card max-mk-cx:px-4 max-mk-cx:pt-11 max-mk-cx:pb-7"
             >
               {steps.map((st, i) => <DeskBg key={i} tone={st.tone} sw={c.sw} sel={c.sel} i={i} />)}
               {steps.map((st, i) => (

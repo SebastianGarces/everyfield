@@ -116,7 +116,7 @@ export function SendersPanel() {
       <div className="grid gap-2">
         {OV_GROUPS.map((g, k) => (
           <Group key={g[0]} k={k}>
-            {k === 0 ? <Hl a={2250} b={1e9} box="inset-0 bg-green-50 shadow-[inset_0_0_0_1.5px_rgba(15,126,60,.3)]" /> : null}
+            {k === 0 ? <Hl a={2250} b={1e9} box="inset-0 bg-green-50 shadow-mk-group-on" /> : null}
             <div className={ROW}>
               <CardIcon tone={tone(g[1])} icon={ICONS.heart} size={30} glyph={14} />
               <div className="min-w-0 flex-1">

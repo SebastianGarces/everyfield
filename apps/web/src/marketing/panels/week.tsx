@@ -51,7 +51,7 @@ export function PeoplePanel() {
         right={<Done target="t0" at={2000} label="Import list" done="Added" R={R_PEOPLE} />}
       />
       <St i={1} className="mt-0.5 mb-3 h-[30px]">
-        <Move as="span" f={(t) => pop(t, 2250, R_PEOPLE(t))} className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-[inset_0_0_0_1px_rgba(28,227,98,.35)]">
+        <Move as="span" f={(t) => pop(t, 2250, R_PEOPLE(t))} className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge">
           <Icon icon={ICONS.check} />
           24 people added from the sign-up form
         </Move>
@@ -68,7 +68,7 @@ export function PeoplePanel() {
         ))}
       </div>
       <St i={7}>
-        <Move f={(t) => rise(t, 3300, R_PEOPLE(t))} className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 text-[13px] font-semibold opacity-0 shadow-[0_1px_2px_rgba(24,29,25,.04)]">
+        <Move f={(t) => rise(t, 3300, R_PEOPLE(t))} className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 text-[13px] font-semibold opacity-0 shadow-mk-hairline">
           14 interviewed people have not committed yet.
         </Move>
       </St>
@@ -258,9 +258,9 @@ function Shell() {
   const piece = "pointer-events-none absolute -z-1 bg-white";
   return (
     <>
-      <m.span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-1 origin-top rounded-[22px] shadow-[0_0_0_1px_rgba(24,29,25,.05),0_1px_2px_rgba(24,29,25,.05),0_26px_50px_-26px_rgba(24,29,25,.4)] will-change-transform" style={{ transform: shade }} />
+      <m.span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-1 origin-top rounded-[22px] shadow-mk-panel-body will-change-transform" style={{ transform: shade }} />
       <m.span aria-hidden="true" className={cn(piece, "inset-0 rounded-[22px] shadow-[var(--ui-ring)]")} style={{ clipPath: top }} />
-      <m.span aria-hidden="true" className={cn(piece, "inset-x-0 origin-top shadow-[-6px_0_0_0_rgba(255,255,255,.25),6px_0_0_0_rgba(255,255,255,.25)] will-change-transform")} style={{ top: midTop, height: midH, transform: mid }} />
+      <m.span aria-hidden="true" className={cn(piece, "inset-x-0 origin-top shadow-mk-ring-sides will-change-transform")} style={{ top: midTop, height: midH, transform: mid }} />
       <m.span aria-hidden="true" className={cn(piece, "inset-0 rounded-[22px] shadow-[var(--ui-ring)] will-change-transform")} style={{ clipPath: botClip, transform: bottom }} />
     </>
   );

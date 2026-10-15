@@ -58,7 +58,7 @@ export function AutoChapter({ id, panels, revealUp }: { id: Id; panels: Partial<
         <Link
           href="/oversight"
           aria-label={d.link}
-          className="relative -top-[.08em] ml-3 inline-grid size-[34px] place-items-center rounded-[9px] bg-mk-surface-2 align-middle text-ink/70 [transition:background-color_.15s_var(--ease-mk),color_.15s_var(--ease-mk)] hover:bg-[#EAE7E0] hover:text-ink"
+          className="relative -top-[.08em] ml-3 inline-grid size-[34px] place-items-center rounded-[9px] bg-mk-surface-2 align-middle text-ink/70 [transition:background-color_.15s_var(--ease-mk),color_.15s_var(--ease-mk)] hover:bg-mk-surface-3 hover:text-ink"
         >
           <Icon icon={ICONS.arrowUpRight} size={18} className="[&_path]:[stroke-width:1.8]" />
         </Link>

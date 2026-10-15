@@ -149,8 +149,8 @@ function Cursor({ kind }: { kind: PanelKind }) {
   });
   return (
     <m.span aria-hidden="true" className="pointer-events-none absolute top-0 left-0 z-8 -mt-[3px] -ml-[5px] size-[22px] origin-[5px_3px] opacity-0 will-change-[transform,opacity]" style={{ transform, opacity }}>
-      <m.i className="absolute -top-[11px] -left-[9px] size-7 rounded-full bg-[rgba(24,29,25,.18)] opacity-0" style={ripple} />
-      <svg viewBox="0 0 24 24" className="relative z-1 size-[22px] fill-ink stroke-white stroke-[1.4] drop-shadow-[0_2px_3px_rgba(24,29,25,.35)]">
+      <m.i className="absolute -top-[11px] -left-[9px] size-7 rounded-full bg-mk-ink-18 opacity-0" style={ripple} />
+      <svg viewBox="0 0 24 24" className="relative z-1 size-[22px] fill-ink stroke-white stroke-[1.4] drop-shadow-mk-cursor">
         <path d="M5.5 3.5v15.2c0 .6.7.9 1.1.5l3.6-3.5 2.5 5.6c.2.4.7.6 1.1.4l1.9-.9c.4-.2.6-.7.4-1.1l-2.5-5.5 5-.3c.6 0 .8-.7.4-1.1L6.6 2.9c-.4-.4-1.1-.1-1.1.6z" />
       </svg>
     </m.span>

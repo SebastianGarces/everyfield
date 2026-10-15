@@ -89,7 +89,7 @@ export function UiButton({ variant, size = "md", children }: { variant: "primary
   const V = {
     primary: "bg-ink text-on-ink shadow-pill",
     ghost: "bg-transparent text-ink",
-    light: "bg-ink text-cream shadow-[0_8px_18px_-10px_rgba(24,29,25,.6)]",
+    light: "bg-ink text-cream shadow-mk-btn-light",
     glass: "bg-[var(--pill-bg)] text-[var(--on)] shadow-[0_0_0_1px_var(--pill-edge)_inset]",
   };
   return <span className={cn("inline-flex items-center justify-center gap-1.5 rounded-[12px] leading-none font-semibold whitespace-nowrap", size === "sm" ? "h-8 px-3 text-[12.5px]" : size === "action" ? "h-[34px] px-3.5 text-[13px]" : "h-9 px-3.5 text-[13px]", V[variant])}>{children}</span>;

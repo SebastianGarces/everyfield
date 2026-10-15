@@ -102,7 +102,7 @@ export function PipePanel() {
             {k === 1 ? <Hl a={2450} b={1e9} /> : null}
             <b className="font-semibold whitespace-nowrap">{r[0]}</b>
             <span className="relative h-3.5 overflow-hidden rounded-full bg-surface-2">
-              <Tf as="i" f={(t) => "scaleX(" + ((r[1] / 4) * out(P(t, 300 + k * 120, 650))).toFixed(4) + ")"} className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-violet-500)_62%,#FFFFFF)]" />
+              <Tf as="i" f={(t) => "scaleX(" + ((r[1] / 4) * out(P(t, 300 + k * 120, 650))).toFixed(4) + ")"} className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-violet-500)_62%,var(--color-white))]" />
             </span>
             <span className="justify-self-end font-display font-semibold tracking-[-0.03em] whitespace-nowrap"><Count value={(t) => r[1] * out(P(t, 300 + k * 120, 650))} max={Math.max(1, r[1])} /></span>
             <Fade f={(t) => out(P(t, 900 + k * 120, 400))} className="text-right text-[11.5px] whitespace-nowrap text-text-3 opacity-0 will-change-[opacity]">{r[1] ? r[2] : "none"}</Fade>
@@ -154,7 +154,7 @@ export function LensPanel() {
           </St>
         ))}
       </div>
-      <Move f={(t) => { const sh = out(P(t, 2450, 420)); return [0, (1 - sh) * 16, 1, sh]; }} className="absolute right-3 bottom-3 left-3 z-6 rounded-2xl bg-white px-3.5 pt-3 pb-1.5 opacity-0 shadow-[0_0_0_1px_var(--color-line),0_22px_44px_-20px_rgba(24,29,25,.5)]">
+      <Move f={(t) => { const sh = out(P(t, 2450, 420)); return [0, (1 - sh) * 16, 1, sh]; }} className="absolute right-3 bottom-3 left-3 z-6 rounded-2xl bg-white px-3.5 pt-3 pb-1.5 opacity-0 shadow-mk-sheet">
         <div className="flex items-center justify-between gap-2 pb-1.5 text-[13px] font-semibold">
           <span>Emerging leadership</span>
           <Badge status="risk" size="sm">4 at Concern</Badge>

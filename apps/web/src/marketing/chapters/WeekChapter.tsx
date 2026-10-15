@@ -57,7 +57,7 @@ export function WeekChapter() {
           )}
         >
           <div data-tl="" className="flex items-start gap-3.5">
-            <span aria-hidden="true" className={cn("mt-[calc((var(--cx-h3)*1.15-var(--cx-ti))/2)] grid size-(--cx-ti) flex-none place-items-center rounded-[calc(var(--cx-ti)*.265)] bg-[var(--g-base)] text-ink shadow-[inset_0_0_0_1px_rgba(24,29,25,.08)]", tone)}>
+            <span aria-hidden="true" className={cn("mt-[calc((var(--cx-h3)*1.15-var(--cx-ti))/2)] grid size-(--cx-ti) flex-none place-items-center rounded-[calc(var(--cx-ti)*.265)] bg-[var(--g-base)] text-ink shadow-mk-icon-tile", tone)}>
               <Icon icon={isIconName(s.icon) ? ICONS[s.icon] : ICONS.sparkle} className="size-1/2 [&_path]:[stroke-width:1.8]" />
             </span>
             <h3 className="min-w-0 font-display text-(length:--cx-h3) leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">{s.title}</h3>

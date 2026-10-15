@@ -89,7 +89,7 @@ export function HeroAnimation() {
             <St t={t} i={0} k={1} className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
                 <Lab>Name</Lab>
-                <div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-[inset_0_0_0_1.5px_var(--color-green-500),0_0_0_3px_rgba(28,227,98,.16)]">
+                <div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-mk-input-focus">
                   <Typed t={t} />
                 </div>
               </div>
@@ -324,7 +324,7 @@ function Row({ t, k, chip, slot, num, hl }: T & { k: 0 | 1 | 2; chip: ReactNode;
   const hlOpacity = useTransform(t, (v) => +(out(P(v, at(4, 400), d(300))) * (1 - sine(P(v, SC[4]![1] - 1500, d(600))))).toFixed(3));
   return (
     <St t={t} i={4} k={k + 1} className="relative">
-      {hl ? <m.span className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 rounded-[14px] bg-green-50 opacity-0 shadow-[inset_0_0_0_1px_rgba(28,227,98,.35)]" style={{ opacity: hlOpacity }} /> : null}
+      {hl ? <m.span className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 rounded-[14px] bg-green-50 opacity-0 shadow-mk-green-edge" style={{ opacity: hlOpacity }} /> : null}
       <div className="flex min-h-[30px] items-center gap-2">
         {chip}
         {slot}

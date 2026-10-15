@@ -70,13 +70,13 @@ export function PhaseVignette({ i }: { i: number }) {
         <Head icon="book" tone="blue" title="Guidance" sub="Discovery" />
         <div className="mt-3.5 grid gap-[9px]">
           {([[80, 54, true], [72, 46, false]] as const).map(([a, b, on], k) => (
-            <div key={k} className={cn("flex items-center gap-2.5 rounded-[12px] px-2.5 py-[9px]", on ? "bg-green-50 shadow-[inset_0_0_0_1px_rgba(15,126,60,.2)]" : "bg-surface shadow-[inset_0_0_0_1px_var(--color-line)]")}>
+            <div key={k} className={cn("flex items-center gap-2.5 rounded-[12px] px-2.5 py-[9px]", on ? "bg-green-50 shadow-mk-chip-on" : "bg-surface shadow-[inset_0_0_0_1px_var(--color-line)]")}>
               <span className={cn("grid size-[26px] flex-none place-items-center rounded-[8px]", on ? "bg-green-500 text-ink" : "bg-surface-2 text-ink-2")}>
                 <Icon icon={on ? ICONS.book : ICONS.check} size={14} />
               </span>
               <span className="min-w-0 flex-1">
-                <i className={cn("block h-1.5 rounded-[9px]", on ? "bg-[rgba(15,126,60,.24)]" : "bg-[#E3E7EC]")} style={{ width: a + "%" }} />
-                <i className={cn("mt-1.5 block h-1.5 rounded-[9px] opacity-60", on ? "bg-[rgba(15,126,60,.24)]" : "bg-[#E3E7EC]")} style={{ width: b + "%" }} />
+                <i className={cn("block h-1.5 rounded-[9px]", on ? "bg-mk-green-600-24" : "bg-mk-bar")} style={{ width: a + "%" }} />
+                <i className={cn("mt-1.5 block h-1.5 rounded-[9px] opacity-60", on ? "bg-mk-green-600-24" : "bg-mk-bar")} style={{ width: b + "%" }} />
               </span>
               {on ? <span className="flex-none rounded-full bg-ink px-2 py-1 text-[11px] font-semibold text-white">Now</span> : null}
             </div>
@@ -190,9 +190,9 @@ export function PlantVignette({ i }: { i: number }) {
         <Head icon="pin" tone="teal" title="By market" sub="Texas · 14 plants" right={<span className={K}>Plants</span>} />
         <div className="mt-3 grid gap-0.5">
           {([["Greater Austin", 5], ["Dallas–Fort Worth", 3], ["Greater San Antonio", 3], ["Greater Houston", 2]] as const).map(([name, n], k) => (
-            <div key={name} className={cn("-mx-2 grid grid-cols-[minmax(0,1fr)_64px_16px] items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-[13px] font-medium", !k && "bg-green-50 shadow-[inset_0_0_0_1px_rgba(15,126,60,.22)]")}>
+            <div key={name} className={cn("-mx-2 grid grid-cols-[minmax(0,1fr)_64px_16px] items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-[13px] font-medium", !k && "bg-green-50 shadow-mk-row-on")}>
               <span className="truncate">{name}</span>
-              <span className="h-1.5 overflow-hidden rounded-[9px] bg-surface-2"><i className={cn("block h-full rounded-[9px]", k ? "bg-[#B9C0BB]" : "bg-green-500")} style={{ width: (n / 5) * 100 + "%" }} /></span>
+              <span className="h-1.5 overflow-hidden rounded-[9px] bg-surface-2"><i className={cn("block h-full rounded-[9px]", k ? "bg-mk-bar-muted" : "bg-green-500")} style={{ width: (n / 5) * 100 + "%" }} /></span>
               <b className="text-right font-semibold tabular-nums">{n}</b>
             </div>
           ))}

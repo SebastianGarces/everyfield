@@ -118,7 +118,7 @@ export function Done({ target, at, label, done, R }: { target: "t0" | "t1"; at: 
 export function Field({ fr, children, className, innerRef }: { fr: (t: number) => number; children: ReactNode; className?: string; innerRef?: (el: HTMLElement | null) => void }) {
   return (
     <div ref={innerRef} className={cn("relative flex h-[38px] items-center gap-2 overflow-hidden rounded-[11px] bg-surface px-3 text-[13.5px] font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]", className)}>
-      <Fade f={fr} className="pointer-events-none absolute inset-0 rounded-[11px] opacity-0 shadow-[inset_0_0_0_1.5px_var(--color-blue-500),0_0_0_3px_rgba(80,150,255,.16)]" />
+      <Fade f={fr} className="pointer-events-none absolute inset-0 rounded-[11px] opacity-0 shadow-mk-field-focus" />
       {children}
     </div>
   );

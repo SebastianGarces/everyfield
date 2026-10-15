@@ -41,7 +41,7 @@ export function FocusPanel() {
       <InsightTop i={0} icon={ICONS.compass} label="Focus this week" count="Plant Intelligence" />
       <InsightMetric i={1} num={<Count value={days} max={16} unit=" d" />} unit="since the last vision meeting" />
       <St i={2}>
-        <div className="relative mt-4 h-2 rounded-full bg-[rgba(24,29,25,.12)]">
+        <div className="relative mt-4 h-2 rounded-full bg-mk-ink-12">
           <span className="absolute inset-y-0 left-0 w-[84.2%] overflow-hidden rounded-full">
             <m.span className="absolute inset-0 rounded-full bg-ink will-change-transform" style={{ transform: fill }} />
           </span>
@@ -58,7 +58,7 @@ export function FocusPanel() {
         </Move>
         <div className="col-start-1 row-start-1">
           {FACTS.map((f, k) => (
-            <Move key={f[0]} f={(v) => rise(v, 2640 + k * 75, R_FOCUS(v))} className={cn("flex justify-between gap-2.5 py-1.5 text-[13px] text-[var(--on-2)] opacity-0", k > 0 && "border-t border-[rgba(24,29,25,.1)]")}>
+            <Move key={f[0]} f={(v) => rise(v, 2640 + k * 75, R_FOCUS(v))} className={cn("flex justify-between gap-2.5 py-1.5 text-[13px] text-[var(--on-2)] opacity-0", k > 0 && "border-t border-mk-ink-10")}>
               <span>{f[0]}</span>
               <b className="font-semibold text-[var(--on)]">{f[1]}</b>
             </Move>
@@ -157,7 +157,7 @@ export function EvryPanel() {
         <Typed text={CX_A} p={(v) => P(v, 2150, 1500)} />
       </Move>
       <Move f={(v) => rise(v, 3750, R_EVRY(v))} className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]">
-        <div className="flex items-center gap-2.5 border-b border-[rgba(255,165,82,.18)] bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-600">
+        <div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-600">
           <Icon icon={ICONS.edit} />
           Review 7 changes
           <span className="min-w-0 flex-1" />
@@ -211,7 +211,7 @@ export function SharePanel() {
   );
 }
 const SWITCH = "relative h-[22px] w-9 flex-none overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]";
-const KNOB = "absolute top-[3px] left-[3px] size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] will-change-transform";
+const KNOB = "absolute top-[3px] left-[3px] size-4 rounded-full bg-white shadow-mk-knob will-change-transform";
 function Switch({ on, lock }: { on: boolean; lock: boolean }) {
   return (
     <span className={cn(SWITCH, lock && "opacity-60")}>

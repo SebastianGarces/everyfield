@@ -38,8 +38,8 @@
   /* Marketing surfaces. Canvas #FCFBF8 and the warm secondary surface are marketing only. */
   --color-mk-canvas: #FCFBF8;
   --color-mk-surface-2: #F5F3EE;
-  --color-mk-line: rgba(24, 29, 25, .08);
-  --color-mk-line-strong: rgba(24, 29, 25, .14);
+  --color-mk-line: rgb(from var(--color-ink) r g b / .08);
+  --color-mk-line-strong: rgb(from var(--color-ink) r g b / .14);
   /* Secondary text on the ink footer card: 8.5:1 on #181D19. */
   --color-mk-on-ink-2: #B1B7C2;
 
@@ -65,10 +65,10 @@
   --text-mk-lead: clamp(18px, 1.4vw, 21px);
   --text-mk-lead--line-height: 1.5;
 
-  --shadow-mk-card: 0 1px 2px rgba(24, 29, 25, .04), 0 6px 18px -10px rgba(24, 29, 25, .10);
-  --shadow-mk-media: 0 2px 6px rgba(24, 29, 25, .06), 0 24px 48px -16px rgba(24, 29, 25, .22);
-  --shadow-mk-pill: inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgba(24, 29, 25, .06), 0 14px 32px -16px rgba(24, 29, 25, .3);
-  --shadow-mk-menu: 0 20px 30px -20px rgba(0, 0, 0, .3);
+  --shadow-mk-card: 0 1px 2px rgb(from var(--color-ink) r g b / .04), 0 6px 18px -10px rgb(from var(--color-ink) r g b / .10);
+  --shadow-mk-media: 0 2px 6px rgb(from var(--color-ink) r g b / .06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / .22);
+  --shadow-mk-pill: inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgb(from var(--color-ink) r g b / .06), 0 14px 32px -16px rgb(from var(--color-ink) r g b / .3);
+  --shadow-mk-menu: 0 20px 30px -20px rgb(from var(--color-black) r g b / .3);
 
   --ease-mk: cubic-bezier(.2, .8, .2, 1);
   /* Hero ease-out, used by the floating pill. */
@@ -101,17 +101,79 @@
 /* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */
 
 /* The white ring around every product UI card (Revision 21): drawn outside the card edge, so the card size never changes. */
-:root { --ui-ring: 0 0 0 6px rgba(255, 255, 255, .25); }
+:root { --ui-ring: 0 0 0 6px var(--color-mk-white-25); }
 
 @theme {
+  /* Colours of the product visuals. A colour that is a product token at some alpha derives from the token (relative
+     colour syntax keeps its exact channels); the few marketing-only values are defined here once. */
+  --color-mk-ink-04: rgb(from var(--color-ink) r g b / .04);
+  --color-mk-ink-05: rgb(from var(--color-ink) r g b / .05);
+  --color-mk-ink-06: rgb(from var(--color-ink) r g b / .06);
+  --color-mk-ink-10: rgb(from var(--color-ink) r g b / .10);
+  --color-mk-ink-12: rgb(from var(--color-ink) r g b / .12);
+  --color-mk-ink-18: rgb(from var(--color-ink) r g b / .18);
+  --color-mk-ink-30: rgb(from var(--color-ink) r g b / .30);
+  --color-mk-ink-35: rgb(from var(--color-ink) r g b / .35);
+  --color-mk-ink-40: rgb(from var(--color-ink) r g b / .40);
+  --color-mk-ink-42: rgb(from var(--color-ink) r g b / .42);
+  --color-mk-ink-45: rgb(from var(--color-ink) r g b / .45);
+  --color-mk-ink-50: rgb(from var(--color-ink) r g b / .50);
+  --color-mk-ink-60: rgb(from var(--color-ink) r g b / .60);
+  --color-mk-white-0: rgb(from var(--color-white) r g b / 0);
+  --color-mk-white-25: rgb(from var(--color-white) r g b / .25);
+  --color-mk-white-55: rgb(from var(--color-white) r g b / .55);
+  --color-mk-black-20: rgb(from var(--color-black) r g b / .20);
+  --color-mk-canvas-0: rgb(from var(--color-mk-canvas) r g b / 0);
+  --color-mk-green-16: rgb(from var(--color-green-500) r g b / .16);
+  --color-mk-green-35: rgb(from var(--color-green-500) r g b / .35);
+  --color-mk-green-600-20: rgb(from var(--color-green-600) r g b / .20);
+  --color-mk-green-600-22: rgb(from var(--color-green-600) r g b / .22);
+  --color-mk-green-600-24: rgb(from var(--color-green-600) r g b / .24);
+  --color-mk-green-600-30: rgb(from var(--color-green-600) r g b / .30);
+  --color-mk-amber-500-18: rgb(from var(--color-amber-500) r g b / .18);
+  /* Marketing only (the prototype's values). */
+  --color-mk-surface-3: #EAE7E0;
+  --color-mk-hero-title: #2A332C;
+  --color-mk-hero-shade: rgb(16 120 56 / .6);
+  --color-mk-card-shade: #105028;
+  --color-mk-done-top: #2BE46C;
+  --color-mk-done-ink: #0B3D1E;
+  --color-mk-bot-shade: #0A3C1E;
+  --color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / .18);
+  --color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / .35);
+  --color-mk-focus-blue: #5096FF;
+  --color-mk-focus-blue-16: rgb(from var(--color-mk-focus-blue) r g b / .16);
+  --color-mk-bar: #E3E7EC;
+  --color-mk-bar-muted: #B9C0BB;
+  --color-mk-skeleton: #ECEFF2;
+  --color-mk-skeleton-hi: #F7F8FA;
+
   /* Panel and card shadows. Each one starts with the white ring. */
-  --shadow-mk-panel: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4);
-  --shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4);
-  --shadow-mk-hero-card: var(--ui-ring), 0 0 0 1px rgba(16, 80, 40, .06), 0 1px 2px rgba(16, 80, 40, .08), 0 24px 48px -24px rgba(16, 80, 40, .45);
-  --shadow-mk-vignette: var(--ui-ring), 0 1px 2px rgba(24, 29, 25, .06), 0 22px 40px -22px rgba(24, 29, 25, .42);
-  --shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, rgba(24, 29, 25, .45));
-  --shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px rgba(24, 29, 25, .3);
-  --shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px rgba(24, 29, 25, .05);
+  --shadow-mk-panel-body: 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
+  --shadow-mk-panel: var(--ui-ring), var(--shadow-mk-panel-body);
+  --shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
+  --shadow-mk-hero-card: var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / .06), 0 1px 2px rgb(from var(--color-mk-card-shade) r g b / .08), 0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / .45);
+  --shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
+  --shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, var(--color-mk-ink-45));
+  --shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
+  --shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
+  /* The animated panel frames, the hero panel and smaller parts. */
+  --shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
+  --shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
+  --shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-hero-shade);
+  --shadow-mk-icon-tile: inset 0 0 0 1px var(--color-mk-line);
+  --shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
+  --shadow-mk-ring-sides: -6px 0 0 0 var(--color-mk-white-25), 6px 0 0 0 var(--color-mk-white-25);
+  --shadow-mk-hairline: 0 1px 2px var(--color-mk-ink-04);
+  --shadow-mk-knob: 0 1px 2px var(--color-mk-black-20);
+  --shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
+  --shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
+  --shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-16);
+  --shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
+  --shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
+  --shadow-mk-row-on: inset 0 0 0 1px var(--color-mk-green-600-22);
+  --shadow-mk-group-on: inset 0 0 0 1.5px var(--color-mk-green-600-30);
+  --drop-shadow-mk-cursor: 0 2px 3px var(--color-mk-ink-35);
 
   /* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
   --animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
@@ -154,7 +216,7 @@
    the same blur as a CSS filter was repainted on every scroll frame in Firefox. */
 @utility mk-gsurf {
   overflow: hidden; isolation: isolate; background: var(--g-base);
-  --on: #181D19; --on-2: rgba(24, 29, 25, .74); --on-3: rgba(24, 29, 25, .6); --pill-bg: rgba(24, 29, 25, .07); --pill-edge: rgba(24, 29, 25, .16);
+  --on: var(--color-ink); --on-2: rgb(from var(--color-ink) r g b / .74); --on-3: rgb(from var(--color-ink) r g b / .6); --pill-bg: rgb(from var(--color-ink) r g b / .07); --pill-edge: rgb(from var(--color-ink) r g b / .16);
   &::before {
     content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
     background: var(--g-mesh) 0 0 / 100% 100% no-repeat;
@@ -184,7 +246,7 @@
 
 /* Skeleton bar with a slow shimmer (hero scenes). The caller sets display and size. */
 @utility skeleton {
-  border-radius: 99px; background: linear-gradient(90deg, #ECEFF2 0%, #F7F8FA 50%, #ECEFF2 100%);
+  border-radius: 99px; background: linear-gradient(90deg, var(--color-mk-skeleton) 0%, var(--color-mk-skeleton-hi) 50%, var(--color-mk-skeleton) 100%);
   background-size: 200% 100%; animation: var(--animate-mk-shimmer);
   @media (prefers-reduced-motion: reduce) { animation: none; }
 }

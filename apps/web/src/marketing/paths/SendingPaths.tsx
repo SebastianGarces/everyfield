@@ -87,7 +87,7 @@ const APPS = [
     <Head icon="pin" tone="green" title="Mueller Hope Church" sub="Mueller, Austin · 0 · Discovery" />
     <div className={KV}>
       <span>Sent by</span>
-      <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-green-50 py-1 pr-[11px] pl-2 text-[12px] leading-[1.3] font-medium text-green-700 shadow-[inset_0_0_0_1px_rgba(15,126,60,.2)]">
+      <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-green-50 py-1 pr-[11px] pl-2 text-[12px] leading-[1.3] font-medium text-green-700 shadow-mk-chip-on">
         <Icon icon={ICONS.network} />
         <span>Sent by <b className="font-semibold text-ink">Austin Sending Network</b></span>
       </span>

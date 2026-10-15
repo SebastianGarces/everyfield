@@ -96,7 +96,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
           {tail}
         </span>
       </h2>
-      <div className="relative mx-auto grid h-[304px] max-w-[1200px] grid-cols-[minmax(0,5fr)_minmax(0,7fr)] overflow-hidden rounded-frame border border-[rgba(24,29,25,.06)] bg-white shadow-mk-card max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)]">
+      <div className="relative mx-auto grid h-[304px] max-w-[1200px] grid-cols-[minmax(0,5fr)_minmax(0,7fr)] overflow-hidden rounded-frame border border-mk-ink-06 bg-white shadow-mk-card max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)]">
         <div className="grid items-center px-[clamp(28px,3.4vw,52px)] max-mk-cx:px-6 max-mk-cx:pt-7 max-mk-cx:pb-2 max-mk-sm:px-5 max-mk-sm:pt-[22px] max-mk-sm:pb-1">
           {panes.map((p, i) => <Fade key={i} on={i === k} reduced={reduced}>{p}</Fade>)}
         </div>

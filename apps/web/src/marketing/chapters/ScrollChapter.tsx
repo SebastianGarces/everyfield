@@ -292,7 +292,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
               className={cn(
                 "sticky top-(--cx-top) z-3 border-b border-mk-line bg-mk-canvas pb-[26px]",
                 "before:absolute before:inset-x-0 before:bottom-full before:h-(--cx-top) before:bg-mk-canvas before:content-['']",
-                "after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%+1px)] after:h-5 after:bg-[linear-gradient(var(--color-mk-canvas),rgba(252,251,248,0))] after:content-['']",
+                "after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%+1px)] after:h-5 after:bg-[linear-gradient(var(--color-mk-canvas),var(--color-mk-canvas-0))] after:content-['']",
                 "max-mk-cx:static max-mk-cx:border-b-0 max-mk-cx:pb-2 max-mk-cx:before:hidden max-mk-cx:after:hidden",
               )}
             >
@@ -332,7 +332,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
                   <div
                     ref={(el) => { mobs.current[i] = el; }}
                     aria-hidden="true"
-                    className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-[inset_0_0_0_1px_rgba(24,29,25,.06)] max-mk-cx:grid"
+                    className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-mk-frame-flat max-mk-cx:grid"
                     data-idle={mobOn[i] && !reduced ? undefined : ""}
                   >
                     <span className={cn("mk-gsurf absolute inset-0 z-0 will-change-[opacity] [--grain:.3]", s.tone)} />
@@ -349,7 +349,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
               ref={vis}
               aria-hidden="true"
               data-idle={on && !reduced ? undefined : ""}
-              className="ef-ui sticky top-(--cx-top) isolate grid h-[min(560px,calc(100vh-var(--cx-top)-28px))] min-h-[500px] place-items-center overflow-hidden rounded-frame shadow-[inset_0_0_0_1px_rgba(24,29,25,.06),0_30px_60px_-40px_rgba(24,29,25,.3)]"
+              className="ef-ui sticky top-(--cx-top) isolate grid h-[min(560px,calc(100vh-var(--cx-top)-28px))] min-h-[500px] place-items-center overflow-hidden rounded-frame shadow-mk-frame"
             >
               {steps.map((s, i) => <DeskBg key={i} tone={s.tone} sw={clocks.sw} sel={clocks.sel} i={i} />)}
               {steps.map((s, i) => (

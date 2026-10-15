@@ -52,10 +52,10 @@ export function DoneButton({ t, at, label, done, scale = 1, press = 200, R = one
       )}
       style={{ transform }}
     >
-      <m.span className="absolute inset-0 bg-[linear-gradient(180deg,#2BE46C,#12C456)] opacity-0" style={{ opacity: fill }} />
-      <m.span className="absolute inset-y-0 left-0 w-[40%] bg-[linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent)]" style={{ transform: shine }} />
+      <m.span className="absolute inset-0 bg-[linear-gradient(180deg,var(--color-mk-done-top),var(--ef-grad-field-g3))] opacity-0" style={{ opacity: fill }} />
+      <m.span className="absolute inset-y-0 left-0 w-[40%] bg-[linear-gradient(100deg,transparent,var(--color-mk-white-55),transparent)]" style={{ transform: shine }} />
       <m.span className="col-start-1 row-start-1 inline-flex items-center gap-1.5" style={l1}>{label}</m.span>
-      <m.span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 text-[#0B3D1E] opacity-0" style={l2}>
+      <m.span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 text-mk-done-ink opacity-0" style={l2}>
         <Icon icon={Tick02Icon} size={18} />
         {done}
       </m.span>
