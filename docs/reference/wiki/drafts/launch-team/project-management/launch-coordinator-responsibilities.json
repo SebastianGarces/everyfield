@@ -37,9 +37,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus review of the F4 sentence changes, scripture and rendered previews. Unchanged article claims are outside this correction scope."
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "F4 verse-fit review of PR #26 at b5ce27a: scripted diff against seed.json shows only the approved changes: article sentences reworded to match the adjacent unchanged LSB verse, the inline Colossians 3:23-24 quote converted to exact LSB with (LSB), and Proverbs 29:18 replaced by Proverbs 16:3 in what-is-a-vision-meeting. Row fields are unchanged except the required draft status and published_at. Psalm 127:1, Proverbs 21:5 and 2 Corinthians 6:14 are untouched. Proverbs 16:3 and Colossians 3:23 and 3:24 were checked word for word on read.lsbible.org, one verse per lookup; the key wording of the adjacent verses was also checked. bin/wiki lint passes. Desktop and mobile screenshots checked; changed text and the LSB notice render. The two mobile overflows reproduce on the published rows."
     },
     "rulings": [
       "Sebastian authorized F4 on 2026-10-15: correct only the approved verse-fit wording, inline LSB quotation and church-vision verse substitution. All other article text and row fields remain as published, except required draft status and published_at.",
