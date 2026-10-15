@@ -706,6 +706,13 @@
       "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "contentSHA256": "88e03f50033bc912c0f181adfa320464f8b4f2dd4e5894c505832a0489ae7d78",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/nonprofit-postage-rates"
     }
   ],
   "derivedFrom": {
@@ -3514,6 +3521,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
       "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:05:45.165Z",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "pr": 21,
+      "previousRecordSHA256": null,
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "slug": "administrative/legal/nonprofit-postage-rates"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3646,7 +3662,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "86b165cbf3cf41b3d36e4c986355567a73e01e1b3e5fb61b9abd1c20a726f351",
+  "seedPayloadSHA256": "5900eaf1d5b4beb2fdaaf13441b8445cadc49a75bebf30a014b2138adbefaea7",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
