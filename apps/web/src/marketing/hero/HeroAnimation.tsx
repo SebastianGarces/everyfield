@@ -1,11 +1,10 @@
 "use client";
 
-import { PauseIcon, PlayIcon } from "@hugeicons/core-free-icons";
 import { m, useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
-import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
+import { Av, CardIcon, NUM, PlaybackGlyph, StageChip } from "@/components/kit/kit";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
 import { MText, useText, useTicker, useTo, useReduced } from "@/components/motion/scene";
@@ -158,7 +157,7 @@ export function HeroAnimation() {
         onClick={() => setPaused((p) => !p)}
         className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
       >
-        <Icon icon={paused ? PlayIcon : PauseIcon} size={14} />
+        <PlaybackGlyph paused={paused} />
       </button>
     </div>
   );

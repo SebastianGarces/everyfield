@@ -99,3 +99,19 @@ export function UiButton({ variant, size = "md", children }: { variant: "primary
 export function Meter({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-white shadow-[inset_0_0_0_1px_var(--color-line)]", className)}>{children}</div>;
 }
+
+/** The play and pause glyphs of the scene controls: solid shapes, as in the prototype (not stroke icons). */
+export function PlaybackGlyph({ paused }: { paused: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="block size-3.5 flex-none">
+      {paused ? (
+        <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+      ) : (
+        <>
+          <rect x="6" y="5" width="4" height="14" rx="1.2" />
+          <rect x="14" y="5" width="4" height="14" rx="1.2" />
+        </>
+      )}
+    </svg>
+  );
+}

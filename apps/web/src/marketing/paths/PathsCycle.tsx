@@ -1,11 +1,12 @@
 "use client";
 
 import { useReduced } from "@/components/motion/scene";
-import { ArrowRight02Icon, PauseIcon, PlayIcon } from "@hugeicons/core-free-icons";
+import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
+import { PlaybackGlyph } from "@/components/kit/kit";
 
 type Props = {
   /** The whole sentence for screen readers ("Sent by a church, a network through a church or a network. Seen in one place."). */
@@ -111,7 +112,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
           onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
           className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-transparent text-ink hover:bg-white/35 max-mk-sm:right-3 max-mk-sm:bottom-3"
         >
-          <Icon icon={reduced ? ArrowRight02Icon : paused ? PlayIcon : PauseIcon} size={14} />
+          {reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
         </button>
       </div>
     </div>
