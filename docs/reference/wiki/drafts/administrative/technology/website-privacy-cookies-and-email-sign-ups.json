@@ -135,9 +135,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened every cited page, checked statutory timing and nonprofit limits, and read Proverbs 12:22 individually. Independent Opus source, scripture and screenshot review required. Legal and vendor guidance accessed 2026-10-15. Recommendations apply source principles to a church website; they do not assert universal legal coverage."
+      "status": "passed",
+      "reviewer": "Opus (claude-opus-5-5) verifier, independent re-review",
+      "notes": "Re-review of e047c22 on 2026-10-15 against the failed review of 8144fbe. The diff changes only four content sentences. Re-read live: FTC pixel page says 'may not entirely prevent'; Mailchimp says 'form integrations and API opt-in are unaffected'; FTC Start with Security says 'training or development purposes'. The important callout before the CAN-SPAM, COPPA and CCPA sections now states general guidance, not legal advice, checked October 15, 2026, and keeps the FTC/AG/counsel instruction. Earlier source, statute, number, scripture (Proverbs 12:22 LSB) and copying checks carry over unchanged. bin/wiki lint passes (1069 words); desktop 1280 and mobile 390 screenshots show all sections, table, callouts, checklist and LSB notice."
     },
     "rulings": [
       "Resolved editorial scope: phase 0 follows the Technology section and nearby website articles.",
