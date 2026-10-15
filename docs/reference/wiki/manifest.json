@@ -741,6 +741,13 @@
       "recordSHA256": "b59ef1a5bc95a038d6db944419a2b95dc95231d33814748fb15adfd4c6c1ffdd",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/church-insurance-basics"
+    },
+    {
+      "contentSHA256": "d95fe2d36099ff7c365175a01403182e8c5205628080a64eef0ae552493a67cd",
+      "id": "1044cf55-6cc8-40f8-8653-3df168a3a912",
+      "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
     }
   ],
   "derivedFrom": {
@@ -3594,6 +3601,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "b59ef1a5bc95a038d6db944419a2b95dc95231d33814748fb15adfd4c6c1ffdd",
       "slug": "administrative/financial/church-insurance-basics"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:09:15.122Z",
+      "id": "1044cf55-6cc8-40f8-8653-3df168a3a912",
+      "pr": 18,
+      "previousRecordSHA256": null,
+      "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
+      "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3726,7 +3742,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "faeff1595042cb5c2bae3a41980eeada1dbcd23baabb9e690f054fc1cbd1599f",
+  "seedPayloadSHA256": "6fc33671e1ba4c9fe8208125243a82846de925dbe64747ec7d7d2289ae5a0c57",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
