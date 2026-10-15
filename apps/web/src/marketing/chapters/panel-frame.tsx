@@ -90,7 +90,7 @@ export function PanelCard({ kind, variant = { kind: "card" }, className, childre
         ref={ref}
         data-k={kind}
         className={cn(
-          "relative col-start-1 row-start-1 rounded-[22px] will-change-[transform,opacity]",
+          "relative z-[2] col-start-1 row-start-1 rounded-[22px] will-change-[transform,opacity]",
           slot.place === "vis" ? "w-[min(400px,calc(100%-48px))] opacity-0" : slot.place === "mob" ? "w-[min(400px,100%)]" : "w-[min(400px,calc(100%-48px))] opacity-0 max-mk-cx:w-[min(400px,100%)]",
           v === "insight"
             ? cn("mk-gsurf flex flex-col px-6 py-[22px] text-[var(--on)] shadow-mk-insight max-mk-sm:p-[18px]", INSIGHT_TONE[variant.tone])

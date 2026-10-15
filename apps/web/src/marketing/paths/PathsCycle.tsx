@@ -101,7 +101,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
         </div>
         <div aria-hidden="true" className="ef-ui relative isolate m-2 grid grid-cols-[minmax(0,1fr)] place-items-center overflow-hidden rounded-[26px] px-6 py-4 max-mk-cx:min-h-[300px] max-mk-cx:pb-[52px] max-mk-sm:m-1.5 max-mk-sm:min-h-0 max-mk-sm:px-3 max-mk-sm:pt-7">
           {tones.map((tone, i) => (
-            <span key={tone} className={cn("mk-gsurf absolute inset-0 -z-1 [--grain:.3]", tone, i === k ? "opacity-100" : "opacity-0")} style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }} />
+            <span key={tone} className={cn("mk-gsurf absolute inset-0 z-0 [--grain:.3]", tone, i === k ? "opacity-100" : "opacity-0")} style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }} />
           ))}
           {apps.map((a, i) => <Fade key={i} on={i === k} reduced={reduced} center>{a}</Fade>)}
         </div>
@@ -122,7 +122,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 function Fade({ on, reduced, center, children }: { on: boolean; reduced: boolean; center?: boolean; children: ReactNode }) {
   return (
     <div
-      className={cn("col-start-1 row-start-1 min-w-0", center && "grid w-full grid-cols-[minmax(0,1fr)] justify-items-center", on ? "visible opacity-100" : "invisible opacity-0")}
+      className={cn("relative z-[1] col-start-1 row-start-1 min-w-0", center && "grid w-full grid-cols-[minmax(0,1fr)] justify-items-center", on ? "visible opacity-100" : "invisible opacity-0")}
       style={{ transition: reduced ? "none" : on ? "opacity .35s ease-out .35s, visibility 0s" : "opacity .28s ease-in, visibility 0s linear .28s" }}
     >
       {children}
