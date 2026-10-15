@@ -3486,8 +3486,8 @@ function vision(v) {
         '<span class="vz-ic tone-amber">' + icon("task") + '</span><div><div class="vz-week-t">This week</div><div class="vz-l" style="margin-top:2px">3 tasks for the core group</div></div></div>' +
         '<ul class="vz-tasks">' + tasks.map(function (k, i) {
           return '<li><div class="vz-row" style="--d:' + (1420 + i * 180) + 'ms">' + line("vz-in", [1364, 1564, 1744][i]) + (i < 2 ? line("vz-out", 1483 + i * 180) : "") +
-            '<span class="vz-ring" aria-hidden="true"></span><span style="min-width:0;flex:1"><span class="vz-task-t">' + t(k[0]) + '</span><span class="vz-chain">' + t(k[1]) + icon("arrow") +
-            '<span class="ovs-sr">serves</span><span class="stage-chip tone-blue" style="height:22px">Committed adults</span></span></span></div></li>';
+            '<span class="vz-ring" aria-hidden="true"></span><span style="min-width:0;flex:1"><span class="vz-task-t">' + t(k[0]) + '</span><span class="vz-chain">' + t(k[1]) + '<span style="display:inline-flex;align-items:center;gap:6px">' + icon("arrow") +
+            '<span class="ovs-sr">serves</span><span class="stage-chip tone-blue" style="height:22px">Committed adults</span></span></span></span></div></li>';
         }).join("") + "</ul></div>" +
     "</div></div></div></section>";
 }

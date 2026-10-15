@@ -134,9 +134,12 @@ export function VisionZoom() {
                     <span className="block text-[14px] leading-5 font-semibold text-ink">{title}</span>
                     <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] text-text-3">
                       {link}
-                      <Icon icon={ICONS.arrow} size={13} className="flex-none text-text-3" />
-                      <span className="sr-only">serves</span>
-                      <StageChip tone="blue" className="h-[22px]">Committed adults</StageChip>
+                      {/* The arrow stays with the goal, so a narrow row wraps before the arrow, not after it. */}
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon icon={ICONS.arrow} size={13} className="flex-none text-text-3" />
+                        <span className="sr-only">serves</span>
+                        <StageChip tone="blue" className="h-[22px]">Committed adults</StageChip>
+                      </span>
                     </span>
                   </span>
                 </Move>
