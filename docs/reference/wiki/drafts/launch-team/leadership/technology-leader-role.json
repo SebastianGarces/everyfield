@@ -1,0 +1,46 @@
+{
+  "church_id": null,
+  "content": "The Technology Leader serves the church by developing and managing technology systems—from the website to production equipment to ministry software. This role ensures technology enables rather than hinders the church's mission.\n\nIn a technology-dependent world, churches need someone who can navigate options, make wise recommendations, and keep systems running.\n\n---\n\n## Core Responsibilities\n\n### Serves Senior Pastor by Developing Affordable and Appropriate Technology Plan\n\nThe Technology Leader creates a comprehensive technology plan that:\n\n- Identifies technology needs across all ministry areas\n- Evaluates options at various price points\n- Recommends solutions that balance capability with budget\n- Plans for future growth and scalability\n- Considers support and maintenance requirements\n\nTechnology decisions should serve the mission, not the other way around. The Technology Leader helps leadership make wise investments.\n\n<Callout type=\"tip\">\n  The best technology solution isn't always the most sophisticated one. It's the one that your team can actually use effectively. Consider training and support needs alongside features.\n</Callout>\n\n### Oversees Website Establishment Under Senior Pastor's Leadership\n\nThe church website is often the first impression for potential visitors. The Technology Leader:\n\n**Selects platform.** Chooses appropriate website platform based on needs and capabilities.\n\n**Manages development.** Either builds the site personally or oversees developers.\n\n**Ensures quality.** The site must be clear, professional, and mobile-friendly.\n\n**Coordinates content.** Works with the Senior Pastor and Promotion Leader on website content.\n\n**Maintains the site.** Ensures ongoing updates, security, and performance.\n\n### Interfaces with Worship Leader for Production Technology Solutions\n\nProduction technology—sound, video, lighting—is critical to Sunday services. The Technology Leader:\n\n- Consults on equipment selection\n- Helps troubleshoot technical issues\n- Provides expertise the Worship Leader may lack\n- Ensures systems integrate properly\n\nThis is a supporting role; the Worship Leader owns production, but the Technology Leader provides technical expertise.\n\n### Evaluates and Recommends New Technology Solutions\n\nTechnology evolves constantly. The Technology Leader:\n\n- Stays current on relevant technology trends\n- Evaluates new tools that could benefit the church\n- Makes recommendations to leadership\n- Manages implementation of approved solutions\n\n---\n\n## Key Technology Areas\n\nThe Technology Leader should have knowledge across several areas:\n\n| Area | Examples |\n|------|----------|\n| **Website** | Platform selection, hosting, design, maintenance |\n| **Church Management** | Membership database, giving platforms, communication tools |\n| **Production** | Sound systems, video projection, lighting, streaming |\n| **Communication** | Email systems, social media tools, internal communication |\n| **Office** | Computers, printers, network, file sharing |\n| **Security** | Data backup, access controls, privacy compliance |\n\nDepth of expertise varies—the Technology Leader doesn't need to be an expert in everything but should understand enough to guide decisions and find help when needed.\n\n---\n\n## Key Skills and Qualities\n\nThe ideal Technology Leader brings:\n\n**Technical competence.** Sufficient knowledge to evaluate and implement technology solutions.\n\n**Problem-solving ability.** Capacity to troubleshoot when things break.\n\n**Communication skills.** Ability to explain technical concepts to non-technical people.\n\n**Service orientation.** Willingness to support others rather than build a personal domain.\n\n**Practicality.** Focus on what works rather than what's theoretically best.\n\n**Budget consciousness.** Ability to find affordable solutions.\n\n**Patience.** Willingness to help people who struggle with technology.\n\n---\n\n## Website Priorities\n\nFor a church plant, the website should accomplish these core functions:\n\n**Inform visitors.** Clear information about who you are, what you believe, and when/where you meet.\n\n**Enable contact.** Easy ways for interested people to reach out.\n\n**Support existing members.** Access to resources, events, giving, and connection.\n\n**Reflect your church.** Consistent with your church's personality and values.\n\n### Website Essentials for Launch\n\nAt minimum, have these elements ready:\n\n- [ ] Clear church name and location\n- [ ] Service times and address\n- [ ] Brief \"About\" information\n- [ ] Contact method\n- [ ] Mobile-friendly design\n\nAdditional features can be added after launch as time and resources allow.\n\n<Callout type=\"warning\">\n  An outdated website does more harm than good. If you can't maintain robust content, keep the site simple but accurate. Better to have less content that's current than lots of outdated information.\n</Callout>\n\n---\n\n## Choosing Church Management Software\n\nChurch management software (ChMS) helps manage:\n\n- Member/guest database\n- Giving and financial records\n- Volunteer scheduling\n- Communication\n- Event registration\n\nThe Technology Leader researches options and makes recommendations. Key considerations:\n\n- Features vs. complexity\n- Cost (often per-user or tiered)\n- Integration with other tools\n- Ease of use for staff and volunteers\n- Support and training availability\n\n---\n\n## Working with the Worship Leader\n\nProduction technology sits at the intersection of the Technology Leader and Worship Leader roles:\n\n**Worship Leader's domain:**\n- Creative decisions about production\n- Team management\n- Service planning\n\n**Technology Leader's support:**\n- Equipment recommendations\n- Technical troubleshooting\n- System integration\n- Training on technical aspects\n\nEstablish clear collaboration patterns to avoid confusion or territorial tension.\n\n---\n\n## Managing Technology on a Budget\n\nChurch plants typically operate with limited resources. The Technology Leader helps by:\n\n- Identifying free and low-cost tools\n- Prioritizing investments by impact\n- Finding church discounts (many companies offer nonprofit pricing)\n- Building relationships with tech-savvy volunteers\n- Considering total cost of ownership, not just purchase price\n\n---\n\n<Callout type=\"scripture\">\n  *\"Whatever you do, do your work heartily, as for the Lord rather than for men,\"* — Colossians 3:23 (LSB)\n</Callout>\n\nTechnology work is service to the body of Christ. Every system maintained, every problem solved, every tool implemented supports the church's mission of making disciples.",
+  "content_type": "reference",
+  "created_at": "2026-01-27T21:02:01.652384",
+  "excerpt": "A guide to the Technology Leader's responsibilities in establishing the church's technology infrastructure, website, and production systems.",
+  "id": "4975898c-2930-4cf8-90e6-b8dd403aa113",
+  "phase": 2,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "launch-team/leadership/key-leadership-roles-overview",
+    "launch-team/leadership/worship-leader-role",
+    "launch-team/leadership/promotion-leader-role",
+    "administrative/technology/setting-up-your-website"
+  ],
+  "section_id": "c01b6f3b-48df-4004-a7f6-a24a43d8878e",
+  "slug": "launch-team/leadership/technology-leader-role",
+  "sort_order": 10,
+  "status": "draft",
+  "title": "The Technology Leader Role",
+  "updated_at": "2026-08-09T01:22:58.458",
+  "draft": {
+    "backlog_id": "F3",
+    "tier": "F",
+    "closes": [],
+    "approver": "Sebastian",
+    "replaces_id": "4975898c-2930-4cf8-90e6-b8dd403aa113",
+    "sources": [
+      {
+        "claim": "Colossians 3:23",
+        "url": "https://read.lsbible.org/colossians/3/23",
+        "publisher": "The Lockman Foundation / Three Sixteen Publishing",
+        "quote": "Whatever you do, do your work heartily, as for the Lord rather than for men,",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": ""
+    },
+    "rulings": []
+  }
+}
