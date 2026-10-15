@@ -1,44 +1,44 @@
 {
   "articles": [
     {
-      "contentSHA256": "1f6200bc161421c070d030205f4f99793fb45bfb917552856519007529b7427e",
+      "contentSHA256": "64e316e4d45cf06e1de6fc93c9ab17f9cc26bbe747bf9cec0674952c47455b27",
       "id": "60a3448a-7ee1-4020-adcc-17617c8fbe05",
-      "recordSHA256": "c3f5665b80f11844f49b72e80eeea30c818a6ad7035d81978fdb4ed19ca23f95",
+      "recordSHA256": "15ea535a081e79383e84b923b8e6c24b7d6b9ddb2ef162764ff88dbfcfd6bf8b",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/collections-handling-cash-checks"
     },
     {
-      "contentSHA256": "b3e6d2c496d618ed39b43f0a5f9e477889deb9dbad41319ba0a3bf5629a41a89",
+      "contentSHA256": "dd51fbdeb91b3542f94926ea355f5f798d1ea5cfa2efea29f66bd400c760c681",
       "id": "06087acb-d11d-4ff2-92d5-e52ee5eee289",
-      "recordSHA256": "a8ec0d81867809fc036f45195244fbc5beff1adf6d1efc074b2531550c49d2f2",
+      "recordSHA256": "de2759643cadc3387e8f300c3cc0bb141daca277013ddce0545a5a5457c54e51",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/counting-procedures"
     },
     {
-      "contentSHA256": "4df45a5e944a8ba4abfbdc7b2f6f6df6935ec935ecd25fec0e452b0d83cd5712",
+      "contentSHA256": "d7e75bb5e79462c0d461abdf7236e16f27b470157821755e99a1a401576b25f4",
       "id": "18ea59aa-702e-437d-a7e9-b9b89861e872",
-      "recordSHA256": "674025e387e288a7c86c10c7820ad715c91a142897d001bc1d286bffee3f22ae",
+      "recordSHA256": "dd0a6f6dcd3c6a0999468ba1ed7d8de874a0877145fd9a89a6a6d4b47d426213",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/designated-giving-policies"
     },
     {
-      "contentSHA256": "f7a4017a295aa2946373dcc403ff2b6f1ff0e18bcea096729bba39ee3e4668ff",
+      "contentSHA256": "89f7cf2a57c9b04d5e6449bcf1d1d8f8f1ed87d306a42252ff952120f2a0e82f",
       "id": "67b05674-0374-4ecf-978d-6793afa4c20f",
-      "recordSHA256": "85eb0c1cc26df3685c15966ceab6a297a4aed7536f3914fa27704e17efa7ca70",
+      "recordSHA256": "296a24e9595a3b4e09cad0185a16cf90d1f9e07e9e7e0ee11774e5601d25f9cc",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/disbursements-and-approvals"
     },
     {
-      "contentSHA256": "78b2b2215bb487556abd42c3af23fce33febe21850e4a6bdfcb6d266f21b079d",
+      "contentSHA256": "1eebcdb9af304d0b6defd7670009db9a552f15bde3a6ccb75e2f970f311bdc98",
       "id": "1956cc1d-d7b7-474d-9921-ea6cb3fc75be",
-      "recordSHA256": "d0cb5addfc2c62e9267cb504856be61e70f9403b7a0d99b03ce57b99a156bd7f",
+      "recordSHA256": "064d54a7d094dae8cc4a4b43904c04ca149bc911e351229910e0d51b1666a940",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/first-year-budget-planning"
     },
     {
-      "contentSHA256": "58ceae1123d7bed30ddf61067017667d5be5ad710eb2b4c06d5d1356ae3ba43c",
+      "contentSHA256": "8619de64ee21a6039ddf6c6f88dec63a40167353975c5dce742cacf3a8d7c2ad",
       "id": "c2f5b49a-d267-43d4-9513-f32a1d2bd359",
-      "recordSHA256": "2193c34c92eb1f165ba56c5d2593d64cd8ce2c602205723a8480ff1807378052",
+      "recordSHA256": "499d1e8531836e94113c391dbe92a50a9f44cfecaa657352b642bfc9a0857d25",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/principles-of-financial-accountability"
     },
@@ -50,303 +50,303 @@
       "slug": "administrative/legal/setting-up-501c3"
     },
     {
-      "contentSHA256": "63206caf2e14676fe88bc7b1c95bfaeb0bb84332876006af7ddd1095dd76b493",
+      "contentSHA256": "42385d1c42f690d4d992a0ad6d8ecfe20ede63130bfb01d2caa9dca166b900a7",
       "id": "122ccabc-acb0-4b36-8c67-77f02ca88679",
-      "recordSHA256": "fcdb81d7c5e764775313d477807a7cc87b28e43d8f72aacb49a9e2699e62a296",
+      "recordSHA256": "57a1fe0f28f885f16a4c5c3aef12c60828eefed5a52e8867cdaa9571fa0de953",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/setting-up-nonprofit-corporation"
     },
     {
-      "contentSHA256": "e19e82bbdbebeea0d503b52b3ec6b7669b71c3344c7690f3199716ebd6d86ce0",
+      "contentSHA256": "f26e8aefad0650c33f657d0a1d8076b1afc9bf9086629048885bb98f674502eb",
       "id": "a4c79837-13f6-4e61-844b-c472a9e26c06",
-      "recordSHA256": "9c8acada0b38e25e01e0bf74d2550d9eb0b9310623dec110c1ff09adada96684",
+      "recordSHA256": "7d0cc3f277fa4359ad41c4c86478cffc89fbf35cf94fed2417f129c5ff94e51d",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/acquiring-portable-church-equipment"
     },
     {
-      "contentSHA256": "b1ad483040e30fc502c54724a7d54c86b57fe19cdfa3b654763f8c6cdc8d9932",
+      "contentSHA256": "da478f21278c47ed89f68fdde1a9b57d920eb3225a23efffe428db0554bf8111",
       "id": "cf6d5b67-0844-47f1-a331-aaaae6d0b833",
-      "recordSHA256": "5dbeaa88169535a397d5d737bb11d02a406dfba0112f4df9e870654fb0fa2f11",
+      "recordSHA256": "491e9541167368c286ea665d0cf408923b7ea2d6567b819d44fe9e95a8a15f79",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/childrens-ministry-equipment"
     },
     {
-      "contentSHA256": "baa4410a8c2fa001a1813632390b0622fe83942555bb4efb91a3a3ff432080db",
+      "contentSHA256": "8977c9a2061a8d37a6ca7a9e2e38bce51563eaff9135b4d02911fb76a8fe7a78",
       "id": "3805bec9-cb9e-479c-abe2-918effaa2a1a",
-      "recordSHA256": "0b53900ecc0e9324b472bd88b52ce74fafbe196300bdff83a87f26c6ee8e9342",
+      "recordSHA256": "844e21776053bbc44b3415bf7f64677bd3c8c030713f9a8991ce59d9c15b4c9f",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/lighting-equipment-guide"
     },
     {
-      "contentSHA256": "b200c88d0d3df69d15712a3f48056b2668b8b4175a7cfd85b552f7a2d925bd37",
+      "contentSHA256": "6eae35a9934eb210a843c295efa56af47ac4ac07053f694a8af29eff1e106497",
       "id": "bd455e04-3d15-454a-b1ce-51ca2bc2a419",
-      "recordSHA256": "067ba2c612fc9196e9af10b1281ae4a73b6178a0e60b044f72fa7760cb0520bc",
+      "recordSHA256": "fb1681c04237da69ad2f90370fef98bac09fb76ed7165a5249f10bc3663020ea",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/main-pa-system-guide"
     },
     {
-      "contentSHA256": "17b7b3d81754190e57469297e061d259f96f434b6ff2b47a5eb75db450c5d4dc",
+      "contentSHA256": "5309e5478720ad6a911e612588c418fab3b8f5bcf8fea6832df23420e79d9490",
       "id": "34449315-0c87-4091-a79d-be81daab488f",
-      "recordSHA256": "db300c8a731818ebfa4558c929756d21dc81e273e216e71bb6b515a5ae327da4",
+      "recordSHA256": "d39d0bccd3ead796e038207616971da1d69f5e4700e64a1dc574f084f3344485",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/staging-signage-guide"
     },
     {
-      "contentSHA256": "672f83a743acff32315a54d9db314b49ecefa9e18b3788974a46281486c3cbc0",
+      "contentSHA256": "1588e339b617309e293da7802d35eb42390133d613aabb3b6df236d6e1125e47",
       "id": "d7675f12-1bb7-4ff8-a289-f2c59a573771",
-      "recordSHA256": "3ef95cff8da2abc2f8c56085d6d769155459b09676b14c25d9ca2bf79a081d18",
+      "recordSHA256": "524b555919d0edeaee20513e8b65f247898f22f5ff3efa23198c6edec588d4f8",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/video-projection-system-guide"
     },
     {
-      "contentSHA256": "4f029fbd6ae4ed464cf04091312a59723e7ac3d6a9cb5764afb9aa1e868c014a",
+      "contentSHA256": "af643f142d8b25e35a78a858b3ff6b17c12c0f45166220fc0a9e2785801808ce",
       "id": "ffa40955-6eeb-4ad3-a340-796a93959a24",
-      "recordSHA256": "e8e56193bc7e92ad6abb347a7a89116555ebd853a99f7443846bff85bba4876b",
+      "recordSHA256": "5ae5b2b768bc2f7afae34045621e1d5ef1ee7f1fb66e7ede3692c8daea992706",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/choosing-assimilation-software"
     },
     {
-      "contentSHA256": "839ba021426181a1312f46b54e64af285b1703d0f572fa094b7a6fe9d70500dd",
+      "contentSHA256": "087d86915dcb5e9b8d238e018e6f17fed382ad3a271d8e18000ff39a6aa5267f",
       "id": "69221cdc-562f-4648-8ad2-45e658550dd5",
-      "recordSHA256": "7b235f7fc5d673cf63e3a287b095a19f5bb44e437d7ae6b51468b130d673e063",
+      "recordSHA256": "a4dbe2d4455abe0444daf9921ff846c55593d1ada69ce4e7a0c249106695905f",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/setting-up-your-website"
     },
     {
-      "contentSHA256": "976c6706c863d5e3abc3999f83056742eedb87050d611af4c5d6276f58ae2585",
+      "contentSHA256": "846fdb451be66a14a89a8ec2adc066d6e2a1fc110006d037e89f5540abf99ca6",
       "id": "7d84e91e-3473-494b-8518-bb0087c91d2b",
-      "recordSHA256": "aa91f948b6feb2384fb43c05491b143b85ccbfd416624145a9036232c4f8684c",
+      "recordSHA256": "547697cbe68c2f3cbd182f3a19b4936f70eb4df32764b79dea192836a52e1874",
       "sectionId": "705afae2-8d58-47aa-8d55-d38df0326d99",
       "slug": "core-group/building-your-core-group/core-group-assignments"
     },
     {
-      "contentSHA256": "d099b64ce121c0696090c96cf5992b922b50c195795aad011f8dcd72f6e0d299",
+      "contentSHA256": "178a179fd4da5d0d877cbb88c2da2ac4b5becfd36fa6a17890d8505b98a59e39",
       "id": "8402d162-b93b-4398-ab11-7a4751cfa5fd",
-      "recordSHA256": "06fd626b19adc105206f1fa2bd9f1304e001a6ca3d73baba3196682045216f10",
+      "recordSHA256": "38cbe38c41433463b92a44e71c4abdff83a4b114dd14d2a2613d6975e164ea35",
       "sectionId": "705afae2-8d58-47aa-8d55-d38df0326d99",
       "slug": "core-group/building-your-core-group/core-group-meeting-format"
     },
     {
-      "contentSHA256": "4de478ab0dca7e5791504c4d8e95a852f47f0fb3e17f469ed92b0a6b5e641285",
+      "contentSHA256": "8eb306842759ed2d5e41b01fe7c7ef7d15c3db75dc4e8609e4ef48302f372d15",
       "id": "d1958dc2-fb6e-4335-a76d-9f73cc04f219",
-      "recordSHA256": "1be09e65496098f37eea37e80a909db87927a43fbcb0c3fab12c5f24ec78bdcc",
+      "recordSHA256": "c8f0a3a4b4c24dc5bc0e4469d347edc709eb42178158501c03baed989b34ee0f",
       "sectionId": "705afae2-8d58-47aa-8d55-d38df0326d99",
       "slug": "core-group/building-your-core-group/growing-your-core-group"
     },
     {
-      "contentSHA256": "7286463a433fb66497118ca0a8be6863fa37d3090812ee71a2828c2acd31a7af",
+      "contentSHA256": "bf2fbf57fbc158bcebadea003cfa407d344c554ff6e09813aad83f0acacce17f",
       "id": "f44d3fd6-3727-457a-8254-04f38487c1f3",
-      "recordSHA256": "ea467459546bb6c248be8ddf6b02c9b9c2939468da3b6622c7695cb4517ac334",
+      "recordSHA256": "963039311745ceda58bfd1068de46aef0b0f6c182a1e5d0124abc4ee7f15830b",
       "sectionId": "705afae2-8d58-47aa-8d55-d38df0326d99",
       "slug": "core-group/building-your-core-group/the-core-group-funnel"
     },
     {
-      "contentSHA256": "66c572f4e03a4474bd5b9956bbca72aa0f907c568420289fa5226d2da0fe02fe",
+      "contentSHA256": "f04466d17f02b741846c578388f1c4a9d69eabbe9f6d6b0e0f08c26d09b70c95",
       "id": "b66da7ce-2780-45b8-bf24-701d238f89bb",
-      "recordSHA256": "e50f58ea681b170039ec88e1d40c133ad2f6b61e1436cebd55d2e5c278f5fca2",
+      "recordSHA256": "8c9747fa2f5540b816940b38e4f197bfe93ddb53df1837c688cf3184fc1b94b0",
       "sectionId": "705afae2-8d58-47aa-8d55-d38df0326d99",
       "slug": "core-group/building-your-core-group/what-is-a-core-group"
     },
     {
-      "contentSHA256": "6c8f08b2e6ff7fea7855aec6077875a6d1998959965a656bd898b5de775000e6",
+      "contentSHA256": "fc8a4d56e351ae870ff404fd9f880a551362a696bba8a6f7369bf3c4f580bae0",
       "id": "c35ac668-35b1-411c-b724-e54faa772c5f",
-      "recordSHA256": "3b3270df65bd295b6a0a0598f754f1613c68ab2d5c92f92a855fc629b6c00314",
+      "recordSHA256": "d4da840461321451fa350062ca4eb9678c6f8611a3f1a448eb3585b83de83832",
       "sectionId": "57a7b28b-008a-4130-9211-aadeb864a866",
       "slug": "core-group/commitment/core-group-commitments-explained"
     },
     {
-      "contentSHA256": "f1fde1124530d2f9c633602957b66254d9843b7a1fabbbbe58e97d5b498abe6d",
+      "contentSHA256": "bbd9a0d2e8afd9797b992f28c28dc2440288cade6c05a853f33946b397b493a9",
       "id": "b09edc77-f872-4f06-ab56-3641a6fb423c",
-      "recordSHA256": "0963d9f8541e8e49e11e081a8d3247b5af45ea00349e62c839f11a69ca77b737",
+      "recordSHA256": "520d027e65772462859bb8fcd7afc1ce5e05edcf11143e67400a6849482c23e4",
       "sectionId": "57a7b28b-008a-4130-9211-aadeb864a866",
       "slug": "core-group/commitment/the-three-key-documents"
     },
     {
-      "contentSHA256": "0173e491c8652e631e29a38d0436ceca7155d43e9f7c1d9e068d0d709a00f963",
+      "contentSHA256": "15a30af59b0efa81ed0fb71961ae5b05e7e4325e2caa37fb261213cdf3f8b83e",
       "id": "07cd0a33-3344-4602-9939-ac46bb4301c0",
-      "recordSHA256": "858b94bfede9ba0772f1604470fc68d6ae6ba914c99aefd1736c8030f0933e2f",
+      "recordSHA256": "83027a201f6d1afa934f2e67aeab5d9a72c62c3571cadba5944c48d8073af2d2",
       "sectionId": "57a7b28b-008a-4130-9211-aadeb864a866",
       "slug": "core-group/commitment/why-formalized-commitment-matters"
     },
     {
-      "contentSHA256": "5d7509fdf487e31a8e6e5592304a14c764efc7f276886472be479b7514158a53",
+      "contentSHA256": "bebd846a3903283cb4afbd53bf45c75b4facbe9b9fc9062959c38cbceb51322c",
       "id": "5adc1469-49ba-4c5f-9c76-1270810b93ba",
-      "recordSHA256": "ff6fd99ede141e7cc77486e86d1edce917cbe08e7fadc795229ebe930d126689",
+      "recordSHA256": "24cbd8af8e4ed0d28ba66fbc5f3d8f60b76b748a9e95eec4a9522d24e410c0dc",
       "sectionId": "2eff8733-f8cb-431f-8591-51b10aac3a61",
       "slug": "core-group/follow-up/4-reasons-follow-up-is-vital"
     },
     {
-      "contentSHA256": "5a64c4d17689d7dd7487230e36f6c29d0901f496385be4f1c92de2590d80377a",
+      "contentSHA256": "4b709002ed61c4c3b6b9c6a3e2aa1642bf574d6d9462fe727efb8761adba7a36",
       "id": "c0b4bdf5-961c-4bbb-989b-6dae470c98d7",
-      "recordSHA256": "a01ec1d815d30961385df92934fb70e815c110618d11d4a2d777e485ce485b00",
+      "recordSHA256": "12f2cb9a1433db9964512c6c3c3cd9aec8aac29e83fdb94f55a87da4eba8109f",
       "sectionId": "2eff8733-f8cb-431f-8591-51b10aac3a61",
       "slug": "core-group/follow-up/database-management"
     },
     {
-      "contentSHA256": "da6b545baad9a6ed2dffd8609b49df639396d97cee3c0432896cc721516e1d15",
+      "contentSHA256": "6ffab83e80ea71fa66a3d0df18256d27b6e3962f7fd5d076d4effab3b93952ba",
       "id": "e5d25246-1a05-4990-b95d-d1a066cd27bb",
-      "recordSHA256": "f87437463b0e6fd6c799b34ef4e84cf75ffa33ef580050ee772c5f2c77ce13ed",
+      "recordSHA256": "8fcdb89faf7ca149c094e0278de74546669f707e7b82641262b9fd7833d10b90",
       "sectionId": "2eff8733-f8cb-431f-8591-51b10aac3a61",
       "slug": "core-group/follow-up/interviewing-for-fit"
     },
     {
-      "contentSHA256": "a2b822d517fba79c7ace26606299889336c4f91f50c459b6ec82e7b8fd1d7985",
+      "contentSHA256": "d930d1d1e59b7dbf8b484e2fa29566bedbc56a53692cc0a4b1ae86900e9c3795",
       "id": "69af4fd2-2d3f-488b-8c30-6e69dd28f13f",
-      "recordSHA256": "1475253d285dcf9ea46ea56974efed9522e3f13aac04934474e074f55b30a79e",
+      "recordSHA256": "200d848a3c8a64bdd637b1fbfcb449ca778ac9e64fe24cb615f5b9f883347b49",
       "sectionId": "2eff8733-f8cb-431f-8591-51b10aac3a61",
       "slug": "core-group/follow-up/the-importance-of-great-follow-up"
     },
     {
-      "contentSHA256": "dc936373d071e6017d95e68d8a4362ec6e71d477d45d67a6b0f1c4fc470401e5",
+      "contentSHA256": "0feef940ac31bd45bbab854fa64dc56c4717333f7c34d130001a78f3e7a20845",
       "id": "390b813b-74d2-482a-ad17-b1ce526a6981",
-      "recordSHA256": "6b072b35ac4a32d0bda3a712651f1b1bc44a585e60677d0afb6238e2ef7ce7b8",
+      "recordSHA256": "a309c232bd387a62dcc3b82ca12506ed9a7c2b8baeca33e7ee67c5a8ca12304a",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/8-critical-success-factors-for-vision-meetings"
     },
     {
-      "contentSHA256": "9a560c33c8309c0ef16cccfcedb34b8016d855a5886843a2a4678a5062605f7e",
+      "contentSHA256": "160cadc2370f91e431875d58c5d5f087f30018e621fb10331f8ed6b5a3aa04d7",
       "id": "48068475-9fa2-4e94-aa01-467533bdd422",
-      "recordSHA256": "7bdd1eaa2b91570bdb45f8ac7808a2510402bb4b3d4d5c97ce79f89514ae7ece",
+      "recordSHA256": "5bc4c7fdd7038bb2f834608da21ff2d48064b719be9ef8958f96aec41d9fc111",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/invitation-strategies"
     },
     {
-      "contentSHA256": "42d88346bdc871899c649517f42040d6e9a31b1042ad230d2034e33eb55007a7",
+      "contentSHA256": "ddcf0446787e264c9d72e5031ab61ccc1d19746e49fb7d4ba279e35e82e2fe5c",
       "id": "04f8fda1-3017-4329-93ef-7d8879642ce4",
-      "recordSHA256": "ca7dda37a47b4b27c1a3b1187911443b43a1881e507feb65fc02ada0e5e38704",
+      "recordSHA256": "bf932f9a132f140db96567239ad03d42acbf9fe82e89f2569335206b59766e99",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/planning-your-vision-meeting"
     },
     {
-      "contentSHA256": "a58aca255b0f43e989f0af4dbd80d6dbda62875857491f33db3a6082877481df",
+      "contentSHA256": "ea64d0e9664c905e373aa5edc6caab27b1772dd2bb972b374d56b2c047377796",
       "id": "8c221feb-d333-4535-b6a6-79e78566924f",
-      "recordSHA256": "da3987bac726eff6c9579096916f06a3cb80f419a0727debdc88d848cb975948",
+      "recordSHA256": "e81652244435f5de05a1a1cf586306e78d822db361a9e1d3f8fa9953c1af742c",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/running-the-meeting"
     },
     {
-      "contentSHA256": "cb59ea67c775fce2555d4881b9d72fff1ad01b805097c6d5d3da0b2108ec348d",
+      "contentSHA256": "6c6c042985a0d65162895d77f0e79e9d3fd0ae65e28ddbe0790c90f5c12360da",
       "id": "f92e3370-8236-42a9-9b2b-9cc6586e923a",
-      "recordSHA256": "04b285e719acef603816e451c9a2a618b6e8a5b33fa59af2560a370231007980",
+      "recordSHA256": "acc21262367daabb981b4db7fece0c2d19b3e83e7c030528722fecd7a0dedadc",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/the-vision-meeting-kit"
     },
     {
-      "contentSHA256": "2ff91c1ec796b3ed27f8ef0e59b572502cd2948d76eafbafd10794c623fec831",
+      "contentSHA256": "687852feca890146192f96dd111a3f0ec022ca37473ca22ccb31de787fe5bcc4",
       "id": "e4ce364f-dd3c-4456-84b1-4c1cc2b39aa1",
-      "recordSHA256": "89c12bdf634dfab69cd6f6b9ba348ddb8adb7c8a22eb0d27ecf2434dcea52a3e",
+      "recordSHA256": "8ade6c4395a6d0c7171d53de1dae5dbb16bf1371a295f7b23aea349c1abdeca7",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/vision-meeting-agenda-deep-dive"
     },
     {
-      "contentSHA256": "eb10c5625e8fa404212f375562ef639822a2052cb84bb79981120f2d1f87044d",
+      "contentSHA256": "4b1276555f3a743760a21de3a4c407d072120f92d3d198c5864903ea40436913",
       "id": "d88963bf-1eef-455e-a573-c644ec775686",
-      "recordSHA256": "24088a2c959197ad0fc13d2c2318913481d2429f98034a8418d0f1d51f83aa47",
+      "recordSHA256": "86f269ff84b3110da247c867e9d76bbf5ee25784adb8788efe25eb5a3860def7",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/what-is-a-vision-meeting"
     },
     {
-      "contentSHA256": "f8ca3962a91fc97372db04087ac386d03783514340e1e92b74d9d7db1f01f483",
+      "contentSHA256": "64cf8aafb8469e1ec87793fcb4fef1f712d8353d7fbb79e190911995ab126489",
       "id": "4425a966-e983-416b-a664-e67d5d852a7e",
-      "recordSHA256": "fe3219913b6307a408b39893decf628ab87b63cad2ca3e6595b62b54da9b85d0",
+      "recordSHA256": "2354bd57ce632e8b80c2c05ed52b37d248f025786bdeb4f7562f5fdacce6d0b8",
       "sectionId": "5a5a02cf-6afe-4371-8f16-f3e3f8c3e325",
       "slug": "core-group/vision-meetings/your-first-vision-meeting"
     },
     {
-      "contentSHA256": "91610a5e94f6bf1ff31e4afa9a6759865891058c93bd901450c5096c3e2c8e6c",
+      "contentSHA256": "782797408e1ad749fb0621bb6e81d38efc8b8ea5c19d862538dc573d2797e3b9",
       "id": "2bf51c2e-1686-4c4b-b36f-fffe3286c01c",
-      "recordSHA256": "82581141f86e50ea7e92a18aa8bf0c6c5c02540ca2bd2acae28e3cd0f6167c83",
+      "recordSHA256": "33bf2f87b34bae7fd59490f99242506f307f0a76593e3d4c87fefac69901943f",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/defining-your-church-values"
     },
     {
-      "contentSHA256": "586773bd4bb7ccf270894a7641cf0fb2f9c3ff37627375fb8a7e16d6a5d7769d",
+      "contentSHA256": "42950235f016e0a6c890efd2233ae82480548303380368a178d96b0e865505a5",
       "id": "5e8e4b82-905a-4110-ac3a-a45cb0155365",
-      "recordSHA256": "677289c0be896b064772cd9b31ea1b6a4e382bf62fa7d89f1eb7ba3299f73498",
+      "recordSHA256": "2a3a4c07c735ac7f75f4a3f4c15dc622fac3c310b34d8af6ba184d60b73a758d",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/finding-a-coach-mentor"
     },
     {
-      "contentSHA256": "e50a8c0697fc952acc34f7cfa3274b3c60578a4c5e4a2bf28db25b4dcd79b465",
+      "contentSHA256": "544caab39f165f77031322c60dce850a9bb8f042f23f7de9c874ffeced2376e9",
       "id": "367a6c6b-7ec3-44e7-95fb-253097125e42",
-      "recordSHA256": "902b5db5dc60ed37948721c2e15a7304b3f8b69f85343c19903561a6850de99e",
+      "recordSHA256": "882008e4e2762df3210fcd2d89141b58c01cd6dc9a49fc74857b32462639c35b",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/is-church-planting-your-calling"
     },
     {
-      "contentSHA256": "f16ba8385e26094b8e24401db1e19e95e300c0e3c4aab9f6e81288182193739e",
+      "contentSHA256": "879b662ac50c9576e1cbd318093907a52a2d75ac4ae2f10ca43157f6e379c1b5",
       "id": "af3c750a-dc03-4c1d-a149-c4bfb067ead8",
-      "recordSHA256": "5d25432290ffed9d65074e89848f5b25dcd0ba13c264017fa90059e2aefc3531",
+      "recordSHA256": "359d3051c45805da411da1ed455862bef9bb008f24b309bbb0811ef4feefbb5a",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/setting-your-initial-goals"
     },
     {
-      "contentSHA256": "ac868daf16518057c9c27eeaf4874d0103dc39832eaf6c97dc2a703eac3c7c10",
+      "contentSHA256": "b79b69df28ad1d9afbd5a4eca360f9556853008d576b935c35590764bc4f0569",
       "id": "e4bb0e6f-5019-48d3-a1bd-b7365790e56d",
-      "recordSHA256": "28c3d530d7dbedd6404d7d803ce657fce54573a3dd108cc5ea431e0fff935228",
+      "recordSHA256": "cb9cfcc6fbd9e83ecc2506551bf80d8c13e127c1eb51c09850df796639c757fe",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/the-worship-walk-work-witness-model"
     },
     {
-      "contentSHA256": "ab950dd5e492a25959c232613357198148a08249b0594a2bb34b371835686263",
+      "contentSHA256": "08aa2ab8227515b5c147038ec661152630e4d69c32db0bb66af90e157e8ed3f7",
       "id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
-      "recordSHA256": "6a10cc0b0a90bca178a2730943ed0088e197d7623677a05a3138124167a921a7",
+      "recordSHA256": "789827d105310c8e9b6eb21e5a0819e9841448bcc779c25de444c12422191e30",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/understanding-the-4-pillars"
     },
     {
-      "contentSHA256": "cde96ad3554ec01babe422ac5d2b5f9e60c509b0a06e01943e866fcf595345a8",
+      "contentSHA256": "100d458d4a8633b7c4f129c4773e3af3569f076b365a1bdcbdc20c981ba35ca6",
       "id": "7af6cd77-a017-4bf8-a5bb-89970035edaf",
-      "recordSHA256": "fc1b113a8e895e7a5982193c4b6ae85441c75b6fb9db4963de06b4a2b1c9be97",
+      "recordSHA256": "750771029478c9e95e2bd32e9635681aabb5a7deb63083b0263899610de80b6a",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/8-critical-success-factors-overview"
     },
     {
-      "contentSHA256": "f1b163d63f2811f6a8098262bc318292b89475088646a233c323255af6b03eff",
+      "contentSHA256": "3053f5de7e00d22478bcf49d8506e805c70a34e4675bd6dcb6195b3cf3887b47",
       "id": "713826f1-519e-432b-8123-b942bf045a8a",
-      "recordSHA256": "b8b763e332d6260c1749a77a68d54f4a710697d8eff296a2d4edbb7d813494df",
+      "recordSHA256": "98388ec96b870bf7094c8f285b64589b123395239e21a3cb12425ac98e6479a9",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/meeting-objectives"
     },
     {
-      "contentSHA256": "d39290e13ef8e6217c62bb9abf02194c2d5bbf05a1dd2f1510080e6f7011e55d",
+      "contentSHA256": "5c4ee8d44904f04797863942cbc19240a95d3408b554bc8b61419172805bba72",
       "id": "5ad531de-392b-4de2-af43-40acd84e7fee",
-      "recordSHA256": "a3afbf1664bf015cc20f5436f26e9a5fa62e7739bdb646c8bd86503c31c29112",
+      "recordSHA256": "f43b142070df7a9d86781e3e81f9159055d56f17c98a7d418d3c6c07c25164be",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/the-4-cs"
     },
     {
-      "contentSHA256": "014fd12c2716b50515e7266a83ce2ed9105c949bb2fde8edc1a15d8b207839d7",
+      "contentSHA256": "a8dcf48b43b3fbc8e4c6b75c5bbd13bcdec5308a9b250c82a78c0021d044a5ea",
       "id": "4642b9be-89a3-47f5-829a-0636c644f6d6",
-      "recordSHA256": "c40035a92869f10b9da2be9e8e98b9171b75759009fa9d0c68f1a7357dc00488",
+      "recordSHA256": "0aa888a580c0912e81f1fcde218c06ac65a63295fd9aa8aa6f2ffdacc566e349",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/the-4-pillars"
     },
     {
-      "contentSHA256": "57a8c26ae1a7be875085ed35dd939b15e71be374d4ae8e131ed0bec41aaa2205",
+      "contentSHA256": "bb83b59e6d0daf8bdb16972640ead4d7edb1ccae67908bb97653229a6053d8bf",
       "id": "1e2343d9-c285-4f35-b5fe-7e5214e14851",
-      "recordSHA256": "3085ed521032c33dd821dedc630a54088042fca5c9891dfc42cf1b69f81fef83",
+      "recordSHA256": "47c1a30da8307cd55064a98abd1cda42782bd57e153687c57e579b9c6536b68f",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/the-5-interview-criteria"
     },
     {
-      "contentSHA256": "4623b0eaabf34c4e36bd15ee2e618c7a2c8095ef1a3f9855850a1accf2f76317",
+      "contentSHA256": "4d3ca4a4554753e8c101015e57fbfb743954c5ae5b740eb2e11c59dd2e154192",
       "id": "bba41de1-fa77-4e4c-8dc3-a7455d51e36b",
-      "recordSHA256": "a2bf83ca5528f7b33d83337af3b0d6c3ff14cd91993d3a01a151f4de0e706c30",
+      "recordSHA256": "695e41cffc257fa2cefb839534c34cf47f53165d564bce879203a9afa517004b",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/the-ministry-funnel"
     },
     {
-      "contentSHA256": "4a9a54aeedc28fe0e9940d1b82d5d6acf42b7ea0721dc64aa0603e0c02f20110",
+      "contentSHA256": "5357ee0ee062363b4cb3292a31b342aad134ced26ca0837305870dea06e557b5",
       "id": "3e411a4a-1274-4817-8607-5009acd90b7a",
-      "recordSHA256": "4506679f566baad587058da1f590bcc98180efd9ac3a69a8ce13f231dc6ec70b",
+      "recordSHA256": "8e5db311246531d591903f4a9cdfad4837dd54bce53392f1435e31dbd7d21679",
       "sectionId": "b999c691-ab50-438e-b60d-aaf1daedc640",
       "slug": "getting-started/launch-process-goals"
     },
     {
-      "contentSHA256": "da769a6780a75d138dd43211d724d4480ae6c8c2b9367409b1f5a291231e88ec",
+      "contentSHA256": "0b2cb6692a456ee41febac93f361e16fa7ea6ef9fd71da7000d1352eca10d6c3",
       "id": "1e1677e6-b269-45bc-8241-25801f70eac1",
-      "recordSHA256": "e7770700cd755a3f18a805cb60bad67c3ddc857cc7b4d50f4562f5c46ec88d12",
+      "recordSHA256": "8f358b4548cfbed696c22fcadb8f7dceed420912a5228ec4d306697024752d8d",
       "sectionId": "b999c691-ab50-438e-b60d-aaf1daedc640",
       "slug": "getting-started/welcome-to-the-launch-playbook"
     },
@@ -699,6 +699,62 @@
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "contentSHA256": "22ebb7f2f515c500895ce4c0d799f49f07a81ffb714adaa66066eb77dd9bf427",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "contentSHA256": "88e03f50033bc912c0f181adfa320464f8b4f2dd4e5894c505832a0489ae7d78",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "contentSHA256": "4b9988080f75e8fbd70bed0c259fa3d6b31eb5fc7bde66fecfa2be0947cb103f",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
+    },
+    {
+      "contentSHA256": "704520e15e2d83d99046edee90ac3b164e09246a42a4887ddae3365a6afb9320",
+      "id": "e68d6c02-b012-491e-af14-9cee7bd304a1",
+      "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/opening-the-church-bank-account"
+    },
+    {
+      "contentSHA256": "2632dc116afdebcbc6c2c3a1c48921323ee511fa5f50495d42f5e5a167904f97",
+      "id": "771e6caf-45d1-4984-b93d-d90b29908c7f",
+      "recordSHA256": "9014295c962d27549ddf8554e8f228268bf00d197d2dc6fef54dbd30098263e4",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/setting-up-payroll-for-church-staff"
+    },
+    {
+      "contentSHA256": "88be80f585d0d3682ef87d02a7a65b24fe2f6c3261e3a51fa3f1b38fbec88eb1",
+      "id": "ef7f9cba-f5d4-43d1-b351-450e48d10b96",
+      "recordSHA256": "b59ef1a5bc95a038d6db944419a2b95dc95231d33814748fb15adfd4c6c1ffdd",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/church-insurance-basics"
+    },
+    {
+      "contentSHA256": "d95fe2d36099ff7c365175a01403182e8c5205628080a64eef0ae552493a67cd",
+      "id": "1044cf55-6cc8-40f8-8653-3df168a3a912",
+      "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
+    },
+    {
+      "contentSHA256": "d873dd554840c73d06d05da8e12fd976cdf94c312d4c40d7c08886e99b7283b9",
+      "id": "bd9fb296-2339-47a0-bcf2-ff9d4cfd47bb",
+      "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
+      "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+      "slug": "launch-team/comparing-and-scoring-venues"
     }
   ],
   "derivedFrom": {
@@ -3498,6 +3554,519 @@
       "previousRecordSHA256": null,
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:04:29.772Z",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "pr": 15,
+      "previousRecordSHA256": null,
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:05:45.165Z",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "pr": 21,
+      "previousRecordSHA256": null,
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:06:16.426Z",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "pr": 19,
+      "previousRecordSHA256": null,
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:07:00.432Z",
+      "id": "e68d6c02-b012-491e-af14-9cee7bd304a1",
+      "pr": 16,
+      "previousRecordSHA256": null,
+      "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
+      "slug": "administrative/financial/opening-the-church-bank-account"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:07:46.547Z",
+      "id": "771e6caf-45d1-4984-b93d-d90b29908c7f",
+      "pr": 20,
+      "previousRecordSHA256": null,
+      "recordSHA256": "9014295c962d27549ddf8554e8f228268bf00d197d2dc6fef54dbd30098263e4",
+      "slug": "administrative/financial/setting-up-payroll-for-church-staff"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:08:23.522Z",
+      "id": "ef7f9cba-f5d4-43d1-b351-450e48d10b96",
+      "pr": 14,
+      "previousRecordSHA256": null,
+      "recordSHA256": "b59ef1a5bc95a038d6db944419a2b95dc95231d33814748fb15adfd4c6c1ffdd",
+      "slug": "administrative/financial/church-insurance-basics"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:09:15.122Z",
+      "id": "1044cf55-6cc8-40f8-8653-3df168a3a912",
+      "pr": 18,
+      "previousRecordSHA256": null,
+      "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
+      "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:11:30.339Z",
+      "id": "bd9fb296-2339-47a0-bcf2-ff9d4cfd47bb",
+      "pr": 17,
+      "previousRecordSHA256": null,
+      "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
+      "slug": "launch-team/comparing-and-scoring-venues"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:25.114Z",
+      "id": "60a3448a-7ee1-4020-adcc-17617c8fbe05",
+      "pr": 22,
+      "previousRecordSHA256": "c3f5665b80f11844f49b72e80eeea30c818a6ad7035d81978fdb4ed19ca23f95",
+      "recordSHA256": "15ea535a081e79383e84b923b8e6c24b7d6b9ddb2ef162764ff88dbfcfd6bf8b",
+      "slug": "administrative/financial/collections-handling-cash-checks"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:25.446Z",
+      "id": "06087acb-d11d-4ff2-92d5-e52ee5eee289",
+      "pr": 22,
+      "previousRecordSHA256": "a8ec0d81867809fc036f45195244fbc5beff1adf6d1efc074b2531550c49d2f2",
+      "recordSHA256": "de2759643cadc3387e8f300c3cc0bb141daca277013ddce0545a5a5457c54e51",
+      "slug": "administrative/financial/counting-procedures"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:25.775Z",
+      "id": "18ea59aa-702e-437d-a7e9-b9b89861e872",
+      "pr": 22,
+      "previousRecordSHA256": "674025e387e288a7c86c10c7820ad715c91a142897d001bc1d286bffee3f22ae",
+      "recordSHA256": "dd0a6f6dcd3c6a0999468ba1ed7d8de874a0877145fd9a89a6a6d4b47d426213",
+      "slug": "administrative/financial/designated-giving-policies"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:26.103Z",
+      "id": "67b05674-0374-4ecf-978d-6793afa4c20f",
+      "pr": 22,
+      "previousRecordSHA256": "85eb0c1cc26df3685c15966ceab6a297a4aed7536f3914fa27704e17efa7ca70",
+      "recordSHA256": "296a24e9595a3b4e09cad0185a16cf90d1f9e07e9e7e0ee11774e5601d25f9cc",
+      "slug": "administrative/financial/disbursements-and-approvals"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:26.429Z",
+      "id": "1956cc1d-d7b7-474d-9921-ea6cb3fc75be",
+      "pr": 22,
+      "previousRecordSHA256": "d0cb5addfc2c62e9267cb504856be61e70f9403b7a0d99b03ce57b99a156bd7f",
+      "recordSHA256": "064d54a7d094dae8cc4a4b43904c04ca149bc911e351229910e0d51b1666a940",
+      "slug": "administrative/financial/first-year-budget-planning"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:26.749Z",
+      "id": "c2f5b49a-d267-43d4-9513-f32a1d2bd359",
+      "pr": 22,
+      "previousRecordSHA256": "2193c34c92eb1f165ba56c5d2593d64cd8ce2c602205723a8480ff1807378052",
+      "recordSHA256": "499d1e8531836e94113c391dbe92a50a9f44cfecaa657352b642bfc9a0857d25",
+      "slug": "administrative/financial/principles-of-financial-accountability"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:27.074Z",
+      "id": "122ccabc-acb0-4b36-8c67-77f02ca88679",
+      "pr": 22,
+      "previousRecordSHA256": "fcdb81d7c5e764775313d477807a7cc87b28e43d8f72aacb49a9e2699e62a296",
+      "recordSHA256": "57a1fe0f28f885f16a4c5c3aef12c60828eefed5a52e8867cdaa9571fa0de953",
+      "slug": "administrative/legal/setting-up-nonprofit-corporation"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:27.425Z",
+      "id": "a4c79837-13f6-4e61-844b-c472a9e26c06",
+      "pr": 22,
+      "previousRecordSHA256": "9c8acada0b38e25e01e0bf74d2550d9eb0b9310623dec110c1ff09adada96684",
+      "recordSHA256": "7d0cc3f277fa4359ad41c4c86478cffc89fbf35cf94fed2417f129c5ff94e51d",
+      "slug": "administrative/purchasing/acquiring-portable-church-equipment"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:27.763Z",
+      "id": "cf6d5b67-0844-47f1-a331-aaaae6d0b833",
+      "pr": 22,
+      "previousRecordSHA256": "5dbeaa88169535a397d5d737bb11d02a406dfba0112f4df9e870654fb0fa2f11",
+      "recordSHA256": "491e9541167368c286ea665d0cf408923b7ea2d6567b819d44fe9e95a8a15f79",
+      "slug": "administrative/purchasing/childrens-ministry-equipment"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:28.097Z",
+      "id": "3805bec9-cb9e-479c-abe2-918effaa2a1a",
+      "pr": 22,
+      "previousRecordSHA256": "0b53900ecc0e9324b472bd88b52ce74fafbe196300bdff83a87f26c6ee8e9342",
+      "recordSHA256": "844e21776053bbc44b3415bf7f64677bd3c8c030713f9a8991ce59d9c15b4c9f",
+      "slug": "administrative/purchasing/lighting-equipment-guide"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:28.439Z",
+      "id": "bd455e04-3d15-454a-b1ce-51ca2bc2a419",
+      "pr": 22,
+      "previousRecordSHA256": "067ba2c612fc9196e9af10b1281ae4a73b6178a0e60b044f72fa7760cb0520bc",
+      "recordSHA256": "fb1681c04237da69ad2f90370fef98bac09fb76ed7165a5249f10bc3663020ea",
+      "slug": "administrative/purchasing/main-pa-system-guide"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:28.769Z",
+      "id": "34449315-0c87-4091-a79d-be81daab488f",
+      "pr": 22,
+      "previousRecordSHA256": "db300c8a731818ebfa4558c929756d21dc81e273e216e71bb6b515a5ae327da4",
+      "recordSHA256": "d39d0bccd3ead796e038207616971da1d69f5e4700e64a1dc574f084f3344485",
+      "slug": "administrative/purchasing/staging-signage-guide"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:29.114Z",
+      "id": "d7675f12-1bb7-4ff8-a289-f2c59a573771",
+      "pr": 22,
+      "previousRecordSHA256": "3ef95cff8da2abc2f8c56085d6d769155459b09676b14c25d9ca2bf79a081d18",
+      "recordSHA256": "524b555919d0edeaee20513e8b65f247898f22f5ff3efa23198c6edec588d4f8",
+      "slug": "administrative/purchasing/video-projection-system-guide"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:29.447Z",
+      "id": "ffa40955-6eeb-4ad3-a340-796a93959a24",
+      "pr": 22,
+      "previousRecordSHA256": "e8e56193bc7e92ad6abb347a7a89116555ebd853a99f7443846bff85bba4876b",
+      "recordSHA256": "5ae5b2b768bc2f7afae34045621e1d5ef1ee7f1fb66e7ede3692c8daea992706",
+      "slug": "administrative/technology/choosing-assimilation-software"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:29.777Z",
+      "id": "69221cdc-562f-4648-8ad2-45e658550dd5",
+      "pr": 22,
+      "previousRecordSHA256": "7b235f7fc5d673cf63e3a287b095a19f5bb44e437d7ae6b51468b130d673e063",
+      "recordSHA256": "a4dbe2d4455abe0444daf9921ff846c55593d1ada69ce4e7a0c249106695905f",
+      "slug": "administrative/technology/setting-up-your-website"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:30.121Z",
+      "id": "2bf51c2e-1686-4c4b-b36f-fffe3286c01c",
+      "pr": 22,
+      "previousRecordSHA256": "82581141f86e50ea7e92a18aa8bf0c6c5c02540ca2bd2acae28e3cd0f6167c83",
+      "recordSHA256": "33bf2f87b34bae7fd59490f99242506f307f0a76593e3d4c87fefac69901943f",
+      "slug": "discovery/defining-your-church-values"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:30.491Z",
+      "id": "5e8e4b82-905a-4110-ac3a-a45cb0155365",
+      "pr": 22,
+      "previousRecordSHA256": "677289c0be896b064772cd9b31ea1b6a4e382bf62fa7d89f1eb7ba3299f73498",
+      "recordSHA256": "2a3a4c07c735ac7f75f4a3f4c15dc622fac3c310b34d8af6ba184d60b73a758d",
+      "slug": "discovery/finding-a-coach-mentor"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:30.813Z",
+      "id": "367a6c6b-7ec3-44e7-95fb-253097125e42",
+      "pr": 22,
+      "previousRecordSHA256": "902b5db5dc60ed37948721c2e15a7304b3f8b69f85343c19903561a6850de99e",
+      "recordSHA256": "882008e4e2762df3210fcd2d89141b58c01cd6dc9a49fc74857b32462639c35b",
+      "slug": "discovery/is-church-planting-your-calling"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:31.142Z",
+      "id": "af3c750a-dc03-4c1d-a149-c4bfb067ead8",
+      "pr": 22,
+      "previousRecordSHA256": "5d25432290ffed9d65074e89848f5b25dcd0ba13c264017fa90059e2aefc3531",
+      "recordSHA256": "359d3051c45805da411da1ed455862bef9bb008f24b309bbb0811ef4feefbb5a",
+      "slug": "discovery/setting-your-initial-goals"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:31.475Z",
+      "id": "e4bb0e6f-5019-48d3-a1bd-b7365790e56d",
+      "pr": 22,
+      "previousRecordSHA256": "28c3d530d7dbedd6404d7d803ce657fce54573a3dd108cc5ea431e0fff935228",
+      "recordSHA256": "cb9cfcc6fbd9e83ecc2506551bf80d8c13e127c1eb51c09850df796639c757fe",
+      "slug": "discovery/the-worship-walk-work-witness-model"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:31.804Z",
+      "id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
+      "pr": 22,
+      "previousRecordSHA256": "6a10cc0b0a90bca178a2730943ed0088e197d7623677a05a3138124167a921a7",
+      "recordSHA256": "789827d105310c8e9b6eb21e5a0819e9841448bcc779c25de444c12422191e30",
+      "slug": "discovery/understanding-the-4-pillars"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:32.125Z",
+      "id": "7af6cd77-a017-4bf8-a5bb-89970035edaf",
+      "pr": 22,
+      "previousRecordSHA256": "fc1b113a8e895e7a5982193c4b6ae85441c75b6fb9db4963de06b4a2b1c9be97",
+      "recordSHA256": "750771029478c9e95e2bd32e9635681aabb5a7deb63083b0263899610de80b6a",
+      "slug": "frameworks/8-critical-success-factors-overview"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:32.450Z",
+      "id": "713826f1-519e-432b-8123-b942bf045a8a",
+      "pr": 22,
+      "previousRecordSHA256": "b8b763e332d6260c1749a77a68d54f4a710697d8eff296a2d4edbb7d813494df",
+      "recordSHA256": "98388ec96b870bf7094c8f285b64589b123395239e21a3cb12425ac98e6479a9",
+      "slug": "frameworks/meeting-objectives"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:32.775Z",
+      "id": "5ad531de-392b-4de2-af43-40acd84e7fee",
+      "pr": 22,
+      "previousRecordSHA256": "a3afbf1664bf015cc20f5436f26e9a5fa62e7739bdb646c8bd86503c31c29112",
+      "recordSHA256": "f43b142070df7a9d86781e3e81f9159055d56f17c98a7d418d3c6c07c25164be",
+      "slug": "frameworks/the-4-cs"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:33.089Z",
+      "id": "4642b9be-89a3-47f5-829a-0636c644f6d6",
+      "pr": 22,
+      "previousRecordSHA256": "c40035a92869f10b9da2be9e8e98b9171b75759009fa9d0c68f1a7357dc00488",
+      "recordSHA256": "0aa888a580c0912e81f1fcde218c06ac65a63295fd9aa8aa6f2ffdacc566e349",
+      "slug": "frameworks/the-4-pillars"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:33.421Z",
+      "id": "1e2343d9-c285-4f35-b5fe-7e5214e14851",
+      "pr": 22,
+      "previousRecordSHA256": "3085ed521032c33dd821dedc630a54088042fca5c9891dfc42cf1b69f81fef83",
+      "recordSHA256": "47c1a30da8307cd55064a98abd1cda42782bd57e153687c57e579b9c6536b68f",
+      "slug": "frameworks/the-5-interview-criteria"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:33.743Z",
+      "id": "bba41de1-fa77-4e4c-8dc3-a7455d51e36b",
+      "pr": 22,
+      "previousRecordSHA256": "a2bf83ca5528f7b33d83337af3b0d6c3ff14cd91993d3a01a151f4de0e706c30",
+      "recordSHA256": "695e41cffc257fa2cefb839534c34cf47f53165d564bce879203a9afa517004b",
+      "slug": "frameworks/the-ministry-funnel"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:34.064Z",
+      "id": "3e411a4a-1274-4817-8607-5009acd90b7a",
+      "pr": 22,
+      "previousRecordSHA256": "4506679f566baad587058da1f590bcc98180efd9ac3a69a8ce13f231dc6ec70b",
+      "recordSHA256": "8e5db311246531d591903f4a9cdfad4837dd54bce53392f1435e31dbd7d21679",
+      "slug": "getting-started/launch-process-goals"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:12:34.376Z",
+      "id": "1e1677e6-b269-45bc-8241-25801f70eac1",
+      "pr": 22,
+      "previousRecordSHA256": "e7770700cd755a3f18a805cb60bad67c3ddc857cc7b4d50f4562f5c46ec88d12",
+      "recordSHA256": "8f358b4548cfbed696c22fcadb8f7dceed420912a5228ec4d306697024752d8d",
+      "slug": "getting-started/welcome-to-the-launch-playbook"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:08.720Z",
+      "id": "7d84e91e-3473-494b-8518-bb0087c91d2b",
+      "pr": 23,
+      "previousRecordSHA256": "aa91f948b6feb2384fb43c05491b143b85ccbfd416624145a9036232c4f8684c",
+      "recordSHA256": "547697cbe68c2f3cbd182f3a19b4936f70eb4df32764b79dea192836a52e1874",
+      "slug": "core-group/building-your-core-group/core-group-assignments"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:09.048Z",
+      "id": "8402d162-b93b-4398-ab11-7a4751cfa5fd",
+      "pr": 23,
+      "previousRecordSHA256": "06fd626b19adc105206f1fa2bd9f1304e001a6ca3d73baba3196682045216f10",
+      "recordSHA256": "38cbe38c41433463b92a44e71c4abdff83a4b114dd14d2a2613d6975e164ea35",
+      "slug": "core-group/building-your-core-group/core-group-meeting-format"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:09.383Z",
+      "id": "d1958dc2-fb6e-4335-a76d-9f73cc04f219",
+      "pr": 23,
+      "previousRecordSHA256": "1be09e65496098f37eea37e80a909db87927a43fbcb0c3fab12c5f24ec78bdcc",
+      "recordSHA256": "c8f0a3a4b4c24dc5bc0e4469d347edc709eb42178158501c03baed989b34ee0f",
+      "slug": "core-group/building-your-core-group/growing-your-core-group"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:09.705Z",
+      "id": "f44d3fd6-3727-457a-8254-04f38487c1f3",
+      "pr": 23,
+      "previousRecordSHA256": "ea467459546bb6c248be8ddf6b02c9b9c2939468da3b6622c7695cb4517ac334",
+      "recordSHA256": "963039311745ceda58bfd1068de46aef0b0f6c182a1e5d0124abc4ee7f15830b",
+      "slug": "core-group/building-your-core-group/the-core-group-funnel"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:10.025Z",
+      "id": "b66da7ce-2780-45b8-bf24-701d238f89bb",
+      "pr": 23,
+      "previousRecordSHA256": "e50f58ea681b170039ec88e1d40c133ad2f6b61e1436cebd55d2e5c278f5fca2",
+      "recordSHA256": "8c9747fa2f5540b816940b38e4f197bfe93ddb53df1837c688cf3184fc1b94b0",
+      "slug": "core-group/building-your-core-group/what-is-a-core-group"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:10.351Z",
+      "id": "c35ac668-35b1-411c-b724-e54faa772c5f",
+      "pr": 23,
+      "previousRecordSHA256": "3b3270df65bd295b6a0a0598f754f1613c68ab2d5c92f92a855fc629b6c00314",
+      "recordSHA256": "d4da840461321451fa350062ca4eb9678c6f8611a3f1a448eb3585b83de83832",
+      "slug": "core-group/commitment/core-group-commitments-explained"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:10.687Z",
+      "id": "b09edc77-f872-4f06-ab56-3641a6fb423c",
+      "pr": 23,
+      "previousRecordSHA256": "0963d9f8541e8e49e11e081a8d3247b5af45ea00349e62c839f11a69ca77b737",
+      "recordSHA256": "520d027e65772462859bb8fcd7afc1ce5e05edcf11143e67400a6849482c23e4",
+      "slug": "core-group/commitment/the-three-key-documents"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:11.009Z",
+      "id": "07cd0a33-3344-4602-9939-ac46bb4301c0",
+      "pr": 23,
+      "previousRecordSHA256": "858b94bfede9ba0772f1604470fc68d6ae6ba914c99aefd1736c8030f0933e2f",
+      "recordSHA256": "83027a201f6d1afa934f2e67aeab5d9a72c62c3571cadba5944c48d8073af2d2",
+      "slug": "core-group/commitment/why-formalized-commitment-matters"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:11.340Z",
+      "id": "5adc1469-49ba-4c5f-9c76-1270810b93ba",
+      "pr": 23,
+      "previousRecordSHA256": "ff6fd99ede141e7cc77486e86d1edce917cbe08e7fadc795229ebe930d126689",
+      "recordSHA256": "24cbd8af8e4ed0d28ba66fbc5f3d8f60b76b748a9e95eec4a9522d24e410c0dc",
+      "slug": "core-group/follow-up/4-reasons-follow-up-is-vital"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:11.678Z",
+      "id": "c0b4bdf5-961c-4bbb-989b-6dae470c98d7",
+      "pr": 23,
+      "previousRecordSHA256": "a01ec1d815d30961385df92934fb70e815c110618d11d4a2d777e485ce485b00",
+      "recordSHA256": "12f2cb9a1433db9964512c6c3c3cd9aec8aac29e83fdb94f55a87da4eba8109f",
+      "slug": "core-group/follow-up/database-management"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:12.008Z",
+      "id": "e5d25246-1a05-4990-b95d-d1a066cd27bb",
+      "pr": 23,
+      "previousRecordSHA256": "f87437463b0e6fd6c799b34ef4e84cf75ffa33ef580050ee772c5f2c77ce13ed",
+      "recordSHA256": "8fcdb89faf7ca149c094e0278de74546669f707e7b82641262b9fd7833d10b90",
+      "slug": "core-group/follow-up/interviewing-for-fit"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:12.382Z",
+      "id": "69af4fd2-2d3f-488b-8c30-6e69dd28f13f",
+      "pr": 23,
+      "previousRecordSHA256": "1475253d285dcf9ea46ea56974efed9522e3f13aac04934474e074f55b30a79e",
+      "recordSHA256": "200d848a3c8a64bdd637b1fbfcb449ca778ac9e64fe24cb615f5b9f883347b49",
+      "slug": "core-group/follow-up/the-importance-of-great-follow-up"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:12.733Z",
+      "id": "390b813b-74d2-482a-ad17-b1ce526a6981",
+      "pr": 23,
+      "previousRecordSHA256": "6b072b35ac4a32d0bda3a712651f1b1bc44a585e60677d0afb6238e2ef7ce7b8",
+      "recordSHA256": "a309c232bd387a62dcc3b82ca12506ed9a7c2b8baeca33e7ee67c5a8ca12304a",
+      "slug": "core-group/vision-meetings/8-critical-success-factors-for-vision-meetings"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:13.094Z",
+      "id": "48068475-9fa2-4e94-aa01-467533bdd422",
+      "pr": 23,
+      "previousRecordSHA256": "7bdd1eaa2b91570bdb45f8ac7808a2510402bb4b3d4d5c97ce79f89514ae7ece",
+      "recordSHA256": "5bc4c7fdd7038bb2f834608da21ff2d48064b719be9ef8958f96aec41d9fc111",
+      "slug": "core-group/vision-meetings/invitation-strategies"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:13.425Z",
+      "id": "04f8fda1-3017-4329-93ef-7d8879642ce4",
+      "pr": 23,
+      "previousRecordSHA256": "ca7dda37a47b4b27c1a3b1187911443b43a1881e507feb65fc02ada0e5e38704",
+      "recordSHA256": "bf932f9a132f140db96567239ad03d42acbf9fe82e89f2569335206b59766e99",
+      "slug": "core-group/vision-meetings/planning-your-vision-meeting"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:13.760Z",
+      "id": "8c221feb-d333-4535-b6a6-79e78566924f",
+      "pr": 23,
+      "previousRecordSHA256": "da3987bac726eff6c9579096916f06a3cb80f419a0727debdc88d848cb975948",
+      "recordSHA256": "e81652244435f5de05a1a1cf586306e78d822db361a9e1d3f8fa9953c1af742c",
+      "slug": "core-group/vision-meetings/running-the-meeting"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:14.098Z",
+      "id": "f92e3370-8236-42a9-9b2b-9cc6586e923a",
+      "pr": 23,
+      "previousRecordSHA256": "04b285e719acef603816e451c9a2a618b6e8a5b33fa59af2560a370231007980",
+      "recordSHA256": "acc21262367daabb981b4db7fece0c2d19b3e83e7c030528722fecd7a0dedadc",
+      "slug": "core-group/vision-meetings/the-vision-meeting-kit"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:14.495Z",
+      "id": "e4ce364f-dd3c-4456-84b1-4c1cc2b39aa1",
+      "pr": 23,
+      "previousRecordSHA256": "89c12bdf634dfab69cd6f6b9ba348ddb8adb7c8a22eb0d27ecf2434dcea52a3e",
+      "recordSHA256": "8ade6c4395a6d0c7171d53de1dae5dbb16bf1371a295f7b23aea349c1abdeca7",
+      "slug": "core-group/vision-meetings/vision-meeting-agenda-deep-dive"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:14.841Z",
+      "id": "d88963bf-1eef-455e-a573-c644ec775686",
+      "pr": 23,
+      "previousRecordSHA256": "24088a2c959197ad0fc13d2c2318913481d2429f98034a8418d0f1d51f83aa47",
+      "recordSHA256": "86f269ff84b3110da247c867e9d76bbf5ee25784adb8788efe25eb5a3860def7",
+      "slug": "core-group/vision-meetings/what-is-a-vision-meeting"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:13:15.185Z",
+      "id": "4425a966-e983-416b-a664-e67d5d852a7e",
+      "pr": 23,
+      "previousRecordSHA256": "fe3219913b6307a408b39893decf628ab87b63cad2ca3e6595b62b54da9b85d0",
+      "recordSHA256": "2354bd57ce632e8b80c2c05ed52b37d248f025786bdeb4f7562f5fdacce6d0b8",
+      "slug": "core-group/vision-meetings/your-first-vision-meeting"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3630,7 +4199,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "f2815e59de87b29774294828f8e1c6d63996dc23f6748214513eb1b42afcaab5",
+  "seedPayloadSHA256": "6b3fd70bb28da4b24ab14e119ff6afc58d68dbf348b01face3f2892a59184e57",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
