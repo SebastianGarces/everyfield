@@ -38,9 +38,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": ""
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "F3 LSB review of PR #24 at 5e8d8e2: scripted diff against seed.json shows changes only in the scripture callout text and the added ' (LSB)'; references unchanged; status/published_at are the required draft-row values. Every verse checked word for word on read.lsbible.org, one verse per lookup. bin/wiki lint passes. Desktop and mobile screenshots checked."
     },
     "rulings": []
   }
