@@ -114,6 +114,7 @@
 
   /* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
   --animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
+  /* The typing caret is a 1.5 px stripe at the end of the typed text (a background), so it never moves a box. */
   --animate-mk-caret: mk-caret 1s steps(1) infinite;
   --animate-eb-morph: eb-morph 9s ease-in-out infinite;
   --animate-eb-bounce: eb-bounce .9s cubic-bezier(.3, 1.6, .5, 1) infinite alternate;
@@ -122,7 +123,7 @@
   --animate-eb-blink-now: eb-blink-now .18s ease;
 
   @keyframes mk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-  @keyframes mk-caret { 50% { opacity: 0; } }
+  @keyframes mk-caret { 50% { background-size: 0 0; } }
   @keyframes eb-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
   @keyframes eb-blink-now { 50% { transform: scaleY(.08); } }
   @keyframes eb-morph {

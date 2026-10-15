@@ -91,7 +91,6 @@ export function HeroAnimation() {
                 <Lab>Name</Lab>
                 <div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-[inset_0_0_0_1.5px_var(--color-green-500),0_0_0_3px_rgba(28,227,98,.16)]">
                   <Typed t={t} />
-                  <Caret t={t} show={(v) => v < at(0, 1500)} className="h-[18px]" />
                 </div>
               </div>
               <AddButton t={t} />
@@ -117,8 +116,9 @@ export function HeroAnimation() {
             <Head t={t} i={2} lead={<Bot t={t} />} title="Evry drafted a follow-up" sub="Due today. You approve it." />
             <St t={t} i={2} k={1} className="flex items-center gap-2.5 text-[12.5px] text-text-3"><span>To</span>{slot(2)}</St>
             <St t={t} i={2} k={2} className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] text-[13.5px] leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
-              <MText value={useText(t, (v) => HA_DRAFT.slice(0, Math.floor(P(v, at(2, 350), d(1350)) * HA_DRAFT.length)))} />
-              <Caret t={t} show={(v) => v > at(2, 200) && v < at(2, 1850)} className="h-[15px] align-[-2px]" />
+              <Caret t={t} show={(v) => v > at(2, 200) && v < at(2, 1850)} h={15}>
+                <MText value={useText(t, (v) => HA_DRAFT.slice(0, Math.floor(P(v, at(2, 350), d(1350)) * HA_DRAFT.length)))} />
+              </Caret>
             </St>
             <St t={t} i={2} k={3} className="mt-3.5 flex items-center justify-between gap-2.5">
               <span className="skeleton block h-2" style={{ width: "28%" }} />
@@ -241,11 +241,27 @@ function Maria({ className }: { className?: string }) {
 function Typed({ t }: T) {
   const text = useText(t, (v) => HA_NAME.slice(0, Math.floor(P(v, at(0, 0), d(1050)) * HA_NAME.length)));
   const opacity = useTransform(t, (v) => +(1 - P(v, at(0, 1550), d(220))).toFixed(3));
-  return <m.span style={{ opacity }}><MText value={text} /></m.span>;
+  return (
+    <m.span style={{ opacity }}>
+      <Caret t={t} show={(v) => v < at(0, 1500)} h={18}><MText value={text} /></Caret>
+    </m.span>
+  );
 }
-function Caret({ t, show, className }: T & { show: (t: number) => boolean; className: string }) {
-  const visibility = useTransform(t, (v) => (show(v) ? "visible" : "hidden"));
-  return <m.span className={cn("ml-px inline-block w-[1.5px] flex-none animate-mk-caret bg-ink motion-reduce:animate-none", className)} style={{ visibility }} />;
+/**
+ * Typed text with its caret: a 1.5 px stripe drawn as a background at the end of the text (1 px after it). The text box
+ * only grows from a fixed start, so typing moves nothing (an inline caret element moved with every letter: a layout
+ * shift each time). The stripe blinks with a CSS animation; show() hides it.
+ */
+function Caret({ t, show, h, children }: T & { show: (t: number) => boolean; h: number; children: ReactNode }) {
+  const size = useTransform<number, string>(t, (v) => (show(v) ? `1.5px ${h}px` : "0px 0px"));
+  return (
+    <m.span
+      className="[box-decoration-break:slice] bg-[linear-gradient(var(--color-ink),var(--color-ink))] bg-right bg-no-repeat pr-[2.5px] animate-mk-caret motion-reduce:animate-none"
+      style={{ backgroundSize: size }}
+    >
+      {children}
+    </m.span>
+  );
 }
 function AddButton({ t }: T) {
   const transform = useTransform(t, (v) => "scale(" + (1 - 0.05 * bump(v, at(0, 1250), d(200))).toFixed(4) + ")");
