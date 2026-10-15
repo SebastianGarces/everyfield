@@ -114,9 +114,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus source, scripture and desktop/mobile screenshot review. Author checks do not approve claims."
+      "status": "passed",
+      "reviewer": "Opus review",
+      "notes": "Independent review of content at bbd0cc1376fc2588809b48c198d1f952ff50dcc6 on 2026-10-15: all 10 sources re-read, 17 U.S.C. 110(3) quote exact, 1 Corinthians 10:31 (LSB) exact, desktop and mobile renders checked, lint passes. Verdict: PR #9 review comment."
     },
     "rulings": [
       "Resolved editorial scope: U.S. law only; phase 0 follows the existing administrative/legal section because A11 has no phase.",
