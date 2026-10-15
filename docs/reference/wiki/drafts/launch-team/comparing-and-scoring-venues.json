@@ -232,9 +232,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author mapped sections and worksheet instructions to opened sources. Independent Opus source, verse and desktop/mobile review required. Access checklist and Census comparison page opened directly with urllib after web fetch failures. No prices, capacity thresholds, square-footage or parking ratios asserted. Volatile owner examples and processes accessed 2026-10-15; current terms must be reconfirmed."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review passed 2026-10-15 at bd7f3d946a30b3d64ba6cebdc838e7683cefe9dc. The 635503e review checked all 25 sources, Proverbs 18:13 (LSB) and the screenshots, and failed only the Conway insurance sentence. bd7f3d9 changes only that sentence and source 11's claim. The new sentence says an approved applicant must provide proof of insurance; the live Conway page lists 'Application is approve or denied' and then 'If approved, the applicant must provide proof of insurance'. Lint passes (1,092 words, no warnings); desktop and mobile screenshots show all sections, tables, checklist, callouts and the LSB notice."
     },
     "rulings": [
       "Scoring worksheet: Use an optional practical comparison sheet with team-chosen weights, ASQ low/medium/high scale and separate unresolved permissions. No mandatory weights or church-planting thresholds. This is simple scoring, not formal Treasury MCDA.",
