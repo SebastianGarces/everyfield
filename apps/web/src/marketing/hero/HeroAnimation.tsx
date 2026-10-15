@@ -249,13 +249,14 @@ function Typed({ t }: T) {
 /**
  * Typed text with its caret: a 1.5 px stripe drawn as a background at the end of the text (1 px after it). The text box
  * only grows from a fixed start, so typing moves nothing (an inline caret element moved with every letter: a layout
- * shift each time). The stripe blinks with a CSS animation; show() hides it.
+ * shift each time). The stripe blinks with a CSS animation; show() hides it. The stripe's padding is cancelled by an
+ * equal negative margin, so the caret takes no line space and the text wraps exactly as the prototype's text did.
  */
 function Caret({ t, show, h, children }: T & { show: (t: number) => boolean; h: number; children: ReactNode }) {
   const size = useTransform<number, string>(t, (v) => (show(v) ? `1.5px ${h}px` : "0px 0px"));
   return (
     <m.span
-      className="[box-decoration-break:slice] bg-[linear-gradient(var(--color-ink),var(--color-ink))] bg-right bg-no-repeat pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
+      className="[box-decoration-break:slice] bg-[linear-gradient(var(--color-ink),var(--color-ink))] bg-right bg-no-repeat -mr-[2.5px] pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
       style={{ backgroundSize: size }}
     >
       {children}

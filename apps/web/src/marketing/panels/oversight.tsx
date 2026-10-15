@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Badge, CardIcon, UiButton, type Status, type Tone } from "@/components/kit/kit";
-import { flash, out, P, pop, press, rise, swapOut } from "@/components/motion/curves";
+import { flash, out, P, pop, press, rise, swapOut, type Frame } from "@/components/motion/curves";
 import { St } from "@/components/motion/scene";
 import { PanelCard, useTarget } from "../chapters/panel-frame";
 import { ICONS } from "../icons";
@@ -151,11 +151,14 @@ export function SendersPanel() {
 }
 /** A plant pill with its phase dot (blue before the core group is formed, green after). */
 export const PILL = "inline-flex h-[22px] items-center gap-1.5 rounded-full bg-surface-2 pr-[9px] pl-2 text-[11.5px] font-medium whitespace-nowrap text-ink-2 opacity-0 will-change-[opacity]";
+const fadeOnly = (f: Frame): Frame => [f[0], 0, f[2], f[3]];
 function Group({ k, children }: { k: number; children: ReactNode }) {
   const ref = useTarget(k === 0 ? "t0" : "g" + k);
   return (
     <Tf as="div" innerRef={ref} f={(t) => (k === 0 ? press(t, 2250, 0.03) : "none")} className="relative isolate">
-      <Move f={(t) => rise(t, 250 + k * 160)} className="relative isolate rounded-[14px] px-3 pt-2.5 pb-[11px] opacity-0 shadow-[inset_0_0_0_1px_var(--color-line)]">
+      {/* The first group only fades in: in the prototype its press (a scale) replaced the rise's translate on the same
+          element, so it never moved. Parity keeps that. */}
+      <Move f={(t) => (k === 0 ? fadeOnly(rise(t, 250)) : rise(t, 250 + k * 160))} className="relative isolate rounded-[14px] px-3 pt-2.5 pb-[11px] opacity-0 shadow-[inset_0_0_0_1px_var(--color-line)]">
         {children}
       </Move>
     </Tf>
