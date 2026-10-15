@@ -139,4 +139,4 @@ Use Bryan for a tier B approval by Bryan. The command requires passing lint and 
 independent claim check, records approval metadata in `manifest.json` releases, updates the
 seed hashes and removes the draft. It edits version-controlled reference files only, never
 a database or a live release. Commit the generated changes in the same article PR. Changed
-draft bytes require another review and approval. Sebastian merges after the Opus review.
+draft bytes require another review and approval. Sebastian reads the article and merges with `bin/evf approve <PR>`. Wiki PRs never merge automatically.

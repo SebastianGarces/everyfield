@@ -239,6 +239,7 @@ test('INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen } from '../ship.ts';
+import { approve } from '../approve.ts';
 import { requireImplementation, requireSpend } from '../policy.ts';
 test('INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated',()=>{
  const f=fixture();try{
@@ -250,23 +251,28 @@ test('INV-gate-phases: local evidence producers can start before runtime complet
   assert.throws(()=>requireImplementation(f.root,'WP-003'),/G-AUTH/);
  }finally{f.close();}
 });
-test('INV-feedback-review: missing, stale, dismissed and changes-requested human reviews block before push or merge',()=>{
+test('INV-feedback-merge: P0/P1 feedback fixes merge through the verifier without human review; P2 needs evf approve',()=>{
  const f=qualifiedFixture();try{
-  f.cfg.verification.proofPlans['FB-1']=f.plan;f.cfg.mergePolicy.humanActorIds=[303,304];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
-  feedbackTriage(f.root,1,{cls:'p1',reason:'scoped feedback',wp:f.wp});
+  f.cfg.verification.proofPlans['FB-1']=f.plan;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+  feedbackTriage(f.root,1,{cls:'p2',reason:'scoped feedback',wp:f.wp});
   const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');f.task('fb-1');
   const task=parseTask('FB-1');verify(f.root,task,'author','full');const proof=verify(f.root,task,'verifier','full');
-  for(const reviews of [[],[{user:{id:303},state:'APPROVED',commit_id:'old-head'}],[{user:{id:303},state:'DISMISSED',commit_id:proof.sha}],[{user:{id:303},state:'APPROVED',commit_id:proof.sha},{user:{id:304},state:'CHANGES_REQUESTED',commit_id:proof.sha}], [{user:{id:303},state:'CHANGES_REQUESTED',commit_id:proof.sha},{user:{id:303},state:'COMMENTED',commit_id:proof.sha},{user:{id:304},state:'APPROVED',commit_id:proof.sha}]]){
-   const s=f.getState();s.reviews=reviews;f.setState(s);
-   assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/configured human approval/);
-   assert.equal(f.getState().calls.filter((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge').length,0);
-   assert.equal(execFileSync('git',['--git-dir',bare,'branch','--list','task/fb-1'],{encoding:'utf8'}).trim(),'');
-  }
-  const s=f.getState();s.reviews=[{user:{id:303},state:'APPROVED',commit_id:proof.sha}];s.protection={};f.setState(s);
+  const s=f.getState();s.reviews=[];s.protection={required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:0,dismiss_stale_reviews:true}};f.setState(s);
+  assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/Sebastian approves the rest with: bin\/evf approve/);
+  assert.equal(f.getState().calls.filter((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge').length,0);
+  const cache=join(evfDataDir(f.root),'feedback','issue-1.json'),record=JSON.parse(readFileSync(cache,'utf8'));record.class='p1';writeFileSync(cache,JSON.stringify(record));
+  s.protection={};f.setState(s);
   assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/Verified strict branch protection/);
-  delete s.protection;f.setState(s);
+  s.protection={required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:0,dismiss_stale_reviews:true}};f.setState(s);
   assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/fixture merge barrier/);
   const merge=f.getState().calls.find((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge');assert.ok(merge.args.includes('--match-head-commit'));assert.equal(merge.args.at(-1),proof.sha);
+ }finally{f.close();}
+});
+test('INV-human-approve: evf approve refuses to run without an interactive terminal and changes nothing',()=>{
+ const f=fixture();try{
+  const before=f.getState().calls.length;
+  assert.throws(()=>approve(f.root,6,{interactive:false}),/own terminal/);
+  assert.equal(f.getState().calls.length,before);
  }finally{f.close();}
 });
 test('INV-feedback-preservation: approved owner promotion, demand ranking and exact reviewed question reply survive',()=>{

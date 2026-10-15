@@ -8,6 +8,7 @@ import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
 import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
 import { githubSetup, listShipped, prOpen, ship } from "./ship.ts";
+import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { verify } from "./verify.ts";
 
@@ -38,6 +39,9 @@ Feedback desk (public feedback repo)
   evf feedback triage <n> --class <p0..p3|feature-small|feature-large|duplicate|question|spam>
         --reason "private reason" [--area <module>] [--feature <ID>] [--wp WP-NNN] [--duplicate-of <n>] [--reply "..."]
   evf feedback status [--json]   evf feedback ideas   evf feedback promote <n>   evf feedback labels
+
+Human approval (Sebastian's own terminal only)
+  evf approve <PR>        Wiki articles, prototypes and feedback P2/P3: review, type the PR number, merge
 
 Upkeep
   evf test [Node test options]                               local tooling regressions on evf's Node
@@ -109,6 +113,11 @@ function main(argv: string[]): number {
         });
       }
       break;
+    }
+    case "approve": {
+      const n = Number(args[0]);
+      if (!Number.isInteger(n) || n <= 0) throw new EvfError("Give the PR number: evf approve <PR>");
+      return approve(root, n);
     }
     case "principles":
       return principles(root, { apply: flag(args, "--apply"), ref: option(args, "--ref") });

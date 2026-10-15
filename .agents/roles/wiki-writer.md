@@ -22,7 +22,7 @@ Use the existing specialists with this role; no custom specialist is needed.
 Never approve your own claims or publish. Sebastian approves tier A and factual corrections;
 Bryan or Sebastian approves tier B. The coordinator runs `wiki promote` only after human approval,
 using the exact reviewed commit SHA. Do not edit the seed directly or access any database.
-Sebastian merges after Opus review.
+Sebastian reads the article and merges with `bin/evf approve <PR>` in his own terminal. Wiki PRs never merge automatically; report the PR and stop.
 
 ## Principles to read in full at the start
 

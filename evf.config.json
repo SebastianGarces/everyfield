@@ -56,12 +56,24 @@
   },
   "mergePolicy": {
     "ordinary": "automatic-after-independent-review",
-    "feedback": "human-reviewed",
-    "humanActorIds": [],
+    "feedbackVerifierMerge": [
+      "p0",
+      "p1"
+    ],
+    "feedbackPrototypes": "owner-merge",
+    "humanApproved": "evf-approve-in-owner-terminal",
     "ordinaryApproval": {
       "sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
       "approvedAtUtc": "2026-10-13T23:37:00Z",
       "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
+    },
+    "feedbackApproval": {
+      "approvedAtUtc": "2026-10-15T18:52:26Z",
+      "scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. Other feedback classes and prototypes need Sebastian's approval."
+    },
+    "wikiApproval": {
+      "approvedAtUtc": "2026-10-15T18:52:26Z",
+      "scope": "Wiki article PRs never merge automatically. Sebastian reads the article and merges with evf approve in his own terminal."
     },
     "sensitive": "owner-escalation-required"
   },
