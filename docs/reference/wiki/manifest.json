@@ -720,6 +720,13 @@
       "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/keeping-a-corporate-records-binder"
+    },
+    {
+      "contentSHA256": "704520e15e2d83d99046edee90ac3b164e09246a42a4887ddae3365a6afb9320",
+      "id": "e68d6c02-b012-491e-af14-9cee7bd304a1",
+      "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/opening-the-church-bank-account"
     }
   ],
   "derivedFrom": {
@@ -3546,6 +3553,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
       "slug": "administrative/legal/keeping-a-corporate-records-binder"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:07:00.432Z",
+      "id": "e68d6c02-b012-491e-af14-9cee7bd304a1",
+      "pr": 16,
+      "previousRecordSHA256": null,
+      "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
+      "slug": "administrative/financial/opening-the-church-bank-account"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3678,7 +3694,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "8c6584b3febeaf00fe4ae9c9fd033d6ffe1396ef49c21b84a92e752d37481ae1",
+  "seedPayloadSHA256": "d68edba399c52d836bfd36ecc9d29113713cf5b2cfcdc5974da5b53c94fa8372",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
