@@ -1064,6 +1064,55 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ef .kv .v, .ef .num { white-space: nowrap; }
 /* "Here is what a Monday looks like": overview dashboard, close to the mockup */
 .sec-monday .monday-frame { margin-top: 0; }
+/* R4 (2026-10-15): "The vision, down to this week". Head left, the four-level zoom on a dawn surface right (stacked
+   below 901 px). One green line links the levels; each node draws its own part of it, so nothing is measured.
+   It plays once when it scrolls in (transform and opacity only); reduced motion shows the end state. */
+.vz-grid { display: grid; grid-template-columns: minmax(0,5fr) minmax(0,6fr); align-items: center; gap: clamp(36px,5vw,88px); }
+.vz-head { max-width: 540px; }
+.vz-head p { margin-top: 20px; font-size: clamp(17px,1.3vw,19px); line-height: 1.55; color: var(--ef-text-2); text-wrap: pretty; }
+.vz-stage { position: relative; border-radius: var(--mk-radius-media, 32px); padding: clamp(20px,3.2vw,44px) clamp(16px,3vw,40px); box-shadow: var(--mk-shadow-media); }
+.vz-stack { position: relative; z-index: 1; max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.45; }
+.vz-card { position: relative; background: var(--ef-surface); border: 1px solid var(--ef-line); border-radius: 20px; box-shadow: 0 1px 2px rgba(24,29,25,.05), 0 8px 20px -14px rgba(24,29,25,.25); }
+.vz-row { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 14px 20px 16px; }
+.vz-card.vz-launch .vz-row { padding: 20px; }
+.vz-ic { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--tint); color: var(--tone); }
+.vz-ic .i { width: 18px; height: 18px; }
+.vz-l { font-size: 12.5px; line-height: 1.3; color: var(--ef-text-3); }
+.vz-v { margin-top: 2px; font-size: 15px; line-height: 1.3; font-weight: 600; }
+.vz-date { margin-top: 4px; font-family: var(--mk-font-display); font-weight: 500; letter-spacing: -.03em; font-size: clamp(24px,2.2vw,30px); line-height: 1.1; white-space: nowrap; }
+.vz-sub { margin-top: 8px; font-size: 13px; color: var(--ef-text-2); }
+.vz-num { margin-left: auto; padding-top: 4px; font-family: var(--mk-font-display); font-weight: 500; letter-spacing: -.03em; font-size: 26px; line-height: 1; white-space: nowrap; }
+.vz-num small { margin-left: 4px; font-family: var(--mk-font-body); font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--ef-text-3); }
+.vz-track { margin: 12px 0 0 auto; display: flex; gap: 4px; }
+.vz-track i { width: 9px; height: 6px; border-radius: 99px; background: var(--ef-surface-2); box-shadow: inset 0 0 0 1px var(--ef-line); }
+.vz-track i.done { background: var(--ef-green-500); box-shadow: none; }
+.vz-track i.now { background: var(--ef-violet-500); box-shadow: none; }
+.vz-meter { margin: 0 20px 16px 70px; }
+.vz-bar { position: relative; height: 8px; border-radius: 99px; overflow: hidden; background: var(--ef-surface-2); box-shadow: inset 0 0 0 1px var(--ef-line); }
+.vz-bar i { position: absolute; inset: 0 auto 0 0; width: 68%; border-radius: 99px; background: var(--ef-blue-500); transform-origin: left; }
+.vz-meter .vz-l { margin-top: 8px; }
+.vz-week-t { font-family: var(--mk-font-display); font-weight: 500; letter-spacing: -.02em; font-size: 19px; line-height: 1.2; }
+.vz-tasks { list-style: none; margin: 0; padding: 0 0 6px; }
+.vz-tasks li { position: relative; border-top: 1px solid var(--ef-line); }
+.vz-tasks .vz-row { padding: 12px 20px; }
+.vz-ring { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: 38px; }
+.vz-ring::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: var(--ef-surface); box-shadow: inset 0 0 0 1.5px var(--ef-line-2); }
+.vz-task-t { display: block; font-size: 14px; line-height: 20px; font-weight: 600; }
+.vz-chain { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12.5px; color: var(--ef-text-3); }
+.vz-chain .i { width: 13px; height: 13px; }
+.vz-line { position: absolute; left: 38px; width: 2px; border-radius: 99px; background: var(--ef-green-600); transform-origin: top; pointer-events: none; }
+.vz-in { top: 0; height: 33px; } .vz-tasks .vz-in { height: 22px; }
+.vz-out { top: 33px; bottom: 0; } .vz-gap { bottom: -12px; } .vz-launch .vz-out { top: 39px; } .vz-tasks .vz-out { top: 22px; }
+.vz.play .vz-card, .vz.play .vz-tasks li > .vz-row { animation: vzRise .42s cubic-bezier(.33,1,.68,1) both; animation-delay: var(--d); }
+.vz.play .vz-line { animation: vzGrow .2s cubic-bezier(.33,1,.68,1) both; animation-delay: var(--d); }
+.vz.play .vz-bar i { animation: vzFill 1s cubic-bezier(.33,1,.68,1) .95s both; }
+.vz.wait .vz-card, .vz.wait .vz-tasks li > .vz-row { opacity: 0; }
+@keyframes vzRise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes vzGrow { from { transform: scaleY(0); } }
+@keyframes vzFill { from { transform: scaleX(0); } }
+@media (max-width: 900px) { .vz-grid { grid-template-columns: minmax(0,1fr); } .vz-head { margin: 0 auto; max-width: 640px; text-align: center; } }
+@media (max-width: 440px) { .vz-track { display: none; } }
+@media (prefers-reduced-motion: reduce) { .vz .vz-card, .vz .vz-tasks li > .vz-row, .vz .vz-line, .vz .vz-bar i { animation: none !important; opacity: 1 !important; } }
 .monday { display: grid; grid-template-columns: 1fr 1fr 1.08fr; gap: 16px; align-items: start; }
 .monday .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .monday .stat-value { font-size: 72px; }
@@ -1591,8 +1640,31 @@ body.pbar-hidden { padding-bottom: 0; }
       ]
     },
     "intelligence": {
-      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. The step copy is still draft in the HTML.",
-      "title": "Know your next step, and why."
+      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
+      "title": "Know your next step, and why.",
+      "lead": "The why ties each step back to the launch plan.",
+      "steps": [
+        {
+          "panel": "focus",
+          "title": "One focus each week.",
+          "body": "Plant Intelligence reads your records and names the one thing that needs you most this week."
+        },
+        {
+          "panel": "facts",
+          "title": "Every finding shows its facts.",
+          "body": "Each finding links to the records it used, so you can check it."
+        },
+        {
+          "panel": "evry",
+          "title": "A vision meeting in one approval.",
+          "body": "Ask Evry to set up a vision meeting. It prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve."
+        },
+        {
+          "panel": "share",
+          "title": "You see it first.",
+          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."
+        }
+      ]
     },
     "trust_page": {
       "eyebrow": "Privacy and trust",
@@ -1645,7 +1717,7 @@ body.pbar-hidden { padding-bottom: 0; }
       },
       "problem": {
         "headline": "You usually hear about a struggling plant when it is already late.",
-        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
+        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
@@ -1826,19 +1898,24 @@ body.pbar-hidden { padding-bottom: 0; }
       "sections": {
         "hero": {
           "headline": "From calling to launch Sunday.",
-          "subhead": "Keep your people, gatherings, follow-ups and teams in one place as your core team and launch team grow toward launch Sunday.",
+          "subhead": "EveryField connects the launch plan to this week's work: the people to reach, the gatherings to hold and the next step for your plant.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. EveryField keeps it all in one place, so the most important work gets your time."
+          "body": "The vision is clear on Sunday. By Wednesday, it is buried under small tasks. Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. When the vision and the daily work drift apart, momentum stalls, and time and money go to the wrong things. EveryField keeps the plan and the week in one place, so the most important work gets your time."
         },
         "proof": {
           "headline": "Here is what a Monday looks like.",
           "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
+        },
+        "vision": {
+          "note": "R4 (2026-10-15): new home section after the proof section, from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a. Four levels: Launch Sunday, the current phase, the phase benchmark and this week's tasks, each task with the goal it serves. EveryField stores no vision statement.",
+          "headline": "The vision, down to this week.",
+          "body": "Launch Sunday sets the date, and each phase has its benchmarks. EveryField keeps them in one place with this week's tasks, and Plant Intelligence names the next step and why."
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",
@@ -1922,16 +1999,16 @@ body.pbar-hidden { padding-bottom: 0; }
         "evry": {
           "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to follow up, and it creates a task for each guest, assigns it to someone on your core team and drafts what to say. Nothing is saved until you approve the exact change on screen.",
+          "body": "Ask Evry to set up the next vision meeting. In one review it shows the meeting, the default 90-minute agenda, the guest list of prospects and the invitation email. Nothing is saved or sent until you approve the exact change on screen.",
           "example": {
-            "ask": "Who from Thursday's vision meeting has no follow-up owner?",
-            "answer": "Three first-time guests have no follow-up owner yet.",
-            "review": "Review 3 changes · Assign follow-up tasks · Approve or Edit"
+            "ask": "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.",
+            "answer": "Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.",
+            "review": "Review 4 changes · Set up vision meeting · Approve or Edit"
           },
           "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
         },
         "cta": {
-          "headline": "Start with the week in front of you.",
+          "headline": "Connect the vision to this week.",
           "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
@@ -1954,7 +2031,7 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "problem": {
           "headline": "You usually hear about a struggling plant when it is already late.",
-          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices."
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
         },
         "proof": {
           "headline": "One row for each plant. One status you can act on.",
@@ -2133,6 +2210,8 @@ var ICON = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  rocket: '<path d="M6.2 11.6l-2.9-.4c-.6-.1-1-.6-.7-1.2.8-1.7 3-3.7 7.2-3.3M6.2 11.6c1.1-1.8 2.4-3.6 3.5-4.9M6.2 11.6l5.7 5.7M9.7 6.7c3.7-4.1 7.5-5 9.9-4.6 1 .1 1.7.9 1.8 1.8.4 2.4-.5 6.2-4.6 9.9M11.9 17.3l.4 2.9c.1.6.7 1 1.2.7 1.7-.8 3.7-3 3.3-7.2M11.9 17.3c1.8-1.1 3.6-2.4 4.9-3.5"/><circle cx="15.5" cy="8" r="2"/><path d="M4 22l4-4M4 17l1.5-1.5"/>',
+  route: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><path d="M12 5H8.5a3.5 3.5 0 0 0 0 7h7a3.5 3.5 0 0 1 0 7H12"/>',
   task: '<rect x="4.5" y="4.5" width="15" height="15" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   heart: '<path d="M12 20s-7.5-4.5-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.5-7.5 10-7.5 10z"/>',
@@ -2649,8 +2728,8 @@ var CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "To
 var CX_DRAFT = "Thank Kim for coming on Sunday. Ask what stood out to her, and offer to meet for coffee this week.";
 var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
 var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
-var CX_Q = "Why does Plant Intelligence say my follow-up is slipping?";
-var CX_A = "17 of 24 new guests heard from you within 48 hours. 7 have had no contact yet. I drafted a follow-up task for each one.";
+var CX_Q = "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.";
+var CX_A = "Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.";
 /* Revision 19 sending panels: sample network data from the dashboard Network Intelligence page (14 plants). */
 var SD_SCOPES = [["All plants", 14, 11, 5], ["Texas", 12, 10, 5], ["Greater Austin", 5, 4, 2]];
 var SD_AREAS = [["Greater Austin", 5, "positive", "Strong"], ["Greater San Antonio", 3, "attention", "Watch"], ["Dallas\u2013Fort Worth", 3, "positive", "Strong"], ["Greater Houston", 1, "unknown", "Too few"], ["Greater Oklahoma City", 2, "positive", "Strong"]];
@@ -2718,8 +2797,8 @@ var CX_MARK = {
     return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
       '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
       '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
-      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 7 changes<span class="grow"></span><span style="font-weight:500">Assign follow-up tasks</span></div>' +
-      '<div class="rc-body"><div class="rc-line">' + icon("task") + "<span>Assign <b>Follow up with James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>6 more follow-ups in this change</span></div></div>" +
+      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 4 changes<span class="grow"></span><span style="font-weight:500">Set up vision meeting</span></div>' +
+      '<div class="rc-body"><div class="rc-line">' + icon("calendar") + "<span>Create <b>Vision meeting #13</b> on <b>Sun Oct 26</b> at the <b>Reyes home</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>The agenda, 23 guests and the invitation email</span></div></div>" +
       '<div class="rc-foot">' + cxBtn("cx-t0", "Approve", "Approved") + '<span class="btn" data-variant="ghost">Edit</span></div></div>';
   },
   scope: function () {
@@ -2846,11 +2925,9 @@ function cxTitle(title, words) {
 }
 var CX_DEFS = {
   week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
-  intelligence: { title: COPY.shared.intelligence.title, auto: true, steps: [
-    ["focus", "lilac", "Focus", "One focus each week.", "Plant Intelligence reads your records and names the one thing that needs you most this week."],
-    ["facts", "field", "Facts", "Every finding shows its facts.", "Each finding links to the records it used, so you can check it."],
-    ["evry", "sky", "Evry", "Ask Evry why.", "Evry explains a finding against the rubric and prepares the work it points to. You approve each change."],
-    ["share", "dawn", "Sharing", "You see it first.", "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."]] },
+  /* R4: the Plant Intelligence lead line and steps come from shared.intelligence in marketing-copy.json. */
+  intelligence: { title: COPY.shared.intelligence.title, lead: COPY.shared.intelligence.lead, auto: true, steps: COPY.shared.intelligence.steps.map(function (s, i) {
+    return [s.panel, ["lilac", "field", "sky", "dawn"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
   /* Revision 19: copy from shared.sending in marketing-copy.json. Tones sea, rose, sun, slate differ from the Plant Intelligence tones above. */
   sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.sending.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) },
@@ -2880,7 +2957,8 @@ function chapterSection(id, cls) {
    after the title text, kept on one line with the last word (it replaces the Revision 20 "Learn more" button under the list). */
 function autoSection(id, cls, d) {
   var head = '<div class="cx-head' + (d.link ? " cx-head-link" : "") + '"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2>" +
-    (d.link ? '<a class="sec-icon-link" href="' + hrefFor("oversight", "") + '" aria-label="' + t(d.link) + '">' + icon("arrowUpRight") + "</a>" : "") + "</div>";
+    (d.link ? '<a class="sec-icon-link" href="' + hrefFor("oversight", "") + '" aria-label="' + t(d.link) + '">' + icon("arrowUpRight") + "</a>" : "") +
+    (d.lead ? '<p class="sh-text" style="margin-top:16px;max-width:600px">' + t(d.lead) + "</p>" : "") + "</div>";
   return '<section class="sec cx cx-auto' + (d.mirror ? " cx-mirror" : "") + " " + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap">' + (d.mirror ? "" : head) +
     '<div class="cx-grid"><div class="cx-left">' + (d.mirror ? head : "") + '<ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
@@ -3389,6 +3467,40 @@ function problem(p) {
 function centerHead(p) {
   return '<div class="sec-head center"><h2 class="display h2 sh-title">' + t(p.headline) + '</h2><p class="sh-text">' + t(p.body) + "</p></div>";
 }
+function vision(v) {
+  if (!v) return "";
+  function line(cls, d) { return '<i class="vz-line ' + cls + '" aria-hidden="true" style="--d:' + d + 'ms"></i>'; }
+  function level(n, cls, tone, ic, label, value, end, extra) {
+    return '<div class="vz-card' + cls + '" style="--d:' + [0, 380, 760][n] + 'ms"><div class="vz-row">' + (n ? line("vz-in", [0, 304, 684][n]) : "") + line("vz-out vz-gap", [133, 513, 893][n]) +
+      '<span class="vz-ic ' + tone + '">' + icon(ic) + '</span><div style="min-width:0;flex:1"><div class="vz-l">' + t(label) + "</div>" + value + "</div>" + (end || "") + "</div>" + (extra || "") + "</div>";
+  }
+  var tasks = [["Invite the 9 guests from #11", "Vision meeting #12"], ["Interview David Kim", "Close to committing"], ["Record Maria Santos's commitment", "Signed on Oct 6"]];
+  return '<section class="sec sec-vision" id="vision" aria-labelledby="vision-title"><div class="wrap vz-grid">' +
+    '<div class="vz-head"><h2 class="display h2" id="vision-title">' + t(v.headline) + "</h2><p>" + t(v.body) + "</p></div>" +
+    '<div class="vz vz-stage gsurf" data-tone="dawn"><div class="vz-stack ef">' +
+      level(0, " vz-launch", "tone-green", "rocket", "Launch Sunday", '<div class="vz-date">Sun, Mar 14, 2027</div><div class="vz-sub">9 launch milestones and 23 preparation tasks</div>') +
+      level(1, "", "tone-violet", "route", "Phase 1", '<div class="vz-v">Core Group Development</div>', '<span class="vz-track" aria-hidden="true"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></span>') +
+      level(2, "", "tone-blue", "users", "Playbook benchmark", '<div class="vz-v">Committed adults</div>', '<span class="vz-num">34<small>of 50</small></span>',
+        '<div class="vz-meter"><div class="vz-bar" aria-hidden="true"><i></i></div><div class="vz-l">Up 9 in the last 28 days</div></div>') +
+      '<div class="vz-card" style="--d:1140ms"><div class="vz-row">' + line("vz-in", 1064) + line("vz-out", 1238) +
+        '<span class="vz-ic tone-amber">' + icon("task") + '</span><div><div class="vz-week-t">This week</div><div class="vz-l" style="margin-top:2px">3 tasks for the core group</div></div></div>' +
+        '<ul class="vz-tasks">' + tasks.map(function (k, i) {
+          return '<li><div class="vz-row" style="--d:' + (1420 + i * 180) + 'ms">' + line("vz-in", [1364, 1564, 1744][i]) + (i < 2 ? line("vz-out", 1483 + i * 180) : "") +
+            '<span class="vz-ring" aria-hidden="true"></span><span style="min-width:0;flex:1"><span class="vz-task-t">' + t(k[0]) + '</span><span class="vz-chain">' + t(k[1]) + icon("arrow") +
+            '<span class="ovs-sr">serves</span><span class="stage-chip tone-blue" style="height:22px">Committed adults</span></span></span></div></li>';
+        }).join("") + "</ul></div>" +
+    "</div></div></div></section>";
+}
+/* Plays the zoom once when it scrolls in. A zoom already on screen at load stays settled. */
+function visionPlay(root) {
+  var el = root.querySelector(".vz"); if (!el || !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var first = true, io = new IntersectionObserver(function (es) {
+    var e = es[0]; if (!e) return;
+    if (first) { first = false; if (e.boundingClientRect.top < innerHeight) { io.disconnect(); return; } el.classList.add("wait"); return; }
+    if (e.isIntersecting) { io.disconnect(); el.classList.remove("wait"); el.classList.add("play"); }
+  }, { rootMargin: "0px 0px -15% 0px" });
+  io.observe(el);
+}
 function proof(p, story) {
   if (story !== "oversight") {
     return '<section class="sec sec-proof sec-monday" id="proof"><div class="wrap">' +
@@ -3640,7 +3752,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -3902,8 +4014,8 @@ var last = {};
 function render(scrollMode) {
   document.body.dataset.page = state.page;
   var needView = last.page !== state.page || last.story !== state.story;
+  var v = document.getElementById("view");
   if (needView) {
-    var v = document.getElementById("view");
     var html = state.page === "home" ? home(state.story) : state.page === "planters" ? pagePlanters() : state.page === "oversight" ? pageOversight() :
       state.page === "trust" ? pageTrust() : state.page === "access" ? pageAccess() : pageLegal(PAGE[state.page].name);
     v.innerHTML = html;
@@ -3918,7 +4030,7 @@ function render(scrollMode) {
     if (target && target.classList.contains("faq-i")) faqSet(target, true);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); }
+  if (needView) { setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); visionPlay(v); }
   last = { page: state.page, story: state.story };
 }
 function setState(over, push) {

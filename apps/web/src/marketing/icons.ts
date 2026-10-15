@@ -1,6 +1,6 @@
 import {
   Alert02Icon, ArrowRight02Icon, ArrowUpRight01Icon, Book02Icon, Calendar03Icon, Compass01Icon, FavouriteIcon, Location01Icon,
-  MoreHorizontalIcon, PencilEdit02Icon, PlusSignIcon, Share08Icon, SparklesIcon, TaskDone01Icon, Tick02Icon, UserMultipleIcon, ViewIcon,
+  MoreHorizontalIcon, PencilEdit02Icon, PlusSignIcon, Rocket01Icon, Route01Icon, Share08Icon, SparklesIcon, TaskDone01Icon, Tick02Icon, UserMultipleIcon, ViewIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
@@ -26,6 +26,8 @@ export const ICONS = {
   pin: Location01Icon,
   network: Share08Icon,
   plus: PlusSignIcon,
+  rocket: Rocket01Icon,
+  route: Route01Icon,
 } satisfies Record<string, IconSvgElement>;
 export type IconName = keyof typeof ICONS;
 export const isIconName = (s: string): s is IconName => Object.hasOwn(ICONS, s);

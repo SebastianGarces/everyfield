@@ -25,6 +25,7 @@ const journey = z.object({
     hero,
     problem: headBody,
     proof: headBody.extend({ caption: text.optional() }),
+    vision: headBody,
     features: z.object({
       headline: text,
       items: z.array(z.object({ label: text, title: text, body: text, short: text.optional() })),
@@ -94,7 +95,7 @@ const schema = z.object({
       title: text,
       steps: z.array(step.extend({ panel: text, tone: text, icon: text })).length(4),
     }),
-    intelligence: z.object({ title: text }),
+    intelligence: z.object({ title: text, lead: text, steps: z.array(step.extend({ panel: text })).length(4) }),
     sending: z.object({ title: text, link: text, steps: z.array(step).length(4) }),
     oversight_page: z.object({
       hero,

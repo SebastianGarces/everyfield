@@ -1,9 +1,9 @@
 {
   "note": "Written by scripts/render-share-images.mjs. Do not edit.",
-  "inputs": "1d3ec67f4215df968445b554ca755645832f857fd592c587a07e39e33c3d251d",
+  "inputs": "250fee10c6f92107de33a7d3ba035d909d5e5292da5c3b9273a3da7effff8560",
   "outputs": {
-    "../src/app/opengraph-image.png": "d426fca7bfdab15e3069516bc155b3a057a49cdc8ecc9ed036ed27c258edaf52",
-    "../src/app/twitter-image.png": "d426fca7bfdab15e3069516bc155b3a057a49cdc8ecc9ed036ed27c258edaf52",
+    "../src/app/opengraph-image.png": "d10e4ef3e5310d5ab030bdd373ee8b2fea49f0da32fa19ec502147f985e282b6",
+    "../src/app/twitter-image.png": "d10e4ef3e5310d5ab030bdd373ee8b2fea49f0da32fa19ec502147f985e282b6",
     "../src/app/oversight/opengraph-image.png": "4a5c0c1034cf651d73a6255077293a11f9b1bc5358bbb7c1821833c85d76b43e",
     "../src/app/oversight/twitter-image.png": "4a5c0c1034cf651d73a6255077293a11f9b1bc5358bbb7c1821833c85d76b43e"
   }
