@@ -24,16 +24,34 @@ type Props = {
 const STEP = 5500;
 const EASE = "cubic-bezier(.65,0,.35,1)";
 
+/* The highlight gradient's direction, 100deg: (sin, -cos) in screen axes. */
+const DX = Math.sin((100 * Math.PI) / 180), DY = -Math.cos((100 * Math.PI) / 180);
+/**
+ * A linear gradient at an angle drawn on a w x h box runs along a gradient line of length w*DX + h*DY through the box
+ * centre. The same gradient drawn on the widest box (max x h) and transformed by matrix(a, 0, c, 1, 0, 0) from its top
+ * left corner shows, at every point, the colour of the gradient drawn on a w x h box: a matches the gradient lengths,
+ * c the tilt of its colour lines, and the translation is 0 (the start corners coincide).
+ */
+function highlightMatrix(w: number, max: number, h: number) {
+  const a = (w * DX + h * DY) / (max * DX + h * DY), c = (DY * (a - 1)) / DX;
+  return `matrix(${a.toFixed(6)},0,${c.toFixed(6)},1,0,0)`;
+}
+
 /**
  * The /oversight sending paths: "Sent by <phrase>. Seen in one place." over one large card. The phrase rolls up one line,
  * its highlight takes the new phrase's width, the line stays centred, and the card crossfades, all over .7 s.
  *
  * No layout shift (the prototype animated the highlight's width, which moved the whole line ~50 times a roll): the
- * phrase slot always has the width of the widest phrase, so nothing is laid out again. The line is recentred with a
- * transform, the period moves with a transform, and the highlight takes its width with a clip-path inset (paint only).
- * As in the prototype, every phrase is centred in the painted highlight and clipped to it while the width changes: a
- * phrase's offset is (painted width - its width) / 2, linear in the painted width, so a translateX transition with the
- * same .7 s curve keeps it centred; the slot is clipped with the highlight's own inset.
+ * phrase slot always has the width of the widest phrase, so nothing is laid out again. Every moving part is a transform
+ * transition on the same .7 s curve, so the roll runs on the compositor and paints nothing:
+ * - The line is recentred and the period moves with translateX.
+ * - The highlight's visible width wk is a window: the slot is a rounded window at the widest width, and an inner rounded
+ *   window of the same size slides left by (widest - wk) while its content slides back by the same amount. Their
+ *   intersection is the prototype's clip, inset(0 (widest - wk) 0 0 round .2em), at every frame.
+ * - The prototype's gradient is sized to wk (background-size). Here it is drawn once at the widest width and mapped onto
+ *   wk with matrix(a, 0, c, 1, 0, 0) (see highlightMatrix); a and c are linear in wk, so the transform transition draws
+ *   the same gradient as the background-size transition at every frame.
+ * - Each phrase is centred in the painted highlight: its offset is (wk - its width) / 2, also linear in wk.
  * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
  * the next state.
  */
@@ -42,16 +60,17 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
   const run = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLSpanElement | null)[]>([]);
   const dot = useRef<HTMLSpanElement>(null);
+  const slot = useRef<HTMLSpanElement>(null);
   const [k, setK] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [w, setW] = useState<{ items: number[]; max: number; dot: number } | null>(null);
+  const [w, setW] = useState<{ items: number[]; max: number; dot: number; h: number } | null>(null);
   const seen = useInView(run, { amount: 0.3 });
   const n = phrases.length;
 
   const measure = useCallback(() => {
     const ws = items.current.map((e) => e?.offsetWidth ?? 0);
-    const next = { items: ws, max: Math.max(...ws), dot: dot.current?.offsetWidth ?? 0 };
-    setW((c) => (c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next));
+    const next = { items: ws, max: Math.max(...ws), dot: dot.current?.offsetWidth ?? 0, h: slot.current?.offsetHeight ?? 0 };
+    setW((c) => (c && c.max === next.max && c.dot === next.dot && c.h === next.h && c.items.join() === next.items.join() ? c : next));
   }, []);
   useEffect(() => {
     const r = run.current;
@@ -80,25 +99,26 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
           <span className="inline-block [transform:translateX(var(--dx,0px))] max-mk-sm:[transform:none]" style={{ transition: t }}>{lead}</span>{" "}
           <br className="hidden max-mk-sm:inline" />
           <span className="relative inline-block [transform:translateX(var(--dx,0px))]" style={{ transition: t }}>
-            <span
-              className="relative inline-block h-[1.14em] overflow-hidden align-bottom [clip-path:inset(0_var(--cut,0px)_0_0_round_.2em)]"
-              style={{ transition: reduced ? "none" : `clip-path .7s ${EASE}` }}
-            >
-              <span
-                className="absolute inset-0 -z-1 rounded-[.2em] bg-(image:--mk-paths-highlight) bg-no-repeat [background-size:var(--wk,100%)_100%] [clip-path:inset(0_var(--cut,0px)_0_0_round_.2em)]"
-                style={{ transition: reduced ? "none" : `clip-path .7s ${EASE}, background-size .7s ${EASE}` }}
-              />
-              <span className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]" style={{ "--k": k, transition: t } as CSSProperties}>
-                {phrases.map((p, i) => (
+            <span ref={slot} className="relative inline-block h-[1.14em] overflow-hidden rounded-[.2em] align-bottom">
+              <span className="block h-full overflow-hidden rounded-[.2em] [transform:translateX(calc(var(--cut,0px)*-1))]" style={{ transition: t }}>
+                <span className="block [transform:translateX(var(--cut,0px))]" style={{ transition: t }}>
                   <span
-                    key={p}
-                    ref={(el) => { items.current[i] = el; }}
-                    className="block h-[1.14em] w-max flex-none px-[.12em] leading-[1.14em] whitespace-nowrap [transform:translateX(calc((var(--wk,0px)-var(--wi,0px))/2))]"
-                    style={{ "--wi": w ? w.items[i] + "px" : undefined, transition: t } as CSSProperties}
-                  >
-                    {p}
+                    className="absolute top-0 left-0 -z-1 h-[1.14em] w-full origin-top-left bg-(image:--mk-paths-highlight)"
+                    style={{ transform: w ? highlightMatrix(wk, w.max, w.h) : undefined, transition: t }}
+                  />
+                  <span className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]" style={{ "--k": k, transition: t } as CSSProperties}>
+                    {phrases.map((p, i) => (
+                      <span
+                        key={p}
+                        ref={(el) => { items.current[i] = el; }}
+                        className="block h-[1.14em] w-max flex-none px-[.12em] leading-[1.14em] whitespace-nowrap [transform:translateX(calc((var(--wk,0px)-var(--wi,0px))/2))]"
+                        style={{ "--wi": w ? w.items[i] + "px" : undefined, transition: t } as CSSProperties}
+                      >
+                        {p}
+                      </span>
+                    ))}
                   </span>
-                ))}
+                </span>
               </span>
             </span>
             <span ref={dot} className="absolute top-0 left-full [transform:translateX(var(--dotx,0px))]" style={{ transition: t }}>.</span>
