@@ -40,6 +40,8 @@ type Geo = {
    *  becomes active at. A step is active once its natural top has passed its line. */
   nat: number[];
   lines: number[];
+  /** The viewport height the lines were measured against (the sentinels' root band ends at the line). */
+  vh: number;
 };
 
 /**
@@ -159,7 +161,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
       for (let i = 0; i < n; i++) { acc += mt[i]!; nat[i] = acc; acc += h[i]! + pb[i]!; }
       next = {
         stack, fold: !fits, st: lock, mt, pb, tail: S - lead, olMb: -listH, rightMb: -x, gridPb: Math.max(x, listH - 36),
-        nat: nat.map((v) => v - olTop), lines: lock.map((l) => l + lead),
+        nat: nat.map((v) => v - olTop), lines: lock.map((l) => l + lead), vh,
       };
     } else {
       // Reduced motion: a plain list under the sticky heading; a step is active once its top passes the previous
@@ -171,7 +173,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
       const cap = vh * 0.6;
       next = {
         stack, fold: false, st: [], mt: [], pb: [], tail: 0, olMb: -h[n - 1]!, rightMb: -x, gridPb: x,
-        nat: nat.map((v) => v - olTop), lines: h.map((_, i) => (i ? Math.min(headTop + headH + h[i - 1]! - items[i - 1]!.off + 28, cap) : 0)),
+        nat: nat.map((v) => v - olTop), lines: h.map((_, i) => (i ? Math.min(headTop + headH + h[i - 1]! - items[i - 1]!.off + 28, cap) : 0)), vh,
       };
     }
     setGeo((g) => (g && sameGeo(g, next) ? g : next));
@@ -191,9 +193,11 @@ export function ScrollChapter({ id, title, steps }: Props) {
     return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
   }, [measure]);
 
-  /* The target step from IntersectionObserver sentinels: one per step, at the step's natural top, with the root's top
-     edge moved down to the step's line. The observer reports crossings with their geometry, so no scroll handler or frame
-     callback reads layout (the prototype read getBoundingClientRect on every scroll frame). */
+  /* The target step from IntersectionObserver sentinels, so no scroll handler or frame callback reads layout (the
+     prototype read getBoundingClientRect on every scroll frame). Each sentinel runs from its step's natural top to the
+     end of the list, and its root is the band of the viewport above the step's line. A step has passed its line when
+     its sentinel meets that band or lies wholly above it. A jump of any size changes the intersection state, so the
+     observer always reports it (a 1 px sentinel could jump over a thin band without a report). */
   const sentinels = useRef<(HTMLSpanElement | null)[]>([]);
   const jumped = useRef(false);
   useEffect(() => {
@@ -205,14 +209,14 @@ export function ScrollChapter({ id, title, steps }: Props) {
       if (!i || !el) return null;
       const io = new IntersectionObserver(([e]) => {
         if (!e) return;
-        passed[i] = !e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? line);
+        passed[i] = e.isIntersecting || e.boundingClientRect.top < line;
         seen++;
         const s = st.current;
         s.target = passed.lastIndexOf(true) < 0 ? 0 : passed.lastIndexOf(true);
         // The first report of every sentinel sets the step at once (a page opened mid-chapter).
         if (!jumped.current && seen >= n - 1) { jumped.current = true; clearTimeout(s.tm); setActive(s.target); s.at = performance.now(); return; }
         if (jumped.current) go();
-      }, { rootMargin: `${-Math.round(line)}px 0px 0px 0px`, threshold: 0 });
+      }, { rootMargin: `0px 0px ${-Math.max(0, Math.round(geo.vh - line))}px 0px`, threshold: 0 });
       io.observe(el);
       return io;
     });
@@ -301,7 +305,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
             </div>
             <div className="relative">
             {desk && geo
-              ? geo.nat.map((top, i) => (i ? <span key={i} ref={(el) => { sentinels.current[i] = el; }} aria-hidden="true" className="pointer-events-none absolute left-0 size-px" style={{ top }} /> : null))
+              ? geo.nat.map((top, i) => (i ? <span key={i} ref={(el) => { sentinels.current[i] = el; }} aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 w-px" style={{ top }} /> : null))
               : null}
             <ol
               ref={ol}
@@ -358,7 +362,8 @@ export function ScrollChapter({ id, title, steps }: Props) {
 
 function sameGeo(a: Geo, b: Geo) {
   return a.stack === b.stack && a.fold === b.fold && a.tail === b.tail && a.olMb === b.olMb && a.rightMb === b.rightMb && a.gridPb === b.gridPb &&
-    a.st.join() === b.st.join() && a.mt.join() === b.mt.join() && a.pb.join() === b.pb.join();
+    a.st.join() === b.st.join() && a.mt.join() === b.mt.join() && a.pb.join() === b.pb.join() &&
+    a.nat.join() === b.nat.join() && a.lines.join() === b.lines.join() && a.vh === b.vh;
 }
 
 export type Role = "active" | "prev" | "idle";
