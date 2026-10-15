@@ -7,7 +7,7 @@ import { clamp } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
 import { Reveal } from "@/components/motion/Reveal";
-import { DeskBg, DeskPanel, useStepReveal } from "./ScrollChapter";
+import { DeskBg, DeskPanel, useStepReveal, sel } from "./ScrollChapter";
 
 export type AutoStep = { kind: PanelKind; panel: ReactNode; tone: string; title: string; body: string };
 type Props = {
@@ -37,9 +37,8 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const lis = useRef<(HTMLLIElement | null)[]>([]);
   const dur = Math.max(...steps.map((s) => SCENES[s.kind].end ?? 0)) + HOLD;
-  const [c] = useState(() => ({ sw: motionValue(1e6), prog: motionValue(0), t: steps.map(() => motionValue(0)), since: steps.map(() => motionValue(1e6)) }));
+  const [c] = useState(() => ({ sw: motionValue(0), sel: motionValue(sel(0, -1)), prog: motionValue(0), t: steps.map(() => motionValue(0)), since: steps.map(() => motionValue(1e6)) }));
   const [active, setActive] = useState(0);
-  const [prev, setPrev] = useState(-1);
   const [on, setOn] = useState(false);
   const [kbd, setKbd] = useState(false);
   const s = useRef({ active: 0, seen: false });
@@ -48,7 +47,7 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
   /** Shows step k from its start (a click on the active step restarts its panel). */
   const goTo = useCallback((k: number) => {
     c.prog.set(0);
-    if (k !== s.current.active) { setPrev(s.current.active); s.current.active = k; setActive(k); }
+    if (k !== s.current.active) { c.sel.set(sel(k, s.current.active)); s.current.active = k; setActive(k); }
     if (reduced) { c.sw.set(1e6); c.since[k]!.set(1e6); c.t[k]!.set(still(k)); return; }
     c.sw.set(0); c.since[k]!.set(0); c.t[k]!.set(0);
   }, [c, reduced, still]);
@@ -77,11 +76,12 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
   }, [c, reduced]);
 
   useTicker(on && !reduced, (dt) => {
-    const k = s.current.active, S = SCENES[steps[k]!.kind];
     if (!kbd) {
       c.prog.set(c.prog.get() + dt);
-      if (c.prog.get() >= dur) { goTo((k + 1) % n); return; }
+      // The new step's panel advances in the same frame it starts (the prototype's order).
+      if (c.prog.get() >= dur) goTo((s.current.active + 1) % n);
     }
+    const k = s.current.active, S = SCENES[steps[k]!.kind];
     c.sw.set(c.sw.get() + dt);
     c.since[k]!.set(c.sw.get());
     c.t[k]!.set(Math.min(c.t[k]!.get() + dt, S.end ?? S.L));
@@ -161,10 +161,10 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
               data-idle={on && !reduced ? undefined : ""}
               className="ef-ui relative isolate grid h-[560px] place-items-center overflow-hidden rounded-frame shadow-[inset_0_0_0_1px_rgba(24,29,25,.06),0_30px_60px_-40px_rgba(24,29,25,.3)] max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)] max-mk-cx:rounded-card max-mk-cx:px-4 max-mk-cx:pt-11 max-mk-cx:pb-7"
             >
-              {steps.map((st, i) => <DeskBg key={i} tone={st.tone} sw={c.sw} role={i === active ? "active" : i === prev ? "prev" : "idle"} />)}
+              {steps.map((st, i) => <DeskBg key={i} tone={st.tone} sw={c.sw} sel={c.sel} i={i} />)}
               {steps.map((st, i) => (
                 <div key={i} aria-hidden="true" className="contents">
-                  <DeskPanel sw={c.sw} role={i === active ? "active" : i === prev ? "prev" : "idle"} t={c.t[i]!} since={c.since[i]!} place="auto">
+                  <DeskPanel sw={c.sw} sel={c.sel} i={i} t={c.t[i]!} since={c.since[i]!} place="auto">
                     {st.panel}
                   </DeskPanel>
                 </div>

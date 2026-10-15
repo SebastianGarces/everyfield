@@ -64,7 +64,8 @@ export function ScrollChapter({ id, title, steps }: Props) {
   const [clocks] = useState(() => {
     const mt = steps.map(() => motionValue(0)), msince = steps.map(() => motionValue(1e6));
     return {
-      sw: motionValue(1e6),
+      sw: motionValue(0),
+      sel: motionValue(sel(0, -1)),
       t: steps.map(() => motionValue(0)),
       since: steps.map(() => motionValue(1e6)),
       mt,
@@ -74,7 +75,6 @@ export function ScrollChapter({ id, title, steps }: Props) {
     };
   });
   const [active, setActiveState] = useState(0);
-  const [prev, setPrev] = useState(-1);
   const [desk, setDesk] = useState(false);
   const [on, setOn] = useState(false);
   const [mobOn, setMobOn] = useState<boolean[]>(() => steps.map(() => false));
@@ -86,7 +86,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
   const setActive = useCallback((k: number) => {
     const s = st.current;
     if (k === s.active) return;
-    setPrev(s.active);
+    clocks.sel.set(sel(k, s.active));
     s.active = k;
     setActiveState(k);
     if (reduced) { clocks.sw.set(1e6); clocks.since[k]!.set(1e6); clocks.t[k]!.set(still(k)); return; }
@@ -342,9 +342,9 @@ export function ScrollChapter({ id, title, steps }: Props) {
               data-idle={on && !reduced ? undefined : ""}
               className="ef-ui sticky top-(--cx-top) isolate grid h-[min(560px,calc(100vh-var(--cx-top)-28px))] min-h-[500px] place-items-center overflow-hidden rounded-frame shadow-[inset_0_0_0_1px_rgba(24,29,25,.06),0_30px_60px_-40px_rgba(24,29,25,.3)]"
             >
-              {steps.map((s, i) => <DeskBg key={i} tone={s.tone} sw={clocks.sw} role={i === active ? "active" : i === prev ? "prev" : "idle"} />)}
+              {steps.map((s, i) => <DeskBg key={i} tone={s.tone} sw={clocks.sw} sel={clocks.sel} i={i} />)}
               {steps.map((s, i) => (
-                <DeskPanel key={i} sw={clocks.sw} role={i === active ? "active" : i === prev ? "prev" : "idle"} t={clocks.t[i]!} since={clocks.since[i]!} place="vis">
+                <DeskPanel key={i} sw={clocks.sw} sel={clocks.sel} i={i} t={clocks.t[i]!} since={clocks.since[i]!} place="vis">
                   {s.panel}
                 </DeskPanel>
               ))}
@@ -362,24 +362,31 @@ function sameGeo(a: Geo, b: Geo) {
 }
 
 export type Role = "active" | "prev" | "idle";
+/** The shown step and the one fading out, packed in one number (active * 16 + prev + 1) so it can feed a multi-input
+ *  transform. Set in the same call that restarts the switch clock, so a panel's style never waits for a React render
+ *  to learn its new role. */
+export const sel = (a: number, p: number) => a * 16 + p + 1;
+const roleOf = (i: number, r: number): Role => (i === r >> 4 ? "active" : i === (r & 15) - 1 ? "prev" : "idle");
 /** Panel crossfade (the hero's curves): the old card out 250 ms sine, 6 px up; the new card in after 150 ms, 380 ms ease-out, 8 px lift. */
 export function cardFrame(role: Role, s: number) {
   if (role === "active") { const pin = out(P(s, 150, 380)); return { o: pin, y: (1 - pin) * 8 }; }
   if (role === "prev") { const po = sine(P(s, 0, 250)); return { o: 1 - po, y: -6 * po }; }
   return { o: 0, y: 0 };
 }
-export function DeskPanel({ sw, role, t, since, place, children }: { sw: MotionValue<number>; role: Role; t: MotionValue<number>; since: MotionValue<number>; place: "vis" | "auto"; children: ReactNode }) {
-  const transform = useTransform(sw, (s) => "translate3d(0px," + cardFrame(role, s).y.toFixed(2) + "px,0)");
-  const opacity = useTransform(sw, (s) => +cardFrame(role, s).o.toFixed(3));
-  const visibility = useTransform<number, string>(sw, (s) => (cardFrame(role, s).o > 0 ? "visible" : "hidden"));
+export function DeskPanel({ sw, sel, i, t, since, place, children }: { sw: MotionValue<number>; sel: MotionValue<number>; i: number; t: MotionValue<number>; since: MotionValue<number>; place: "vis" | "auto"; children: ReactNode }) {
+  const f = ([s, r]: number[]) => cardFrame(roleOf(i, r!), s!);
+  const transform = useTransform([sw, sel], (v: number[]) => "translate3d(0px," + f(v).y.toFixed(2) + "px,0)");
+  const opacity = useTransform([sw, sel], (v: number[]) => +f(v).o.toFixed(3));
+  const visibility = useTransform([sw, sel], (v: number[]): string => (f(v).o > 0 ? "visible" : "hidden"));
   const slot = useMemo((): PanelSlot => ({ t, since, stagger: 240, place, card: { transform, opacity, visibility } }), [t, since, place, transform, opacity, visibility]);
   return <PanelSlotProvider slot={slot}>{children}</PanelSlotProvider>;
 }
 /** The active step's gradient fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
  *  axe sorted a negative z-index gradient above the white card and reported false contrast failures. */
-export function DeskBg({ tone, sw, role }: { tone: string; sw: MotionValue<number>; role: Role }) {
-  const opacity = useTransform(sw, (s) => +(role === "active" ? inOut(P(s, 0, 500)) : role === "prev" ? 1 : 0).toFixed(3));
-  return <m.span aria-hidden="true" className={cn("mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone, role === "active" ? "z-[1]" : "z-0")} style={{ opacity }} />;
+export function DeskBg({ tone, sw, sel, i }: { tone: string; sw: MotionValue<number>; sel: MotionValue<number>; i: number }) {
+  const opacity = useTransform([sw, sel], ([s, r]: number[]) => { const k = roleOf(i, r!); return +(k === "active" ? inOut(P(s!, 0, 500)) : k === "prev" ? 1 : 0).toFixed(3); });
+  const zIndex = useTransform(sel, (r) => (r >> 4 === i ? 1 : 0));
+  return <m.span aria-hidden="true" className={cn("mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone)} style={{ opacity, zIndex }} />;
 }
 
 /**

@@ -149,10 +149,10 @@ export function EvryPanel() {
           <div className="text-[12px] text-text-3">Reads and drafts. You approve every change.</div>
         </div>
       </St>
-      <St i={1} className="max-w-[86%] self-end rounded-2xl rounded-br-md bg-ink px-3.5 py-[11px] text-[13px] leading-[1.45] text-on-ink">
+      <St i={1} className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] text-[13px] leading-[1.45] text-on-ink">
         <Typed text={CX_Q} p={(v) => P(v, 450, 1300)} />
       </St>
-      <Move f={(v) => rise(v, 1950, R_EVRY(v))} className="max-w-[86%] self-start rounded-2xl rounded-bl-md bg-surface-2 px-3.5 py-[11px] text-[13px] leading-[1.45] opacity-0">
+      <Move f={(v) => rise(v, 1950, R_EVRY(v))} className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] text-[13px] leading-[1.45] opacity-0">
         <Typed text={CX_A} p={(v) => P(v, 2150, 1500)} />
       </Move>
       <Move f={(v) => rise(v, 3750, R_EVRY(v))} className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]">
