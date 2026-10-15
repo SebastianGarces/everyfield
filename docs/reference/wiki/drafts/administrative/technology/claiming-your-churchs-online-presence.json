@@ -1,0 +1,166 @@
+{
+  "church_id": null,
+  "content": "A guest receives an invitation to your church and searches for the address. Make that search part of your launch preparation. Check what appears under your church's name, who can correct it, and where the map sends someone.\n\nWork through the listings with your Technology Leader or Promotion Leader. Your goal is an accurate public presence with access your church can retain when responsibilities change. Keep the website as the place to explain service times, parking, and what a guest should expect.\n\n---\n\n## Prepare your public information\n\nMake a reference sheet before you open accounts. Use it to check each listing against your website and signs.\n\n| Record | Prepare |\n|--------|---------|\n| Church identity | Public name, short description, logo |\n| Guest contact | Church phone, monitored email, website |\n| Meeting location | Approved public address, entrance, parking instructions |\n| Schedule | Current service times and any separate office hours |\n| Access record | Profile URL, responsible leader, backup, claim status |\n\nKeep passwords and recovery codes in a password manager, separate from this sheet. Use a church-controlled email address for organizational accounts where the platform permits it. Keep personal logins personal when a platform assigns access to individuals.\n\n<Callout type=\"important\">\nPlatform guidance checked October 15, 2026. Before acting, confirm current eligibility, verification options, and account controls with Google Business Profile Help, Apple Support, Yelp for Business, and Meta Help. Apple now calls Business Connect Apple Business. Screens and requirements can change.\n</Callout>\n\n---\n\n## Find and claim your Google profile\n\nSearch Google Maps for your church's name and city. Check the address before selecting a result, especially if another church has a similar name.\n\n- [ ] If your church has an unverified profile, select \"Claim this business\" and follow \"Manage now.\"\n- [ ] If another account has verified it, use Google's ownership-request process.\n- [ ] If no profile exists and your church is eligible, start at `business.google.com/add`.\n- [ ] Complete the verification options Google offers, then check the public result.\n\nGoogle determines the available verification methods. Do not plan around receiving a particular method or finishing by a promised date. Add another authorized leader through the profile's \"People and access\" controls. Each person should use their own Google Account.\n\nUse your actual church name. Keep search keywords and promotional taglines out of the name field. Select the category that accurately describes your church.\n\n---\n\n## Check eligibility at your meeting location\n\nA rented venue needs care. Google excludes an ongoing meeting at a location you neither own nor have authority to represent. Confirm your authority with the venue and check Google's eligibility guidance before creating a profile. Do not claim the school's or host church's listing as your own.\n\n<Callout type=\"warning\">\nDo not substitute a P.O. box or remote mailbox for an eligible Google location. If your meeting arrangement is unclear, ask Google support before proceeding. Keep an accurate invitation and directions on your website while you resolve it.\n</Callout>\n\nKeep worship schedules separate from ordinary opening hours. Google's guidance says some organizations with varied activity schedules, including worship services, should not provide business hours. Check the rule against your actual arrangement rather than copying the service time into every hours field.\n\n---\n\n## Update your Apple Maps location\n\nUse Apple Business, formerly Apple Business Connect, to manage your church's Apple Maps location. In Apple's current guide, the location workflow begins at \"Brands\" then \"Locations.\" Choose \"Add Location\" and \"Add single location,\" then search for your church.\n\nSelect the existing location if it appears. Add a new location only after checking for a match. Review the map marker, address, category, phone, website, and applicable hours. Follow Apple's organization or location verification prompts. Phone verification is available only in some circumstances.\n\nIf another organization manages the location, use Apple's transfer-request process and provide the supporting documentation it requests. Record whether the claim is pending or complete in your access record. Check Apple Maps itself after approval.\n\n---\n\n## Claim your Yelp page\n\nStart at `biz.yelp.com/claim` and search for the church. Select its existing page, or use \"Add to Yelp for free\" if it is absent. Create a Yelp for Business account with an email you monitor, then follow the verification prompts.\n\nYelp describes claiming as free and separate from advertising. Keep any advertising proposal as a separate spending decision for your church.\n\nOnce you have access, check the address, phone, website, photos, and applicable hours. Use a recognizable exterior or entrance photo to help guests identify the meeting place. If the existing page belongs to a different church, leave it alone and resolve the mismatch with Yelp support.\n\n---\n\n## Establish Facebook and Instagram accounts\n\nSearch for existing church accounts first. If a former volunteer manages one, ask for an access handoff before creating another account with a similar name.\n\nUse a Facebook Page for your church's public presence. If you need a new Page, follow Meta's Page creation guide. Add your church's identifying information and website. Facebook lets people with full control manage other people's Page access. Have an authorized leader grant access to the people responsible for the Page.\n\nFor Instagram, create or recover the church account, choose a recognizable available username, and add the church website and a clear description. Check that the account's email and recovery phone still reach an authorized person. Instagram's help guidance warns that losing access to the signup email can limit account recovery.\n\n<Callout type=\"tip\">\nLink the church's social accounts from your official website. Instagram identifies this as a way to show authenticity without a verified badge. Record the exact profile URLs so your team shares the right accounts.\n</Callout>\n\n---\n\n## Protect access before you hand it off\n\nUse strong, unique passwords and a password manager. Turn on multifactor authentication wherever available, including the email accounts used for recovery. CISA recommends these protections for online accounts.\n\nPlan a handoff while the outgoing volunteer is available. Ask the incoming leader to sign in with their own authorized access and confirm they can perform their assigned work. Use platform roles where offered, and give people the access their responsibilities require. Limit who can change access for everyone else.\n\nRecord the responsible leader, backup, and recovery process in a restricted church record. Store recovery codes securely. When someone leaves the role, review their access and update recovery details before closing the handoff. Do not put passwords into an ordinary task checklist or group message.\n\n---\n\n## Check the result as a guest\n\nAsk someone outside the setup team to check the public pages on a phone.\n\n- [ ] Search the church's name and city on Google Maps and Apple Maps.\n- [ ] Confirm the map points to the intended meeting place.\n- [ ] Open the website link and find the next service time.\n- [ ] Test the public phone and contact method.\n- [ ] Open each social link from the website.\n- [ ] Flag old addresses, duplicate-looking results, and unanswered messages for follow-up.\n\nAssign a leader to repeat this check after a venue, schedule, or leadership change. Put a recurring review on that leader's calendar. Finish by recording unresolved claims and who will follow them up.\n\n<Callout type=\"scripture\">\n*\"A good name is to be chosen over great wealth, Favor is better than silver and gold.\"* — Proverbs 22:1 (LSB)\n</Callout>",
+  "content_type": "how_to",
+  "created_at": "2026-10-15T18:06:56Z",
+  "excerpt": "Claim and check your church's map listings and social accounts, protect access, and keep guest information current.",
+  "id": "e56eb7c7-d719-474f-93e5-5c5bebc10510",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 6,
+  "related_article_slugs": [
+    "administrative/technology/setting-up-your-website",
+    "launch-team/leadership/technology-leader-role",
+    "launch-team/leadership/promotion-leader-role"
+  ],
+  "section_id": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+  "slug": "administrative/technology/claiming-your-churchs-online-presence",
+  "sort_order": 3,
+  "status": "draft",
+  "title": "Claiming Your Church's Online Presence",
+  "updated_at": "2026-10-15T18:06:56Z",
+  "draft": {
+    "backlog_id": "A13",
+    "tier": "A",
+    "closes": [
+      "20.2",
+      "32.6"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Google claim steps: search Maps; claim an unverified listing; request ownership of a verified listing; add an eligible new profile.",
+        "url": "https://support.google.com/business/answer/2911778?hl=en",
+        "publisher": "Google Business Profile Help",
+        "quote": "Select a verification option, and follow the on-screen steps.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Google chooses available verification methods, which vary by profile circumstances. No particular method or completion date is promised here.",
+        "url": "https://support.google.com/business/answer/7107242?hl=en",
+        "publisher": "Google Business Profile Help",
+        "quote": "Verification methods are automatically determined by Google and can’t be changed.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Google excludes meetings at locations without ownership or authority to represent them, and P.O. boxes or remote mailboxes. Authorized representatives must have consent.",
+        "url": "https://support.google.com/business/answer/13763036?hl=en",
+        "publisher": "Google Business Profile Help",
+        "quote": "An ongoing service, class, or meeting at a location that you don't own or have the authority to represent.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Google requires a real-world name, accurate address and category; name keywords and taglines are restricted. Its hours guidance excludes some varied worship-service schedules.",
+        "url": "https://support.google.com/business/answer/3038177?hl=en",
+        "publisher": "Google Business Profile Help",
+        "quote": "Your name must not include: Marketing taglines",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Google profile owners can invite owners or managers in People and access; each user uses a separate Google Account rather than sharing a password.",
+        "url": "https://support.google.com/business/answer/3403100?hl=en",
+        "publisher": "Google Business Profile Help",
+        "quote": "each user needs their own Google Account.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Apple Business Connect is now Apple Business as of the research date.",
+        "url": "https://support.apple.com/en-ie/guide/apple-business-connect/abcb205640e7/web",
+        "publisher": "Apple Support",
+        "quote": "Apple Business Connect is now Apple Business",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Apple location workflow: Brands > Locations, Add Location, Add single location; select existing or add absent locations, correct map and details, follow verification, request transfer if managed elsewhere. Phone verification is conditional.",
+        "url": "https://support.apple.com/guide/business/add-a-single-location-abcb98816a34/web",
+        "publisher": "Apple Support",
+        "quote": "Phone verification may be available if a location already exists on Maps.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Yelp directs users to biz.yelp.com/claim, search or add an absent page, create an account using monitored email, and follow verification prompts.",
+        "url": "https://business.yelp.com/resources/articles/creating-a-yelp-page-for-your-brand-new-business/?domain=local-business&promo=BAPCHBP300V33",
+        "publisher": "Yelp for Business",
+        "quote": "Go to www.biz.yelp.com/claim, and type in your business name.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Claiming a Yelp page is free and separate from advertising; claimed-page tools allow updates to business information and photos.",
+        "url": "https://www.yelp-support.com/article/What-is-a-claimed-business?l=en_US",
+        "publisher": "Yelp Support",
+        "quote": "Claiming is free, and a claimed page does not mean that the business is an advertiser with Yelp.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "A Facebook Page is a public business presence where people can learn about the organization and get in touch; Meta provides a Page creation guide.",
+        "url": "https://www.facebookblueprint.com/student/page/259567-how-to-create-a-facebook-page",
+        "publisher": "Meta Blueprint",
+        "quote": "Your Page makes it easy for people to find out more about what you offer and get in touch with you.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "People with full control can manage other people’s Facebook access or task access; people use individual Facebook accounts for Page access.",
+        "url": "https://www.facebook.com/help/187316341316631",
+        "publisher": "Meta Help Center",
+        "quote": "You can add, edit or remove someone’s Page access at any time.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Instagram account recovery depends on accessible email or linked account options; logged-in users should update inaccessible contact details.",
+        "url": "https://www.facebook.com/help/instagram/358911864194456?locale=en_GB",
+        "publisher": "Instagram Help Center",
+        "quote": "This is necessary to ensure that you can continue to access Instagram",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Instagram says linking an account from the official website is a way to demonstrate authenticity without a verified badge.",
+        "url": "https://www.facebook.com/help/461238577687001",
+        "publisher": "Meta Help Center",
+        "quote": "If your account doesn't have a verified badge, there are other ways to let people know that you're authentic.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "CISA recommends strong passwords, a password manager and MFA for online accounts; supports security recommendations in preparation and access-handoff sections.",
+        "url": "https://www.cisa.gov/secure-our-world",
+        "publisher": "Cybersecurity and Infrastructure Security Agency",
+        "quote": "Using strong passwords and a password manager are some easy ways to protect ourselves",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Proverbs 22:1 LSB checked word for word, one verse only. Two poetic lines are joined with a space without changing words or punctuation.",
+        "url": "https://read.lsbible.org/proverbs/22/1",
+        "publisher": "The Lockman Foundation / Three Sixteen Publishing",
+        "quote": "chosen over great wealth",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Awaiting independent Opus source, scripture and screenshot review. Sources accessed 2026-10-15. Vendor help for Yelp and some Meta pages was read in search-indexed text; direct fetches returned rate limits, login gates or timeouts. No inaccessible Instagram linking or professional-account setup steps are asserted. CISA Secure Our World page is marked archived; used only for basic account-security guidance, not current program policy. Procedural checklists, backup-role planning and review cadence are editorial recommendations, not platform requirements."
+    },
+    "rulings": [
+      "2026-10-15 writer ruling: phase 0 and content_type how_to match the Technology section and canonical row enum.",
+      "2026-10-15 writer ruling: vendor labels identify platform self-documentation; CISA and the LSB publisher are primary sources.",
+      "2026-10-15 writer ruling: limit this article to account claims, accuracy and access. Exclude advertising strategy, ranking promises, review solicitation, numeric fees and verification deadlines.",
+      "2026-10-15 writer ruling: use current Apple Business name and explain former Business Connect name. All platform facts are as of 2026-10-15.",
+      "2026-10-15 writer ruling: treat checklists, access register and backup/handoff steps as practical editorial recommendations; they set no new church-planting methodology. No unresolved owner rulings."
+    ]
+  }
+}
