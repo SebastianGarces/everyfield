@@ -2,31 +2,15 @@
    1. design/handoff/tokens.css is the single token source: it imports Tailwind and defines the --ef-* values,
       the shadcn names and the @theme utilities (bg-ink, text-text-2, rounded-card, font-display ...).
    2. The marketing layer below adds only what the marketing pages need and the product tokens do not have.
-   Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600).
-   3. The prototype CSS of the string-markup sections (prototype.css, site.css; deleted in R3) sits in the legacy layer,
-      between Tailwind's base and utilities: it still overrides preflight, and the new components' utilities override
-      its element rules (a { color: inherit }, h1-h4 { margin: 0 } and the rest). */
-@layer theme, base, legacy, components, utilities;
+   Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600). */
 @import "../../../../design/handoff/tokens.css";
-@import "./prototype.css" layer(legacy);
-@import "./site.css" layer(legacy);
 
-/* The string-markup sections (removed in R3) are not Tailwind sources: their class names are prototype CSS classes. */
-@source not "../marketing/markup.ts";
-@source not "../marketing/engines.ts";
+/* Data and scripts are not Tailwind sources. */
 @source not "../marketing/scene-data.ts";
+@source not "../marketing/demo-data.ts";
 @source not "../marketing/logo-symbols.ts";
 @source not "../styles";
 @source not "../../scripts";
-
-/* The legacy sections were written against browser defaults, which Tailwind's preflight changes. These two are the only
-   ones the parity harness found: content links lose their underline and <small> shrinks to 80% instead of "smaller".
-   Same layer as the prototype CSS, so its own class rules (text-decoration: none on buttons, nav and footer) still win.
-   Deleted with the legacy layer in R3. */
-@layer legacy {
-  a { text-decoration-line: underline; }
-  small { font-size: smaller; }
-}
 
 /* Fonts come from next/font (layout.tsx), so the token font stacks point at its variables. */
 :root {
@@ -95,7 +79,11 @@
   }
   /* Keyboard focus: one ring for every link and button. Light controls on the ink footer use a white ring. */
   a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  /* An anchor jump stops under the header (the floating pill is 60 px, 56 px on phones, 12 px from the top). */
+  [id] { scroll-margin-top: 88px; }
+  @media (max-width: 640px) { [id] { scroll-margin-top: 76px; } }
+  /* Reduced motion: no transitions and no CSS animations anywhere (each scene also shows its still frame). */
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
 }
 
 /* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */
@@ -148,6 +136,12 @@
   --color-mk-bar-muted: #B9C0BB;
   --color-mk-skeleton: #ECEFF2;
   --color-mk-skeleton-hi: #F7F8FA;
+  /* Text on the field-gradient CTA box; the half-white secondary button on it. */
+  --color-mk-ink-78: rgb(from var(--color-ink) r g b / .78);
+  --color-mk-white-75: rgb(from var(--color-white) r g b / .75);
+  /* Access form: the failure message's text on magenta-100, and the check on the accent green. */
+  --color-mk-danger-ink: #6E1A2E;
+  --color-mk-accent-ink: #111318;
   /* The sending-paths phrase highlight (the prototype's .ovs-roll gradient). */
   --color-mk-paths-hl-1: #BFF5D3;
   --color-mk-paths-hl-2: #DCFAE7;
@@ -163,6 +157,9 @@
   --shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, var(--color-mk-ink-45));
   --shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
   --shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
+  /* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
+  --shadow-mk-app: var(--ui-ring), 0 2px 6px var(--color-mk-ink-06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / .22);
+  --shadow-mk-cta: 0 30px 60px -36px var(--color-mk-hero-shade);
   /* The animated panel frames, the hero panel and smaller parts. */
   --shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
   --shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
@@ -191,6 +188,9 @@
   --animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
   --animate-eb-blink-now: eb-blink-now .18s ease;
 
+  /* The /oversight hero dashboard rises in once on load. */
+  --animate-mk-ov-rise: mk-ov-rise .9s cubic-bezier(.33, 1, .68, 1) .2s both;
+  @keyframes mk-ov-rise { from { opacity: 0; transform: translate3d(0, 36px, 0); } to { opacity: 1; transform: none; } }
   @keyframes mk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
   @keyframes mk-caret { 50% { background-size: 0 0; } }
   @keyframes eb-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
@@ -265,17 +265,5 @@
 
 /* A scene that is off screen or paused marks its root with data-idle: its CSS loops stop too. */
 @layer components {
-  /* The legacy gradient surfaces of the string sections (.gsurf, .insight and the CTA box in prototype.css, deleted in
-     R3) draw the same mesh image instead of their blurred pseudo-element. Their tones are the g-* tones (the mesh script
-     checks this). */
-  [data-tone="field"], .mk-signal .sec-cta .cta-box { --g-mesh: url("/mesh/field.svg"); }
-  [data-tone="sky"] { --g-mesh: url("/mesh/sky.svg"); }
-  [data-tone="dawn"] { --g-mesh: url("/mesh/dawn.svg"); }
-  [data-tone="lilac"] { --g-mesh: url("/mesh/lilac.svg"); }
-  [data-tone="sea"] { --g-mesh: url("/mesh/sea.svg"); }
-  [data-tone="rose"] { --g-mesh: url("/mesh/rose.svg"); }
-  [data-tone="sun"] { --g-mesh: url("/mesh/sun.svg"); }
-  [data-tone="slate"] { --g-mesh: url("/mesh/slate.svg"); }
-  .insight::before, .gsurf::before, .mk-signal .sec-cta .cta-box::before { inset: 0; filter: none; background: var(--g-mesh) 0 0 / 100% 100% no-repeat; }
   [data-idle] *, [data-idle] *::before, [data-idle] *::after { animation-play-state: paused !important; }
 }

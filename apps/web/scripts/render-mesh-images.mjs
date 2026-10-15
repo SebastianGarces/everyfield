@@ -2,7 +2,7 @@
 // `node scripts/render-mesh-images.mjs`. `--check` exits 1 when an image is out of date (tones, styles or this script
 // changed since the last render, or an SVG was edited by hand).
 //
-// Why: the surfaces (mk-gsurf, and .gsurf, .insight and the CTA box in prototype.css) drew five radial gradients under
+// Why: the gradient surfaces (mk-gsurf: hero panels, InsightCards, the CTA box, rail art) drew five radial gradients under
 // `filter: blur(52px) saturate(1.1)` on a pseudo-element. Firefox repaints that filter while the page scrolls (up to
 // 27 ms per frame at 390 px). As a background image the same picture is rasterized once per size and cached.
 //
@@ -32,15 +32,6 @@ for (const m of read("../src/styles/marketing.css").toString().matchAll(/@utilit
   const val = (k) => { const s = v[k] ?? ""; const r = s.match(/var\((--ef-grad-[\w-]+)\)/); return (r ? tokens[r[1]] : s).toUpperCase(); };
   tones[m[1]] = Object.fromEntries(KEYS.map((k) => [k, val(k)]));
 }
-// The legacy surfaces in prototype.css must use the same colours, or they need their own images.
-const proto = read("../src/styles/prototype.css").toString();
-const legacy = (block) => Object.fromEntries([...block.matchAll(/--g-?(base|\d)\s*:\s*(#[0-9A-Fa-f]{6})/g)].map((x) => [x[1] === "base" ? "base" : "g" + x[1], x[2].toUpperCase()]));
-for (const m of proto.matchAll(/\[data-tone="(\w+)"\] \{([^}]*)\}/g)) {
-  const t = tones[m[1]], l = legacy(m[2]);
-  for (const k of KEYS) if (t && l[k] && t[k] !== l[k]) throw new Error(`prototype.css [data-tone="${m[1]}"] ${k} ${l[k]} differs from g-${m[1]} ${t[k]}`);
-}
-const cta = legacy([...proto.matchAll(/\.mk-signal \.sec-cta \.cta-box \{([^}]*)\}/g)].map((m) => m[1]).find((b) => b.includes("--g-base")) ?? "");
-for (const k of KEYS) if (cta[k] !== tones.field[k]) throw new Error(`prototype.css CTA box ${k} ${cta[k]} differs from g-field ${tones.field[k]}`);
 const outputs = Object.keys(tones).map((t) => `${OUT}/${t}.svg`);
 // The images depend on the tone colours and on this script only (not on unrelated style edits).
 const inputHash = () => sha(Buffer.concat([read("./render-mesh-images.mjs"), Buffer.from(JSON.stringify(tones))]));

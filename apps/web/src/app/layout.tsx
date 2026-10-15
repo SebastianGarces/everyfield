@@ -22,7 +22,7 @@ export const viewport: Viewport = { themeColor: "#FCFBF8", colorScheme: "light" 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body className="mk-signal">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
