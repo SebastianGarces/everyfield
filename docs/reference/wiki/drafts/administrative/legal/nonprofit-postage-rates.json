@@ -255,9 +255,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened every source and checked the single scripture verse. Independent Opus review of claims, scripture, desktop and mobile previews remains required; the author does not approve claims. Volatile rules checked 2026-10-15; no dollar rates, delivery promises or approval timelines included."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review of head 43cbfaf3c3df4647f6bd48c56203496015453075 on 2026-10-15. Re-read all 24 source URLs and matched every factual sentence: eligibility categories and primary-purpose test (Pub 417 2-1, 2-2.1; DMM 703.1), PS Form 3624 title, signer, name and category rules (January 2017 form), documentation (Pub 417 3-1.3, 3-1.4), filing, date-stamped copy and pending-refund rules (Pub 417 3-1.6; DMM 703.1.9), 200 addressed pieces or 50 pounds, under 16 ounces and no single-piece price (Pub 417 4-3.1; Business Mail 101), no application fee, permit and annual-fee rules, national authorization number, PS Form 3623 at non-PostalOne! offices (DMM 703.1.8.1; Pub 417 3-2.2), identification and d.b.a. rules (Pub 417 4-3.2), own-mail and cooperative rules (Pub 417 4-1, 5-1), content restrictions (Pub 417 6-1.2) and two-year nonuse revocation (Pub 417 3-3.1; DMM 703.1.11.4). Notice 123 effective October 04, 2026 confirmed. No dollar rates or fees stated; volatile rules carry the October 15, 2026 as-of callout. 1 Corinthians 14:40 matches lsbible.org word for word. Lint passes with no warnings (1,039 words); desktop and mobile screenshots render all content, the table, checklist and LSB notice. No copied passages beyond form titles and numeric thresholds."
     },
     "rulings": [
       "2026-10-15 author ruling, resolved: Use current DMM 703.1.8.1 and Publication 417 section 3-2.2 for confirmation at non-PostalOne! locations. Form 3624 January 2017 contains an inconsistent “does participate” sentence; do not repeat it. Publication 417 introductory each-office wording is superseded by its nationwide authorization section and current DMM.",
