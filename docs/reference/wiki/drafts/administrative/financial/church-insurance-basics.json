@@ -1,0 +1,183 @@
+{
+  "church_id": null,
+  "content": "Your church can face claims involving injuries, damaged property or leadership decisions. Insurance offers different kinds of protection for those risks. Start by asking what your church actually needs covered.\n\nUse this reference to prepare for a conversation with a licensed insurance agent or broker. Ask them to connect each recommendation to your ministry activities and the terms of the proposed policy.\n\n---\n\n## Describe the ministry before requesting a quote\n\nGive the agent a written picture of your operations. Include meeting locations, equipment, paid workers and volunteer activities. Describe children's programs, transportation and any space you rent. Ask which activities need separate coverage or an endorsement.\n\nIf you already have insurance, provide the current policy for review. Ask the agent to identify gaps and overlapping coverage. If a sending church or network arranges insurance, ask whose organization and activities the policy covers, including your plant's.\n\n---\n\n## Match coverage to the risk\n\nUse these categories as a discussion list. Ask which protections appear in the proposal and which require additions.\n\n| Coverage | What to discuss |\n|---|---|\n| General liability | Claims that your operations injured someone or damaged someone else's property, plus defense of covered claims. |\n| Property | Buildings and belongings, including furniture and equipment, against covered damage or loss. |\n| Management liability, including directors and officers | Claims arising from leadership decisions, including protection for the organization and its leaders. |\n| Employment practices liability | Employee allegations of discrimination, harassment or wrongful dismissal. |\n| Crime | Theft, fraud and employee dishonesty. |\n| Cyber liability | Financial losses and liabilities involving data breaches or cyberattacks. |\n| Umbrella liability | Additional liability protection above the limits of underlying policies. |\n\nGeneral liability can address injury and property-damage claims from your premises or operations. Ask about legal defense as well as damages. For an umbrella proposal, ask which underlying policies it extends and which risks remain excluded.\n\n---\n\n## Read the venue agreement with your agent\n\nDo not assume the landlord's insurance protects the church's belongings. The National Association of Insurance Commissioners warns tenants to check their own property coverage and read their leases carefully.\n\nGive your agent the venue's insurance requirements. Ask a local attorney to review the agreement's liability obligations. Confirm who must provide a certificate of insurance, whether the venue must be an additional insured, and what policy terms would provide that status.\n\n<Callout type=\"warning\">\nA certificate of insurance summarizes coverage. It does not expand the policy. Ask the agent to verify the actual coverage supporting any additional-insured request.\n</Callout>\n\nCheck that the agreement describes the rooms, access times and intended activities accurately. Include setup and teardown when describing how you will use the space. Ask about the church's liability for damage to property in its care.\n\n---\n\n## Follow equipment and vehicles beyond the venue\n\nProperty questions should follow your equipment wherever you use or store it. Describe instruments, sound equipment and computers, including items kept away from your meeting location. Ask about inland marine coverage for movable equipment in transit or temporarily off-site.\n\nDocument the assets and keep purchase records and photographs. Ask the agent how to value the equipment for the proposed coverage, including whether payment would reflect replacement cost or depreciation.\n\n<Callout type=\"tip\">\nWalk the agent through an equipment move. Where is it stored, how does it travel, and where is it used? Ask them to identify coverage for each part of that trip.\n</Callout>\n\nDiscuss vehicles separately. Hired and non-owned auto liability addresses organizational risks when workers or volunteers drive personal vehicles for ministry or the church rents a vehicle. Ask separately about damage to a rented vehicle itself and about any church-owned vehicles.\n\n---\n\n## Ask explicitly about abuse coverage\n\nSexual misconduct and molestation liability is a specialized coverage category. Ask about allegations involving the church, employees and volunteers. Have the agent explain who is insured, the covered allegations, exclusions and the available legal defense.\n\nAsk them to identify the relevant policy wording rather than relying on a general description of church liability insurance. Coverage details vary. Discuss the insurer's abuse-prevention requirements alongside the coverage review.\n\nKeep the discussion about insurance specific. Ask what the proposed policy requires of your church and how to report an allegation to the insurer.\n\n---\n\n## Check workers' compensation with your state\n\nAsk your state's workers' compensation agency how its requirements apply to your church and each worker's duties. Do not decide that every worker is exempt because the employer is religious.\n\nFor example, New York's Workers' Compensation Board lists a nonprofit exception for clergy and religious-order members whose work consists solely of religious duties. Ask the Board about the actual duties before relying on that exception. Treat this as a New York example, not a rule for another state.\n\n<Callout type=\"important\">\nState requirements and policy offerings can change. Confirm current requirements with your state's workers' compensation agency and confirm available coverage with your agent. The New York example and insurer descriptions here were checked on October 15, 2026.\n</Callout>\n\n---\n\n## Compare the policy terms\n\nAsk the agent to explain the proposal's limits, exclusions and endorsements. Have them show what each recommendation covers in your actual operations.\n\nBring these questions to the review:\n\n- Who and what does the policy insure, and at which locations?\n- When does coverage begin and end?\n- What is the deductible, and can the church pay it after a loss?\n- What limits apply, and what losses would remain the church's responsibility?\n- Which activities or property are excluded?\n- How should you notify the insurer about a claim?\n\nAsk for clarification before choosing. Keep the policy documents and the agent's explanations with your insurance records.\n\n---\n\n## Review coverage as the church changes\n\nReview coverage annually and when your operations, property or activities change. Use the review to revisit your inventory and the ministry description you gave the agent.\n\n- [ ] Describe changed activities and meeting locations.\n- [ ] Update the equipment list and supporting records.\n- [ ] Revisit staffing and transportation arrangements.\n- [ ] Compare the policy with current venue requirements.\n- [ ] Ask the agent to explain remaining gaps or exclusions.\n\n<Callout type=\"scripture\">\n*\"Commit your works to Yahweh And your plans will be established.\"* — Proverbs 16:3 (LSB)\n</Callout>",
+  "content_type": "reference",
+  "created_at": "2026-10-15T19:45:00Z",
+  "excerpt": "Coverage categories and questions to take to an insurance agent about your church, rented venue, equipment, workers and volunteers.",
+  "id": "ef7f9cba-f5d4-43d1-b351-450e48d10b96",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "administrative/financial/first-year-budget-planning",
+    "administrative/financial/principles-of-financial-accountability",
+    "administrative/purchasing/acquiring-portable-church-equipment",
+    "launch-team/leadership/facilities-leader-role"
+  ],
+  "section_id": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+  "slug": "administrative/financial/church-insurance-basics",
+  "sort_order": 8,
+  "status": "draft",
+  "title": "Church Insurance Basics",
+  "updated_at": "2026-10-15T19:45:00Z",
+  "draft": {
+    "backlog_id": "A10",
+    "tier": "A",
+    "closes": [
+      "33.3",
+      "35.8"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Opening; ministry description; compare terms; notification questions. Editorial questions apply the guide to a church plant without asserting specific coverage.",
+        "url": "https://www.insurance.ca.gov/01-consumers/105-type/95-guides/09-comm/commercialguide.cfm",
+        "publisher": "California Department of Insurance",
+        "quote": "\"discuss your business operations\"; \"limits, exposure bases, business classifications, exclusions, and endorsements\"; \"deductible\"; \"report all claims in a timely manner\"; \"licensed insurance broker-agent\"",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Venue belongings warning; inventory, receipts, photographs and policy records; valuation and limits questions.",
+        "url": "https://content.naic.org/consumer/small-business.htm",
+        "publisher": "National Association of Insurance Commissioners",
+        "quote": "\"do not rely on your landlord\"; \"document all business assets\"; \"maximum amount an insurer will pay for a covered loss\"; \"digital pictures\"; \"receipts\"; \"replacement cost\"",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Venue agreement questions cover use, times, insurance obligations, certificates and additional-insured status. No universal limit is recommended.",
+        "url": "https://www.brotherhoodmutual.com/legal-assist/lending-facilities-faq",
+        "publisher": "Brotherhood Mutual",
+        "quote": "\"Work with an attorney\"; \"times and days of usage\"; \"detailed insurance requirements\"; \"additional insured\"; \"certificate of insurance as proof of coverage\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Certificate warning distinguishes evidence of coverage from policy changes.",
+        "url": "https://oci.wi.gov/Pages/Regulation/Bulletin20080505CertOfIns.aspx",
+        "publisher": "Wisconsin Office of the Commissioner of Insurance",
+        "quote": "\"these certificates do not affirmatively or negatively amend, extend or alter coverage of the underlying policy. They simply summarize the coverages.\"",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening and coverage table; general liability covers third-party injury and property-damage claims and defense of covered claims.",
+        "url": "https://www.churchmutual.com/insurance/general-liability-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"third-party claims of bodily injury, property damage\"; \"legal defense costs, settlements and judgments related to covered claims\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Property category covers physical assets; venue care liability is a coverage question, not a promise.",
+        "url": "https://www.churchmutual.com/insurance/property-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"physical assets\"; \"furniture, fixtures, artwork and other personal property\"; \"damage to someone else's property in your care\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Management liability table row and opening describe organizational and leadership decision risks.",
+        "url": "https://www.churchmutual.com/insurance/management-liability-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"protect directors, officers and executives, as well as the organization itself, from various risks associated with management decisions and actions\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Employment practices table row describes employee allegations.",
+        "url": "https://www.churchmutual.com/insurance/employment-related-practices-liability-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"employee claims related to discrimination, harassment, wrongful termination and other employment issues\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Crime table row names coverage categories, subject to policy terms.",
+        "url": "https://www.churchmutual.com/insurance/crime-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"theft, burglary, fraud, employee dishonesty, cybercrimes and counterfeiting\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Cyber table row names financial losses and liabilities associated with cyber incidents.",
+        "url": "https://www.churchmutual.com/insurance/cyber-liability-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"financial losses and liabilities arising from cyberattacks, data breaches and other cyber-related incidents\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Umbrella table row and follow-up questions address added liability coverage above underlying limits without promising every risk is covered.",
+        "url": "https://www.churchmutual.com/insurance/umbrella-liability-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"an additional layer of liability coverage beyond the limits of your primary insurance policies\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Equipment section and trip callout apply movable-property coverage to portable church equipment.",
+        "url": "https://www.churchmutual.com/insurance/inland-marine-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"property, equipment and goods that are in transit or temporarily located away from the primary organization premises\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Transport paragraph distinguishes organizational liability for rentals and personal vehicles from physical damage coverage.",
+        "url": "https://www.churchmutual.com/insurance/hired-and-non-owned-auto-insurance",
+        "publisher": "Church Mutual",
+        "quote": "\"personal vehicles for your business purposes, or when the organization rents vehicles\"; \"Hired auto physical damage coverages are also available\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Abuse section asks about specialized coverage, allegations involving volunteers, policy details and prevention. No child-protection methodology is prescribed.",
+        "url": "https://www.churchmutual.com/insurance/sexual-misconduct-insurance-coverage",
+        "publisher": "Church Mutual",
+        "quote": "\"allegations made against the organization, its employees, volunteers or representatives\"; \"specific coverage and policy details may vary\"; \"safeguards\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "State section gives only the New York religious-duty exception and directs readers to their own agency; no national threshold is asserted.",
+        "url": "https://apps.wcb.ny.gov/content/main/coverage-required-wc.jsp",
+        "publisher": "New York State Workers’ Compensation Board",
+        "quote": "\"Clergy or members of religious orders performing only religious duties\"; \"different thresholds\"",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Review section, checklist and as-of warning use annual review and significant operational changes as triggers.",
+        "url": "https://www.churchmutual.com/insurance/house-of-worship",
+        "publisher": "Church Mutual",
+        "quote": "\"review your insurance policy annually or whenever there are significant changes in your house of worship's operations, property or activities\"",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Scripture callout reproduces Proverbs 16:3, checked alone on the publisher’s reader; no insurance promise or theological inference is added.",
+        "url": "https://read.lsbible.org/proverbs/16/3",
+        "publisher": "The Lockman Foundation / Legacy Standard Bible",
+        "quote": "Commit your works to Yahweh And your plans will be established.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Writer opened every cited source and checked the verse individually on 2026-10-15. Independent Opus source, scripture and screenshot review is required. Recommendations are application questions, not statements that a proposed policy covers a risk."
+    },
+    "rulings": [
+      "Phase 0 and financial section match the existing financial references; sort order follows the current published entries.",
+      "Describe categories and questions only. No premiums, universal liability limits or national workers’ compensation thresholds.",
+      "Label New York as an example and refer each reader to the agency governing their own workers.",
+      "No new theology, pastoral-care or child-protection methodology. The scripture stands without an insurance-related interpretation.",
+      "All volatile coverage descriptions and the state example are as of 2026-10-15; verify current agency requirements and actual policy terms."
+    ]
+  }
+}
