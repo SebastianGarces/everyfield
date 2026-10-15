@@ -5,6 +5,7 @@ import { m } from "@/components/motion/m";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { bump, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
+import { TargetProvider } from "@/components/motion/fx";
 import { PanelClockProvider, useTo, type PanelClock } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
 
@@ -27,7 +28,9 @@ export function PanelSlotProvider({ slot, children }: { slot: PanelSlot; childre
   return (
     <SlotContext value={slot}>
       <GeoContext value={geo}>
-        <PanelClockProvider clock={slot}>{children}</PanelClockProvider>
+        <TargetProvider value={target}>
+          <PanelClockProvider clock={slot}>{children}</PanelClockProvider>
+        </TargetProvider>
       </GeoContext>
     </SlotContext>
   );
@@ -43,12 +46,6 @@ function useSlot() {
 export type Box = { x: number; y: number; w: number; h: number };
 type Geo = { els: RefObject<Record<string, HTMLElement | null>>; boxes: RefObject<Record<string, Box>>; measured: MotionValue<number>; target: (name: string) => (el: HTMLElement | null) => void };
 const GeoContext = createContext<Geo | null>(null);
-/** A ref callback that registers an element as a named target (t0, t1, src0 ...) of the card's geometry. */
-export function useTarget(name: string) {
-  const g = useContext(GeoContext);
-  if (!g) throw new Error("useTarget needs a PanelCard");
-  return g.target(name);
-}
 export function useGeo() {
   const g = useContext(GeoContext);
   if (!g) throw new Error("useGeo needs a PanelCard");
