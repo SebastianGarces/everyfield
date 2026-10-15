@@ -47,11 +47,12 @@ export function Move({ f, as = "div", className, children, innerRef }: { f: (t: 
   );
 }
 /** An element whose transform is a function of the clock (a press, a bar). */
-export function Tf({ f, as = "span", className, children, innerRef }: { f: (t: number) => string; as?: "div" | "span" | "i"; className?: string; children?: ReactNode; innerRef?: (el: HTMLElement | null) => void }) {
+/** layer: own compositor layer (will-change), as the prototype gave buttons and chips but not form fields. */
+export function Tf({ f, as = "span", className, children, innerRef, layer = true }: { f: (t: number) => string; as?: "div" | "span" | "i"; className?: string; children?: ReactNode; innerRef?: (el: HTMLElement | null) => void; layer?: boolean }) {
   const transform = useTransform(useT(), f);
   const C = as === "div" ? m.div : as === "i" ? m.i : m.span;
   return (
-    <C ref={innerRef} className={cn("will-change-transform", className)} style={{ transform }}>
+    <C ref={innerRef} className={cn(layer && "will-change-transform", className)} style={{ transform }}>
       {children}
     </C>
   );

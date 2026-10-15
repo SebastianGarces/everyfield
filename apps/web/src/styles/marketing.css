@@ -144,9 +144,10 @@
   letter-spacing: 0; text-align: left; font-stretch: 100%;
 }
 
-/* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone.
+/* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone. (Named mk-* so the
+   legacy .gsurf and .hatch classes of the string sections, deleted in R3, are not overridden.)
    The caller sets the position (relative or absolute) and may set --grain. */
-@utility gsurf {
+@utility mk-gsurf {
   overflow: hidden; isolation: isolate; background: var(--g-base);
   --on: #181D19; --on-2: rgba(24, 29, 25, .74); --on-3: rgba(24, 29, 25, .6); --pill-bg: rgba(24, 29, 25, .07); --pill-edge: rgba(24, 29, 25, .16);
   &::before {
@@ -177,7 +178,7 @@
 @utility g-slate { --g-base: #B4C3D6; --g1: #C5D2E2; --g2: #A2B3CA; --g3: #DCE4EE; --g4: #8FA2BC; --g5: #F6F8FB; }
 
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */
-@utility hatch {
+@utility mk-hatch {
   background-color: color-mix(in srgb, var(--hatch, var(--color-blue-300)) 16%, transparent);
   background-image: repeating-linear-gradient(-45deg, var(--hatch, var(--color-blue-300)) 0, var(--hatch, var(--color-blue-300)) 1.6px, transparent 2.6px, transparent 5.5px);
 }

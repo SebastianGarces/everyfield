@@ -30,7 +30,7 @@ export function InvitePanel() {
       <PanelHead tone="teal" icon={ICONS.network} title="Invite a plant" sub="Austin Sending Network" />
       <St i={1}>
         <Lab>Planter&apos;s email</Lab>
-        <Tf as="div" innerRef={t0} f={(t) => press(t, 1250, 0.03)}>
+        <Tf as="div" innerRef={t0} f={(t) => press(t, 1250, 0.03)} layer={false}>
           <Field fr={(t) => flash(t, 1300, 2800)}>
             <Typed text={OV_MAIL} p={(t) => P(t, 1450, 1200)} className="min-w-0 flex-1" />
           </Field>
@@ -172,12 +172,12 @@ export function HelpPanel() {
       <St i={2} className={INSIGHT_TITLE}>Two leader roles are open, 205 days before launch</St>
       <St i={3} className={cn(INSIGHT_TEXT, "mt-2.5")}>Kids and Production have no leader yet. From Ministry teams and findings.</St>
       <St i={4} className={INSIGHT_FOOTER}>
-        <Tf innerRef={ref} f={(t) => press(t, 2400)} className="inline-flex">
+        <Tf innerRef={ref} f={(t) => press(t, 2400)} className="inline-flex" layer={false}>
           <UiButton variant="light">
             <Swap
               p={(t) => out(P(t, 2550, 380))}
-              a={<span className="inline-flex items-center gap-1.5">Offer help <Icon icon={ICONS.arrow} size={15} /></span>}
-              b={<span className="inline-flex items-center gap-1.5"><Icon icon={ICONS.check} size={15} />Help offered</span>}
+              a={<span className="inline-flex items-center gap-1.5">Offer help <Icon icon={ICONS.arrow} /></span>}
+              b={<span className="inline-flex items-center gap-1.5"><Icon icon={ICONS.check} />Help offered</span>}
             />
           </UiButton>
         </Tf>

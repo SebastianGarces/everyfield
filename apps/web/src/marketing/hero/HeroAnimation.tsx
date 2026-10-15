@@ -105,7 +105,7 @@ export function HeroAnimation() {
           <Card t={t} i={1}>
             <Head t={t} i={1} lead={<CardIcon tone="blue" icon={ICONS.calendar} size={36} glyph={17} />} title="Vision meeting #12" sub="Sun, Oct 12 · 6:00 PM" />
             <Kv t={t} k={1} label="Type">Vision meeting</Kv>
-            <Kv t={t} k={2} label="Host home"><Icon icon={ICONS.pin} size={15} className="text-text-3" />Hyde Park</Kv>
+            <Kv t={t} k={2} label="Host home"><Icon icon={ICONS.pin} className="text-text-3" />Hyde Park</Kv>
             <Kv t={t} k={3} label="Guests"><Roll t={t} a={8} b={9} p={(v) => inOut(P(v, at(1, 0), d(380)))} /></Kv>
             <St t={t} i={1} k={4} className="mt-2.5 flex flex-nowrap gap-2 overflow-hidden">
               <span className="skeleton inline-block h-[30px] w-16 flex-none" />
@@ -290,7 +290,7 @@ function Check({ t, k }: T & { k: number }) {
   const s = useTo(t, (v) => { const p = P(v, at(3, k * 260), d(340)); return [0, 0, 0.4 + 0.6 * back(p), clamp(p * 2.5)]; });
   return (
     <m.span className="grid size-[22px] flex-none place-items-center rounded-full bg-green-500 text-ink will-change-[transform,opacity]" style={s}>
-      <Icon icon={ICONS.check} size={13} className="[&_path]:[stroke-width:2.6]" />
+      <Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
     </m.span>
   );
 }

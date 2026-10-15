@@ -33,7 +33,7 @@ export function PhasesRail({ id, headline, items, vignettes }: Props) {
           aria-label={`${num(i)} · ${x.label}`}
           className="flex h-[444px] w-[clamp(296px,26vw,372px)] snap-start flex-col overflow-hidden rounded-card border border-[rgba(24,29,25,.06)] bg-white shadow-mk-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink max-mk-sm:h-auto max-mk-sm:w-[min(82vw,320px)]"
         >
-          <div className={cn("gsurf relative mx-2 mt-2 h-[236px] flex-none rounded-[20px] max-mk-sm:h-[200px]", TONES[vignettes][i])}>
+          <div className={cn("mk-gsurf relative mx-2 mt-2 h-[236px] flex-none rounded-[20px] max-mk-sm:h-[200px]", TONES[vignettes][i])}>
             <span aria-hidden="true" className="absolute top-4 left-[18px] font-display text-[96px] leading-[.8] font-medium tracking-[-0.06em] text-ink tabular-nums">{num(i)}</span>
             <div aria-hidden="true" className="ef-ui absolute inset-x-0 top-28 mx-auto w-[min(calc(100%-28px),292px)]">
               <Vig i={i} />

@@ -131,12 +131,12 @@ export function LensPanel() {
         {LENSES.map((l, i) => (
           <St key={l[0]} i={i + 1} className="flex min-w-0 flex-col gap-2 rounded-[14px] bg-white px-3.5 py-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]">
             <div className="flex items-center gap-2">
-              <span className={cn("grid size-7 flex-none place-items-center rounded-full", LI_TONE[l[2]])}><Icon icon={ICONS[l[1] as IconName]} size={15} /></span>
+              <span className={cn("grid size-7 flex-none place-items-center rounded-full", LI_TONE[l[2]])}><Icon icon={ICONS[l[1] as IconName]} /></span>
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{l[0]}</span>
               <Badge status={l[3]} size="sm">{l[4]}</Badge>
               {i ? null : (
                 <Tf innerRef={t0} f={(t) => press(t, 2300, 0.1)} className="grid size-7 flex-none place-items-center rounded-[9px] bg-surface-2 text-ink-2">
-                  <Icon icon={ICONS.arrow} size={14} className="-rotate-45" />
+                  <Icon icon={ICONS.arrow} className="-rotate-45" />
                 </Tf>
               )}
             </div>
@@ -198,7 +198,7 @@ export function TopPanel() {
       <St i={2} className={INSIGHT_TITLE}>Emerging leadership is the most common gap before launch</St>
       <St i={3} className={cn(INSIGHT_TEXT, "mt-2.5")}>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</St>
       <St i={4} className={INSIGHT_FOOTER}>
-        <Tf innerRef={ref} f={(t) => press(t, 2400)} className="inline-flex">
+        <Tf innerRef={ref} f={(t) => press(t, 2400)} className="inline-flex" layer={false}>
           <UiButton variant="light">See the plants <Icon icon={ICONS.arrow} /></UiButton>
         </Tf>
       </St>

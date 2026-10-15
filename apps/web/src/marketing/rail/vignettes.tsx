@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
-import { Avatar, Badge, CardIcon, NUM, UiButton, type Tone } from "@/components/kit/kit";
+import { Avatar, Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
 import { ICONS, type IconName } from "../icons";
 
 // The small product vignettes on the phases rail cards (Marketing v15, Revision 26). Static pictures of the app with the
@@ -37,7 +37,7 @@ function Delta({ children }: { children: ReactNode }) {
 function Stat({ n, children }: { n: string; children: ReactNode }) {
   return (
     <div className="mt-3 flex items-center gap-3">
-      <span className={cn(NUM, "text-[50px] leading-[.95] tracking-[-.05em]")}>{n}</span>
+      <span className="font-display text-[50px] leading-[.95] font-medium tracking-[-.05em] whitespace-nowrap [font-stretch:100%]">{n}</span>
       {children}
     </div>
   );
@@ -57,7 +57,7 @@ function Inset({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: 
 function Meter({ pct, color, hatch }: { pct: string; color: string; hatch?: boolean }) {
   return (
     <div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-white shadow-[inset_0_0_0_1px_var(--color-line)]">
-      <span className={cn("absolute inset-y-0.5 left-0.5 rounded-full", hatch && "hatch")} style={{ width: `calc(${pct} - 4px)`, ...(hatch ? { "--hatch": color } : { background: color }) } as CSSProperties} />
+      <span className={cn("absolute inset-y-0.5 left-0.5 rounded-full", hatch && "mk-hatch")} style={{ width: `calc(${pct} - 4px)`, ...(hatch ? { "--hatch": color } : { background: color }) } as CSSProperties} />
     </div>
   );
 }
@@ -147,7 +147,7 @@ export function PhaseVignette({ i }: { i: number }) {
       <Head icon="calendar" tone="green" title="Launch Sunday" sub="Mar 14, 2027" />
       <div className="mt-4 flex h-[86px] items-end gap-1.5">
         {[100, 70, 76, 79, 83, 88].map((h, k) => (
-          <span key={k} className={cn("relative flex-1 rounded-t-[6px] rounded-b-[3px] [--hatch:var(--color-green-600)]", k ? "hatch" : "bg-ink")} style={{ height: h + "%" }}>
+          <span key={k} className={cn("relative flex-1 rounded-t-[6px] rounded-b-[3px] [--hatch:var(--color-green-600)]", k ? "mk-hatch" : "bg-ink")} style={{ height: h + "%" }}>
             {k ? null : <b className="absolute inset-x-0 top-[7px] text-center text-[11px] font-semibold text-white">186</b>}
           </span>
         ))}
@@ -177,7 +177,7 @@ export function PlantVignette({ i }: { i: number }) {
     return (
       <Vignette>
         <Head icon="calendar" tone="green" title="Launch Sunday" sub="Sunday, May 2, 2027" />
-        <Stat n="205"><span className={S}>days to go</span></Stat>
+        <Stat n="205"><span className={cn(S, "mt-px")}>days to go</span></Stat>
         <div>
           <div className="flex items-center justify-between gap-2"><span className={IT}>Milestones done</span><span className={K}>3 of 9</span></div>
           <Meter pct="33.3%" color="var(--color-green-500)" />

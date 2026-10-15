@@ -101,7 +101,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
         </div>
         <div aria-hidden="true" className="ef-ui relative isolate m-2 grid grid-cols-[minmax(0,1fr)] place-items-center overflow-hidden rounded-[26px] px-6 py-4 max-mk-cx:min-h-[300px] max-mk-cx:pb-[52px] max-mk-sm:m-1.5 max-mk-sm:min-h-0 max-mk-sm:px-3 max-mk-sm:pt-7">
           {tones.map((tone, i) => (
-            <span key={tone} className={cn("gsurf absolute inset-0 -z-1 [--grain:.3]", tone, i === k ? "opacity-100" : "opacity-0")} style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }} />
+            <span key={tone} className={cn("mk-gsurf absolute inset-0 -z-1 [--grain:.3]", tone, i === k ? "opacity-100" : "opacity-0")} style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }} />
           ))}
           {apps.map((a, i) => <Fade key={i} on={i === k} reduced={reduced} center>{a}</Fade>)}
         </div>

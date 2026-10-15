@@ -51,7 +51,7 @@ export function PeoplePanel() {
       />
       <St i={1} className="mt-0.5 mb-3 h-[30px]">
         <Move as="span" f={(t) => pop(t, 2250, R_PEOPLE(t))} className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-[inset_0_0_0_1px_rgba(28,227,98,.35)]">
-          <Icon icon={ICONS.check} size={15} />
+          <Icon icon={ICONS.check} />
           24 people added from the sign-up form
         </Move>
       </St>
@@ -146,14 +146,14 @@ function TypePicker({ innerRef }: { innerRef: (el: HTMLElement | null) => void }
     return "translate3d(0," + (-k * 20 * R_MEET(v)).toFixed(3) + "%,0)";
   });
   return (
-    <m.div ref={innerRef} className="will-change-transform" style={{ transform: pressT }}>
+    <m.div ref={innerRef} style={{ transform: pressT }}>
       <Field fr={(v) => flashR(v, 1150, 2450)}>
         <span className="inline-block h-[1.3em] overflow-hidden align-bottom leading-[1.3em] tabular-nums">
           <m.span className="block will-change-transform" style={{ transform: roll }}>
             {CX_TYPES.map((x, i) => <i key={i} className="block not-italic">{x}</i>)}
           </m.span>
         </span>
-        <Icon icon={ICONS.arrow} size={15} className="ml-auto rotate-90 text-text-3" />
+        <Icon icon={ICONS.arrow} className="ml-auto rotate-90 text-text-3" />
       </Field>
     </m.div>
   );
@@ -210,7 +210,7 @@ function FollowRow({ g, k }: { g: (typeof FGUESTS)[number]; k: number }) {
       <span className="inline-grid flex-none">
         <Move as="span" f={(v) => swapOut(out(P(v, 5150 + k * 120, 380)) * R_FOLLOW(v))} className="col-start-1 row-start-1"><Av>{g[0]}</Av></Move>
         <Move as="span" f={(v) => swapIn(out(P(v, 5150 + k * 120, 380)) * R_FOLLOW(v))} className="col-start-1 row-start-1 grid size-[22px] place-items-center rounded-full bg-green-500 text-ink opacity-0">
-          <Icon icon={ICONS.check} size={13} className="[&_path]:[stroke-width:2.6]" />
+          <Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
         </Move>
       </span>
       <span className="min-w-0 flex-1">

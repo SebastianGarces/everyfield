@@ -307,7 +307,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
                     className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-[inset_0_0_0_1px_rgba(24,29,25,.06)] max-mk-cx:grid"
                     data-idle={mobOn[i] && !reduced ? undefined : ""}
                   >
-                    <span className={cn("gsurf absolute inset-0 -z-1 [--grain:.3]", s.tone)} />
+                    <span className={cn("mk-gsurf absolute inset-0 -z-1 [--grain:.3]", s.tone)} />
                     <PanelSlotProvider slot={{ t: clocks.mt[i]!, since: clocks.msince[i]!, stagger: 90, place: "mob" }}>{s.panel}</PanelSlotProvider>
                   </div>
                   {s.text}
@@ -357,7 +357,7 @@ export function DeskPanel({ sw, role, t, since, place, children }: { sw: MotionV
 /** The active step's gradient fades in over the previous one (500 ms in-out). */
 export function DeskBg({ tone, sw, role }: { tone: string; sw: MotionValue<number>; role: Role }) {
   const opacity = useTransform(sw, (s) => +(role === "active" ? inOut(P(s, 0, 500)) : role === "prev" ? 1 : 0).toFixed(3));
-  return <m.span aria-hidden="true" className={cn("gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone, role === "active" ? "-z-1" : "-z-2")} style={{ opacity }} />;
+  return <m.span aria-hidden="true" className={cn("mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone, role === "active" ? "-z-1" : "-z-2")} style={{ opacity }} />;
 }
 
 /**

@@ -26,7 +26,7 @@ export function HeroPanel({ headline, subhead, primary, secondary, children }: P
     <section id="top" className="relative scroll-mt-[88px] overflow-hidden bg-mk-canvas pb-[clamp(32px,5vw,72px)] text-center max-mk-sm:scroll-mt-[76px]">
       <div className="px-[clamp(8px,1.67vw,24px)]">
         <div className="relative isolate mx-auto max-w-[calc(var(--container-mk)+112px)] rounded-frame px-[clamp(14px,4vw,64px)] pt-[clamp(56px,9vw,128px)] pb-[clamp(16px,2.2vw,32px)] text-ink shadow-[0_30px_60px_-40px_rgba(16,120,56,.6)]">
-          <span aria-hidden="true" className="gsurf g-field hero-fade pointer-events-none absolute inset-0 -z-1 rounded-[inherit]" />
+          <span aria-hidden="true" className="mk-gsurf g-field hero-fade pointer-events-none absolute inset-0 -z-1 rounded-[inherit]" />
           <Display as="h1" size="hero" className="mx-auto max-w-[14ch] text-[#2A332C]">
             {headline}
           </Display>

@@ -19,7 +19,7 @@ import { CHIP, Count, Done, Hl, INSIGHT_FOOTER, INSIGHT_TEXT, INSIGHT_TITLE, Ins
 function PressBtn({ target, at, d = 0.05, variant, children }: { target: "t0" | "t1"; at: number; d?: number; variant: "light" | "glass"; children: ReactNode }) {
   const ref = useTarget(target);
   return (
-    <Tf innerRef={ref} f={(t) => press(t, at, d)} className="inline-flex">
+    <Tf innerRef={ref} f={(t) => press(t, at, d)} className="inline-flex" layer={false}>
       <UiButton variant={variant}>{children}</UiButton>
     </Tf>
   );

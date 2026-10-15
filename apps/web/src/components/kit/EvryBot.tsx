@@ -96,7 +96,7 @@ export function EvryBot({ size, mood, follow, className }: Props) {
       <span
         className={
           "absolute inset-0 rounded-[46%_54%_52%_48%/50%_46%_54%_50%] animate-eb-morph motion-reduce:animate-none " +
-          "bg-[radial-gradient(circle_at_30%_26%,rgba(255,255,255,.55),rgba(255,255,255,0)_42%),#1CE362] " +
+          "[background:radial-gradient(circle_at_30%_26%,rgba(255,255,255,.55),rgba(255,255,255,0)_42%),#1CE362] " +
           "shadow-[inset_0_calc(var(--s)*-.08)_0_rgba(10,60,30,.18),0_calc(var(--s)*.06)_calc(var(--s)*.16)_-0.05em_rgba(10,60,30,.35)] " +
           "group-data-[mood=happy]/eb:animate-eb-bounce motion-reduce:group-data-[mood=happy]/eb:animate-none"
         }
