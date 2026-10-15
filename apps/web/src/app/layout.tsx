@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   openGraph: { siteName: SITE_NAME, type: "website", locale: "en_US" },
   twitter: { card: "summary_large_image" },
 };
-export const viewport: Viewport = { themeColor: "#FCFBF8" };
+// Marketing pages are light only, in every browser and system setting (Phase 5 rule): a color-scheme meta and the root style.
+export const viewport: Viewport = { themeColor: "#FCFBF8", colorScheme: "light" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

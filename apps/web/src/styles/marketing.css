@@ -86,7 +86,8 @@
 }
 
 @layer base {
-  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  /* Light only: the root declares it, so browsers never draw a dark canvas, scrollbars or form controls. */
+  html { color-scheme: light; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     background: var(--color-mk-canvas); color: var(--color-ink);
     font-family: var(--font-sans); font-size: 16px; line-height: 1.55;

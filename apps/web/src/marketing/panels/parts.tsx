@@ -132,11 +132,12 @@ export function Num({ className, children }: { className?: string; children: Rea
 export const CHIP = "inline-flex items-center rounded-full bg-white font-semibold whitespace-nowrap text-ink shadow-mk-chip";
 
 /* ---------- InsightCard parts (focus, top finding, where help could matter) ---------- */
-/** wrap: on phones the count may move under the pill, which never breaks (the top network finding). */
-export function InsightTop({ i, icon, label, count, wrap }: { i: number; icon: IconSvgElement; label: string; count: string; wrap?: boolean }) {
+/** The pill never wraps or shrinks (owner finding 00:52: "Where help could matter" broke onto two lines); when the row
+ *  runs out of room, the count moves under it. */
+export function InsightTop({ i, icon, label, count }: { i: number; icon: IconSvgElement; label: string; count: string }) {
   return (
-    <St i={i} className={cn("flex items-center justify-between gap-2.5", wrap && "max-mk-sm:flex-wrap max-mk-sm:gap-y-1.5")}>
-      <span className={cn("inline-flex h-[30px] items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 text-[13px] font-semibold shadow-[inset_0_0_0_1px_var(--pill-edge)]", wrap && "max-mk-sm:whitespace-nowrap")}>
+    <St i={i} className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
+      <span className="inline-flex h-[30px] flex-none items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 text-[13px] font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--pill-edge)]">
         <Icon icon={icon} />
         {label}
       </span>

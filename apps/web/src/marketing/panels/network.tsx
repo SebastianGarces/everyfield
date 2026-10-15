@@ -193,7 +193,7 @@ export function TopPanel() {
   const ref = useTarget("t0");
   return (
     <PanelCard kind="top" variant={{ kind: "insight", tone: "lilac" }}>
-      <InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" wrap />
+      <InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" />
       <InsightMetric i={1} num={<Count value={(t) => 4 * out(P(t, 300, 800))} max={4} unit=" of 6" />} unit="plants within a year of launch have a Concern on Emerging leadership" numClassName="max-mk-sm:text-[44px]" />
       <St i={2} className={INSIGHT_TITLE}>Emerging leadership is the most common gap before launch</St>
       <St i={3} className={cn(INSIGHT_TEXT, "mt-2.5")}>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</St>
