@@ -1,14 +1,14 @@
 "use client";
 
 import { PauseIcon, PlayIcon } from "@hugeicons/core-free-icons";
-import { m, useInView, useMotionValue, useReducedMotion, useTransform, type MotionValue } from "motion/react";
+import { m, useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
-import { MText, useText, useTicker, useTo } from "@/components/motion/scene";
+import { MText, useText, useTicker, useTo, useReduced } from "@/components/motion/scene";
 import { DoneButton } from "@/components/motion/DoneButton";
 import { ICONS } from "../icons";
 import { HA_DRAFT, HA_NAME } from "../scene-data";
@@ -49,7 +49,7 @@ export function HeroAnimation() {
   const pos = useRef<Pos[]>([]);
   const measured = useMotionValue(0);
   const [paused, setPaused] = useState(false);
-  const reduced = useReducedMotion();
+  const reduced = useReduced();
   const seen = useInView(stage);
   const run = seen && !paused && reduced === false;
 

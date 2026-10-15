@@ -1,10 +1,10 @@
 "use client";
 
-import { m, motionValue, useReducedMotion, useTransform, type MotionValue } from "motion/react";
+import { m, motionValue, useTransform, type MotionValue } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
-import { useTicker } from "@/components/motion/scene";
+import { useTicker, useReduced } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
 import { Reveal } from "@/components/motion/Reveal";
 import { DeskBg, DeskPanel, useStepReveal } from "./ScrollChapter";
@@ -32,7 +32,7 @@ const HOLD = 1200;
  */
 export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
   const n = steps.length;
-  const reduced = useReducedMotion() === true;
+  const reduced = useReduced();
   const root = useRef<HTMLElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const lis = useRef<(HTMLLIElement | null)[]>([]);

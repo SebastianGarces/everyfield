@@ -1,11 +1,11 @@
 "use client";
 
-import { motionValue, useMotionValueEvent, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
+import { motionValue, useMotionValueEvent, useScroll, useTransform, type MotionValue } from "motion/react";
 import { m } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { inOut, out, P, sine } from "@/components/motion/curves";
-import { useTicker } from "@/components/motion/scene";
+import { useTicker, useReduced } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
 import { PanelSlotProvider } from "./panel-frame";
 
@@ -48,7 +48,7 @@ type Geo = {
  */
 export function ScrollChapter({ id, title, steps }: Props) {
   const n = steps.length;
-  const reduced = useReducedMotion() === true;
+  const reduced = useReduced();
   const root = useRef<HTMLElement>(null);
   const head = useRef<HTMLDivElement>(null);
   const ol = useRef<HTMLOListElement>(null);

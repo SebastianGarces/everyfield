@@ -163,7 +163,6 @@ function vNetworkDash() {
     '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a plant</span>", "", { avatar: "JM" });
 }
 
-export const PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
 
 /* ---------- Sections ---------- */
 type HeroCopy = { eyebrow?: string; headline: string; subhead: string; cta_primary: string; cta_secondary?: string; note?: string };
@@ -187,124 +186,12 @@ function proofMonday(p: { headline: string; body: string; caption?: string }) {
     '<div class="monday-frame">' + visual(vMondayOverview(), p.caption) + "</div></div></section>";
 }
 
-/* ---------- Marketing v15: the phases section is a rail of six cards (engine: phInit in engines.ts) ---------- */
-const PH_TONES = ["sky", "field", "dawn", "lilac", "sun", "sea"];
-const OV_PH_TONES = ["lilac", "sea", "dawn", "field", "sky", "sun"];
-function phNum(i: number) { return (i < 9 ? "0" : "") + (i + 1); }
-function phTag(i: number, it: { label: string }) { return '<span class="feat-tag"><span class="ph-n">' + phNum(i) + '</span><span class="feat-label">' + t(it.label) + "</span></span>"; }
-function pvHead(ic: IconName, tone: string, title: string, sub: string, right?: string) {
-  return '<div class="pv-h"><span class="card-icon ' + tone + '">' + icon(ic) + '</span><div class="grow"><div class="pv-t">' + title + '</div><div class="pv-s">' + sub + "</div></div>" + (right || "") + "</div>";
-}
-function phVig(i: number) {
-  let b = "";
-  if (i === 0) {
-    b = pvHead("book", "tone-blue", "Guidance", "Discovery") + '<div class="pv-b">' +
-      [[80, 54, 1], [72, 46, 0]].map((r) =>
-        '<div class="pv-read' + (r[2] ? " on" : "") + '"><span class="pv-ri">' + icon(r[2] ? "book" : "check") + '</span><span class="grow"><i style="width:' + r[0] + '%"></i><i style="width:' + r[1] + '%"></i></span>' + (r[2] ? '<span class="pv-now">Now</span>' : "") + "</div>",
-      ).join("") + "</div>";
-  } else if (i === 1) {
-    b = pvHead("users", "tone-green", "Core group", "Signed commitments") +
-      '<div class="pv-stat"><span class="num">34</span><span class="delta" data-dir="up">9 people</span></div>' +
-      '<div class="pv-in"><span class="card-icon tone-green">' + icon("task") + '</span><div class="grow"><div class="pv-it">Vision meeting closed</div><div class="pv-s">9 follow-up tasks</div></div></div>';
-  } else if (i === 2) {
-    const seats = [["Worship", "MS", "tone-violet"], ["Kids", "", ""], ["Welcome", "JO", "tone-blue"], ["Prayer", "RA", "tone-amber"], ["Tech", "KL", "tone-teal"], ["Outreach", "TB", "tone-green"], ["Setup", "AP", "tone-magenta"], ["Admin", "LC", "tone-ink"]];
-    b = pvHead("calendar", "tone-amber", "Ministry areas", "Launch Sunday, Mar 14", '<span class="pv-k">7 of 8</span>') + '<div class="pv-seats">' +
-      seats.map((s) => '<div class="pv-seat' + (s[1] ? "" : " open") + '">' + (s[1] ? '<span class="avatar ' + s[2] + '">' + s[1] + "</span>" : '<span class="pv-empty">+</span>') + '<span class="pv-sn">' + s[0] + "</span></div>").join("") + "</div>";
-  } else if (i === 3) {
-    b = pvHead("users", "tone-violet", "Training", "Who has finished") + '<div class="pv-b">' +
-      ([["Worship team", 8, 9, "var(--ef-green-600)", 1], ["Hospitality", 6, 6, "var(--ef-green-500)", 0], ["Kids ministry", 2, 6, "var(--ef-amber-500)", 1]] as const).map((r) =>
-        '<div class="pv-mt"><div class="row between"><span class="pv-it">' + r[0] + '</span><span class="pv-k">' + r[1] + " of " + r[2] + '</span></div><div class="meter-hatch"><span class="' + (r[4] ? "hatch" : "") + '" style="width:calc(' + (r[1] / r[2] * 100).toFixed(1) + "% - 4px);" + (r[4] ? "--hatch:" + r[3] : "background:" + r[3]) + '"></span></div></div>',
-      ).join("") + "</div>";
-  } else if (i === 4) {
-    b = pvHead("task", "tone-blue", "Launch milestones", "3 of 5 done") + '<div class="pv-b">' +
-      ([["Venue booked", 1], ["Invite cards printed", 1], ["Email to your people", 1], ["Sound check", 0]] as const).map((r) =>
-        '<div class="pv-ck' + (r[1] ? " done" : "") + '"><span class="pv-box">' + (r[1] ? icon("check") : "") + "</span>" + r[0] + "</div>",
-      ).join("") + "</div>";
-  } else {
-    b = pvHead("calendar", "tone-green", "Launch Sunday", "Mar 14, 2027") + '<div class="pv-bars">' +
-      [100, 70, 76, 79, 83, 88].map((h, k) => '<span class="' + (k ? "hatch" : "solid") + '" style="height:' + h + '%">' + (k ? "" : "<b>186</b>") + "</span>").join("") +
-      '</div><div class="pv-axis"><span>Launch</span><span>Week 6</span></div>';
-  }
-  return '<div class="pv">' + b + "</div>";
-}
-type RailItem = { label: string; title: string; body?: string; short?: string };
-function phSection(f: { headline: string; items: RailItem[] }, opts: { id?: string; vig?: (i: number) => string; tones?: string[] }) {
-  return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
-    '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div></div>" +
-    '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map((x, i) =>
-      '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art gsurf" data-tone="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
-      '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body || "") + "</p></div></li>",
-    ).join("") + "</ol></div></div></div></section>";
-}
 function cta(c: { headline: string; body: string; cta_primary: string; cta_secondary: string; note?: string }) {
   return '<section class="sec sec-cta" id="cta"><div class="wrap"><div class="cta-box"><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
     (c.note ? '<p class="small">' + t(c.note) + "</p>" : "") + "</div></div></section>";
 }
 
 /* ---------- /oversight ---------- */
-function ovVig(i: number) {
-  let b = "";
-  if (i === 0) {
-    b = pvHead("calendar", "tone-blue", "Phase journey", "Eastside Commons", '<span class="pv-k">3 · Training</span>') +
-      '<div class="ovv-seg">' + [1, 1, 1, 2, 0, 0, 0].map((s) => '<span data-state="' + (s === 1 ? "done" : s === 2 ? "current" : "") + '"></span>').join("") + "</div>" +
-      '<div class="ovv-wk">' + [["Discovery", "10 wk"], ["Core group", "34 wk"], ["Launch team", "18 wk"], ["Training", "6 wk so far"]].map((r) => "<span><b>" + r[1] + "</b>" + r[0] + "</span>").join("") + "</div>";
-  } else if (i === 1) {
-    b = pvHead("calendar", "tone-green", "Launch Sunday", "Sunday, May 2, 2027") +
-      '<div class="pv-stat"><span class="num">205</span><span class="pv-s">days to go</span></div>' +
-      '<div class="pv-mt"><div class="row between"><span class="pv-it">Milestones done</span><span class="pv-k">3 of 9</span></div><div class="meter-hatch"><span style="width:calc(33.3% - 4px);background:var(--ef-green-500)"></span></div></div>';
-  } else if (i === 2) {
-    b = pvHead("pin", "tone-teal", "By market", "Texas · 14 plants", '<span class="pv-k">Plants</span>') + '<div class="ovv-mk">' +
-      ([["Greater Austin", 5], ["Dallas–Fort Worth", 3], ["Greater San Antonio", 3], ["Greater Houston", 2]] as const).map((r, k) =>
-        '<div class="ovv-mr' + (k ? "" : " on") + '"><span>' + r[0] + '</span><span class="ovv-bar"><i style="width:' + (r[1] / 5 * 100) + '%"></i></span><b>' + r[1] + "</b></div>").join("") + "</div>";
-  } else if (i === 3) {
-    b = pvHead("users", "tone-blue", "People", "Committed adults") +
-      '<div class="pv-stat"><span class="num">46</span><span class="delta" data-dir="up">5 in 28 days</span></div>' +
-      '<div class="pv-in"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="pv-it">13 days between vision meetings</div><div class="pv-s">On average</div></div></div>';
-  } else if (i === 4) {
-    b = pvHead("users", "tone-violet", "Ministry teams", "Leader roles filled", '<span class="pv-k">9 of 11</span>') + '<div class="pv-b">' +
-      ["Kids", "Production"].map((r) => '<div class="ovv-sh"><span>' + r + '</span><span class="badge" data-size="sm" data-status="risk">Leader open</span></div>').join("") + "</div>";
-  } else {
-    b = pvHead("compass", "tone-amber", "Where help could matter", "Eastside Commons") +
-      '<div class="pv-it ovv-help">Two leader roles are open, 205 days before launch</div>' +
-      '<div class="ovv-acts"><span class="btn" data-variant="primary" data-size="sm">Offer help ' + icon("arrow") + '</span><span class="btn" data-variant="ghost" data-size="sm">Later</span></div>';
-  }
-  return '<div class="pv">' + b + "</div>";
-}
-function cxHead(lead: string, title: string, sub: string) { return '<div class="cx-h">' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div></div>"; }
-function cxIcon(tone: string, name: IconName) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
-/* Revision 28: the sending paths. One display sentence over one large card; ovs* in engines.ts moves both. */
-const OVS_TONES = ["sky", "lilac", "sun"];
-function ovsBy(ic: IconName, names: string[]) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map((n) => "<b>" + n + "</b>").join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
-const OVS_B = [
-  () =>
-    cxHead(cxIcon("tone-blue", "heart"), "Grace Church", "Your plants · in launch order") +
-    [["Harvest Point Church", "Hyde Park, Austin", "1 · Core group", "Mar 14, 2027"], ["Eastside Commons", "East Austin · with Austin Sending Network", "3 · Training", "May 2, 2027"]].map((r) =>
-      '<div class="list-row"><span class="card-icon tone-green">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><div class="ov-when"><b>' + r[3] + "</b><span>" + r[2] + "</span></div></div>",
-    ).join(""),
-  () =>
-    cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Plants by sending church") +
-    ([["Grace Church", [["Harvest Point Church", 1], ["Eastside Commons", 3]]], ["Redeemer Dallas", [["Deep Ellum Collective", 4], ["Oak Cliff Church", 2]]]] as const).map((g) =>
-      '<div class="ovs-g"><div class="row between"><span class="ovs-gt">' + g[0] + '</span><span class="ovs-gc">' + g[1].length + " plant" + (g[1].length > 1 ? "s" : "") + '</span></div><div class="ov-gp">' +
-      g[1].map((p) => '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>").join("") + "</div></div>",
-    ).join(""),
-  () =>
-    cxHead(cxIcon("tone-green", "pin"), "Mueller Hope Church", "Mueller, Austin · 0 · Discovery") +
-    '<div class="ovs-kv"><span>Sent by</span>' + ovsBy("network", ["Austin Sending Network"]) + "</div>" +
-    '<div class="ovs-kv"><span>Sending church</span><span class="badge" data-size="sm" data-status="unknown">No sending church yet</span></div>' +
-    '<div class="ovs-act"><span class="btn" data-variant="primary" data-size="sm">' + icon("plus") + "Assign a sending church</span></div>",
-];
-function ovPaths(p: Copy["shared"]["oversight_page"]["paths"]) {
-  const S = p.states;
-  const mv = (i: number, c: string) => ' class="' + c + (i ? "" : " on") + '" data-i="' + i + '"';
-  const sr = p.lead + " " + S.slice(0, -1).map((x) => x.phrase).join(", ") + " or " + S[S.length - 1]!.phrase + ". " + p.tail;
-  return '<section class="sec sec-ov-paths" id="sending-paths"><div class="wrap"><div class="ovs-run">' +
-    '<h2 class="display ovs-say"><span class="ovs-sr">' + t(sr) + '</span><span aria-hidden="true">' + t(p.lead) + ' <br class="ovs-mbr"><span class="ovs-roll"><span class="ovs-rl">' +
-    S.map((x) => "<span>" + t(x.phrase) + "</span>").join("") + "</span></span>.<br>" + t(p.tail) + "</span></h2>" +
-    '<div class="ovs-big"><div class="ovs-bt">' + S.map((x, i) => "<div" + mv(i, "ovs-pane ovs-mv") + '><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>").join("") +
-    '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map((tn, i) => '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>').join("") +
-    OVS_B.map((f, i) => "<div" + mv(i, "ovs-app ovs-mv") + ">" + f() + "</div>").join("") + '</div><button type="button" class="ovs-pp" aria-label="Pause the sending paths">' + PAUSE_SVG + "</button></div></div>" +
-    '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
-}
 /* Revision 26: FAQ. Each question is a button that opens its answer; several can be open at once. */
 function ovFaq(f: Copy["shared"]["oversight_page"]["faq"]) {
   return '<section class="sec sec-ov-faq" id="faq"><div class="wrap"><div class="faq-grid"><h2 class="display h2 faq-title">' + t(f.headline) + '</h2><div class="faq-list">' + f.items.map((x) => {
@@ -319,12 +206,12 @@ function ovFaq(f: Copy["shared"]["oversight_page"]["faq"]) {
 /* ---------- Pages: the sections that are still string markup (R3 rebuilds them) ---------- */
 export function homeParts() {
   const s = COPY.journey;
-  return { problem: problem(s.problem), proof: proofMonday(s.proof), phases: phSection(s.features, {}), cta: cta(s.cta) };
+  return { problem: problem(s.problem), proof: proofMonday(s.proof), cta: cta(s.cta) };
 }
 export function oversightParts() {
   const P = COPY.shared.oversight_page;
   return {
     hero: hero(P.hero, { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [ACCESS, "#every-plant"] }),
-    problem: problem(P.problem), plants: phSection(P.plants, { id: "plants", vig: ovVig, tones: OV_PH_TONES }), paths: ovPaths(P.paths), faq: ovFaq(P.faq), cta: cta(P.cta),
+    problem: problem(P.problem), faq: ovFaq(P.faq), cta: cta(P.cta),
   };
 }

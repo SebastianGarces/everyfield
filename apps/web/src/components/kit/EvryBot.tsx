@@ -1,9 +1,9 @@
 "use client";
 
-import { frame, useInView, useReducedMotion, type MotionValue } from "motion/react";
+import { frame, useInView, type MotionValue } from "motion/react";
 import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
 import { cn } from "../cn";
-import { useDataAttr } from "../motion/scene";
+import { useDataAttr, useReduced } from "../motion/scene";
 
 // Evry's animated avatar (design/everyfield-ui.html). The body morphs, the eyes blink and glance, and a "follow" bot looks
 // toward the pointer. Mood (idle, talking, happy) comes from the scene clock as a data attribute. All of it runs only
@@ -26,7 +26,7 @@ type Props = { size: keyof typeof SIZE; mood?: MotionValue<string>; follow?: boo
 export function EvryBot({ size, mood, follow, className }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const seen = useInView(ref);
-  const reduced = useReducedMotion();
+  const reduced = useReduced();
   const live = seen && !reduced;
 
   // Each bot blinks on its own rhythm. Random values are set after mount, so server and client markup match.

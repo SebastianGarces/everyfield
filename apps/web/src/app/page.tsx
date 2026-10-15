@@ -9,6 +9,7 @@ import { homeParts } from "@/marketing/markup";
 import { PAGES, pageMetadata } from "@/marketing/meta";
 import { EvryPanel, FactsPanel, FocusPanel, SharePanel } from "@/marketing/panels/intelligence";
 import { LensPanel, PipePanel, ScopePanel, TopPanel } from "@/marketing/panels/network";
+import { PhasesRail } from "@/marketing/rail/PhasesRail";
 import { Html, Site } from "@/marketing/Site";
 import { ACCESS_PATH } from "@/site";
 
@@ -26,7 +27,8 @@ export default function Home() {
       </HeroPanel>
       <Html html={s.problem} />
       <WeekChapter />
-      <Html html={s.proof + s.phases} />
+      <Html html={s.proof} />
+      <PhasesRail id="features" headline={COPY.journey.features.headline} items={COPY.journey.features.items} vignettes="phases" />
       <AutoChapter id="intelligence" panels={{ focus: <FocusPanel />, facts: <FactsPanel />, evry: <EvryPanel />, share: <SharePanel /> }} revealUp />
       <AutoChapter id="sending" panels={network} />
       <Html html={s.cta} />

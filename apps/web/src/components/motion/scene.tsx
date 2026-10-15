@@ -1,7 +1,7 @@
 "use client";
 
 import { cancelFrame, frame, m, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
-import { createContext, useContext, useEffect, useEffectEvent, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { out, P, transformOf, type Frame } from "./curves";
 
 /**
@@ -95,4 +95,14 @@ export function MText({ value, className, ...rest }: { value: MotionValue<string
     return value.on("change", (v) => frame.render(() => { el.textContent = v; }));
   }, [value]);
   return <span ref={ref} className={className} {...rest} suppressHydrationWarning>{value.get()}</span>;
+}
+
+const REDUCE = "(prefers-reduced-motion: reduce)";
+const subscribeReduced = (cb: () => void) => { const mq = matchMedia(REDUCE); mq.addEventListener("change", cb); return () => mq.removeEventListener("change", cb); };
+/**
+ * The visitor's reduced-motion setting. The server and the hydrating render see false; React then renders again with
+ * the real value, so attributes that depend on it (labels, icons) never keep a stale server value.
+ */
+export function useReduced() {
+  return useSyncExternalStore(subscribeReduced, () => matchMedia(REDUCE).matches, () => false);
 }
