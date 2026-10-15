@@ -699,6 +699,27 @@
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "contentSHA256": "22ebb7f2f515c500895ce4c0d799f49f07a81ffb714adaa66066eb77dd9bf427",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "contentSHA256": "88e03f50033bc912c0f181adfa320464f8b4f2dd4e5894c505832a0489ae7d78",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "contentSHA256": "4b9988080f75e8fbd70bed0c259fa3d6b31eb5fc7bde66fecfa2be0947cb103f",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
     }
   ],
   "derivedFrom": {
@@ -3498,6 +3519,33 @@
       "previousRecordSHA256": null,
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:04:29.772Z",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "pr": 15,
+      "previousRecordSHA256": null,
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "slug": "administrative/legal/getting-your-churchs-ein"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:05:45.165Z",
+      "id": "26e0414f-bb46-478f-9d06-3e32baa26900",
+      "pr": 21,
+      "previousRecordSHA256": null,
+      "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
+      "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:06:16.426Z",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "pr": 19,
+      "previousRecordSHA256": null,
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3630,7 +3678,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "f2815e59de87b29774294828f8e1c6d63996dc23f6748214513eb1b42afcaab5",
+  "seedPayloadSHA256": "8c6584b3febeaf00fe4ae9c9fd033d6ffe1396ef49c21b84a92e752d37481ae1",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
