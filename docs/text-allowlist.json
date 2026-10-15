@@ -288,6 +288,12 @@
       "asOf": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
       "firstDispatchedAt": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt.",
       "personSources": "Reviewed existing schema/operation property or technical identifier in prose; only this exact spelling is exempt."
+    },
+    "docs/reference/wiki/backlog.json": {
+      "OneLicense": "Publisher brand in the unchanged Wiki backlog.",
+      "YouTube": "Publisher brand in the unchanged Wiki backlog.",
+      "PlanterPlan": "Source product name in the unchanged Wiki backlog.",
+      "i1023ez": "IRS instructions URL path in the unchanged Wiki backlog."
     }
   }
 }

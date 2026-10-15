@@ -270,5 +270,86 @@
       "response_sha256": "4504dc589504d5ffc149478aa633b32c288d00a287589c7ce33326d12560ef06",
       "verified_date": "2026-10-14"
     }
+  ],
+  "tooling_packages": [
+    {
+      "name": "@mdx-js/mdx",
+      "version": "3.1.1",
+      "purpose": "Wiki authoring tools only",
+      "official_registry_url": "https://registry.npmjs.org/@mdx-js%2fmdx/3.1.1",
+      "repository": {
+        "url": "git+https://github.com/mdx-js/mdx.git",
+        "type": "git",
+        "directory": "packages/mdx/"
+      },
+      "engines": null,
+      "peer_dependencies": null,
+      "response_sha256": "83d49a27a2eb8a23584a5b440e8193567d4a6e0bd3c87ee96c0c650fe1e4c283",
+      "verified_date": "2026-10-15"
+    },
+    {
+      "name": "remark-gfm",
+      "version": "4.0.1",
+      "purpose": "Wiki authoring tools only",
+      "official_registry_url": "https://registry.npmjs.org/remark-gfm/4.0.1",
+      "repository": {
+        "url": "git+https://github.com/remarkjs/remark-gfm.git",
+        "type": "git"
+      },
+      "engines": null,
+      "peer_dependencies": null,
+      "response_sha256": "ae1cbed72bab19e87e57970427a94fdf29d97ac99dae8a27724ab4eea13587c4",
+      "verified_date": "2026-10-15"
+    },
+    {
+      "name": "react",
+      "version": "19.3.1",
+      "purpose": "Wiki authoring tools only",
+      "official_registry_url": "https://registry.npmjs.org/react/19.3.1",
+      "repository": {
+        "url": "git+https://github.com/react/react.git",
+        "type": "git",
+        "directory": "packages/react"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      },
+      "peer_dependencies": null,
+      "response_sha256": "ecf8c02b9096a7813842d87fae50a707a8809c5c3d0ec6b359ac51d40188ff6f",
+      "verified_date": "2026-10-15"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.1",
+      "purpose": "Wiki authoring tools only",
+      "official_registry_url": "https://registry.npmjs.org/react-dom/19.3.1",
+      "repository": {
+        "url": "git+https://github.com/react/react.git",
+        "type": "git",
+        "directory": "packages/react-dom"
+      },
+      "engines": null,
+      "peer_dependencies": {
+        "react": "^19.3.1"
+      },
+      "response_sha256": "2d72d7d33a8b0fea5614e1b415d06470877efa8eebbdf638cee04e5b83c2c7a5",
+      "verified_date": "2026-10-15"
+    },
+    {
+      "name": "playwright",
+      "version": "1.56.1",
+      "purpose": "Wiki authoring tools only",
+      "official_registry_url": "https://registry.npmjs.org/playwright/1.56.1",
+      "repository": {
+        "url": "git+https://github.com/microsoft/playwright.git",
+        "type": "git"
+      },
+      "engines": {
+        "node": ">=18"
+      },
+      "peer_dependencies": null,
+      "response_sha256": "b4a1f7004f8d1e34eeb7dea23764c8e8b3c5d54fa18d2100d9d9931605d23b1d",
+      "verified_date": "2026-10-15"
+    }
   ]
 }

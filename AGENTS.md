@@ -40,6 +40,7 @@ Read the file for your specialist before you start:
 | `implementor` | `.agents/roles/implementor.md` |
 | `ui-designer` | `.agents/roles/ui-designer.md` |
 | `verifier` | `.agents/roles/verifier.md` |
+| `wiki-writer` (via `implementor`) | `.agents/roles/wiki-writer.md` |
 
 ## Where to look
 
@@ -51,6 +52,7 @@ Read the file for your specialist before you start:
 | Feature behavior | `docs/product/` (only the current sections selected by your packet) |
 | Current approved product contract | `docs/START-HERE.md` and selected current clauses |
 | What v2 taught us | `docs/lessons.md` |
+| Writing a Wiki article | skill `wiki-article` |
 | When to write a test | skill `test-standard` |
 | Proving a task works | skill `verify` |
 | Opening and merging PRs | skill `ship` |
