@@ -37,9 +37,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": ""
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "F3 LSB review of PR #25 at b928497: scripted diff against seed.json shows changes only inside the scripture callout (LSB verse text and ' (LSB)' after an unchanged reference); body and row fields otherwise unchanged except the required draft status and published_at. The seed's wrapped callout lines are joined onto one line; this renders identically. Every verse was checked word for word on read.lsbible.org, one passage per lookup. draft.sources quotes match the callouts. bin/wiki lint passes. Desktop and mobile screenshots checked; callouts and the LSB notice render."
     },
     "rulings": []
   }
