@@ -116,3 +116,35 @@ test('INV-wiki: renderer refuses executable MDX and lint reports malformed artic
     assert.match(syntax.output,/MDX does not compile/);
   } finally { await rm(f.dir,{recursive:true,force:true}); }
 });
+
+test('BUG-PR5: draft lint accepts scripture reference forms and quoted speech while requiring the LSB callout format', async t => {
+  const f = await fixture();
+  const cases = [
+    ['single verse', '*"Synthetic quotation."* — John 3:16 (LSB)', true],
+    ['multi-word book', '*"Synthetic quotation."* — Song of Solomon 2:1 (LSB)', true],
+    ['numbered book', '*"Synthetic quotation."* — 1 Thessalonians 5:16-18 (LSB)', true],
+    ['cross-chapter range', '*"Synthetic quotation."* — John 3:16-4:2 (LSB)', true],
+    ['verse part', '*"Synthetic quotation."* — Ecclesiastes 3:11a (LSB)', true],
+    ['verse-part range', '*"Synthetic quotation."* — John 3:16a–4:2b (LSB)', true],
+    ['quoted speech', '*"He said, "Synthetic speech," to them."* — John 3:16 (LSB)', true],
+    ['wrapped quotation', '*"Synthetic quotation\ncontinued here."* — John 3:16 (LSB)', true],
+    ['missing translation', '*"Synthetic quotation."* — John 3:16', false],
+    ['other translation', '*"Synthetic quotation."* — John 3:16 (ESV)', false],
+    ['missing emphasis', '"Synthetic quotation." — John 3:16 (LSB)', false],
+    ['missing outer quotes', '*Synthetic quotation.* — John 3:16 (LSB)', false],
+    ['empty quote', '*""* — John 3:16 (LSB)', false],
+    ['missing verse', '*"Synthetic quotation."* — John 3 (LSB)', false],
+    ['incomplete range', '*"Synthetic quotation."* — John 3:16-4: (LSB)', false],
+    ['two quotations', '*"First quotation."* — John 3:16 (LSB)\n\n*"Second quotation."* — John 3:17 (LSB)', false],
+  ] as const;
+  try {
+    for (const [name, callout, valid] of cases) await t.test(name, async () => {
+      const content = f.row.content.replace(/<Callout type="scripture">[\s\S]*?<\/Callout>/, () => `<Callout type="scripture">\n${callout}\n</Callout>`);
+      await writeFile(f.draft, JSON.stringify({...f.row, content}));
+      const result = wiki('lint', f.draft);
+      assert.equal(result.status, valid ? 0 : 1, result.output);
+      if (valid) assert.match(result.output, /1\/1 articles pass the error checks/);
+      else assert.match(result.output, /Scripture must be \*"verse text"\* — Book 1:2 \(LSB\), with one quote per callout/);
+    });
+  } finally { await rm(f.dir,{recursive:true,force:true}); }
+});

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { AccessForm, type FieldSpec, type FormText } from "@/access/AccessForm";
 import { FIELD_MAX, PHASES } from "@/access/contract";
+import { ButtonLink } from "@/components/ButtonLink";
+import { Icon } from "@/components/Icon";
 import { COPY, type FormCopy } from "@/marketing/copy";
-import { hero } from "@/marketing/markup";
+import { ICONS } from "@/marketing/icons";
 import { PAGES, pageMetadata } from "@/marketing/meta";
-import { Html, Site } from "@/marketing/Site";
+import { PageHero } from "@/marketing/sections/PageHero";
+import { Site } from "@/marketing/Site";
+import { ACCESS_PATH } from "@/site";
 
 // Copy: shared.access_page in design/marketing-copy.json (task E2).
 const A = COPY.shared.access_page;
@@ -70,14 +74,27 @@ const networkFields = fieldsFor(
 export const metadata: Metadata = pageMetadata(PAGES.access);
 
 export default function Access() {
-  const heroCopy = { ...A.hero, cta_primary: "Request early access", cta_secondary: "Talk to us about your network", note: A.hero.note ?? COPY.journey.cta.note };
+  const note = A.hero.note ?? COPY.journey.cta.note;
   return (
     <Site path="/access">
-      <Html html={hero(heroCopy, { page: true, visual: false })} />
-      <section className="sec" style={{ paddingTop: 0 }}>
-        <div className="wrap forms">
+      <PageHero eyebrow={A.hero.eyebrow} title={A.hero.headline}>
+        <div className="mt-[clamp(28px,4vw,56px)] flex flex-col items-center gap-6">
+          <div className="mx-auto">
+            <p className="max-w-[58ch] text-mk-lead text-text-2">{A.hero.subhead}</p>
+          </div>
+          <div className="flex flex-col items-center gap-[18px]">
+            <div className="flex flex-wrap justify-center gap-3">
+              <ButtonLink href={ACCESS_PATH} icon={<Icon icon={ICONS.arrow} size={17} />}>Request early access</ButtonLink>
+              <ButtonLink href={ACCESS_PATH} variant="secondary">Talk to us about your network</ButtonLink>
+            </div>
+            {note ? <p className="mx-auto max-w-[56ch] text-[14px] text-text-3">{note}</p> : null}
+          </div>
+        </div>
+      </PageHero>
+      <section className="relative pb-section">
+        <div className="mx-auto grid max-w-mk grid-cols-2 gap-4 px-page max-mk-lg:grid-cols-1">
           <AccessForm kind="planter" id="planter-form" fields={planterFields} text={text(A.planter_form)} />
-          <AccessForm kind="network" id="network-form" fields={networkFields} text={text(A.network_form)} />
+          <AccessForm kind="network" id="network-form" fields={networkFields} text={text(A.network_form)} delay={70} />
         </div>
       </section>
     </Site>
