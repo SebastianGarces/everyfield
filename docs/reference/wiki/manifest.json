@@ -43,9 +43,9 @@
       "slug": "administrative/financial/principles-of-financial-accountability"
     },
     {
-      "contentSHA256": "408c30642607e90c61b2c38d7866ec532bc110f2dbb7175173b34bf15b06e3a3",
+      "contentSHA256": "e740bb35616984a1184ebdda7d3421962089109eb94bd4bd911dd82223decd21",
       "id": "59fc7ad4-eb33-49cd-bae0-cc61c5528379",
-      "recordSHA256": "a34119d217d8b6c5e20aca605c8510639cd0f08ee0acf4be37717f51650e70d6",
+      "recordSHA256": "ba01f0322cd3c87b38890f139b9c9b7e2aa1816cb6d91b91af36077cf7d03003",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/setting-up-501c3"
     },
@@ -3425,7 +3425,17 @@
     "transaction": "one atomic global-reference import, advisory lock, unique scope checks"
   },
   "playbookSHA256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
-  "releases": [],
+  "releases": [
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:43:13.833Z",
+      "id": "59fc7ad4-eb33-49cd-bae0-cc61c5528379",
+      "pr": 11,
+      "previousRecordSHA256": "a34119d217d8b6c5e20aca605c8510639cd0f08ee0acf4be37717f51650e70d6",
+      "recordSHA256": "ba01f0322cd3c87b38890f139b9c9b7e2aa1816cb6d91b91af36077cf7d03003",
+      "slug": "administrative/legal/setting-up-501c3"
+    }
+  ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
   "scope": "published global reference content only",
   "sections": [
@@ -3556,7 +3566,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+  "seedPayloadSHA256": "3d4cf092bc8f96355cd9ae4cf1032abdc0d7159866644dedcf9802ee75c747fc",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
