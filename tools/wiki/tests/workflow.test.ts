@@ -69,7 +69,7 @@ test('INV-wiki: promotion preserves unrelated seed records and logs exact hashes
     manifest = JSON.parse(await readFile(join(f.seed,'manifest.json'),'utf8'));
     assert.equal(manifest.releases[1].previousRecordSHA256,manifest.releases[0].recordSHA256);
     const after = JSON.parse(await readFile(join(f.seed,'seed.json'),'utf8'));
-    assert.equal(after.articles.length,97);
+    assert.equal(after.articles.length,before.articles.length + 1);
     assert.equal(after.articles.at(-1).title,'Revised synthetic fixture');
     assert.deepEqual(after.articles.slice(0,-1),before.articles);
     assert.deepEqual(await readFile(join(seedRoot,'seed.json')),realBytes);
