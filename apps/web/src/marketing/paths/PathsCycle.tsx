@@ -31,6 +31,9 @@ const EASE = "cubic-bezier(.65,0,.35,1)";
  * No layout shift (the prototype animated the highlight's width, which moved the whole line ~50 times a roll): the
  * phrase slot always has the width of the widest phrase, so nothing is laid out again. The line is recentred with a
  * transform, the period moves with a transform, and the highlight takes its width with a clip-path inset (paint only).
+ * As in the prototype, every phrase is centred in the painted highlight and clipped to it while the width changes: a
+ * phrase's offset is (painted width - its width) / 2, linear in the painted width, so a translateX transition with the
+ * same .7 s curve keeps it centred; the slot is clipped with the highlight's own inset.
  * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
  * the next state.
  */
@@ -77,14 +80,22 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
           <span className="inline-block [transform:translateX(var(--dx,0px))] max-mk-sm:[transform:none]" style={{ transition: t }}>{lead}</span>{" "}
           <br className="hidden max-mk-sm:inline" />
           <span className="relative inline-block [transform:translateX(var(--dx,0px))]" style={{ transition: t }}>
-            <span className="relative inline-block h-[1.14em] overflow-hidden align-bottom">
+            <span
+              className="relative inline-block h-[1.14em] overflow-hidden align-bottom [clip-path:inset(0_var(--cut,0px)_0_0_round_.2em)]"
+              style={{ transition: reduced ? "none" : `clip-path .7s ${EASE}` }}
+            >
               <span
-                className="absolute inset-0 -z-1 rounded-[.2em] bg-[linear-gradient(100deg,#BFF5D3_0%,#DCFAE7_55%,#EEFCD9_100%)] bg-no-repeat [background-size:var(--wk,100%)_100%] [clip-path:inset(0_var(--cut,0px)_0_0_round_.2em)]"
+                className="absolute inset-0 -z-1 rounded-[.2em] bg-(image:--mk-paths-highlight) bg-no-repeat [background-size:var(--wk,100%)_100%] [clip-path:inset(0_var(--cut,0px)_0_0_round_.2em)]"
                 style={{ transition: reduced ? "none" : `clip-path .7s ${EASE}, background-size .7s ${EASE}` }}
               />
               <span className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]" style={{ "--k": k, transition: t } as CSSProperties}>
                 {phrases.map((p, i) => (
-                  <span key={p} ref={(el) => { items.current[i] = el; }} className="block h-[1.14em] w-max flex-none px-[.12em] leading-[1.14em] whitespace-nowrap">
+                  <span
+                    key={p}
+                    ref={(el) => { items.current[i] = el; }}
+                    className="block h-[1.14em] w-max flex-none px-[.12em] leading-[1.14em] whitespace-nowrap [transform:translateX(calc((var(--wk,0px)-var(--wi,0px))/2))]"
+                    style={{ "--wi": w ? w.items[i] + "px" : undefined, transition: t } as CSSProperties}
+                  >
                     {p}
                   </span>
                 ))}

@@ -102,6 +102,7 @@
 
 /* The white ring around every product UI card (Revision 21): drawn outside the card edge, so the card size never changes. */
 :root { --ui-ring: 0 0 0 6px var(--color-mk-white-25); }
+:root { --mk-paths-highlight: linear-gradient(100deg, var(--color-mk-paths-hl-1) 0%, var(--color-mk-paths-hl-2) 55%, var(--color-mk-paths-hl-3) 100%); }
 
 @theme {
   /* Colours of the product visuals. A colour that is a product token at some alpha derives from the token (relative
@@ -147,6 +148,10 @@
   --color-mk-bar-muted: #B9C0BB;
   --color-mk-skeleton: #ECEFF2;
   --color-mk-skeleton-hi: #F7F8FA;
+  /* The sending-paths phrase highlight (the prototype's .ovs-roll gradient). */
+  --color-mk-paths-hl-1: #BFF5D3;
+  --color-mk-paths-hl-2: #DCFAE7;
+  --color-mk-paths-hl-3: #EEFCD9;
 
   /* Panel and card shadows. Each one starts with the white ring. */
   --shadow-mk-panel-body: 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
