@@ -685,6 +685,20 @@
       "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
+    },
+    {
+      "contentSHA256": "e9f449cb811d6315b47643db48780bfbe6b71c2b34dfe6e38668fbe32f25394a",
+      "id": "e56eb7c7-d719-474f-93e5-5c5bebc10510",
+      "recordSHA256": "14f6a29ac908a6ae26b578bbbb5813eb40c337a4ef7e47f018675c6eafd120f2",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/claiming-your-churchs-online-presence"
+    },
+    {
+      "contentSHA256": "8dc45cff7caced3492abf657ff35014efe1eb424f7489d11f2a2d915316d21eb",
+      "id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
+      "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
+      "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "slug": "discovery/finding-demographic-data-for-your-area"
     }
   ],
   "derivedFrom": {
@@ -3466,6 +3480,24 @@
       "previousRecordSHA256": null,
       "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
       "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:47:16.290Z",
+      "id": "e56eb7c7-d719-474f-93e5-5c5bebc10510",
+      "pr": 10,
+      "previousRecordSHA256": null,
+      "recordSHA256": "14f6a29ac908a6ae26b578bbbb5813eb40c337a4ef7e47f018675c6eafd120f2",
+      "slug": "administrative/technology/claiming-your-churchs-online-presence"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T19:08:13.467Z",
+      "id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
+      "pr": 6,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
+      "slug": "discovery/finding-demographic-data-for-your-area"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3598,7 +3630,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "d23b2d3181608196ebda3b15c8e2316f1598e11ee2db82eb026a0bb3ccbbe7ea",
+  "seedPayloadSHA256": "f2815e59de87b29774294828f8e1c6d63996dc23f6748214513eb1b42afcaab5",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
