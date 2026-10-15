@@ -699,6 +699,13 @@
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "contentSHA256": "22ebb7f2f515c500895ce4c0d799f49f07a81ffb714adaa66066eb77dd9bf427",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/getting-your-churchs-ein"
     }
   ],
   "derivedFrom": {
@@ -3498,6 +3505,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
       "slug": "discovery/finding-demographic-data-for-your-area"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:04:29.772Z",
+      "id": "8f577a45-c007-4209-8998-ac240c951540",
+      "pr": 15,
+      "previousRecordSHA256": null,
+      "recordSHA256": "0e7273b8ba43b126458a35d97b24bb8a9e7f0434e08684f6f0a11d8e0ac49356",
+      "slug": "administrative/legal/getting-your-churchs-ein"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3630,7 +3646,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "f2815e59de87b29774294828f8e1c6d63996dc23f6748214513eb1b42afcaab5",
+  "seedPayloadSHA256": "86b165cbf3cf41b3d36e4c986355567a73e01e1b3e5fb61b9abd1c20a726f351",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
