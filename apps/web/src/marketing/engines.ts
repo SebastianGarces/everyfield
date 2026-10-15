@@ -3,7 +3,7 @@
 // EvryBot life, the floating nav pill, the mobile menu and the FAQ. The markup comes from markup.ts.
 // startMotion() runs once per page load and returns a cleanup. Every engine renders a still frame under
 // prefers-reduced-motion. Comments that start with "Revision" keep the prototype's design notes.
-import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_TEAMS, HA_DRAFT, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SCENES, SD_PIPE, SD_SCOPES, isPanelKind, type PanelKind } from "./scene-data";
+import { CX_A, CX_COUNT, CX_DRAFT, CX_PEOPLE, CX_Q, CX_TEAMS, HA_DRAFT, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SCENES, SD_PIPE, SD_SCOPES, isPanelKind, type PanelKind } from "./scene-data";
 
 type Styled = HTMLElement | SVGElement;
 type El = Styled | null | undefined;
@@ -194,7 +194,8 @@ type Inst = { el: HTMLElement; kind: PanelKind; q: Record<string, HTMLElement | 
 type Chapter = {
   root: HTMLElement; id: string; vis: HTMLElement; head: HTMLElement; steps: HTMLElement[]; bgs: HTMLElement[]; insts: Inst[]; mobs: Inst[];
   active: number; prev: number; since: number; on: boolean; seen: boolean; target: number; at: number; tm: ReturnType<typeof setTimeout> | 0;
-  stack: boolean; lock: number[]; lead: number; listH: number; fits: boolean; auto: boolean; prog: number; kbd: boolean; dur: number;
+  /* desk: the panel column shows (wide layout, or any auto list). Read once per measure, never per frame. */
+  desk: boolean; stack: boolean; lock: number[]; lead: number; listH: number; fits: boolean; auto: boolean; prog: number; kbd: boolean; dur: number;
   bars: HTMLElement[]; words: HTMLElement[]; tabs: HTMLElement[];
 };
 const cxRst = (t: number, a: number) => 1 - sine(P(t, a, 450));
@@ -245,7 +246,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     /* Guests drop in and the attendance count ticks up */
     cxQA(I, ".cx-guests .ha-chip").forEach((c, j) => { const p = P(t, 3800 + j * 160, 420); to(c, 0, -16 * (1 - back(p)), 1, clamp(p * 2.5) * R); });
     const cnt = cxQ(I, '[data-n="att"]');
-    cxN(cnt, 12 * out(P(t, 3850, 1100)) * R);
+    cxN(cnt, CX_COUNT.att * out(P(t, 3850, 1100)) * R);
     set(cnt, "transform", "scale(" + (1 + 0.06 * bump(t, 4950, 260)).toFixed(4) + ")");
     cxPop(cxQ(I, ".cx-att .badge"), t, 4500, R);
   },
@@ -288,9 +289,9 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     });
   },
   focus(I, t) {
-    const R = cxRst(t, 6200), d = 16 * out(P(t, 300, 1200)) * R;
+    const R = cxRst(t, 6200), d = CX_COUNT.focusDays * out(P(t, 300, 1200)) * R;
     cxN(cxQ(I, '[data-n="days"]'), d);
-    set(cxQ(I, ".cx-rf"), "clip-path", "inset(0 " + ((1 - d / 16) * 100).toFixed(2) + "% 0 0 round 99px)");
+    set(cxQ(I, ".cx-rf"), "clip-path", "inset(0 " + ((1 - d / CX_COUNT.focusDays) * 100).toFixed(2) + "% 0 0 round 99px)");
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
     const s = out(P(t, 2550, 380)) * R, f = cxQ(I, ".cx-flip2")?.children;
     if (f) to(f[0] as Styled, 0, -6 * s, 1, 1 - s);
@@ -298,9 +299,9 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
   },
   facts(I, t) {
     const R = cxRst(t, 6000), p = out(P(t, 300, 1100)) * R;
-    set(cxQ(I, ".cx-ring .fg"), "stroke-dashoffset", (169.65 * (1 - 0.71 * p)).toFixed(2));
-    cxN(cxQ(I, '[data-n="pct"]'), 71 * p);
-    cxQA(I, '[data-n="kv"]').forEach((el, k) => { if (k < 3) cxN(el, [24, 17, 7][k]! * out(P(t, 300 + k * 90, 900)) * R); });
+    set(cxQ(I, ".cx-ring .fg"), "stroke-dashoffset", (169.65 * (1 - (CX_COUNT.pct / 100) * p)).toFixed(2));
+    cxN(cxQ(I, '[data-n="pct"]'), CX_COUNT.pct * p);
+    cxQA(I, '[data-n="kv"]').forEach((el, k) => { if (k < 3) cxN(el, CX_COUNT.kv[k]! * out(P(t, 300 + k * 90, 900)) * R); });
     cxHl(cxQ(I, ".cx-hl"), t, 1650, 5800, R);
     cxQA(I, ".cx-names .ha-chip").forEach((c, k) => cxPop(c, t, 2500 + k * 120, R));
   },
@@ -346,7 +347,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
       set(bars[k], "transform", "scaleX(" + ((v / 4) * p).toFixed(4) + ")");
       set(wk[k], "opacity", out(P(t, 900 + k * 120, 400)).toFixed(3));
     });
-    cxN(cxQ(I, '[data-n="sum"]'), 5 * out(P(t, 1900, 800)));
+    cxN(cxQ(I, '[data-n="sum"]'), CX_COUNT.sum * out(P(t, 1900, 800)));
     cxHl(cxQ(I, ".sd-pl .cx-hl"), t, 2450, 1e9);
   },
   lens(I, t) {
@@ -357,7 +358,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     cxQA(I, ".sd-pr").forEach((r, k) => cxRise(r, t, 2650 + k * 110, 1));
   },
   top(I, t) {
-    cxN(cxQ(I, '[data-n="top"]'), 4 * out(P(t, 300, 800)));
+    cxN(cxQ(I, '[data-n="top"]'), CX_COUNT.top * out(P(t, 300, 800)));
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
   },
   /* Revision 25 /oversight panels. Each plays once to its end and holds there. */
@@ -388,7 +389,7 @@ const CX_RENDER: Record<PanelKind, (I: Inst, t: number) => void> = {
     cxPress(cxQ(I, ".cx-t0"), t, 2100, 0.06);
   },
   help(I, t) {
-    cxN(cxQ(I, '[data-n="days"]'), 205 * out(P(t, 300, 1100)));
+    cxN(cxQ(I, '[data-n="days"]'), CX_COUNT.helpDays * out(P(t, 300, 1100)));
     cxPress(cxQ(I, ".cx-t0"), t, 2400);
     cxFlip(cxQ(I, ".ov-off"), out(P(t, 2550, 380)));
   },
@@ -434,7 +435,6 @@ function cxInst(el: HTMLElement): Inst {
   if (!isPanelKind(kind)) throw new Error("unknown panel " + kind);
   return { el, kind, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: all(el, "[data-st]") };
 }
-const cxDesk = (ch: Chapter) => !!ch.vis.offsetParent;
 const cxStill = (I: Inst) => SCENES[I.kind].still;
 /* Panel crossfade, with the hero's curves: old card out 250 ms sine (6 px up), new card in after 150 ms, 380 ms ease-out (8 px lift). */
 function cxRender(ch: Chapter) {
@@ -486,7 +486,7 @@ function cxGo(ch: Chapter) {
 function cxScroll(jump?: boolean) {
   CX.ticking = false;
   CX.list.forEach((ch) => {
-    if (ch.auto || !cxDesk(ch)) return;
+    if (ch.auto || !ch.desk) return;
     const hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * 0.6;
     let k = 0;
     if (ch.stack) ch.steps.forEach((s, i) => { if (i && s.getBoundingClientRect().top < ch.lock[i]! + ch.lead) k = i; });
@@ -509,7 +509,7 @@ function cxFrame(now: number) {
   CX.last = now;
   CX.list.forEach((ch) => {
     if (!ch.root.isConnected) return;
-    if (ch.on && cxDesk(ch)) {
+    if (ch.on && ch.desk) {
       any = true;
       if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= ch.dur) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       const I = ch.insts[ch.active]!, S = SCENES[I.kind];
@@ -518,7 +518,7 @@ function cxFrame(now: number) {
       cxRender(ch); if (ch.auto) cxBars(ch);
     }
     ch.mobs.forEach((M) => {
-      if (!M.on || cxDesk(ch)) return;
+      if (!M.on || ch.desk) return;
       any = true;
       const S = SCENES[M.kind];
       M.since += dt; M.t = S.once ? Math.min(M.t + dt, S.end ?? S.L) : (M.t + dt) % S.L;
@@ -560,11 +560,12 @@ function cxStack(ch: Chapter, on: boolean) {
 }
 /* The heading and the panel unpin together, with the last step under the heading: no long empty gap. */
 function cxMeasureAll() {
+  CX.list.forEach((ch) => { ch.desk = !!ch.vis.offsetParent; });
   CX.list.forEach((ch) => {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
     if (ch.auto) return;
     const ol = ch.steps[0]!.parentElement!, right = ch.vis.closest<HTMLElement>(".cx-right")!, grid = ch.vis.closest<HTMLElement>(".cx-grid")!;
-    const desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
+    const desk = ch.desk, x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
     cxStack(ch, desk && !REDUCED.matches);
     ol.style.marginBottom = !desk ? "" : ch.stack ? -ch.listH + "px" : -ch.steps[ch.steps.length - 1]!.offsetHeight + "px";
@@ -624,7 +625,7 @@ function cxInit(signal: AbortSignal) {
     return {
       root, id: root.id, vis, head: one(root, ".cx-head")!, steps: all(root, ".cx-step"), bgs: all(vis, ".cx-bg"),
       insts: all(vis, ".cx-card").map(cxInst), mobs: all(root, ".cx-mob .cx-card").map(cxInst),
-      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, stack: false, lock: [], lead: 0, listH: 0, fits: true,
+      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, desk: false, stack: false, lock: [], lead: 0, listH: 0, fits: true,
       auto: root.classList.contains("cx-auto"), prog: 0, kbd: false, dur: 0,
       bars: all(root, ".cx-bar i"), words: all(root, ".cx-ttl .cx-w"), tabs: all(root, ".cx-tab"),
     };

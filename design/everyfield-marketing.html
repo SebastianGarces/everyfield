@@ -1396,6 +1396,8 @@ body.pbar-hidden { padding-bottom: 0; }
   [id] { scroll-margin-top: 76px; }
   .site-nav.open .nav-links { top: 64px; }
   .nav-pill { --np-h: 56px; --np-c: 42px; }
+  /* E8: on phones the pill floats inside the page margin (content edge) and clear of the notch and rounded corners. */
+  .nav-pill { top: calc(12px + env(safe-area-inset-top)); left: max(var(--mk-page-pad), env(safe-area-inset-left)); right: max(var(--mk-page-pad), env(safe-area-inset-right)); width: auto; }
   .hero .eyebrow { margin-bottom: 18px; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
   .feat-list { grid-template-columns: 1fr; }
@@ -3114,7 +3116,6 @@ function cxMeasure(I) {
 /* ---------- Engine ---------- */
 var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, aio: null, ro: null, rio: null, ticking: false };
 function cxInst(el) { return { el: el, kind: el.dataset.k, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: Array.prototype.slice.call(el.querySelectorAll("[data-st]")) }; }
-function cxDesk(ch) { return !!ch.vis.offsetParent; }
 function cxStill(I) { return CX_SCN[I.kind].still; }
 /* Panel crossfade, with the hero's curves: old card out 250 ms sine (6 px up), new card in after 150 ms, 380 ms ease-out (8 px lift), children 75 ms apart. */
 function cxRender(ch) {
@@ -3168,7 +3169,7 @@ function cxScroll(jump) {
   CX.ticking = false;
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
-    if (ch.auto || !cxDesk(ch)) return;
+    if (ch.auto || !ch.desk) return;
     /* Revision 11: a step becomes the target when the previous step's title reaches 28 px below the sticky heading (clear of its 20 px fade),
        so the outgoing title never slides under the heading. The line stays above 0.6 of the viewport, so the new title is in view. */
     var hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * .6, k = 0;
@@ -3192,7 +3193,7 @@ function cxFrame(now) {
   CX.last = now;
   CX.list.forEach(function (ch) {
     if (!ch.root.isConnected) return;
-    if (ch.on && cxDesk(ch)) {
+    if (ch.on && ch.desk) {
       any = true;
       if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       var I = ch.insts[ch.active];
@@ -3200,7 +3201,7 @@ function cxFrame(now) {
       cxRender(ch); if (ch.auto) cxBars(ch);
     }
     ch.mobs.forEach(function (M) {
-      if (!M.on || cxDesk(ch)) return;
+      if (!M.on || ch.desk) return;
       any = true;
       M.since += dt; M.t = CX_SCN[M.kind].once ? Math.min(M.t + dt, CX_SCN[M.kind].end) : (M.t + dt) % CX_SCN[M.kind].L;
       cxRenderMob(M);
@@ -3244,11 +3245,14 @@ function cxStack(ch, on) {
    The last step hangs below the left column, so the sticky heading releases when the panel does.
    The right column extends by the panel minus the heading height, and the grid padding keeps the section height. */
 function cxMeasureAll() {
+  /* E8: ch.desk (the panel column shows) is read here, once per measure. Reading offsetParent per frame forced a
+     style and layout pass after every phone panel's writes. */
+  CX.list.forEach(function (ch) { ch.desk = !!ch.vis.offsetParent; });
   CX.list.forEach(function (ch) {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
     if (ch.auto) return;
     var ol = ch.steps[0].parentNode, right = ch.vis.closest(".cx-right"), grid = ch.vis.closest(".cx-grid");
-    var desk = cxDesk(ch), x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
+    var desk = ch.desk, x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
     cxStack(ch, desk && !REDUCED.matches);
     ol.style.marginBottom = !desk ? "" : ch.stack ? -ch.listH + "px" : -ch.steps[ch.steps.length - 1].offsetHeight + "px";
@@ -3306,7 +3310,7 @@ function cxInit() {
     var vis = root.querySelector(".cx-vis");
     return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
       insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
-      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, stack: false, lock: [], lead: 0, listH: 0,
+      active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, desk: false, stack: false, lock: [], lead: 0, listH: 0,
       auto: root.classList.contains("cx-auto"), prog: 0, kbd: false,
       bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), words: Array.prototype.slice.call(root.querySelectorAll(".cx-ttl .cx-w")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
   });
