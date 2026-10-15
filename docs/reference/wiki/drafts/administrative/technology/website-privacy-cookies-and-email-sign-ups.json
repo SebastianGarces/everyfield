@@ -1,0 +1,149 @@
+{
+  "church_id": null,
+  "content": "Before you add a form to your church website, decide what information you need and who will receive it. Use the FTC's advice to collect less and protect what you keep as a starting point for your church's procedures.\n\nGive visitors a clear explanation of what you do with their information. Build newsletter sign-ups around an intentional choice, and check that the site's settings match what you tell people.\n\n---\n\n## Map what your website collects\n\nThe FTC recommends tracing information from collection through storage and access. Work through your site with whoever manages it, including your outside providers. Use this inventory as a worksheet, adding only the tools you actually use.\n\n| Website feature | Questions to record |\n|---|---|\n| Contact form | What fields do you request, and which inbox receives them? |\n| Newsletter form | Where is permission recorded, and who can export the list? |\n| Event registration | What information is necessary for this event? |\n| Analytics and embedded tools | What do they collect, and which providers receive it? |\n\nInclude downloaded spreadsheets and forwarded form submissions in your review. Remove fields you cannot justify keeping.\n\n---\n\n## Write a notice you can honor\n\nThe FTC urges organizations it regulates to honor their privacy promises. Apply that discipline to your church's notice. Write about your actual practices, then have your website provider and a qualified attorney review it.\n\nExplain what you collect, why you use it, and which providers receive it. Describe your retention approach and give visitors a way to ask privacy questions. Put a clearly labeled privacy link near your forms and in the footer as a practical way to make the notice easy to find.\n\n<Callout type=\"warning\">\nCheck broad promises such as \"We never share your information\" against your provider arrangements. Describe the sharing that actually occurs. Review the notice whenever you change how the site collects or uses information.\n</Callout>\n\n---\n\n## Review cookies and tracking tools\n\nA cookie stores information in a browser and can help a site recognize a returning device. Cookies can support preferences, usage measurement, or targeted advertising. Ask your provider to identify each tool's purpose and duration.\n\nReview tracking pixels too. FTC staff warns that blocking third-party cookies may not prevent pixels from collecting and sharing information. Ask what your analytics, advertising tools, and embedded content send to other companies before enabling them.\n\n<Callout type=\"important\">\nGuidance checked October 15, 2026. Before launch, confirm current requirements with the FTC, your state attorney general, and counsel. Ask which privacy, cookie-consent, and opt-out rules apply to your church and its visitors. California's attorney general says the CCPA generally does not apply to nonprofits. Treat that as guidance about that law, not a decision about every privacy obligation.\n</Callout>\n\n---\n\n## Make email sign-ups a separate choice\n\nUse a distinct newsletter sign-up or a separate optional choice on another form. As a recommended practice, do not treat a request for directions as permission for ongoing newsletters.\n\nMailchimp, for example, defines permission as express, verifiable consent and distinguishes it from agreement to something else. Check your own email provider's terms before importing contacts. Keep a record of the permission you receive.\n\nExplain the messages people are choosing. For example, offer church news and event invitations only if that describes the list you intend to send.\n\nMailchimp offers double opt-in, which asks people to confirm their signup. If you use it, test the confirmation email as well as the form. Its opt-in settings do not control third-party integrations or API sign-ups, so check those separately.\n\n---\n\n## Check commercial email before sending\n\nCAN-SPAM focuses on commercial messages. The FTC says the message's primary purpose determines coverage. Ask counsel about mixed messages or promotions; do not classify an email solely by the church's nonprofit identity.\n\nFor covered commercial email, check the FTC's compliance guide and these requirements:\n\n- Use accurate sender information and a truthful subject line.\n- Identify advertising clearly. The Act has an exception to its advertising-identification requirement for prior affirmative consent.\n- Include a valid physical postal address and a clear way to opt out.\n- Keep the opt-out mechanism working for at least 30 days after sending.\n- Honor opt-out requests within 10 business days, without a fee or a demand for personal information beyond an email address.\n\nInclude an option to stop all marketing messages. Hiring a sending service does not remove your legal responsibility for covered email.\n\n<Callout type=\"tip\">\nUse a test address to check the unsubscribe process before sending. Confirm that the sender, postal address, and opt-out instructions appear in the delivered message. Check the result in your sending system, too.\n</Callout>\n\n---\n\n## Check children's forms separately\n\nCOPPA addresses online collection from children under 13 by covered operators. The FTC says nonprofits generally are not subject to COPPA, while encouraging them to provide its protections to children.\n\nFor children's registrations, consider directing the form to a parent or guardian. The FTC distinguishes information collected from adults about children from information collected online from children. Have counsel and your provider review the actual collection process. A general newsletter checkbox should not stand in for a review of children's information practices.\n\n---\n\n## Limit access and retention\n\nGive staff and volunteers access according to their responsibilities. The FTC recommends separate accounts and access limited to a person's need to know. Review provider access as well as church accounts.\n\nWrite down what you retain, why you need it, and how you will dispose of it securely. Check legal retention needs before setting deletion rules. Protect information throughout its journey, including form notifications and downloaded files.\n\nUse fictitious information for setup and training. FTC security guidance recommends avoiding real personal information when it is unnecessary for those activities.\n\n---\n\n## Test before you invite sign-ups\n\nUse this final check to compare your promises with the working site:\n\n- [ ] Submit test information and follow it to its destination.\n- [ ] Confirm that newsletter permission matches the visitor's choice.\n- [ ] Read the privacy notice against the inventory and provider settings.\n- [ ] Test any cookie choices the site offers with your provider.\n- [ ] Confirm that unsubscribe requests take effect.\n- [ ] Assign someone to review access, retention, and changed tools.\n\nRepeat the relevant checks when your forms or providers change. Keep the notice and the working process in agreement.\n\n<Callout type=\"scripture\">\n*\"Lying lips are an abomination to Yahweh, But doers of faithfulness are His delight.\"* — Proverbs 12:22 (LSB)\n</Callout>",
+  "content_type": "guide",
+  "created_at": "2026-10-15T19:37:30Z",
+  "excerpt": "Review your church website's privacy notice, tracking tools, email permissions, and handling of visitors' information.",
+  "id": "1044cf55-6cc8-40f8-8653-3df168a3a912",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 6,
+  "related_article_slugs": [
+    "administrative/technology/setting-up-your-website",
+    "administrative/technology/claiming-your-churchs-online-presence"
+  ],
+  "section_id": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+  "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups",
+  "sort_order": 4,
+  "status": "draft",
+  "title": "Website Privacy, Cookies and Email Sign-Ups",
+  "updated_at": "2026-10-15T19:37:30Z",
+  "draft": {
+    "backlog_id": "A14",
+    "tier": "A",
+    "closes": [
+      "20.5",
+      "32.2.a",
+      "32.4.g"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Opening and sections 1, 7, 8: the inventory worksheet and review of forms, inboxes, exports and providers apply FTC data-flow advice to a church website. Retention and disposal are recommendations, not an assertion that all business rules apply to churches.",
+        "url": "https://www.ftc.gov/business-guidance/resources/protecting-personal-information-guide-business-0",
+        "publisher": "Federal Trade Commission",
+        "quote": "Understanding how personal information moves into, through, and out of your business and who has—or could have—access to it is essential to assessing security vulnerabilities.\nIf you must keep information for business reasons or to comply with the law, develop a written records retention policy to identify what information must be kept, how to secure it, how long to keep it, and how to dispose of it securely when you no longer need it.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening, section 2 and closing checklist: describe actual information use, check notice promises against providers, and keep the notice accurate. Placement near forms/footer and professional review are practical applications, not universal statutory requirements.",
+        "url": "https://www.ftc.gov/business-guidance/privacy-security",
+        "publisher": "Federal Trade Commission",
+        "quote": "Think your company doesn't make any privacy claims? Think again — and reread your privacy policy to make sure you're honoring the promises you've pledged. Consumers care about the privacy of their personal information and savvy businesses understand the importance of being clear about what you do with their data.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 3 and checklist: cookies can recognize devices, support preferences, measure use and deliver targeted ads. Asking providers for purpose/duration and testing offered choices applies the described cookie behavior.",
+        "url": "https://www.ftc.gov/policy-notices/privacy-policy/internet-cookies",
+        "publisher": "Federal Trade Commission",
+        "quote": "A cookie is information saved by your web browser.\ncollect information about the pages you view and your activities on the site\nkeeping track of your preferences if you visit the website again\ndeliver ads targeted to you\nare stored on the hard drive of your computer until you manually delete them from a browser folder, or until they expire, which can be months or years after they were placed on your computer",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 3: review pixels as well as cookies, and ask what third-party tools send. Cookie blocking alone may not prevent pixel collection.",
+        "url": "https://www.ftc.gov/policy/advocacy-research/tech-at-ftc/2023/03/lurking-beneath-surface-hidden-impacts-pixel-tracking",
+        "publisher": "Federal Trade Commission",
+        "quote": "Tracking pixels can be hidden from sight and can track and send all sorts of personal data such as how a user interacts with a web page including specific items a user has purchased or information users have typed within a form while on the site.\nTraditional controls such as blocking third party cookies may not entirely prevent pixels from collecting and sharing information.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Important callout: CCPA generally does not apply to nonprofits. No inference of a universal exemption; the reader should obtain an applicability review rather than copy CCPA controls as a universal rule.",
+        "url": "https://www.oag.ca.gov/privacy/ccpa",
+        "publisher": "California Department of Justice, Office of the Attorney General",
+        "quote": "The CCPA generally does not apply to nonprofit organizations or government agencies.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening, section 4 and final checklist: Mailchimp-specific permission definition supports the recommendation for a separate, intentional newsletter choice, matching promised content and keeping evidence of permission. Directions example is a practical application, not a legal test or a claim that all vendors use identical terms.",
+        "url": "https://mailchimp.com/help/the-importance-of-permission/",
+        "publisher": "Mailchimp",
+        "quote": "express, verifiable consent\nExpress means that when you asked for permission, your question wasn't tied in with another agreement.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Section 4: Mailchimp double opt-in requires confirmation; its setting does not govern integrations/API. Testing confirmation and integrations is recommended.",
+        "url": "https://mailchimp.com/help/set-signup-preferences/",
+        "publisher": "Mailchimp",
+        "quote": "people confirm their signup via email or SMS.\nOpt-in settings only apply to Mailchimp signup forms, so form integrations and API opt-in are unaffected.",
+        "accessed": "2026-10-15",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Section 5 coverage: commercial purpose matters. Ask counsel to classify church messages and mixed promotions rather than infer coverage from organizational identity.",
+        "url": "https://www.ftc.gov/legal-library/browse/rules/can-spam-rule",
+        "publisher": "Federal Trade Commission",
+        "quote": "The CAN-SPAM Act applies almost exclusively to “commercial electronic mail messages”.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5: postal address, opt-out notice, advertising identification and the prior-affirmative-consent exception. The checklist is not an exhaustive legal opinion.",
+        "url": "https://www.ftc.gov/sites/default/files/documents/cases/2007/11/canspam.pdf",
+        "publisher": "United States Congress, CAN-SPAM Act, section 5(a)(5), hosted by FTC",
+        "quote": "clear and conspicuous identification that the message is an advertisement or solicitation;\nclear and conspicuous notice of the opportunity\nto decline to receive further commercial electronic mail messages from the sender;\na valid physical postal address of the sender.\nif the recipient has given prior affirmative consent to receipt of the message.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5, tip and checklist: primary-purpose assessment, accurate headers and subjects, opt-out for all marketing, at least 30 days availability and within 10 business days fulfillment; no fee or extra personal information; sender responsibility despite outsourcing. Testing is the practical verification of those requirements.",
+        "url": "https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business",
+        "publisher": "Federal Trade Commission",
+        "quote": "What matters is the “primary purpose” of the message.\nDon’t use false or misleading header information.\nThe subject line must accurately reflect the content of the message.\nyou must include the option to stop all marketing messages from you.\nAny opt-out mechanism you offer must be able to process opt-out requests for at least 30 days after you send your message. You must honor a recipient’s opt-out request within 10 business days.\nYou can’t charge a fee, require the recipient to give you any personally identifying information beyond an email address,\nyou can’t contract away your legal responsibility to comply with the law.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 6: COPPA under-13 scope and general nonprofit exclusion; FTC encourages protections. Adult-directed registration is a recommendation based on the FTC distinction between information collected from children and from adults. Counsel/provider review is not replaced by a newsletter checkbox.",
+        "url": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+        "publisher": "Federal Trade Commission",
+        "quote": "The Rule was designed to protect children under age 13, while accounting for the dynamic nature of the Internet.\nAlthough nonprofit entities generally are not subject to COPPA, the FTC encourages such entities to post privacy policies online and to provide COPPA’s protections to their child visitors.\nCOPPA only applies to personal information collected online from children, including personal information about themselves, their parents, friends, or other persons.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening, sections 1, 7 and 8: minimize collection, restrict staff/provider access, separate accounts, use fictitious test data, protect all stages and recheck the working configuration. Application of business security guidance, not a legal coverage claim.",
+        "url": "https://www.ftc.gov/business-guidance/resources/start-security-guide-business",
+        "publisher": "Federal Trade Commission",
+        "quote": "Don’t collect personal information you don’t need.\nNot everyone on your staff needs unrestricted access to your network and the information stored on it.\nFor your network, consider steps such as separate user accounts to limit access to the places where personal data is stored or to control who can use particular databases.\nIn both cases, the risk could have been avoided by using fictitious information for training or development purposes.\nData doesn’t stay in one place.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Closing scripture, checked individually on the publisher site. Line break rendered as a space; wording and capitalization preserved.",
+        "url": "https://read.lsbible.org/proverbs/12/22",
+        "publisher": "The Lockman Foundation / Three Sixteen Publishing, Legacy Standard Bible",
+        "quote": "Lying lips are an abomination to Yahweh,\nBut doers of faithfulness are His delight.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author opened every cited page, checked statutory timing and nonprofit limits, and read Proverbs 12:22 individually. Independent Opus source, scripture and screenshot review required. Legal and vendor guidance accessed 2026-10-15. Recommendations apply source principles to a church website; they do not assert universal legal coverage."
+    },
+    "rulings": [
+      "Resolved editorial scope: phase 0 follows the Technology section and nearby website articles.",
+      "Resolved editorial scope: state-law applicability goes to counsel; CCPA is a limited example, not a national exemption. No universal cookie-banner requirement is asserted.",
+      "Resolved editorial scope: distinguish recommended permission-based newsletter practice, Mailchimp terms and commercial-message CAN-SPAM coverage.",
+      "Resolved editorial scope: do not reproduce a legal privacy-policy template, survey state/international laws, cover SMS, or change other articles or seed."
+    ]
+  }
+}
