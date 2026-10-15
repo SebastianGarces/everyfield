@@ -56,6 +56,8 @@ Before a package with `case_requirements_at_start` builds, route its case additi
 | Task | Specialist | Provider and model | Effort |
 |---|---|---|---|
 | `WP-NNN`, `/contract`, `/api`, `OPS-n` | `implementor` | `codex`, `gpt-6.1-sol` | `high` |
+| Wiki article, with `wiki-writer` role | `implementor` | `codex`, `gpt-6.1-sol` | `high` |
+| Wiki article review | `verifier` | `claude-code`, `opus` | `medium` |
 | `/ui` | `ui-designer` | `claude-code`, `opus` | UI tier below |
 | Verify a Sol task | `verifier` | `claude-code`, `opus` | `medium` |
 | Verify an Opus task | `verifier` | `codex`, `gpt-6.1-sol` | `high` |

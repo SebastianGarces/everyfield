@@ -409,9 +409,13 @@ def strings(value, pointer='', key=''):
 def current_files(root):
     manifest = json.loads((root / 'docs/reference/manifest.json').read_text())
     originals = {item['path'] for item in manifest['files']}
+    # bin/wiki lint checks article content.
+    article_seed = root / 'docs/reference/wiki/seed.json'
+    article_drafts = root / 'docs/reference/wiki/drafts'
     return sorted(p for p in [root / 'README.md', *(root / 'docs').rglob('*')]
                   if p.suffix in {'.md', '.json'} and p.relative_to(root).as_posix()
-                  not in originals | {'docs/text-allowlist.json', 'docs/catalog/rule-placement.json'})
+                  not in originals | {'docs/text-allowlist.json', 'docs/catalog/rule-placement.json'}
+                  and p != article_seed and article_drafts not in p.parents)
 
 
 def fixture_tokens(value):

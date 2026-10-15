@@ -28,6 +28,9 @@ CHECKS = [
     ('explorer inputs', ['docs/refresh-explorer-plan.py', '--check']),
     ('explorer generation', ['docs/render-build-explorer.py', '--check']),
     ('local links', ['docs/check-links.py']),
+    ('Wiki seed', ['tools/wiki/seed.py', 'check', '--seed-dir', 'docs/reference/wiki',
+                   '--playbook', 'docs/reference/playbook.md',
+                   '--bootstrap', 'docs/reference/bootstrap/global-seed-payload.json']),
 ]
 
 
