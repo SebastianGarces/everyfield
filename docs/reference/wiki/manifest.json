@@ -713,6 +713,13 @@
       "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "contentSHA256": "4b9988080f75e8fbd70bed0c259fa3d6b31eb5fc7bde66fecfa2be0947cb103f",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
     }
   ],
   "derivedFrom": {
@@ -3530,6 +3537,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "15577402481fa7f7eb56af55286544376ad949f017b6fc5390f056d586beda70",
       "slug": "administrative/legal/nonprofit-postage-rates"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:06:16.426Z",
+      "id": "4852735b-45ad-4a54-b00a-6fef0b051c0a",
+      "pr": 19,
+      "previousRecordSHA256": null,
+      "recordSHA256": "a2f042708181e1efd6ee210aac3a94c21cc217d1e6602ad5a2303b43e28da1d6",
+      "slug": "administrative/legal/keeping-a-corporate-records-binder"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3662,7 +3678,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "5900eaf1d5b4beb2fdaaf13441b8445cadc49a75bebf30a014b2138adbefaea7",
+  "seedPayloadSHA256": "8c6584b3febeaf00fe4ae9c9fd033d6ffe1396ef49c21b84a92e752d37481ae1",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
