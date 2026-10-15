@@ -678,6 +678,13 @@
       "recordSHA256": "478704c8d04d3fdef5aefcfaef4c6416771a03f2722ae631a4d00d408fcae8d2",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/donor-receipts-and-giving-statements"
+    },
+    {
+      "contentSHA256": "28db2fab4aad05ca70f99f8f3dd614e486a77bc9c3707e4a2ce42bb25c9e1b26",
+      "id": "efb3c655-9663-41db-aef8-5c10fd9b85f9",
+      "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
     }
   ],
   "derivedFrom": {
@@ -3450,6 +3457,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "478704c8d04d3fdef5aefcfaef4c6416771a03f2722ae631a4d00d408fcae8d2",
       "slug": "administrative/financial/donor-receipts-and-giving-statements"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:46:06.642Z",
+      "id": "efb3c655-9663-41db-aef8-5c10fd9b85f9",
+      "pr": 9,
+      "previousRecordSHA256": null,
+      "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
+      "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3582,7 +3598,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "d1ff973568c44d663264e43bdd5a2d18d9ab7aac0804e6e8a80602409be0f00c",
+  "seedPayloadSHA256": "d23b2d3181608196ebda3b15c8e2316f1598e11ee2db82eb026a0bb3ccbbe7ea",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
