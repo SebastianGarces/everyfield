@@ -119,9 +119,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author checked primary-source support and one LSB verse on 2026-10-15. Independent Opus claim, scripture and desktop/mobile screenshot review remains required. Procedural recommendations are editorial guidance, not ministry methodology."
+      "status": "passed",
+      "reviewer": "Opus verifier (claude-opus-5-5), independent of writer",
+      "notes": "2026-10-15 review of 65ffadde6590b5ef14f1ef9f56bcce11eed58c5e. Re-read all 11 source URLs; every factual sentence matches its source (ZCTA, ACS topics and 65,000 threshold, 5-year/tract coverage, MOE, totals via decennial/PEP, like-for-like and non-overlapping comparisons, data.census.gov search and filters, DP02-DP05 names, Excel/CSV/ZIP download details, EDDM search/Show Table/filters, NYC DCP FactFinder, decennial census religion FAQ). Proverbs 18:13 matches read.lsbible.org word for word. bin/wiki lint passes with no warnings; desktop and 390px mobile screenshots show all sections, both tables, all checklists, scripture and the full LSB notice. No 6-word runs copied from sources or the NAMB reference books beyond short factual phrases."
     },
     "rulings": [
       "2026-10-15: U.S. public-data workflow only; no paid-report endorsement, target-family profile, church comparison or ministry-strategy prescription.",
