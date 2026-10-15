@@ -1,7 +1,7 @@
 "use client";
 
 import { useReduced } from "@/components/motion/scene";
-import { m, useScroll, useTransform } from "motion/react";
+import { NativeAnimation, scroll } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
@@ -78,9 +78,25 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
     return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
   }, [measure]);
 
-  const { scrollY } = useScroll();
+  // Scroll-linked offset on the compositor (Motion's scroll() with a native animation). A track element spans exactly the
+  // pinned scroll: it starts `stick` px above the pin and is the travel plus one viewport tall, so the offset
+  // ["start start", "end end"] maps to a ViewTimeline range and the transform runs as a WAAPI animation on that timeline.
+  // No script runs per scroll frame. Without ViewTimeline support, Motion tracks the scroll in JS instead.
+  const track = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const L = list.current, Tr = track.current;
+    if (!geo || !L || !Tr) return;
+    const anim = new NativeAnimation({
+      element: L,
+      name: "transform",
+      keyframes: [`translate3d(${geo.a.toFixed(2)}px,0,0)`, `translate3d(${(geo.a - geo.travel).toFixed(2)}px,0,0)`],
+      duration: 1000,
+      ease: "linear",
+    });
+    const stop = scroll(anim, { target: Tr, offset: ["start start", "end end"] });
+    return () => { stop(); anim.cancel(); };
+  }, [geo]);
   const progress = useCallback((y: number) => (geo && geo.travel ? clamp((y - geo.pinTop + geo.stick) / geo.travel) : 0), [geo]);
-  const x = useTransform(scrollY, (y) => (geo ? "translate3d(" + (geo.a - geo.travel * progress(y)).toFixed(2) + "px,0,0)" : "none"));
 
   /* Pinned: keyboard focus on a card scrolls the page so the card is inside the rail window. */
   const onFocus = (e: FocusEvent) => {
@@ -135,7 +151,8 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
   return (
     <section ref={root} id={id} className="relative scroll-mt-[88px] py-section max-mk-sm:scroll-mt-[76px] [--phc-top:clamp(148px,2.5vw+126px,162px)]">
       <span ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-(--phc-top) size-0" />
-      <div style={geo ? { height: geo.fh + geo.travel } : undefined}>
+      <div className="relative" style={geo ? { height: geo.fh + geo.travel } : undefined}>
+        <span ref={track} aria-hidden="true" className="pointer-events-none invisible absolute inset-x-0 w-px" style={geo ? { top: -geo.stick, height: `calc(${geo.travel}px + 100vh)` } : { top: 0, height: 0 }} />
         <div ref={frame} className={cn(pinned && "sticky")} style={geo ? { top: geo.stick } : undefined}>
           {head}
           <div
@@ -157,9 +174,9 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
                 : cn("cursor-grab snap-x snap-mandatory scroll-px-(--phc-in) overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragging && "cursor-grabbing snap-none select-none"),
             )}
           >
-            <m.ol ref={list} className={cn("flex w-max gap-4", pinned && "will-change-transform")} style={geo ? { transform: x } : undefined}>
+            <ol ref={list} className={cn("flex w-max gap-4", pinned && "will-change-transform")}>
               {children}
-            </m.ol>
+            </ol>
           </div>
         </div>
       </div>

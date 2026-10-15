@@ -1,13 +1,13 @@
 "use client";
 
-import { motionValue, useMotionValueEvent, useScroll, useTransform, type MotionValue } from "motion/react";
+import { motionValue, useTransform, type MotionValue } from "motion/react";
 import { m } from "motion/react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { inOut, out, P, sine } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
-import { PanelSlotProvider } from "./panel-frame";
+import { PanelSlotProvider, type PanelSlot } from "./panel-frame";
 
 export type ChapterStep = {
   /** The panel kind (timing) and its element, rendered on the server. */
@@ -36,14 +36,17 @@ type Geo = {
   fold: boolean;
   st: number[]; mt: number[]; pb: number[];
   tail: number; olMb: number; rightMb: number; gridPb: number;
-  /** The active step for a scroll position (pure: no layout read). */
-  pick: (y: number) => number;
+  /** Each step's natural top inside the list (where it would sit if it were not sticky) and the viewport line it
+   *  becomes active at. A step is active once its natural top has passed its line. */
+  nat: number[];
+  lines: number[];
 };
 
 /**
  * The home week chapter. Desktop (above 900 px): the heading and the panel are sticky; each step rises and locks under
  * the heading (stacked), and the panel crossfades to the active step. The active step follows the scroll position
- * through a pure function of scrollY and geometry measured on resize, and moves one step at a time with an 800 ms dwell.
+ * through IntersectionObserver sentinels placed from geometry measured on resize, and moves one step at a time with an
+ * 800 ms dwell.
  * Phones and tablets: each step has its own panel above it, which plays while it is on screen.
  */
 export function ScrollChapter({ id, title, steps }: Props) {
@@ -58,13 +61,18 @@ export function ScrollChapter({ id, title, steps }: Props) {
 
   // Clocks: one scene time and one stagger clock per desktop panel and per phone panel, and the switch clock (time
   // since the active step changed) that drives the crossfade.
-  const [clocks] = useState(() => ({
-    sw: motionValue(1e6),
-    t: steps.map(() => motionValue(0)),
-    since: steps.map(() => motionValue(1e6)),
-    mt: steps.map(() => motionValue(0)),
-    msince: steps.map(() => motionValue(1e6)),
-  }));
+  const [clocks] = useState(() => {
+    const mt = steps.map(() => motionValue(0)), msince = steps.map(() => motionValue(1e6));
+    return {
+      sw: motionValue(1e6),
+      t: steps.map(() => motionValue(0)),
+      since: steps.map(() => motionValue(1e6)),
+      mt,
+      msince,
+      // Stable slot objects: a new object per render would re-render every animated element of every panel.
+      mob: steps.map((_, i): PanelSlot => ({ t: mt[i]!, since: msince[i]!, stagger: 90, place: "mob" })),
+    };
+  });
   const [active, setActiveState] = useState(0);
   const [prev, setPrev] = useState(-1);
   const [desk, setDesk] = useState(false);
@@ -123,7 +131,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
     if (!H || !O || !V || !matchMedia(DESK).matches) { setGeo(null); return; }
     const vh = window.innerHeight, y0 = window.scrollY;
     const headTop = parseFloat(getComputedStyle(H).top) || 0, headH = H.offsetHeight;
-    const olTop = O.getBoundingClientRect().top + y0;
+    const olTop = O.getBoundingClientRect().top + y0; // document position, only to express the steps relative to the list
     const items = lis.current.map((li) => {
       const txt = li!.querySelector<HTMLElement>("[data-txt]")!, tl = li!.querySelector<HTMLElement>("[data-tl]")!;
       return { txt: txt.offsetHeight, tl: tl.offsetHeight, off: tl.getBoundingClientRect().top - li!.getBoundingClientRect().top };
@@ -151,7 +159,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
       for (let i = 0; i < n; i++) { acc += mt[i]!; nat[i] = acc; acc += h[i]! + pb[i]!; }
       next = {
         stack, fold: !fits, st: lock, mt, pb, tail: S - lead, olMb: -listH, rightMb: -x, gridPb: Math.max(x, listH - 36),
-        pick: (y) => { let k = 0; for (let i = 1; i < n; i++) if (nat[i]! - y < lock[i]! + lead) k = i; return k; },
+        nat: nat.map((v) => v - olTop), lines: lock.map((l) => l + lead),
       };
     } else {
       // Reduced motion: a plain list under the sticky heading; a step is active once its top passes the previous
@@ -159,15 +167,11 @@ export function ScrollChapter({ id, title, steps }: Props) {
       const nat: number[] = [];
       let acc = olTop;
       for (let i = 0; i < n; i++) { nat[i] = acc; acc += h[i]!; }
-      const headNat = olTop - headH, cap = vh * 0.6;
+      // Once the heading has stuck, its bottom is headTop + headH, so each line is fixed (before that no step can pass).
+      const cap = vh * 0.6;
       next = {
         stack, fold: false, st: [], mt: [], pb: [], tail: 0, olMb: -h[n - 1]!, rightMb: -x, gridPb: x,
-        pick: (y) => {
-          const hb = Math.max(headNat - y, headTop) + headH;
-          let k = 0;
-          for (let i = 1; i < n; i++) if (nat[i]! - y < Math.min(hb + h[i - 1]! - items[i - 1]!.off + 28, cap)) k = i;
-          return k;
-        },
+        nat: nat.map((v) => v - olTop), lines: h.map((_, i) => (i ? Math.min(headTop + headH + h[i - 1]! - items[i - 1]!.off + 28, cap) : 0)),
       };
     }
     setGeo((g) => (g && sameGeo(g, next) ? g : next));
@@ -187,22 +191,33 @@ export function ScrollChapter({ id, title, steps }: Props) {
     return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
   }, [measure]);
 
-  /* The target step follows scrollY (Motion reads it in its read step); nothing here touches layout. */
-  const { scrollY } = useScroll();
-  const pickNow = useCallback((jump?: boolean) => {
-    if (!geo) return;
-    const s = st.current;
-    s.target = geo.pick(scrollY.get());
-    if (jump) { clearTimeout(s.tm); setActive(s.target); s.at = performance.now(); } else go();
-  }, [geo, scrollY, setActive, go]);
-  useMotionValueEvent(scrollY, "change", () => pickNow());
-  // The first geometry sets the step at once (a page opened mid-chapter); later ones move with the dwell.
+  /* The target step from IntersectionObserver sentinels: one per step, at the step's natural top, with the root's top
+     edge moved down to the step's line. The observer reports crossings with their geometry, so no scroll handler or frame
+     callback reads layout (the prototype read getBoundingClientRect on every scroll frame). */
+  const sentinels = useRef<(HTMLSpanElement | null)[]>([]);
   const jumped = useRef(false);
   useEffect(() => {
     if (!geo) return;
-    pickNow(!jumped.current);
-    jumped.current = true;
-  }, [geo, pickNow]);
+    const passed = steps.map(() => false);
+    let seen = 0;
+    const ios = geo.lines.map((line, i) => {
+      const el = sentinels.current[i];
+      if (!i || !el) return null;
+      const io = new IntersectionObserver(([e]) => {
+        if (!e) return;
+        passed[i] = !e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? line);
+        seen++;
+        const s = st.current;
+        s.target = passed.lastIndexOf(true) < 0 ? 0 : passed.lastIndexOf(true);
+        // The first report of every sentinel sets the step at once (a page opened mid-chapter).
+        if (!jumped.current && seen >= n - 1) { jumped.current = true; clearTimeout(s.tm); setActive(s.target); s.at = performance.now(); return; }
+        if (jumped.current) go();
+      }, { rootMargin: `${-Math.round(line)}px 0px 0px 0px`, threshold: 0 });
+      io.observe(el);
+      return io;
+    });
+    return () => ios.forEach((io) => io?.disconnect());
+  }, [geo, n, steps, go, setActive]);
 
   /* On screen: the desktop panel (12 % visible) and each phone panel. */
   useEffect(() => {
@@ -284,6 +299,10 @@ export function ScrollChapter({ id, title, steps }: Props) {
                 )}
               </h2>
             </div>
+            <div className="relative">
+            {desk && geo
+              ? geo.nat.map((top, i) => (i ? <span key={i} ref={(el) => { sentinels.current[i] = el; }} aria-hidden="true" className="pointer-events-none absolute left-0 size-px" style={{ top }} /> : null))
+              : null}
             <ol
               ref={ol}
               className={cn(stack && "flex flex-col after:h-(--cx-tail) after:flex-none after:content-['']")}
@@ -307,13 +326,14 @@ export function ScrollChapter({ id, title, steps }: Props) {
                     className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-[inset_0_0_0_1px_rgba(24,29,25,.06)] max-mk-cx:grid"
                     data-idle={mobOn[i] && !reduced ? undefined : ""}
                   >
-                    <span className={cn("mk-gsurf absolute inset-0 z-0 [--grain:.3]", s.tone)} />
-                    <PanelSlotProvider slot={{ t: clocks.mt[i]!, since: clocks.msince[i]!, stagger: 90, place: "mob" }}>{s.panel}</PanelSlotProvider>
+                    <span className={cn("mk-gsurf absolute inset-0 z-0 will-change-[opacity] [--grain:.3]", s.tone)} />
+                    <PanelSlotProvider slot={clocks.mob[i]!}>{s.panel}</PanelSlotProvider>
                   </div>
                   {s.text}
                 </li>
               ))}
             </ol>
+            </div>
           </div>
           <div className="col-span-6 col-start-7 min-w-0 self-stretch max-mk-cx:hidden" style={desk && geo ? { marginBottom: geo.rightMb } : undefined}>
             <div
@@ -352,7 +372,8 @@ export function DeskPanel({ sw, role, t, since, place, children }: { sw: MotionV
   const transform = useTransform(sw, (s) => "translate3d(0px," + cardFrame(role, s).y.toFixed(2) + "px,0)");
   const opacity = useTransform(sw, (s) => +cardFrame(role, s).o.toFixed(3));
   const visibility = useTransform<number, string>(sw, (s) => (cardFrame(role, s).o > 0 ? "visible" : "hidden"));
-  return <PanelSlotProvider slot={{ t, since, stagger: 240, place, card: { transform, opacity, visibility } }}>{children}</PanelSlotProvider>;
+  const slot = useMemo((): PanelSlot => ({ t, since, stagger: 240, place, card: { transform, opacity, visibility } }), [t, since, place, transform, opacity, visibility]);
+  return <PanelSlotProvider slot={slot}>{children}</PanelSlotProvider>;
 }
 /** The active step's gradient fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
  *  axe sorted a negative z-index gradient above the white card and reported false contrast failures. */
