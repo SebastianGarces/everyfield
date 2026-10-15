@@ -168,9 +168,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Writer opened every cited source and checked the verse individually on 2026-10-15. Independent Opus source, scripture and screenshot review is required. Recommendations are application questions, not statements that a proposed policy covers a risk."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review passed 2026-10-15 at a3d936a9ce4efaf111eba882c80f79ad848cb783. The b4b75c7 review checked all 17 sources, Proverbs 16:3 (LSB) and the screenshots, and failed only the abuse-prevention sentence. a3d936a changes only that sentence and source 13's claim. The new sentence asks whether the insurer requires or offers abuse-prevention measures; the live Church Mutual page describes MinistrySafe safeguards and states no requirement, so the question asserts nothing unsupported. Lint, check-seed and desktop/mobile screenshots pass."
     },
     "rulings": [
       "Phase 0 and financial section match the existing financial references; sort order follows the current published entries.",
