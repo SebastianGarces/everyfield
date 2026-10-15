@@ -6,10 +6,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
-// A hex colour: not part of a longer word (so "#features" and "#ef-arrow" anchors do not match), and not an HTML entity.
-const HEX = /(?<![\w&])#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z])/;
+// A hex colour: not glued to a letter or digit before or after it (so "#features" and "#ef-arrow" anchors do not match),
+// not an HTML entity, and also after a Tailwind underscore ("shadow-[0_0_0_#fff]").
+const HEX = /(?<![0-9A-Za-z&])#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z])/;
 // A colour function, also inside a Tailwind arbitrary value ("_rgba(" or "[rgb("): not preceded by a letter or hyphen.
-const FN = /(?<![A-Za-z-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/;
+// Case-insensitive like CSS; the first argument must look like a colour value (a number, "from", "var(" or "none"), so a
+// JavaScript call such as Lab({ ... }) is not a match.
+const FN = /(?<![A-Za-z-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[\d.+-]|from(?![A-Za-z])|var\(|none(?![A-Za-z]))/i;
 // Files that cannot reference a CSS variable, each with its reason.
 const ALLOWED = {
   "app/layout.tsx": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
