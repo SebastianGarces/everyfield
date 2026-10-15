@@ -39,3 +39,20 @@ One modular Next deployment is selected. Server Components call scoped server-on
 Retain format-specific DOCX/XLSX/PDF/Office parsing and rendering adapters only for named existing formats; isolate heavy work in bounded jobs and test bytes/fonts/previews in the selected runtime. Use private Tigris objects and the shared Resend delivery ledger. Use one privacy-safe telemetry path, not overlapping tracing stacks. Choose UI/chart/drag/drop dependencies only for specified behaviors and accessibility. Redis, another vector service, event broker, RPC framework, generic workflow engine and blanket client query cache are unnecessary for current scope. Global approved reference embeddings can use PostgreSQL/pgvector; per-organization reference material keeps current entitlement checks.
 
 The [registry evidence](dependencies.json) records versions/engines/peer metadata and response hashes. Actual provider tiers, recurring usage and backup/operator cost require a concrete owner-approved envelope before commitment. These are future compatibility/configuration/security/restore proofs, not completed runtime tests.
+
+## Wiki authoring tooling
+
+The tools in `tools/wiki` pin these versions in an independent package and lockfile, outside the
+application workspace. Publisher version metadata and response hashes were checked on 2026-10-15
+and recorded under `tooling_packages` in [dependencies.json](dependencies.json).
+
+| Package | Pinned version | Purpose |
+|---|---|---|
+| [@mdx-js/mdx](https://registry.npmjs.org/@mdx-js%2fmdx/3.1.1) | 3.1.1 | Compile restricted Wiki MDX |
+| [remark-gfm](https://registry.npmjs.org/remark-gfm/4.0.1) | 4.0.1 | Tables and task lists |
+| [react](https://registry.npmjs.org/react/19.3.1) | 19.3.1 | Review preview components |
+| [react-dom](https://registry.npmjs.org/react-dom/19.3.1) | 19.3.1 | Static HTML rendering |
+| [playwright](https://registry.npmjs.org/playwright/1.56.1) | 1.56.1 | Chromium screenshots; build 1194 matches apps/web |
+
+These are tooling dependencies, not a change to the application compatibility gate. Install with
+`pnpm install --ignore-workspace` inside `tools/wiki`, using Node 24.

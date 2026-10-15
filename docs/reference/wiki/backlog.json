@@ -1,0 +1,1156 @@
+{
+  "tiers": {
+    "A": "Safe for AI. Facts and procedures that primary sources can confirm, with no methodology or theology call. The AI researches and drafts. A separate fact-check pass and one editor review follow.",
+    "B": "AI drafts after a ruling. The topic is practical, but it rests on a methodology or pastoral choice. The AI first writes a one-page stance memo with options. Bryan reviews it (Sebastian may approve instead), then the AI drafts and the same person approves.",
+    "C": "Human-led. Theology, pastoral care or core methodology. The AI may only collect sources and summarize them for the human author.",
+    "F": "Fix an existing article. A factual error or an outdated fact was found in a published article."
+  },
+  "articles": [
+    {
+      "id": "F1",
+      "tier": "F",
+      "title": "Setting Up a 501(c)(3)",
+      "slug": "administrative/legal/setting-up-501c3",
+      "closes": [],
+      "sources": [
+        "IRS Instructions for Form 1023-EZ (irs.gov/instructions/i1023ez)",
+        "IRS Publication 1828"
+      ],
+      "risk": "The article tells churches they can use Form 1023-EZ. The IRS instructions say a church is not eligible to use Form 1023-EZ. Fix this before any new writing."
+    },
+    {
+      "id": "F2",
+      "tier": "F",
+      "title": "Fact-check pass on the other 15 administrative articles",
+      "slug": "administrative/*",
+      "closes": [],
+      "sources": [
+        "irs.gov",
+        "usps.com",
+        "state agency pages"
+      ],
+      "risk": "F1 shows that at least one admin article has a wrong fact. Run the claim-check step of the pipeline on each one. This is also the safest first test of the writing agent, because the agent only checks and does not write."
+    },
+    {
+      "id": "A1",
+      "tier": "A",
+      "title": "Getting Your Church's EIN",
+      "section": "administrative/legal",
+      "type": "how-to",
+      "closes": [
+        "18.6"
+      ],
+      "sources": [
+        "IRS: Apply for an EIN online",
+        "IRS Form SS-4 instructions"
+      ],
+      "risk": "Low. Form names and steps change. Give a current-as-of date in a callout."
+    },
+    {
+      "id": "A2",
+      "tier": "A",
+      "title": "State Sales and Property Tax Exemptions",
+      "section": "administrative/legal",
+      "type": "guide",
+      "closes": [
+        "18.10"
+      ],
+      "sources": [
+        "State department of revenue pages",
+        "Federation of Tax Administrators state links"
+      ],
+      "risk": "Rules differ by state. Write the general process and tell readers to check their state. Do not list state-by-state rules."
+    },
+    {
+      "id": "A3",
+      "tier": "A",
+      "title": "Nonprofit Postage Rates",
+      "section": "administrative/legal",
+      "type": "how-to",
+      "closes": [
+        "18.9"
+      ],
+      "sources": [
+        "USPS PS Form 3624",
+        "USPS Publication 417"
+      ],
+      "risk": "Low."
+    },
+    {
+      "id": "A4",
+      "tier": "A",
+      "title": "Keeping a Corporate Records Binder",
+      "section": "administrative/legal",
+      "type": "how-to",
+      "closes": [
+        "18.7"
+      ],
+      "sources": [
+        "State nonprofit corporation act summaries",
+        "IRS Publication 4221-PC record keeping"
+      ],
+      "risk": "Low. Say what to keep and for how long, with retention periods from IRS sources only."
+    },
+    {
+      "id": "A5",
+      "tier": "A",
+      "title": "Opening the Church Bank Account",
+      "section": "administrative/financial",
+      "type": "how-to",
+      "closes": [
+        "17.6"
+      ],
+      "sources": [
+        "FDIC beneficial ownership/CDD guidance",
+        "IRS EIN letter (CP 575)"
+      ],
+      "risk": "Low. Link to the existing Principles of Financial Accountability article for signer rules."
+    },
+    {
+      "id": "A6",
+      "tier": "A",
+      "title": "Setting Up Payroll for Church Staff",
+      "section": "administrative/financial",
+      "type": "guide",
+      "closes": [
+        "17.7",
+        "17.7.a",
+        "17.7.b",
+        "17.7.c",
+        "17.7.d"
+      ],
+      "sources": [
+        "IRS Publication 15",
+        "IRS Publication 517 (clergy dual tax status)",
+        "USCIS Form I-9",
+        "State new-hire reporting and withholding pages"
+      ],
+      "risk": "Medium. Clergy tax rules are easy to get wrong. Quote IRS Publication 517 for every clergy claim and add a callout to use a payroll provider or CPA."
+    },
+    {
+      "id": "A7",
+      "tier": "A",
+      "title": "Church and Clergy Tax Basics",
+      "section": "administrative/financial",
+      "type": "reference",
+      "closes": [
+        "17.3",
+        "17.4"
+      ],
+      "sources": [
+        "IRS Publication 1828",
+        "IRS Publication 517"
+      ],
+      "risk": "Medium. Same as A6. Summarize; do not interpret edge cases."
+    },
+    {
+      "id": "A8",
+      "tier": "A",
+      "title": "Donor Receipts and Giving Statements",
+      "section": "administrative/financial",
+      "type": "how-to",
+      "closes": [
+        "16.11"
+      ],
+      "sources": [
+        "IRS Publication 1771",
+        "IRS Publication 526"
+      ],
+      "risk": "Low. The $250 written-acknowledgment rule and quid-pro-quo disclosure are fixed IRS facts."
+    },
+    {
+      "id": "A9",
+      "tier": "A",
+      "title": "Choosing a Bookkeeper and Accounting Software",
+      "section": "administrative/financial",
+      "type": "guide",
+      "closes": [
+        "17.8",
+        "17.10"
+      ],
+      "sources": [
+        "Vendor product pages for features only",
+        "ECFA guidance"
+      ],
+      "risk": "Low. Stay vendor-neutral. Name features, not winners."
+    },
+    {
+      "id": "A10",
+      "tier": "A",
+      "title": "Church Insurance Basics",
+      "section": "administrative/financial",
+      "type": "reference",
+      "closes": [
+        "33.3",
+        "35.8"
+      ],
+      "sources": [
+        "Insurer guides from church insurers (coverage categories only)",
+        "State workers' compensation board pages"
+      ],
+      "risk": "Low to medium. Describe coverage types and questions to ask an agent. No price claims."
+    },
+    {
+      "id": "A11",
+      "tier": "A",
+      "title": "Copyright Licenses for Worship and Streaming",
+      "section": "administrative/legal",
+      "type": "guide",
+      "closes": [
+        "39.6",
+        "39.7",
+        "39.8",
+        "39.9"
+      ],
+      "sources": [
+        "17 U.S.C. 110(3) religious services exemption (copyright.gov)",
+        "CCLI license pages",
+        "OneLicense pages",
+        "CVLI/Swank movie license pages"
+      ],
+      "risk": "Medium. The religious-service exemption covers live performance in a service, not copies, projection outside services or streaming. Quote the statute text."
+    },
+    {
+      "id": "A12",
+      "tier": "A",
+      "title": "Setting Up the Church Office",
+      "section": "administrative/technology",
+      "type": "how-to",
+      "closes": [
+        "15.1",
+        "15.2",
+        "15.3",
+        "15.4",
+        "15.5"
+      ],
+      "sources": [
+        "USPS PO Box and virtual mailbox pages",
+        "Vendor pages for phone and productivity tools (features only)"
+      ],
+      "risk": "Low."
+    },
+    {
+      "id": "A13",
+      "tier": "A",
+      "title": "Claiming Your Church's Online Presence",
+      "section": "administrative/technology",
+      "type": "how-to",
+      "closes": [
+        "20.2",
+        "32.6"
+      ],
+      "sources": [
+        "Google Business Profile help",
+        "Apple Business Connect help",
+        "Yelp for Business help",
+        "Meta and Instagram help"
+      ],
+      "risk": "Low. Steps change; add a current-as-of date."
+    },
+    {
+      "id": "A14",
+      "tier": "A",
+      "title": "Website Privacy, Cookies and Email Sign-Ups",
+      "section": "administrative/technology",
+      "type": "guide",
+      "closes": [
+        "20.5",
+        "32.2.a",
+        "32.4.g"
+      ],
+      "sources": [
+        "FTC CAN-SPAM compliance guide",
+        "FTC privacy guidance",
+        "COPPA rule (children's data)"
+      ],
+      "risk": "Medium. Privacy law is changing. Keep to stable federal rules and tell readers to check state law."
+    },
+    {
+      "id": "A15",
+      "tier": "A",
+      "title": "Website Analytics and Search Basics",
+      "section": "administrative/technology",
+      "type": "how-to",
+      "closes": [
+        "32.4.h",
+        "32.4.i"
+      ],
+      "sources": [
+        "Google Search Central documentation",
+        "Google Analytics help"
+      ],
+      "risk": "Low."
+    },
+    {
+      "id": "A16",
+      "tier": "A",
+      "title": "Boosted Posts, Ads and Retargeting",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "how-to",
+      "closes": [
+        "32.5",
+        "32.5.a",
+        "32.5.b",
+        "32.5.c",
+        "32.8"
+      ],
+      "sources": [
+        "Meta Business Help Center (Pixel, boosting, audiences)",
+        "Google Ads help"
+      ],
+      "risk": "Low to medium. Platform rules change often. Describe mechanics, not budgets that look like promises."
+    },
+    {
+      "id": "A17",
+      "tier": "A",
+      "title": "Responding to Online Reviews and Comments",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "guide",
+      "closes": [
+        "20.3",
+        "32.7"
+      ],
+      "sources": [
+        "Google review policies",
+        "FTC rule on fake reviews and testimonials (2024)"
+      ],
+      "risk": "Low. The FTC rule bans buying or faking reviews; say so plainly."
+    },
+    {
+      "id": "A18",
+      "tier": "A",
+      "title": "Streaming Equipment and Setup",
+      "section": "administrative/technology",
+      "type": "guide",
+      "closes": [
+        "30.5"
+      ],
+      "sources": [
+        "Platform help pages (YouTube Live, Facebook Live)",
+        "Encoder vendor documentation"
+      ],
+      "risk": "Low. Technical only. Link to A11 for licenses. The strategy question belongs to B6."
+    },
+    {
+      "id": "A19",
+      "tier": "A",
+      "title": "Church Calendar and Kids' Pre-Registration Tools",
+      "section": "administrative/technology",
+      "type": "how-to",
+      "closes": [
+        "32.4.d",
+        "37.4"
+      ],
+      "sources": [
+        "Vendor documentation (features only)"
+      ],
+      "risk": "Low."
+    },
+    {
+      "id": "A20",
+      "tier": "A",
+      "title": "Using a Gift Registry for Equipment",
+      "section": "administrative/purchasing",
+      "type": "how-to",
+      "closes": [
+        "35.7.a"
+      ],
+      "sources": [
+        "Registry provider help pages",
+        "IRS Publication 1771 for in-kind gift receipts"
+      ],
+      "risk": "Low. Could be a section in Acquiring Portable Church Equipment instead of a new article."
+    },
+    {
+      "id": "A21",
+      "tier": "A",
+      "title": "Finding Demographic Data for Your Area",
+      "section": "discovery",
+      "phase": 0,
+      "type": "how-to",
+      "closes": [
+        "9.4.a",
+        "9.4.d",
+        "9.4.e"
+      ],
+      "sources": [
+        "data.census.gov and American Community Survey help",
+        "USPS EDDM route tool",
+        "Local planning department pages"
+      ],
+      "risk": "Low. This is about where data lives and how to read it, not what it means for ministry."
+    },
+    {
+      "id": "A22",
+      "tier": "A",
+      "title": "Mapping Your Target Area",
+      "section": "discovery",
+      "phase": 0,
+      "type": "how-to",
+      "closes": [
+        "9.3",
+        "9.4.f",
+        "9.4.g"
+      ],
+      "sources": [
+        "Census TIGER/Line and ACS commuting tables",
+        "State DOT traffic count maps"
+      ],
+      "risk": "Low to medium. Keep to method. Link to the existing Variables That Drive Your Launch Date article for how area affects timing."
+    },
+    {
+      "id": "A23",
+      "tier": "A",
+      "title": "Comparing and Scoring Venues",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "22.5.b",
+        "22.5.e",
+        "22.5.f"
+      ],
+      "sources": [
+        "Facility rental guides from schools and theaters",
+        "Census data near the venue (A21)"
+      ],
+      "risk": "Low. A scoring matrix is method, not methodology."
+    },
+    {
+      "id": "A24",
+      "tier": "A",
+      "title": "Facility Rental Agreements: Terms to Check",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "reference",
+      "closes": [
+        "22.5.g",
+        "33.1"
+      ],
+      "sources": [
+        "School district facility-use agreement samples",
+        "Certificate-of-insurance requirements from venues"
+      ],
+      "risk": "Medium. A checklist of terms, with a callout that this is not legal advice."
+    },
+    {
+      "id": "A25",
+      "tier": "A",
+      "title": "Planning Services Around Room Capacity",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "33.2"
+      ],
+      "sources": [
+        "Fire code occupancy basics (local fire marshal pages)"
+      ],
+      "risk": "Low to medium. Label any capacity rule of thumb as a rule of thumb."
+    },
+    {
+      "id": "A26",
+      "tier": "A",
+      "title": "Building Your Church's Brand: Logo, Tagline and Style Guide",
+      "section": "administrative/technology",
+      "type": "guide",
+      "closes": [
+        "19.1",
+        "19.4",
+        "19.5",
+        "19.6",
+        "19.7",
+        "19.8",
+        "31.3.a"
+      ],
+      "sources": [
+        "Design practice references",
+        "USPTO trademark basics for names and logos"
+      ],
+      "risk": "Low. Tie the brand to the church values articles; do not invent values."
+    },
+    {
+      "id": "A27",
+      "tier": "A",
+      "title": "HR Records and Required Forms",
+      "section": "administrative/legal",
+      "type": "reference",
+      "closes": [
+        "21.5",
+        "21.6"
+      ],
+      "sources": [
+        "USCIS I-9 retention rules",
+        "DOL record-keeping (FLSA)",
+        "EEOC record-keeping"
+      ],
+      "risk": "Medium. Mechanics only. Policy content is B8."
+    },
+    {
+      "id": "A28",
+      "tier": "A",
+      "title": "Volunteer Background Check Process",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "34.11.d"
+      ],
+      "sources": [
+        "FTC: using consumer reports (FCRA disclosure and authorization)",
+        "State child-protection screening laws"
+      ],
+      "risk": "Medium. EveryField does not store background checks (scope.md), so the article must not imply the app tracks them. Pair with B10 for policy."
+    },
+    {
+      "id": "B1",
+      "tier": "B",
+      "title": "Raising Outside Support: Your Fundraising Strategy",
+      "section": "administrative/financial",
+      "type": "guide",
+      "closes": [
+        "8.1",
+        "8.3",
+        "8.3.a",
+        "8.3.b",
+        "8.3.c"
+      ],
+      "sources": [
+        "Network and denomination planter funding guides",
+        "Support-raising literature"
+      ],
+      "risk": "Who raises money, from whom, and how hard to ask are methodology choices. Bryan's rubric ruling C06 also splits generosity from financial readiness."
+    },
+    {
+      "id": "B2",
+      "tier": "B",
+      "title": "Meeting and Following Up with Financial Partners",
+      "section": "administrative/financial",
+      "type": "how-to",
+      "closes": [
+        "16.1",
+        "16.1.a",
+        "16.2",
+        "16.5",
+        "16.6",
+        "16.7",
+        "16.7.a",
+        "16.7.b",
+        "16.8",
+        "16.9",
+        "16.10"
+      ],
+      "sources": [
+        "Same as B1",
+        "IRS Publication 1771 for pledge and receipt language"
+      ],
+      "risk": "Depends on B1's stance. Write after B1."
+    },
+    {
+      "id": "B3",
+      "tier": "B",
+      "title": "Meeting Community Leaders",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "23.1",
+        "23.3",
+        "23.3.a",
+        "23.3.b",
+        "24.1",
+        "24.2",
+        "24.5"
+      ],
+      "sources": [
+        "Missiology and church planting texts on community engagement"
+      ],
+      "risk": "The goal of the meetings (listen, partner, recruit) is a methodology choice."
+    },
+    {
+      "id": "B4",
+      "tier": "B",
+      "title": "Running a Community Needs Survey",
+      "section": "discovery",
+      "phase": 0,
+      "type": "how-to",
+      "closes": [
+        "24.3",
+        "24.4"
+      ],
+      "sources": [
+        "Survey design guides (Pew Research methods)",
+        "Asset-based community development material"
+      ],
+      "risk": "Survey method is safe. How the plant uses the results is not."
+    },
+    {
+      "id": "B5",
+      "tier": "B",
+      "title": "Outreach Events and Serving the Community",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "guide",
+      "closes": [
+        "28.1",
+        "28.3",
+        "28.3.a",
+        "28.3.b",
+        "28.3.c",
+        "28.3.d",
+        "28.3.e",
+        "28.3.f",
+        "29.3",
+        "29.4"
+      ],
+      "sources": [
+        "Church outreach program guides"
+      ],
+      "risk": "Outreach philosophy and how evangelistic an event is are methodology choices."
+    },
+    {
+      "id": "B6",
+      "tier": "B",
+      "title": "Streaming Before You Launch",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "guide",
+      "closes": [
+        "30.1",
+        "30.3",
+        "30.3.a",
+        "30.3.b",
+        "30.3.c"
+      ],
+      "sources": [
+        "Barna and Lifeway research on online church",
+        "Network guidance"
+      ],
+      "risk": "The Playbook is an in-person portable-church model. Whether online content is a step toward launch is a methodology ruling."
+    },
+    {
+      "id": "B7",
+      "tier": "B",
+      "title": "Hiring Your First Staff",
+      "section": "administrative",
+      "type": "guide",
+      "closes": [
+        "21.1",
+        "21.3",
+        "21.3.a",
+        "21.3.b",
+        "21.3.c",
+        "21.3.d",
+        "21.3.e"
+      ],
+      "sources": [
+        "Church staffing studies",
+        "DOL and EEOC hiring rules",
+        "Ministerial exception case law summaries"
+      ],
+      "risk": "Which roles first and whether staff raise support are methodology choices. The ministerial exception needs a lawyer's review."
+    },
+    {
+      "id": "B8",
+      "tier": "B",
+      "title": "Staff Policy Manual and Social Media Policy",
+      "section": "administrative/legal",
+      "type": "reference",
+      "closes": [
+        "21.7",
+        "21.8"
+      ],
+      "sources": [
+        "Employment law summaries",
+        "Sample church handbooks"
+      ],
+      "risk": "Conduct rules reflect the church's beliefs. Needs a stance and a legal read."
+    },
+    {
+      "id": "B9",
+      "tier": "B",
+      "title": "Sunday Safety Team",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "guide",
+      "closes": [
+        "34.14",
+        "34.14.a",
+        "34.14.b"
+      ],
+      "sources": [
+        "CISA houses-of-worship security guide",
+        "FEMA guide for houses of worship"
+      ],
+      "risk": "Armed volunteers and use of force are contested and legally risky. Keep to medical, evacuation and child-safety roles unless Bryan rules otherwise."
+    },
+    {
+      "id": "B10",
+      "tier": "B",
+      "title": "Child Safety Policy",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "34.11.c"
+      ],
+      "sources": [
+        "CDC: Preventing child sexual abuse within youth-serving organizations",
+        "Insurer abuse-prevention requirements"
+      ],
+      "risk": "High stakes. Needs Bryan's approval and ideally a child-safety professional."
+    },
+    {
+      "id": "B11",
+      "tier": "B",
+      "title": "Planter Assessment: What to Expect",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "1.3.a",
+        "1.3.c",
+        "1.3.d",
+        "3.7"
+      ],
+      "sources": [
+        "Network assessment center pages",
+        "Published assessment criteria (e.g. Ridley's 13 characteristics)"
+      ],
+      "risk": "Naming specific assessments reads as an endorsement. The Discovery article on calling is a required reading item, so stay consistent with it."
+    },
+    {
+      "id": "B12",
+      "tier": "B",
+      "title": "Training Options for Planters",
+      "section": "discovery",
+      "phase": 0,
+      "type": "reference",
+      "closes": [
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5"
+      ],
+      "sources": [
+        "Network residency and boot camp pages",
+        "Conference sites"
+      ],
+      "risk": "Endorsement risk and dates go stale. Write the kinds of training and how to choose, not a directory."
+    },
+    {
+      "id": "B13",
+      "tier": "B",
+      "title": "Planning Worship Services",
+      "section": "training",
+      "phase": 3,
+      "type": "guide",
+      "closes": [
+        "39.1",
+        "39.2",
+        "39.3",
+        "39.4",
+        "39.5"
+      ],
+      "sources": [
+        "Worship planning guides across traditions"
+      ],
+      "risk": "Liturgy differs by tradition. Bryan decides how prescriptive to be."
+    },
+    {
+      "id": "B14",
+      "tier": "B",
+      "title": "Planning Your Sermon Calendar",
+      "section": "launch-team/leadership",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "38.3",
+        "38.4"
+      ],
+      "sources": [
+        "Preaching calendar guides"
+      ],
+      "risk": "The process is safe. Topic advice (series on giving in year one) is a pastoral call."
+    },
+    {
+      "id": "B15",
+      "tier": "B",
+      "title": "Writing Your Launch Strategy Document",
+      "section": "launch-team/launch-date",
+      "phase": 2,
+      "type": "how-to",
+      "closes": [
+        "11.1",
+        "11.3.c",
+        "11.3.g"
+      ],
+      "sources": [
+        "Existing Wiki articles (values, goals, launch date, budget, Gantt)"
+      ],
+      "risk": "Mostly assembly of content we already have. Bryan decides whether this document is part of the method."
+    },
+    {
+      "id": "B16",
+      "tier": "B",
+      "title": "Choosing Rent or Build-Out",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "22.4"
+      ],
+      "sources": [
+        "Facility cost comparisons from church real-estate guides"
+      ],
+      "risk": "The Playbook assumes a portable church. A build-out option may contradict it."
+    },
+    {
+      "id": "B17",
+      "tier": "B",
+      "title": "Writing a Target Area Report",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "9.1",
+        "9.4",
+        "9.4.b",
+        "9.4.c",
+        "9.4.i",
+        "9.4.j"
+      ],
+      "sources": [
+        "Census and local history sources (via A21, A22)",
+        "Missiology texts on studying a community"
+      ],
+      "risk": "The data steps are safe (A21, A22). Profiling an 'average target family' and judging other churches in the area are methodology choices. Do not use PlanterPlan's term without a ruling."
+    },
+    {
+      "id": "C1",
+      "tier": "C",
+      "title": "Caring for the Planter and Family",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "3.9",
+        "6.3",
+        "25.3.a"
+      ],
+      "sources": [
+        "Research on pastor burnout and marriage (Barna, Lifeway)"
+      ],
+      "risk": "Pastoral care. Bryan named planter sustainability the biggest absence and asked for coach attestation, not inference."
+    },
+    {
+      "id": "C2",
+      "tier": "C",
+      "title": "Personal Accountability for Planters",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "6.1",
+        "6.4"
+      ],
+      "sources": [],
+      "risk": "Moral and spiritual guidance. Human-written."
+    },
+    {
+      "id": "C3",
+      "tier": "C",
+      "title": "Your Personal Evangelism Plan",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "7.5"
+      ],
+      "sources": [],
+      "risk": "Theology and method. Ties to Bryan's comment on where growth comes from."
+    },
+    {
+      "id": "C4",
+      "tier": "C",
+      "title": "Defining a Disciple in Your Context",
+      "section": "frameworks",
+      "type": "reference",
+      "closes": [
+        "7.3.b",
+        "7.6"
+      ],
+      "sources": [],
+      "risk": "Must fit the Worship/Walk/Work/Witness model. Theology."
+    },
+    {
+      "id": "C5",
+      "tier": "C",
+      "title": "Describing the Gospel in Your Context",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "9.6"
+      ],
+      "sources": [],
+      "risk": "Theology."
+    },
+    {
+      "id": "C6",
+      "tier": "C",
+      "title": "Church Multiplication and Global Missions",
+      "section": "frameworks",
+      "type": "reference",
+      "closes": [
+        "13.6",
+        "13.6.a",
+        "13.6.b"
+      ],
+      "sources": [],
+      "risk": "Core methodology and ecclesiology."
+    },
+    {
+      "id": "C7",
+      "tier": "C",
+      "title": "Membership and Governance Models",
+      "section": "administrative/legal",
+      "type": "reference",
+      "closes": [
+        "18.1"
+      ],
+      "sources": [],
+      "risk": "Ecclesiology. The Wiki already commits core groups to elder governance."
+    },
+    {
+      "id": "C8",
+      "tier": "C",
+      "title": "Writing Your Church's Statement of Beliefs",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [
+        "12.7"
+      ],
+      "sources": [],
+      "risk": "Theology."
+    },
+    {
+      "id": "C10",
+      "tier": "C",
+      "title": "Writing the Opening Sermon Series",
+      "section": "launch-team/leadership",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "38.5"
+      ],
+      "sources": [],
+      "risk": "Preaching content is pastoral and theological. B14 covers the calendar process."
+    },
+    {
+      "id": "C9",
+      "tier": "C",
+      "title": "Who to Invite to Launch Sunday",
+      "section": "launch-sunday",
+      "phase": 5,
+      "type": "guide",
+      "closes": [
+        "40.6"
+      ],
+      "sources": [],
+      "risk": "Open conflict between PlanterPlan's well-wishers advice and the Partner Organization Coordination article. Needs a ruling first."
+    },
+    {
+      "id": "F3",
+      "tier": "F",
+      "title": "Move the 97 existing scripture quotes to the LSB",
+      "slug": "*",
+      "closes": [],
+      "sources": [
+        "lsbible.org (one verse lookup at a time)",
+        "LSB permission to quote"
+      ],
+      "risk": "Owner chose the LSB on 2026-10-15. Look up each verse individually on lsbible.org; the LSB terms forbid bulk download or scraping. Keep the same reference unless the LSB wording no longer fits the point, then report it. Ship in batches with screenshots of the changed callouts."
+    },
+    {
+      "id": "R1",
+      "tier": "B",
+      "title": "Having an \"I See in You\" Conversation",
+      "section": "launch-team/leadership",
+      "phase": 2,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) ch. 3",
+        "Spratt and Medders, Discerning a Call to Ministry (NAMB, 2026) pp. 17-25"
+      ],
+      "risk": "Leadership-invitation practice tied to the Emerging Leadership factor and the 60-day candidate signal (REQ-TEAM-017). Stance needed on how directly to invite. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R2",
+      "tier": "B",
+      "title": "Where Your Core Group Comes From",
+      "section": "core-group/building-your-core-group",
+      "phase": 1,
+      "type": "reference",
+      "closes": [],
+      "sources": [
+        "Stetzer and Rogers, Building Your Core Team (Send Network, 2022) pp. 6-22"
+      ],
+      "risk": "Core group sourcing is the center of the Playbook method. Must agree with The Core Group Funnel and Growing Your Core Group. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R3",
+      "tier": "B",
+      "title": "Your Partnership Agreement with a Sending Church",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) App. D-E"
+      ],
+      "risk": "Relationship and oversight terms are a methodology choice. The DOCX template idea is a separate document-template decision. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R4",
+      "tier": "B",
+      "title": "Healthy and Unhealthy Reasons to Join",
+      "section": "core-group/follow-up",
+      "phase": 1,
+      "type": "reference",
+      "closes": [],
+      "sources": [
+        "Stetzer and Rogers, Building Your Core Team (Send Network, 2022) pp. 4-5, 11"
+      ],
+      "risk": "Extends the existing Right Reasons criterion in The 5 Interview Criteria; must not contradict it. Judging motives is pastoral. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R5",
+      "tier": "B",
+      "title": "Spotting Future Leaders",
+      "section": "launch-team/leadership",
+      "phase": 2,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) ch. 3"
+      ],
+      "risk": "Leadership identification is methodology; must not read as a fitness score. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R6",
+      "tier": "C",
+      "title": "Inward Call and Outward Confirmation",
+      "section": "discovery",
+      "phase": 0,
+      "type": "reference",
+      "closes": [],
+      "sources": [
+        "Spratt and Medders, Discerning a Call to Ministry (NAMB, 2026) ch. 2-3",
+        "Calvin and Spurgeon (public domain originals)"
+      ],
+      "risk": "Theology of calling. Optional seventh Phase 0 article; do not edit 0.1 (Is Church Planting Your Calling?), which is in the six-article foundations_complete set. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R7",
+      "tier": "B",
+      "title": "Planning a Commissioning Service",
+      "section": "pre-launch",
+      "phase": 4,
+      "type": "how-to",
+      "closes": [],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) ch. 4"
+      ],
+      "risk": "Ecclesial practice that differs by tradition. Stance needed on how prescriptive to be. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R8",
+      "tier": "B",
+      "title": "Term Commitments and Healthy Exits",
+      "section": "core-group/commitment",
+      "phase": 1,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Stetzer and Rogers, Building Your Core Team (Send Network, 2022) pp. 23-24"
+      ],
+      "risk": "A commitment end date conflicts with the no-renewal-gate rule in REQ-PPL-026. Needs a ruling before drafting. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R9",
+      "tier": "B",
+      "title": "Prayer Team and Care Team",
+      "section": "launch-team/leadership",
+      "phase": 2,
+      "type": "guide",
+      "closes": [
+        "4.1",
+        "4.2",
+        "4.2.a",
+        "4.2.b",
+        "5.1",
+        "5.2"
+      ],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) ch. 4"
+      ],
+      "risk": "Prayer rhythms tie to Bryan's prayer ruling C05; care for the planter's family overlaps C1 (human-led). Draft the prayer team part only after a ruling. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R10",
+      "tier": "C",
+      "title": "Discipleship Pathway and Discipleship Pairs",
+      "section": "frameworks",
+      "type": "reference",
+      "closes": [],
+      "sources": [
+        "Hernandez, Churches Plant Churches (NAMB, 2026) ch. 2",
+        "Stetzer and Rogers, Building Your Core Team (Send Network, 2022) pp. 24-25"
+      ],
+      "risk": "Defines discipleship; overlaps C4 and the Worship/Walk/Work/Witness model. Theology and core method. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R11",
+      "tier": "B",
+      "title": "Talk to the Pastor Before You Invite Their Members",
+      "section": "core-group/vision-meetings",
+      "phase": 1,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Stetzer and Rogers, Building Your Core Team (Send Network, 2022) pp. 12, 22"
+      ],
+      "risk": "A relational norm most networks share, but how far it goes is a methodology call. Low theological risk. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R12",
+      "tier": "C",
+      "title": "Planter, Revitalizer or Another Role?",
+      "section": "discovery",
+      "phase": 0,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Spratt and Medders, Discerning a Call to Ministry (NAMB, 2026) App. I-II"
+      ],
+      "risk": "Calling discernment. Human-led. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    },
+    {
+      "id": "R13",
+      "tier": "B",
+      "title": "Small edits to Setting Your Initial Goals and Finding a Coach/Mentor",
+      "slug": "discovery/setting-your-initial-goals; discovery/finding-a-coach-mentor",
+      "closes": [],
+      "sources": [
+        "Spratt and Medders, Discerning a Call to Ministry (NAMB, 2026)",
+        "Hernandez, Churches Plant Churches (NAMB, 2026)"
+      ],
+      "risk": "Both are required foundations_complete reading. Edits change what every planter must read; keep reading-credit rules in mind. Adds the 'X to Y by when' goal form and meeting planters a few years ahead. NAMB holds the copyright. Write original text and cite the book; do not copy tables, lists, stories or appendices. Keep SBC and Send Network specifics out (BF&M, Cooperative Program, CPIA, ordination, assessment colors). Gender-neutral wording. Guidance for human conversations only; software never judges calling, character or fitness."
+    }
+  ]
+}
