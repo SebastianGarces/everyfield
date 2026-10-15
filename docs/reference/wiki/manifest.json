@@ -692,6 +692,13 @@
       "recordSHA256": "14f6a29ac908a6ae26b578bbbb5813eb40c337a4ef7e47f018675c6eafd120f2",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/claiming-your-churchs-online-presence"
+    },
+    {
+      "contentSHA256": "8dc45cff7caced3492abf657ff35014efe1eb424f7489d11f2a2d915316d21eb",
+      "id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
+      "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
+      "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "slug": "discovery/finding-demographic-data-for-your-area"
     }
   ],
   "derivedFrom": {
@@ -3482,6 +3489,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "14f6a29ac908a6ae26b578bbbb5813eb40c337a4ef7e47f018675c6eafd120f2",
       "slug": "administrative/technology/claiming-your-churchs-online-presence"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T19:08:13.467Z",
+      "id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
+      "pr": 6,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e58da26d235df716e06b8977bd777b658965c97676e839477c801c1adf68e873",
+      "slug": "discovery/finding-demographic-data-for-your-area"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3614,7 +3630,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "736a0fc63276a5f719c12df32d0ace0d8c34615e65f7d01ac1d94ec878d81830",
+  "seedPayloadSHA256": "f2815e59de87b29774294828f8e1c6d63996dc23f6748214513eb1b42afcaab5",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
