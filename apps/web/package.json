@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint --max-warnings=0 . && node scripts/sync-prototype-css.mjs --check && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check",
+    "lint": "eslint --max-warnings=0 . && node scripts/sync-prototype-css.mjs --check && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs",
     "typecheck": "tsc --noEmit",
     "share-images": "node scripts/render-share-images.mjs",
     "mesh-images": "node scripts/render-mesh-images.mjs"
