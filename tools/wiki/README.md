@@ -31,6 +31,9 @@ It compares the entire tracked draft file against that commit, then records `--a
 `--pr` in the manifest. The CLI does not authenticate a human's chat approval. The coordinator
 must verify it, and Sebastian merges after Opus review. See the [skill](../../.agents/skills/wiki-article/SKILL.md).
 
+`pr-images` uses a per-command 50 MiB Git HTTP buffer for the full-page PNG upload pack.
+The gist id is saved in the PR before upload so a failed push can reuse it.
+
 `--seed-dir <dir>` on lint/render/shot/promote/check-seed/roundtrip supports disposable seed
 copies for proof. It does not redirect the source Playbook. Tests create a separate temporary
 Git repository for the reviewed draft. Run `bin/wiki`'s Node 24 binary with `--test` on

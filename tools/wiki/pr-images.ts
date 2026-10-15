@@ -37,7 +37,8 @@ export async function prImages(pr: number, files: string[], update: boolean, roo
     git(checkout, 'add', '--all');
     if (git(checkout, 'diff', '--cached', '--name-only')) {
       git(checkout, '-c','user.name=Wiki screenshots','-c',`user.email=${owner}@users.noreply.github.com`, 'commit','-m',`Update Wiki screenshots for PR #${pr}`);
-      git(checkout, 'push', 'origin', 'HEAD');
+      // This host rejects chunked uploads once full-page PNG packs exceed Git's 1 MiB buffer.
+      git(checkout, '-c', 'http.postBuffer=52428800', 'push', 'origin', 'HEAD');
     }
     const lines = names.map(name => `![${name.replace(/\.png$/, '')}](https://gist.githubusercontent.com/${owner}/${id}/raw/${name})`).join('\n\n');
     if (update) {
