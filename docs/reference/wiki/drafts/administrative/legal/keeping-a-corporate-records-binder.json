@@ -275,6 +275,14 @@
         "quote": "But all things must be done properly and in an orderly manner.",
         "accessed": "2026-10-15",
         "kind": "primary"
+      },
+      {
+        "claim": "Opening: records must also support any required federal tax and information returns.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Tax-exempt organizations are also required to maintain books and records that are necessary to accurately file any federal tax and information returns that may be required.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
       }
     ],
     "claim_check": {
