@@ -1,0 +1,13 @@
+{
+  "inputs": "cc82e7ed053760e4b74c54bfd6cfbecea843e877a06d2418c6e6e5609640f56a",
+  "outputs": {
+    "../public/mesh/field.svg": "7f5cab5519578853d51d5a823ba95bc45078c07d336ae196af2a0d19e49a2d72",
+    "../public/mesh/sky.svg": "cdf19551c5d119491685ca663da54cfc36aa0198a997a30d84e74b01df777300",
+    "../public/mesh/dawn.svg": "7ba35ab88886ffa94847274c8e4d5eae3ee8b1c29290b9f2ada8cc6da6cd6702",
+    "../public/mesh/lilac.svg": "6758f1c60b453d89ecab8a13bbd6bec53617b67b67973c4e204f54f0d077743a",
+    "../public/mesh/sea.svg": "ab06a9824d17c9fb20d09f82a07341f0dd1ab116018f5e6ea87dabf917c30133",
+    "../public/mesh/rose.svg": "2ac8ee8f0acb4d93fc12a835d81c44bc22fd16f14adf6890d176822dc7a23045",
+    "../public/mesh/sun.svg": "97f6f6de1a34a70c853a9761ef2ee7399ea572c1dc7e7f9cf9a5045e0179ceaf",
+    "../public/mesh/slate.svg": "6a0c3ae351e04eea09971306410d0e09062f72f44c74b4e2722764049885a302"
+  }
+}

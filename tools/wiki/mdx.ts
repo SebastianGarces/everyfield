@@ -5,8 +5,8 @@ import type { Root, RootContent } from 'mdast';
 
 export const calloutTypes = ['tip', 'insight', 'warning', 'important', 'scripture'];
 const tells = ['delve', 'tapestry', 'testament to', "in today's", 'fast-paced', 'navigate the complexities', 'unlock', 'game-changer', "it's important to note", 'it is important to note', 'embark', 'seamless', 'leverage', 'robust', 'elevate', 'realm', 'ever-evolving', 'furthermore', 'moreover', 'in conclusion', 'at the end of the day'];
-const verse = /^(?:[1-3] )?[A-Z][a-z]+(?: [A-Z][a-z]+)? \d+:\d+[a-z]?(?:[-–]\d+[a-z]?)?(?: \((?:LSB|ESV|KJV|NLT)\))?$/;
-export const scripture = /^\s*\*"([^"]+)"\*\s+—\s+([^\n]+?)\s*$/;
+const verse = /^(?:[1-3] )?[A-Z][a-z]+(?: [A-Za-z]+)* \d+:\d+[a-z]?(?:[-–](?:\d+:)?\d+[a-z]?)?(?: \((?:LSB|ESV|KJV|NLT)\))?$/;
+export const scripture = /^\s*\*"((?:[^"]|"(?!\*))+)"\*\s+—\s+([^\n]+?)\s*$/;
 
 export async function inspect(content: string, known: Set<string>, seed = false) {
   const errors: string[] = [], warnings: string[] = [];
