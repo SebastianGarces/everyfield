@@ -167,9 +167,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus source, scripture and screenshot review. Sources accessed 2026-10-15. Vendor help for Yelp and some Meta pages was read in search-indexed text; direct fetches returned rate limits, login gates or timeouts. No inaccessible Instagram linking or professional-account setup steps are asserted. CISA Secure Our World page is marked archived; used only for basic account-security guidance, not current program policy. Procedural checklists, backup-role planning and review cadence are editorial recommendations, not platform requirements."
+      "status": "passed",
+      "reviewer": "Opus review",
+      "notes": "Independent Opus review. Full review of 1976fc4 on 2026-10-15: all sources re-read, Proverbs 22:1 (LSB) exact, desktop and mobile renders checked; two fixes requested (PR #10 comment 6199092511). Re-review of 32b145abb82b2412b6b637f20bb9377057f2c801 on 2026-10-15: diff limited to the Google name-field sentence, sources[3] claim and two new CISA sources; Google 3038177 lists marketing taglines, service or product information and location information under names that must not include; both CISA quotes exact on the live pages (use-strong-passwords, turn-mfa; Email listed). CISA Secure Our World pages are marked archived; used only for basic account-security guidance. Lint passes; refreshed PR screenshots byte-identical to reviewer renders. Procedural checklists, backup-role planning and review cadence are editorial recommendations, not platform requirements."
     },
     "rulings": [
       "2026-10-15 writer ruling: phase 0 and content_type how_to match the Technology section and canonical row enum.",
