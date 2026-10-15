@@ -214,8 +214,7 @@
   letter-spacing: 0; text-align: left; font-stretch: 100%;
 }
 
-/* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone. (Named mk-* so the
-   legacy .gsurf and .hatch classes of the string sections, deleted in R3, are not overridden.)
+/* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone.
    The caller sets the position (relative or absolute) and may set --grain.
    The mesh is an SVG image per tone (public/mesh, rendered by scripts/render-mesh-images.mjs from these tones): five radial
    gradients under a 52 px blur, drawn at the surface's own size. As a background image it is rasterized once per size;

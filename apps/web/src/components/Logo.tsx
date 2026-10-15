@@ -21,7 +21,7 @@ function parse(src: string): Symbol[] {
 }
 const SYMBOLS = parse(LOGO_SYMBOLS);
 
-/** The logo sprite. Rendered once per page; every logo, and the string-markup sections, reference it with <use>. */
+/** The logo sprite. Rendered once per page; every logo and the app frames of the product pictures reference it with <use>. */
 export function LogoSymbols() {
   return (
     <svg width="0" height="0" className="absolute" aria-hidden="true">
