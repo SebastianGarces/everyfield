@@ -148,9 +148,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author primary-source audit complete 2026-10-15. Independent Opus source, scripture and desktop/mobile review is pending; the author has not approved the claims. Preserved existing article structure and pastoral conclusion; only factual corrections, LSB attribution and draft/read-time bookkeeping. Practical recommendations are advice, not quantified claims."
+      "status": "passed",
+      "reviewer": "Opus (claude-code verifier)",
+      "notes": "Independent Opus review (claude-code verifier). Round 1 at 308b757adfd7e3083d4c40812c4a249c1f3a29b7: every factual sentence matched a live primary source in draft.sources on 2026-10-15; Mark 12:17 matched read.lsbible.org word for word; six out-of-scope rewrites returned. Round 2 at e0255a43ddd29f137a29e4a42e472a2b503694cb: the six passages match the published seed row 59fc7ad4-eb33-49cd-bae0-cc61c5528379 exactly; every remaining content change is a round-1 verified factual correction or the LSB quote, and the other row changes are draft bookkeeping and the lint read time. bin/wiki lint PASS (1,337 words, no warnings); check-seed PASS; desktop 1280 and mobile 390 screenshots show all sections, table, checklists, callouts, scripture and the full LSB notice with no horizontal overflow."
     },
     "rulings": [
       "2026-10-15, writer: Treat F1 as correction of the published row, retaining id, slug, section, phase, content type, related slugs and structure. Correct all source-conflicting factual statements within that article only. Do not edit seed, neighbor articles or methodology.",
