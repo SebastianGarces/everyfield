@@ -727,6 +727,13 @@
       "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/opening-the-church-bank-account"
+    },
+    {
+      "contentSHA256": "2632dc116afdebcbc6c2c3a1c48921323ee511fa5f50495d42f5e5a167904f97",
+      "id": "771e6caf-45d1-4984-b93d-d90b29908c7f",
+      "recordSHA256": "9014295c962d27549ddf8554e8f228268bf00d197d2dc6fef54dbd30098263e4",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/setting-up-payroll-for-church-staff"
     }
   ],
   "derivedFrom": {
@@ -3562,6 +3569,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "926a46c9feeb8faa5290a8b5f2c58aa0517b7928dbf2910cf6f40dac74483319",
       "slug": "administrative/financial/opening-the-church-bank-account"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:07:46.547Z",
+      "id": "771e6caf-45d1-4984-b93d-d90b29908c7f",
+      "pr": 20,
+      "previousRecordSHA256": null,
+      "recordSHA256": "9014295c962d27549ddf8554e8f228268bf00d197d2dc6fef54dbd30098263e4",
+      "slug": "administrative/financial/setting-up-payroll-for-church-staff"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3694,7 +3710,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "d68edba399c52d836bfd36ecc9d29113713cf5b2cfcdc5974da5b53c94fa8372",
+  "seedPayloadSHA256": "3c48076b1b0c213866844cc5262c99bc146d6fa1b513ebfc8d43bf1770a2030f",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
