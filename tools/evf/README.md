@@ -1,6 +1,6 @@
 # Local workflow reconciliation
 
-This tooling branch adapts the received workflow to the current standalone plan. It does not authorize application implementation, run the live feedback desk or commit spending. GitHub protection is applied (owner approval 2026-10-15; see the ship skill). G-AUTH remains unopened, G-WORKFLOW remains open for the qualified runner/setup handoff, and [canonical progress](../../docs/build-progress.json) records implementation state.
+This tooling branch adapts the received workflow to the current standalone plan. It does not authorize application implementation, run the live feedback desk or commit spending. GitHub protection is off until implementation starts; `evf github setup` restores it (see the ship skill). G-AUTH remains unopened, G-WORKFLOW remains open for the qualified runner/setup handoff, and [canonical progress](../../docs/build-progress.json) records implementation state.
 
 Run local tooling regressions with the Node version resolved by `bin/evf`:
 
@@ -69,7 +69,7 @@ Before WP/feedback verification checks, runner execution or stack-up, worktree c
 
 The original P0/P1 immediate, P2/P3 Monday, small-feature draft-prototype, large-feature idea, duplicate/question/spam rubric remains in `.agents/roles/feedback-desk.md`. No new severity rubric replaces it.
 
-Configure verified numeric `botAuthorId`, `triageActorIds` and `ownerActorIds`. P0/P1 fixes merge through the verifier (`mergePolicy.feedbackVerifierMerge`); other classes and prototypes merge through Sebastian's interactive `evf approve`. Use separate agent and human credentials. Direct mutation paths validate bot provenance and explicit actor trust; the currently authenticated account is never automatically trusted. Source repository numeric/node IDs, issue number/node ID, original public summary and locator are frozen. A changed repository cannot reinterpret an existing FB number; the private internal repository is bound too. Repository renames with the same immutable identity preserve the original locator.
+Configure verified numeric `botAuthorId`, `triageActorIds` and `ownerActorIds`. P0/P1 fixes merge through the verifier (`mergePolicy.feedbackVerifierMerge`); other classes and prototypes merge through `evf approve` after Sebastian approves them in chat. Use separate agent and human credentials. Direct mutation paths validate bot provenance and explicit actor trust; the currently authenticated account is never automatically trusted. Source repository numeric/node IDs, issue number/node ID, original public summary and locator are frozen. A changed repository cannot reinterpret an existing FB number; the private internal repository is bound too. Repository renames with the same immutable identity preserve the original locator.
 
 The inbound public issue must match the reviewed closed publisher title/body templates, approved public-area list and opaque UUID marker; bot authorship alone does not authorize arbitrary raw text. Those adapter protocol fields are empty until the actual publisher contract is reviewed. Nonconforming/richer public text is held for authorized human triage; the automated model path receives only the closed projection.
 
@@ -82,7 +82,7 @@ Daily slots count actual starts plus current reservations, never triage-cache pr
 Internal creation is source-marker keyed in a verified private repo. A lost response becomes `unknown`; retry first searches for the exact marker and reconciles a single existing issue, refusing zero/ambiguous unknown outcomes. Public shipped updates record pending/unknown/complete outcomes and never report closure after a failed call. Inspect provider evidence and record a reviewed reconciliation before retrying unknown writes; do not delete caches or blindly repeat them.
 
 Merge authority and Git safety live in `.agents/skills/ship/SKILL.md`. `evf github setup` restores the
-owner-approved protection; `evf approve <PR>` is Sebastian's interactive human-approved merge.
+owner-approved protection; `evf approve <PR> --owner-approval` merges a PR after Sebastian approves it in chat.
 
 ## Progress and integration
 

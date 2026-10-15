@@ -61,7 +61,7 @@
       "p1"
     ],
     "feedbackPrototypes": "owner-merge",
-    "humanApproved": "evf-approve-in-owner-terminal",
+    "humanApproved": "evf-approve-after-owner-chat-approval",
     "ordinaryApproval": {
       "sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
       "approvedAtUtc": "2026-10-13T23:37:00Z",
@@ -73,7 +73,7 @@
     },
     "wikiApproval": {
       "approvedAtUtc": "2026-10-15T18:52:26Z",
-      "scope": "Wiki article PRs never merge automatically. Sebastian reads the article and merges with evf approve in his own terminal."
+      "scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
     },
     "sensitive": "owner-escalation-required"
   },

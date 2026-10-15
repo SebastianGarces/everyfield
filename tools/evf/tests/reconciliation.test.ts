@@ -268,10 +268,10 @@ test('INV-feedback-merge: P0/P1 feedback fixes merge through the verifier withou
   const merge=f.getState().calls.find((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge');assert.ok(merge.args.includes('--match-head-commit'));assert.equal(merge.args.at(-1),proof.sha);
  }finally{f.close();}
 });
-test('INV-human-approve: evf approve refuses to run without an interactive terminal and changes nothing',()=>{
+test('INV-human-approve: evf approve refuses without quoted owner approval and changes nothing',()=>{
  const f=fixture();try{
   const before=f.getState().calls.length;
-  assert.throws(()=>approve(f.root,6,{interactive:false}),/own terminal/);
+  for(const ownerApproval of [undefined,'','yes'])assert.throws(()=>approve(f.root,6,{ownerApproval}),/Quote Sebastian's approval/);
   assert.equal(f.getState().calls.length,before);
  }finally{f.close();}
 });

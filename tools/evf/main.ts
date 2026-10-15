@@ -40,8 +40,9 @@ Feedback desk (public feedback repo)
         --reason "private reason" [--area <module>] [--feature <ID>] [--wp WP-NNN] [--duplicate-of <n>] [--reply "..."]
   evf feedback status [--json]   evf feedback ideas   evf feedback promote <n>   evf feedback labels
 
-Human approval (Sebastian's own terminal only)
-  evf approve <PR>        Wiki articles, prototypes and feedback P2/P3: review, type the PR number, merge
+Human approval (only after Sebastian approves that PR in chat)
+  evf approve <PR> --owner-approval "<his words>" [--head <sha>]
+                          Wiki articles, prototypes, feedback P2/P3: record his approval and squash-merge
 
 Upkeep
   evf test [Node test options]                               local tooling regressions on evf's Node
@@ -116,8 +117,8 @@ function main(argv: string[]): number {
     }
     case "approve": {
       const n = Number(args[0]);
-      if (!Number.isInteger(n) || n <= 0) throw new EvfError("Give the PR number: evf approve <PR>");
-      return approve(root, n);
+      if (!Number.isInteger(n) || n <= 0) throw new EvfError('Give the PR number: evf approve <PR> --owner-approval "<his words>"');
+      return approve(root, n, { ownerApproval: option(args, "--owner-approval"), head: option(args, "--head") });
     }
     case "principles":
       return principles(root, { apply: flag(args, "--apply"), ref: option(args, "--ref") });

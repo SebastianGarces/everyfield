@@ -1,14 +1,14 @@
-import { spawnSync } from 'node:child_process';
 import { fail, loadConfig, run } from './lib.ts';
 
 /**
  * Human-approved merge for PRs that never merge automatically (Wiki articles, prototypes,
- * feedback classes outside mergePolicy.feedbackVerifierMerge). It runs only in an interactive
- * terminal and asks Sebastian to type the PR number, so an agent shell cannot use it.
- * The evf/verify status it posts names the exact head commit he approved.
+ * feedback classes outside mergePolicy.feedbackVerifierMerge). Sebastian approves in chat;
+ * the agent runs this with his words. Agents never run it without that approval for this PR.
+ * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
+ * When main is protected, it also posts the evf/verify status for that head.
  */
 
-type Pr = { number: number; title: string; url: string; state: string; isDraft: boolean; baseRefName: string; headRefOid: string; mergeStateStatus: string; files: Array<{ path: string }> };
+type Pr = { number: number; title: string; url: string; state: string; isDraft: boolean; baseRefName: string; headRefOid: string; mergeStateStatus: string };
 
 function gh(args: string[]): string {
   const r = run('gh', args);
@@ -16,43 +16,29 @@ function gh(args: string[]): string {
   return r.stdout.trim();
 }
 
-const readPr = (n: number): Pr => JSON.parse(gh(['pr', 'view', String(n), '--json', 'number,title,url,state,isDraft,baseRefName,headRefOid,mergeStateStatus,files'])) as Pr;
+const readPr = (n: number): Pr => JSON.parse(gh(['pr', 'view', String(n), '--json', 'number,title,url,state,isDraft,baseRefName,headRefOid,mergeStateStatus'])) as Pr;
 
-function askLine(prompt: string): string {
-  process.stdout.write(prompt);
-  const r = spawnSync('/bin/sh', ['-c', 'IFS= read -r line < /dev/tty && printf %s "$line"'], { stdio: ['inherit', 'pipe', 'inherit'], encoding: 'utf8' });
-  return (r.stdout ?? '').trim();
-}
-
-export function approve(root: string, n: number, io: { interactive: boolean } = { interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY) }): number {
-  if (!io.interactive) fail("evf approve runs only in Sebastian's own terminal. Agents: report the PR and ask Sebastian to run `bin/evf approve <PR>`.");
+export function approve(root: string, n: number, opts: { ownerApproval?: string; head?: string }): number {
+  const words = opts.ownerApproval?.trim() ?? '';
+  if (words.split(/\s+/).filter(Boolean).length < 2) fail('Quote Sebastian\'s approval for this PR: evf approve <PR> --owner-approval "<his words>". Never run this without his approval in chat.');
   const cfg = loadConfig(root);
   let pr = readPr(n);
   if (pr.state !== 'OPEN') fail(`PR #${n} is ${pr.state.toLowerCase()}.`);
   if (pr.baseRefName !== cfg.baseBranch) fail(`PR #${n} targets ${pr.baseRefName}, not ${cfg.baseBranch}.`);
+  if (opts.head && !pr.headRefOid.startsWith(opts.head)) fail(`PR #${n} head is ${pr.headRefOid.slice(0, 10)}, not the ${opts.head} Sebastian approved. Ask him again.`);
   if (pr.mergeStateStatus === 'BEHIND') {
-    console.log(`PR #${n} is behind ${cfg.baseBranch}. Updating the branch (this merges ${cfg.baseBranch} in; the PR's own changes stay the same).`);
     gh(['pr', 'update-branch', String(n)]);
     pr = readPr(n);
+    console.log(`Updated PR #${n} from ${cfg.baseBranch}; its own changes are unchanged.`);
   }
 
-  console.log(`\nPR #${pr.number}: ${pr.title}\n${pr.url}\nHead commit: ${pr.headRefOid}${pr.isDraft ? '\nThis PR is a draft. Approving marks it ready and merges it.' : ''}`);
-  console.log(`Files (${pr.files.length}):`);
-  for (const f of pr.files.slice(0, 20)) console.log(`  ${f.path}`);
-  if (pr.files.length > 20) console.log(`  ... and ${pr.files.length - 20} more`);
-  const answer = askLine(`\nYou approve this exact commit. Type ${n} to approve and merge, anything else to stop: `);
-  if (answer !== String(n)) {
-    console.log('Stopped. Nothing changed.');
-    return 1;
-  }
-
-  const head = readPr(n).headRefOid;
-  if (head !== pr.headRefOid) fail(`The PR changed while you were reading (now ${head.slice(0, 10)}). Run evf approve again.`);
-  const login = gh(['api', 'user', '-q', '.login']);
+  const head = pr.headRefOid;
   const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  gh(['pr', 'comment', String(n), '--body', `Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words.replace(/\n/g, '\n> ')}`]);
   if (pr.isDraft) gh(['pr', 'ready', String(n)]);
-  gh(['api', '-X', 'POST', `repos/${repo}/statuses/${head}`, '-f', 'state=success', '-f', `context=${cfg.statusContext}`, '-f', `description=Approved by ${login} after review at ${head.slice(0, 10)}`]);
+  const protectedMain = run('gh', ['api', `repos/${repo}/branches/${cfg.baseBranch}/protection`]).code === 0;
+  if (protectedMain) gh(['api', '-X', 'POST', `repos/${repo}/statuses/${head}`, '-f', 'state=success', '-f', `context=${cfg.statusContext}`, '-f', `description=Approved by Sebastian at ${head.slice(0, 10)}`]);
   gh(['pr', 'merge', String(n), '--squash', '--match-head-commit', head]);
-  console.log(`Merged PR #${n} at ${head.slice(0, 10)}, approved by ${login}.`);
+  console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
   return 0;
 }
