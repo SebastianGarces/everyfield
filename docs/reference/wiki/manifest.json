@@ -43,9 +43,9 @@
       "slug": "administrative/financial/principles-of-financial-accountability"
     },
     {
-      "contentSHA256": "408c30642607e90c61b2c38d7866ec532bc110f2dbb7175173b34bf15b06e3a3",
+      "contentSHA256": "e740bb35616984a1184ebdda7d3421962089109eb94bd4bd911dd82223decd21",
       "id": "59fc7ad4-eb33-49cd-bae0-cc61c5528379",
-      "recordSHA256": "a34119d217d8b6c5e20aca605c8510639cd0f08ee0acf4be37717f51650e70d6",
+      "recordSHA256": "ba01f0322cd3c87b38890f139b9c9b7e2aa1816cb6d91b91af36077cf7d03003",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/setting-up-501c3"
     },
@@ -671,6 +671,20 @@
       "recordSHA256": "731ffc290937642cdb82826b88908b7a3f3898d2c5d9e9d614f527f586a510b0",
       "sectionId": "bea521c3-8481-4021-82e7-152042213a7f",
       "slug": "training/training-programs-overview"
+    },
+    {
+      "contentSHA256": "4961be3395f4c5a75245ab73531e8dc74751f8058625dfe1ad42c305c2d4fdf3",
+      "id": "8324d563-24b5-418a-a8b9-64c6b07a52dd",
+      "recordSHA256": "478704c8d04d3fdef5aefcfaef4c6416771a03f2722ae631a4d00d408fcae8d2",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/donor-receipts-and-giving-statements"
+    },
+    {
+      "contentSHA256": "28db2fab4aad05ca70f99f8f3dd614e486a77bc9c3707e4a2ce42bb25c9e1b26",
+      "id": "efb3c655-9663-41db-aef8-5c10fd9b85f9",
+      "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
     }
   ],
   "derivedFrom": {
@@ -3425,7 +3439,35 @@
     "transaction": "one atomic global-reference import, advisory lock, unique scope checks"
   },
   "playbookSHA256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
-  "releases": [],
+  "releases": [
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:43:13.833Z",
+      "id": "59fc7ad4-eb33-49cd-bae0-cc61c5528379",
+      "pr": 11,
+      "previousRecordSHA256": "a34119d217d8b6c5e20aca605c8510639cd0f08ee0acf4be37717f51650e70d6",
+      "recordSHA256": "ba01f0322cd3c87b38890f139b9c9b7e2aa1816cb6d91b91af36077cf7d03003",
+      "slug": "administrative/legal/setting-up-501c3"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:44:11.735Z",
+      "id": "8324d563-24b5-418a-a8b9-64c6b07a52dd",
+      "pr": 8,
+      "previousRecordSHA256": null,
+      "recordSHA256": "478704c8d04d3fdef5aefcfaef4c6416771a03f2722ae631a4d00d408fcae8d2",
+      "slug": "administrative/financial/donor-receipts-and-giving-statements"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T18:46:06.642Z",
+      "id": "efb3c655-9663-41db-aef8-5c10fd9b85f9",
+      "pr": 9,
+      "previousRecordSHA256": null,
+      "recordSHA256": "771cd44110788b9e0f6f1b632977e0b35cce9d0987db12276114348444fff05c",
+      "slug": "administrative/legal/copyright-licenses-for-worship-and-streaming"
+    }
+  ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
   "scope": "published global reference content only",
   "sections": [
@@ -3556,7 +3598,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+  "seedPayloadSHA256": "d23b2d3181608196ebda3b15c8e2316f1598e11ee2db82eb026a0bb3ccbbe7ea",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
