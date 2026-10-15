@@ -4,7 +4,7 @@ import { motionValue } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { out, P, rise } from "@/components/motion/curves";
 import { FxProvider } from "@/components/motion/fx";
-import { PanelClockProvider, useTicker } from "@/components/motion/scene";
+import { PanelClockProvider, useReduced, useTicker } from "@/components/motion/scene";
 
 // Timing of "The vision, down to this week" (VisionZoom renders the markup on the server). The levels land one after
 // another, from Launch Sunday down to this week's tasks, and the line between them grows down as each one lands.
@@ -31,29 +31,37 @@ const FX = {
   "vision.bar": (t: number) => "scaleX(" + out(P(t, 950, 1000)).toFixed(4) + ")",
 };
 
-const REDUCE = "(prefers-reduced-motion: reduce)";
-
 /**
  * The clock of the zoom. The server renders the settled end state, so the first paint is complete without JavaScript.
  * The first IntersectionObserver report decides: a zoom already on screen stays settled; one below the fold goes to its
  * first frame and plays once when it scrolls in. The report carries the geometry, so nothing reads layout. Reduced
- * motion: nothing moves and the end state stays.
+ * motion: nothing moves and the end state stays; turned on later (before or during the entrance), it jumps to the end
+ * state at once and the zoom never plays again, even if reduced motion is turned off afterwards.
  */
 export function VisionScene({ className, children }: { className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [t] = useState(() => motionValue(END));
   const clock = useMemo(() => ({ t, since: t, stagger: 0 }), [t]);
   const [run, setRun] = useState(false);
+  const reduced = useReduced();
+  const settled = useRef(false);
 
-  useTicker(run, (dt) => {
+  // Reduced motion stops the clock; the effect below puts it at the end, so a later resume finishes on its first step.
+  useTicker(run && !reduced, (dt) => {
     const v = Math.min(t.get() + dt, END);
     t.set(v);
     if (v >= END) setRun(false);
   });
 
   useEffect(() => {
+    if (!reduced) return;
+    settled.current = true;
+    t.set(END);
+  }, [reduced, t]);
+
+  useEffect(() => {
     const el = ref.current;
-    if (!el || matchMedia(REDUCE).matches) return;
+    if (!el || reduced || settled.current) return;
     const margin = 0.15;
     let first = true;
     const io = new IntersectionObserver(
@@ -72,7 +80,7 @@ export function VisionScene({ className, children }: { className?: string; child
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [t]);
+  }, [t, reduced]);
 
   return (
     <div ref={ref} className={className}>
