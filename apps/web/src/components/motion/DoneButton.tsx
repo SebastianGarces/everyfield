@@ -1,7 +1,8 @@
 "use client";
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
-import { m, useTransform, type MotionValue } from "motion/react";
+import { useTransform, type MotionValue } from "motion/react";
+import { m } from "@/components/motion/m";
 import type { Ref } from "react";
 import { cn } from "../cn";
 import { Icon } from "../Icon";

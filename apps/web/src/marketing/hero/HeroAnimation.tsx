@@ -1,6 +1,7 @@
 "use client";
 
-import { m, useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { m } from "@/components/motion/m";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";

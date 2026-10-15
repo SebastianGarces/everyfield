@@ -1,7 +1,8 @@
 "use client";
 
 import type { IconSvgElement } from "@hugeicons/react";
-import { m, useTransform } from "motion/react";
+import { useTransform } from "motion/react";
+import { m } from "@/components/motion/m";
 import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { CardIcon, NUM, type Tone } from "@/components/kit/kit";

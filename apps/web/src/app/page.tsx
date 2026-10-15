@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { MotionProvider } from "@/components/MotionProvider";
 import { AutoChapter } from "@/marketing/chapters/AutoChapter";
 import { WeekChapter } from "@/marketing/chapters/WeekChapter";
 import { COPY } from "@/marketing/copy";
@@ -21,7 +20,7 @@ export default function Home() {
   const h = COPY.journey.hero;
   const s = homeParts();
   return (
-    <Site path="/" provider={MotionProvider}>
+    <Site path="/">
       <HeroPanel headline={h.headline} subhead={h.subhead} primary={{ label: h.cta_primary, href: ACCESS_PATH }} secondary={h.cta_secondary ? { label: h.cta_secondary, href: "/#week" } : undefined}>
         <HeroAnimation />
       </HeroPanel>

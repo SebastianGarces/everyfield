@@ -1,5 +1,5 @@
 import { ArrowRight02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/frame/SiteFooter";
 import { SiteNav } from "@/components/frame/SiteNav";
 import { SkipLink } from "@/components/frame/SkipLink";
@@ -11,12 +11,6 @@ import { Motion } from "./Motion";
 
 type Props = {
   path: string;
-  /**
-   * Wraps main. Pages with Motion animations (home, /oversight) pass MotionProvider. They import it themselves:
-   * a client component is bundled for every route whose server modules import it, rendered or not, so importing it
-   * here would ship Motion to the pages that never animate.
-   */
-  provider?: ComponentType<{ children: ReactNode }>;
 } & ({ html: string; children?: never } | { html?: never; children: ReactNode });
 
 // Static frame pieces, rendered on the server and handed to the client nav as elements.
@@ -29,7 +23,7 @@ const menuIcon = <Icon icon={Menu01Icon} />;
  * The page frame: skip link, logo sprite, header (in-flow and floating pill), main and footer.
  * Sections come either as prototype markup (html, removed in R3) or as React children.
  */
-export function Site({ path, provider: Provider, html, children }: Props) {
+export function Site({ path, html, children }: Props) {
   const S = COPY.shared;
   const links = S.nav.map((n) => ({ href: n.href, label: n.label, current: n.href === path }));
   const cta = { href: ACCESS_PATH, label: S.nav_cta, current: path === ACCESS_PATH };
@@ -46,7 +40,7 @@ export function Site({ path, provider: Provider, html, children }: Props) {
       <SkipLink />
       <LogoSymbols />
       <SiteNav links={links} cta={cta} logo={navLogo} pillLogo={pillLogo} arrow={arrow} menuIcon={menuIcon} />
-      {Provider ? <Provider>{main}</Provider> : main}
+      {main}
       <SiteFooter />
       <Motion />
     </>

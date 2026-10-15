@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { MotionProvider } from "@/components/MotionProvider";
 import { AutoChapter } from "@/marketing/chapters/AutoChapter";
 import { oversightParts } from "@/marketing/markup";
 import { PAGES, pageMetadata } from "@/marketing/meta";
@@ -15,7 +14,7 @@ export const metadata: Metadata = pageMetadata(PAGES.oversight);
 export default function Oversight() {
   const s = oversightParts();
   return (
-    <Site path="/oversight" provider={MotionProvider}>
+    <Site path="/oversight">
       <Html html={s.hero + s.problem} />
       <AutoChapter id="every-plant" panels={{ invite: <InvitePanel />, plants: <PlantsPanel />, senders: <SendersPanel />, help: <HelpPanel /> }} />
       <AutoChapter id="network-intelligence" panels={{ scope: <ScopePanel />, pipe: <PipePanel />, lens: <LensPanel />, top: <TopPanel /> }} />

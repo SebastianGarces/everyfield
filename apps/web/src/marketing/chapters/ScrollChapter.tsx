@@ -1,7 +1,7 @@
 "use client";
 
 import { motionValue, useTransform, type MotionValue } from "motion/react";
-import { m } from "motion/react";
+import { m } from "@/components/motion/m";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { inOut, out, P, sine } from "@/components/motion/curves";
@@ -82,7 +82,8 @@ export function ScrollChapter({ id, title, steps }: Props) {
   const [mobOn, setMobOn] = useState<boolean[]>(() => steps.map(() => false));
   const [geo, setGeo] = useState<Geo | null>(null);
 
-  const st = useRef({ active: 0, target: 0, at: 0, tm: 0 as ReturnType<typeof setTimeout> | 0, on: false, seen: false });
+  // hold: the next frame does not advance the switch clock (see go).
+  const st = useRef({ active: 0, target: 0, at: 0, tm: 0 as ReturnType<typeof setTimeout> | 0, on: false, seen: false, hold: false });
 
   const still = useCallback((k: number) => SCENES[steps[k]!.kind].still, [steps]);
   const setActive = useCallback((k: number) => {
@@ -95,19 +96,22 @@ export function ScrollChapter({ id, title, steps }: Props) {
     clocks.sw.set(0); clocks.since[k]!.set(0); clocks.t[k]!.set(0);
   }, [clocks, reduced, still]);
 
-  /* The shown step moves toward the target one step at a time and holds each step at least DWELL ms. */
+  /* The shown step moves toward the target one step at a time and holds each step at least DWELL ms.
+     A switch made straight from a scroll (the observer callback) starts its clock one frame later, as the prototype's
+     did: it handled scroll in an animation frame after that frame's scene step, so the new step's first time step came
+     in the next frame. A switch from the dwell timer runs between frames in both. */
   const go = useCallback(() => {
     const s = st.current;
-    const step = () => {
+    const step = (fromScroll: boolean) => {
       clearTimeout(s.tm); s.tm = 0;
       if (s.target === s.active) return;
       const now = performance.now();
       if (!s.on || reduced) { setActive(s.target); s.at = now; return; }
       let wait = s.at + DWELL - now;
-      if (wait <= 0) { setActive(s.active + (s.target > s.active ? 1 : -1)); s.at = now; wait = DWELL; }
-      if (s.target !== s.active) s.tm = setTimeout(step, wait + 1);
+      if (wait <= 0) { setActive(s.active + (s.target > s.active ? 1 : -1)); s.at = now; s.hold = fromScroll; wait = DWELL; }
+      if (s.target !== s.active) s.tm = setTimeout(() => step(false), wait + 1);
     };
-    step();
+    step(true);
   }, [reduced, setActive]);
   useEffect(() => () => clearTimeout(st.current.tm), []);
 
@@ -259,6 +263,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
   const anyMob = mobOn.some(Boolean);
   useTicker(!reduced && (desk ? on : anyMob), (dt) => {
     if (desk) {
+      if (st.current.hold) { st.current.hold = false; return; }
       const k = st.current.active, S = SCENES[steps[k]!.kind];
       clocks.sw.set(clocks.sw.get() + dt);
       clocks.since[k]!.set(clocks.sw.get());

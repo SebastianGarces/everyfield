@@ -1,6 +1,7 @@
 "use client";
 
-import { cancelFrame, frame, m, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
+import { cancelFrame, frame, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
+import { m } from "@/components/motion/m";
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { out, P, transformOf, type Frame } from "./curves";
 

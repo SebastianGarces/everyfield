@@ -1,6 +1,7 @@
 "use client";
 
-import { m, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { m } from "@/components/motion/m";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { cn } from "@/components/cn";
 import { bump, inOut, out, P, sine, transformOf } from "@/components/motion/curves";

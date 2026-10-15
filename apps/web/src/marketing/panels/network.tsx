@@ -1,6 +1,7 @@
 "use client";
 
-import { m, useTransform } from "motion/react";
+import { useTransform } from "motion/react";
+import { m } from "@/components/motion/m";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
