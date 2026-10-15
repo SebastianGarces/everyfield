@@ -748,6 +748,13 @@
       "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
+    },
+    {
+      "contentSHA256": "d873dd554840c73d06d05da8e12fd976cdf94c312d4c40d7c08886e99b7283b9",
+      "id": "bd9fb296-2339-47a0-bcf2-ff9d4cfd47bb",
+      "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
+      "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+      "slug": "launch-team/comparing-and-scoring-venues"
     }
   ],
   "derivedFrom": {
@@ -3610,6 +3617,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "528aaa06705697cc5308ae8034793d5089d11f39d88e97c4d30ea43ce6e00819",
       "slug": "administrative/technology/website-privacy-cookies-and-email-sign-ups"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-15T23:11:30.339Z",
+      "id": "bd9fb296-2339-47a0-bcf2-ff9d4cfd47bb",
+      "pr": 17,
+      "previousRecordSHA256": null,
+      "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
+      "slug": "launch-team/comparing-and-scoring-venues"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -3742,7 +3758,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "6fc33671e1ba4c9fe8208125243a82846de925dbe64747ec7d7d2289ae5a0c57",
+  "seedPayloadSHA256": "0fbc4e575d7782b5b72c62c1a2b3c4044cdf7321bb8502c58ea5880649aa1a3e",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
