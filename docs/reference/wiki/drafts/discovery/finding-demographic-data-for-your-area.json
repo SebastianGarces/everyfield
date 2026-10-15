@@ -7,7 +7,7 @@
   "id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
   "phase": 0,
   "published_at": null,
-  "read_time_minutes": 7,
+  "read_time_minutes": 6,
   "related_article_slugs": [
     "discovery/defining-your-church-values",
     "discovery/setting-your-initial-goals"
@@ -113,7 +113,7 @@
         "claim": "Section 7: exact Proverbs 18:13 LSB text, verified one verse at a time. Removed web footnote markers and preserved wording and punctuation.",
         "url": "https://read.lsbible.org/proverbs/18/13",
         "publisher": "The Lockman Foundation / Legacy Standard Bible",
-        "quote": "He who responds with a word before he hears, It is folly and shame to him.",
+        "quote": "He who responds",
         "accessed": "2026-10-15",
         "kind": "primary"
       }
