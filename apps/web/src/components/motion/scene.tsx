@@ -14,9 +14,10 @@ export function useTicker(run: boolean, step: (dt: number) => void) {
   const onStep = useEffectEvent(step);
   useEffect(() => {
     if (!run) return;
-    let last = -1;
+    // Time counts from the moment the scene starts, as in the prototype (its first frame advances by one frame).
+    let last = performance.now();
     const tick = ({ timestamp }: { timestamp: number }) => {
-      onStep(last < 0 ? 0 : Math.min(timestamp - last, 50));
+      onStep(Math.max(0, Math.min(timestamp - last, 50)));
       last = timestamp;
     };
     frame.update(tick, true);
