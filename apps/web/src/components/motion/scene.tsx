@@ -1,7 +1,7 @@
 "use client";
 
 import { cancelFrame, frame, m, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
-import { createContext, useContext, useEffect, useEffectEvent, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { out, P, transformOf, type Frame } from "./curves";
 
 /**
@@ -66,7 +66,8 @@ export function usePanelClock() {
   return c;
 }
 
-/** A panel child that rises in with the card: the k-th one starts 75 ms after the one before. */
+/** A panel child that rises in with the card: the k-th one starts 75 ms after the one before. It has its own layer, as in
+ *  the prototype (`.cx-card [data-st]`), so it rasterises the same way. */
 export function St({ i, as = "div", className, style, children }: { i: number; as?: "div" | "span"; className?: string; style?: CSSProperties; children?: ReactNode }) {
   const { since, stagger } = usePanelClock();
   const s = useTo(since, (v) => {
@@ -75,8 +76,23 @@ export function St({ i, as = "div", className, style, children }: { i: number; a
   });
   const C = as === "span" ? m.span : m.div;
   return (
-    <C className={className} style={{ ...style, ...s }}>
+    <C className={className ? "will-change-[transform,opacity] " + className : "will-change-[transform,opacity]"} style={{ ...style, ...s }}>
       {children}
     </C>
   );
+}
+
+/**
+ * Text from a MotionValue, written in Motion's render step. It does not wait for the lazy Motion features, so a value
+ * set before they load (reduced motion jumps to the still frame at once) still shows. React renders the first value.
+ */
+export function MText({ value, className, ...rest }: { value: MotionValue<string>; className?: string; "data-n"?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.textContent = value.get();
+    return value.on("change", (v) => frame.render(() => { el.textContent = v; }));
+  }, [value]);
+  return <span ref={ref} className={className} {...rest} suppressHydrationWarning>{value.get()}</span>;
 }

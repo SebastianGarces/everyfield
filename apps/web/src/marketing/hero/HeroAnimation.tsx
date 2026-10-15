@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
-import { useText, useTicker, useTo } from "@/components/motion/scene";
+import { MText, useText, useTicker, useTo } from "@/components/motion/scene";
 import { DoneButton } from "@/components/motion/DoneButton";
 import { ICONS } from "../icons";
 import { HA_DRAFT, HA_NAME } from "../scene-data";
@@ -117,7 +117,7 @@ export function HeroAnimation() {
             <Head t={t} i={2} lead={<Bot t={t} />} title="Evry drafted a follow-up" sub="Due today. You approve it." />
             <St t={t} i={2} k={1} className="flex items-center gap-2.5 text-[12.5px] text-text-3"><span>To</span>{slot(2)}</St>
             <St t={t} i={2} k={2} className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] text-[13.5px] leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
-              <m.span>{useText(t, (v) => HA_DRAFT.slice(0, Math.floor(P(v, at(2, 350), d(1350)) * HA_DRAFT.length)))}</m.span>
+              <MText value={useText(t, (v) => HA_DRAFT.slice(0, Math.floor(P(v, at(2, 350), d(1350)) * HA_DRAFT.length)))} />
               <Caret t={t} show={(v) => v > at(2, 200) && v < at(2, 1850)} className="h-[15px] align-[-2px]" />
             </St>
             <St t={t} i={2} k={3} className="mt-3.5 flex items-center justify-between gap-2.5">
@@ -241,7 +241,7 @@ function Maria({ className }: { className?: string }) {
 function Typed({ t }: T) {
   const text = useText(t, (v) => HA_NAME.slice(0, Math.floor(P(v, at(0, 0), d(1050)) * HA_NAME.length)));
   const opacity = useTransform(t, (v) => +(1 - P(v, at(0, 1550), d(220))).toFixed(3));
-  return <m.span style={{ opacity }}>{text}</m.span>;
+  return <m.span style={{ opacity }}><MText value={text} /></m.span>;
 }
 function Caret({ t, show, className }: T & { show: (t: number) => boolean; className: string }) {
   const visibility = useTransform(t, (v) => (show(v) ? "visible" : "hidden"));

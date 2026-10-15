@@ -50,6 +50,7 @@
   /* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
   --breakpoint-mk-xs: 441px;
   --breakpoint-mk-sm: 641px;
+  --breakpoint-mk-cx: 901px;
   --breakpoint-mk-lg: 1025px;
   --breakpoint-mk-nav: 1121px;
 

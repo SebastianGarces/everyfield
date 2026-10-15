@@ -1,8 +1,6 @@
 import "server-only";
 import { ACCESS_PATH } from "@/site";
 import { COPY, type Copy } from "./copy";
-// Sample data shared with the engine in engines.ts.
-import { CX_A, CX_DRAFT, CX_PEOPLE, CX_Q, CX_SIGNS, CX_TEAMS, CX_TYPES, HA_NAME, OV_GROUPS, OV_MAIL, OV_ROWS, SD_AREAS, SD_PIPE, SD_SCOPES, type PanelKind } from "./scene-data";
 
 // Server-side port of the prototype's markup builders (design/everyfield-marketing.html, the <script> block).
 // The HTML strings stay as close to the prototype as possible: the CSS and the motion engines in engines.ts select on
@@ -165,251 +163,7 @@ function vNetworkDash() {
     '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a plant</span>", "", { avatar: "JM" });
 }
 
-/* ---------- Revision 2 hero animation markup (the engine is haRender in engines.ts) ---------- */
-function haChip(live?: boolean) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">ML</span>' + HA_NAME + "</span>"; }
-function haSlot() { return '<span class="ha-slot">' + haChip() + "</span>"; }
-function haSk(w: string, cls?: string) { return '<span class="sk' + (cls ? " " + cls : "") + '"' + (w ? ' style="width:' + w + '"' : "") + "></span>"; }
-function haRoll(a: number, b: number, key: string) { return '<span class="ha-roll" data-roll="' + key + '"><span><i>' + a + "</i><i>" + b + "</i></span></span>"; }
-function haHead(lead: string, title: string, sub: string) { return '<div class="ha-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div></div>"; }
-function haCard(i: number, inner: string) { return '<div class="ha-card" data-scene="' + i + '">' + inner + "</div>"; }
-function haSkRow(w: string) { return '<div class="ha-li">' + haSk("", "sk-av") + haSk(w) + "</div>"; }
 export const PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
-export const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
-function heroSlot() {
-  const c0 = haHead('<span class="card-icon tone-green">' + icon("users") + "</span>", "Add person", "People") +
-    '<div class="ha-field" data-st><div><span class="ha-lab">Name</span><div class="ha-input"><span class="ha-type"></span><span class="ha-caret"></span></div></div><span class="ha-btn ha-add"><span>Add</span></span></div>' +
-    '<div class="ha-list" data-st><span class="ha-lab">Recently added</span><div class="ha-li">' + haSlot() + "</div>" + haSkRow("46%") + "</div>";
-  const c1 = haHead('<span class="card-icon tone-blue">' + icon("calendar") + "</span>", "Vision meeting #12", "Sun, Oct 12 · 6:00 PM") +
-    '<div class="ha-kv" data-st><span>Type</span><span class="v">Vision meeting</span></div>' +
-    '<div class="ha-kv" data-st><span>Host home</span><span class="v">' + icon("pin") + "Hyde Park</span></div>" +
-    '<div class="ha-kv" data-st><span>Guests</span><span class="v">' + haRoll(8, 9, "guests") + "</span></div>" +
-    '<div class="ha-guests" data-st>' + haSk("", "sk-pill") + haSk("", "sk-pill") + haSlot() + "</div>";
-  const c2 = haHead(evryBot("lg", "talking"), "Evry drafted a follow-up", "Due today. You approve it.") +
-    '<div class="ha-to" data-st><span>To</span>' + haSlot() + "</div>" +
-    '<div class="ha-draft" data-st><span class="ha-dtxt"></span><span class="ha-caret"></span></div>' +
-    '<div class="ha-acts" data-st>' + haSk("28%") + '<span class="ha-btn ha-send"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">Approve and send</span><span class="ha-l2">' + icon("check") + "Sent</span></span></div>";
-  const c3 = '<div class="ha-who" data-st>' + haSlot() + '<span class="ha-flip"><span class="stage-chip tone-amber">Following up</span><span class="stage-chip tone-green">Committed</span></span></div>' +
-    [["Vision meeting #12", "Attended"], ["Follow-up from Evry", "Sent"], ["Commitment card", "Signed"]].map((r) =>
-      '<div class="ha-li" data-st><span class="ha-check">' + icon("check") + '</span><span class="grow">' + r[0] + '</span><span class="faint">' + r[1] + "</span></div>",
-    ).join("") + "<div data-st>" + haSkRow("52%") + "</div>";
-  const rows = [["tone-blue", "Attendee", "41", "var(--ef-blue-500)"], ["tone-amber", "Following up", haRoll(23, 22, "follow"), "var(--ef-amber-500)"], ["tone-green", "Core group", haRoll(34, 35, "core"), "var(--ef-green-500)"]] as const;
-  const c4 = haHead('<span class="card-icon tone-ink">' + icon("users") + "</span>", "Where people are", "Harvest Point · this week") +
-    '<div class="ha-rows">' + rows.map((r, k) =>
-      '<div class="ha-row" data-st>' + (k === 2 ? '<span class="ha-hl"></span>' : "") + '<div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + "</span>" + (k === 2 ? haSlot() : "") +
-      '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>',
-    ).join("") + "</div>";
-  return '<div class="ha">' +
-    '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.">' +
-    '<div aria-hidden="true" style="display:contents"><div class="ha-shadow"></div><div class="ha-shell"></div>' +
-    haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
-    '<button type="button" class="ha-pause" aria-label="Pause animation">' + PAUSE_SVG + "</button></div>";
-}
-
-/* ---------- Chapters: sticky panel and steps (engine: cx* in engines.ts) ---------- */
-function cxCur() { return '<span class="cx-cur" aria-hidden="true"><i class="cx-ripple"></i><svg viewBox="0 0 24 24"><path d="M5.5 3.5v15.2c0 .6.7.9 1.1.5l3.6-3.5 2.5 5.6c.2.4.7.6 1.1.4l1.9-.9c.4-.2.6-.7.4-1.1l-2.5-5.5 5-.3c.6 0 .8-.7.4-1.1L6.6 2.9c-.4-.4-1.1-.1-1.1.6z"/></svg></span>'; }
-function cxHead(lead: string, title: string, sub: string, right?: string) { return '<div class="cx-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div>" + (right || "") + "</div>"; }
-function cxIcon(tone: string, name: IconName) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
-function cxBtn(cls: string, a: string, b: string) { return '<span class="ha-btn cx-sm ' + cls + '"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">' + a + '</span><span class="ha-l2">' + icon("check") + b + "</span></span>"; }
-function cxSwap(a: string, b: string, cls?: string) { return '<span class="cx-swap' + (cls ? " " + cls : "") + '"><span>' + a + "</span><span>" + b + "</span></span>"; }
-function cxTw(cls: string, text: string) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
-
-const CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]] as const;
-const SD_LENSES = [["Emerging leadership", "compass", "tone-magenta", "risk", "Concern", [5, 2, 4]], ["Vision casting", "sparkle", "tone-green", "positive", "Strong", [8, 3, 0]], ["Core group cohesion", "users", "tone-amber", "attention", "Watch", [5, 3, 3]]] as const;
-const SD_LENS_PLANTS = [["Eastside Commons", "Training · Greater Austin", "2 leader roles open"], ["Deep Ellum Collective", "Pre-launch · Dallas–Fort Worth", "3 leader roles open"], ["Lakewood Church Dallas", "Pre-launch · Dallas–Fort Worth", "Worship leader open"]] as const;
-const SD_DOTS = ["var(--ef-green-500)", "var(--ef-amber-500)", "var(--ef-magenta-500)"] as const;
-const OV_AREAS = [["All", 14], ["Austin", 5], ["San Antonio", 3]] as const;
-
-/* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
-const CX_MARK: Record<PanelKind, () => string> = {
-  people: () =>
-    cxHead(cxIcon("tone-ink", "users"), "Where people are", 'Harvest Point · <span data-n="total">0</span> people', cxBtn("cx-t0", "Import list", "Added")) +
-    '<div class="cx-slot" data-st><span class="cx-pill">' + icon("check") + "24 people added from the sign-up form</span></div>" +
-    '<div class="cx-rows">' + CX_PEOPLE.map((r) =>
-      '<div data-st><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span><span class="num" data-n="r">0</span></div><div class="ha-meter"><span style="background:' + r[4] + '"></span></div></div>',
-    ).join("") + "</div>" +
-    '<div data-st><div class="card-inset cx-ins">14 interviewed people have not committed yet.</div></div>',
-  meet: () => {
-    const guests = [["KW", "Kim Wu"], ["JO", "James Okafor"]];
-    return cxHead(cxIcon("tone-blue", "calendar"), "New gathering", "Harvest Point", cxBtn("cx-t1", "Create", "Created")) +
-      '<div data-st><span class="ha-lab">Type</span><div class="cx-in cx-t0"><span class="cx-fr"></span><span class="ha-roll cx-roll"><span>' + CX_TYPES.map((x) => "<i>" + x + "</i>").join("") + "</span></span>" + icon("arrow", "cx-chev") + "</div></div>" +
-      '<div class="cx-2" data-st><div><span class="ha-lab">When</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-when", "Sun Oct 12, 5 pm") + '</div></div><div><span class="ha-lab">Where</span><div class="cx-in"><span class="cx-fr"></span>' + cxTw("cx-where", "Reyes home") + "</div></div></div>" +
-      '<div class="cx-att" data-st><div class="row"><span class="row"><span class="ha-lab">Checked in</span><span class="badge" data-size="sm" data-status="measured">3 new guests</span></span><span class="cx-cnt" data-n="att">0</span></div>' +
-      '<div class="cx-names cx-guests">' + guests.map((n) => '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>").join("") + '<span class="ha-chip" style="padding-left:10px">10 more</span></div></div>';
-  },
-  follow: () => {
-    const row = (n: readonly [string, string, string, string]) =>
-      '<div class="ha-li cx-fu"><span class="cx-lead"><span class="ha-av">' + n[0] + '</span><span class="ha-check">' + icon("check") + '</span></span><span class="grow">' +
-      cxSwap('<span class="cx-l1">' + n[1] + '</span><span class="cx-l2">New guest</span>', '<span class="cx-l1">Follow up with ' + n[1] + '</span><span class="cx-l2">Due Oct 10</span>') + "</span>" +
-      '<span class="ha-chip cx-who"><span class="ha-av">' + n[2] + "</span>" + n[3] + "</span></div>";
-    return '<div class="cx-h" data-st>' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry</div><div class="ha-sub">3 new guests from Sunday\'s vision meeting</div></div></div>' +
-      "<div data-st>" + row(CX_GUESTS[0]) + "</div>" +
-      '<div class="cx-draft"><span class="ha-lab">' + icon("sparkle") + "Drafted for Tom</span>" + cxTw("cx-dt", CX_DRAFT) + "</div>" +
-      '<div class="cx-dn"><div data-st>' + row(CX_GUESTS[1]) + "</div><div data-st>" + row(CX_GUESTS[2]) + "</div>" +
-      '<div class="ha-acts" data-st>' + cxSwap('<span class="faint">Nothing is saved until you approve.</span>', '<span class="faint">Assigned to Tom and Ana</span>', "cx-fs") + cxBtn("cx-t0", "Approve", "Approved") + "</div></div>";
-  },
-  teams: () =>
-    cxHead(cxIcon("tone-violet", "users"), "Your teams", "Harvest Point · committed adults") +
-    CX_TEAMS.map((r, k) => '<div class="cx-team" data-st data-p="dst' + k + '"><div class="row"><span class="stage-chip ' + r[0] + '">' + r[1] + '</span><span class="num" data-n="team">0</span></div><div class="ha-meter"><span style="background:' + r[2] + '"></span></div></div>').join("") +
-    '<div class="cx-sublab" data-st>To record</div>' +
-    CX_SIGNS.map((r, k) => '<div class="list-row" data-st><span class="ha-av" data-p="src' + k + '">' + r[0] + '</span><div class="grow"><div class="list-title">' + r[1] + '</div><div class="list-sub">' + r[2] + "</div></div>" + cxBtn("cx-t" + k, "Record", "Recorded") + "</div>").join("") +
-    CX_SIGNS.map((r, k) => '<span class="ha-chip cx-fly" data-p="fly' + k + '"><span class="ha-av">' + r[0] + "</span>" + r[1] + "</span>").join(""),
-  focus: () => {
-    const facts = [["Last vision meeting", "#11, 16 days ago"], ["New guests at #11", "9"], ["Next", "#12, Sun Oct 12"]];
-    return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
-      '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span> d</span><span class="unit">since the last vision meeting</span></div>' +
-      '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Next: #12, Sun Oct 12</span></div></div>' +
-      '<div class="insight-title" data-st>Hold your next vision meeting this week</div>' +
-      '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div><div class="cx-facts">' +
-      facts.map((f) => '<div class="cx-fact"><span>' + f[0] + "</span><b>" + f[1] + "</b></div>").join("") + "</div></div>" +
-      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div>';
-  },
-  facts: () => {
-    const kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>']];
-    const names = [["JO", "James Okafor"], ["KW", "Kim Wu"], ["SN", "Sara Nunez"]];
-    return cxHead(cxIcon("tone-amber", "alert"), "Follow-up is slipping", "The facts this finding used") +
-      '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct"><span data-n="pct">0</span>%</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
-      kv.map((r, i) => '<div class="kv' + (i === 2 ? " cx-t0" : "") + '" data-st style="position:relative;isolation:isolate">' + (i === 2 ? '<span class="cx-hl"></span>' : "") + '<span class="k">' + r[0] + '</span><span class="row">' + r[2] + '<span class="v" data-n="kv">' + r[1] + "</span></span></div>").join("") +
-      '<div class="cx-names" data-st>' + names.map((n) => '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>").join("") + '<span class="ha-chip" style="padding-left:10px">4 more</span></div>';
-  },
-  evry: () =>
-    '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
-    '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
-    '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
-    '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 7 changes<span class="grow"></span><span style="font-weight:500">Assign follow-up tasks</span></div>' +
-    '<div class="rc-body"><div class="rc-line">' + icon("task") + '<span>Assign <b>Follow up with James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span></div><div class="rc-line faint">' + icon("more") + "<span>6 more follow-ups in this change</span></div></div>" +
-    '<div class="rc-foot">' + cxBtn("cx-t0", "Approve", "Approved") + '<span class="btn" data-variant="ghost">Edit</span></div></div>',
-  scope: () =>
-    cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Network Intelligence") +
-    '<div class="sd-scope" data-st>' + SD_SCOPES.map((c, i) => { const l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i ? " cx-t" + (i - 1) : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-    '<div class="sd-stats" data-st>' + ["Plants", "With findings", "Launching in 12 months"].map((l) => '<div class="sd-stat"><span class="num" data-n="sd">0</span><small>' + l + "</small></div>").join("") + "</div>" +
-    '<div class="sd-areas" data-st><div class="sd-th"><span>By area</span><span>Plants</span><span>Momentum</span></div>' +
-    SD_AREAS.map((a, i) => '<div class="sd-area"><b>' + a[0] + "</b><span>" + a[1] + '</span><span><span class="badge" data-size="sm" data-status="' + a[2] + '">' + a[3] + "</span></span>" + (i ? "" : '<span class="cx-hl"></span>') + "</div>").join("") + "</div>",
-  pipe: () =>
-    cxHead(cxIcon("tone-violet", "calendar"), "Phase pipeline", "Plants in each phase, and typical weeks in it") +
-    "<div data-st>" + SD_PIPE.map((r, i) => '<div class="sd-pl' + (i === 1 ? " cx-t0" : "") + '">' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<b>" + r[0] + '</b><span class="sd-track"><i></i></span><span class="num" data-n="pl">0</span><span class="wk">' + (r[1] ? r[2] : "none") + "</span></div>").join("") + "</div>" +
-    '<div class="sd-sum" data-st><span>Launches in the next 12 months</span><span class="num" data-n="sum">0</span></div>',
-  lens: () =>
-    cxHead(cxIcon("tone-amber", "eye"), "Network lenses", "Across 11 plants with findings") +
-    '<div class="sd-lenses">' + SD_LENSES.map((l, i) => {
-      const n = l[5];
-      return '<div class="lens sd-lens" data-st><div class="lens-head"><span class="sd-li ' + l[2] + '">' + icon(l[1]) + '</span><span class="lens-name">' + l[0] + '</span><span class="badge" data-size="sm" data-status="' + l[3] + '">' + l[4] + "</span>" + (i ? "" : '<span class="sd-open cx-t0">' + icon("arrow") + "</span>") + "</div>" +
-        '<div class="sd-dist">' + n.map((v, k) => (v ? '<span style="flex:' + v + ";background:" + SD_DOTS[k] + '"></span>' : "")).join("") + "</div>" +
-        '<div class="sd-leg">' + (["Strong", "Watch", "Concern"] as const).map((w, k) => '<span style="--dot:' + SD_DOTS[k] + '">' + n[k] + " " + w + "</span>").join("") + "</div></div>";
-    }).join("") + "</div>" +
-    '<div class="sd-sheet"><div class="sd-sh"><span>Emerging leadership</span><span class="badge" data-size="sm" data-status="risk">4 at Concern</span></div>' +
-    SD_LENS_PLANTS.map((r) => '<div class="sd-pr"><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><span class="t-xs faint">' + r[2] + "</span></div>").join("") + "</div>",
-  top: () =>
-    '<div class="insight-top" data-st><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
-    '<div class="insight-metric" data-st><span class="num"><span data-n="top">0</span> of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
-    '<div class="insight-title" data-st>Emerging leadership is the most common gap before launch</div>' +
-    '<div class="insight-text" data-st>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</div>' +
-    '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the plants ' + icon("arrow") + "</span></div>",
-  share: () => {
-    const rows = [["Phase and launch date", 1, 0], ["Plant Intelligence findings", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]] as const;
-    return cxHead(cxIcon("tone-violet", "eye"), "Sharing with Grace Church", "You choose what leaves your plant") +
-      rows.map((r, i) => '<div class="share-row" data-st>' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<span>" + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="cx-sw' + (i === 1 ? " cx-t0" : "") + '"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "><b></b><i></i></span></div>").join("") +
-      '<div class="cx-prev" data-st><div class="t-xs faint">What Grace Church sees</div><div class="row between"><span>Harvest Point · Phase 1</span>' +
-      cxSwap('<span class="badge" data-size="sm" data-status="unknown">Findings not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
-  },
-  invite: () => {
-    const plant = (cls: string, ic: IconName, tone: string, name: string, sub: string, badge: string) => '<div class="list-row ' + cls + '"' + (cls ? "" : " data-st") + '><span class="card-icon ' + tone + '">' + icon(ic) + '</span><div class="grow"><div class="list-title">' + name + '</div><div class="list-sub">' + sub + "</div></div>" + badge + "</div>";
-    return cxHead(cxIcon("tone-teal", "network"), "Invite a plant", "Austin Sending Network") +
-      '<div data-st><span class="ha-lab">Planter\'s email</span><div class="cx-in cx-t0"><span class="cx-fr"></span>' + cxTw("ov-mail", OV_MAIL) + "</div></div>" +
-      '<div class="ha-acts ov-acts" data-st>' + cxSwap('<span class="faint">The planter connects in a few clicks.</span>', '<span class="faint">Invite sent to Priya Shah</span>', "ov-fs") + cxBtn("cx-t1", "Send invite", "Invite sent") + "</div>" +
-      '<div class="cx-sublab" data-st>Your plants</div>' +
-      '<div class="ov-plist">' + plant("", "pin", "tone-green", "Harvest Point Church", "Hyde Park, Austin", '<span class="badge" data-size="sm" data-status="positive">Connected</span>') +
-      plant("ov-new", "pin", "tone-blue", "Eastside Commons", "Priya Shah · East Austin", cxSwap('<span class="badge" data-size="sm" data-status="unknown">Invited</span>', '<span class="badge" data-size="sm" data-status="positive">Connected</span>', "ov-st")) + "</div>";
-  },
-  plants: () =>
-    cxHead(cxIcon("tone-teal", "network"), "Plants", "Austin Sending Network · in launch order") +
-    '<div class="sd-scope" data-st>' + OV_AREAS.map((c, i) => { const l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i === 1 ? " cx-t0" : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-    '<div class="ov-rows">' + OV_ROWS.map((r) =>
-      '<div class="ov-row"><span class="card-icon ' + r[2] + '">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[3] + (r[4] ? " · " + r[4] + " adults" : "") + '</div></div><div class="ov-when"><b>' + r[5] + "</b><span>" + r[6] + "</span></div></div>",
-    ).join("") + "</div>",
-  senders: () =>
-    cxHead(cxIcon("tone-teal", "network"), "Sending churches", "Austin Sending Network · 3 churches, 5 plants") +
-    '<div class="ov-grps">' + OV_GROUPS.map((g, k) =>
-      '<div class="ov-grp' + (k === 0 ? " cx-t0" : "") + '"><span class="cx-hl"></span><div class="ov-gh"><span class="card-icon ' + g[1] + '">' + icon("heart") + '</span><div class="grow"><div class="list-title">' + g[0] + '</div><div class="list-sub">' + g[2] + '</div></div><span class="ov-gn"><b data-n="g">0</b> plant' + (g[3].length > 1 ? "s" : "") + "</span></div>" +
-      '<div class="ov-gp">' + g[3].map((p) => '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>").join("") + "</div>" +
-      '<div class="ov-gs"><span>' + g[4] + '</span><span class="badge" data-size="sm" data-status="' + g[5][0] + '">' + g[5][1] + "</span></div></div>",
-    ).join("") + "</div>",
-  help: () =>
-    '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Where help could matter</span><span class="insight-count">Eastside Commons</span></div>' +
-    '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span></span><span class="unit">days to launch Sunday</span></div>' +
-    '<div class="insight-title" data-st>Two leader roles are open, 205 days before launch</div>' +
-    '<div class="insight-text" data-st>Kids and Production have no leader yet. From Ministry teams and findings.</div>' +
-    '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">' + cxSwap('<span class="ov-bl">Offer help ' + icon("arrow") + "</span>", '<span class="ov-bl">' + icon("check") + "Help offered</span>", "ov-off") + '</span><span class="btn" data-variant="glass">Later</span></div>',
-};
-const isPanel = (k: string): k is PanelKind => Object.hasOwn(CX_MARK, k);
-
-/* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac. */
-const WK_TONES = ["sky", "dawn", "field", "lilac"];
-/* Revision 13: the title phrase for each step; the active step's phrase is highlighted (.cx-ttl). */
-const WK_WORDS = ["Reach", "gather", "follow up", "commit"];
-function cxTitle(title: string, words: string[]) {
-  let out = "", at = 0, ok = true;
-  words.forEach((w, i) => {
-    const j = title.indexOf(w, at);
-    if (j < 0) { ok = false; return; }
-    out += t(title.slice(at, j)) + '<span class="cx-w' + (i ? "" : " on") + '" data-w="' + i + '">' + t(w) + "</span>";
-    at = j + w.length;
-  });
-  return ok ? out + t(title.slice(at)) : t(title);
-}
-
-type Step = { panel: PanelKind; tone: string; icon: string; title: string; body: string };
-type ChapterDef = { title: string; steps: Step[]; final?: boolean; words?: string[]; auto?: boolean; mirror?: boolean; link?: string };
-const panel = (k: string): PanelKind => {
-  if (!isPanel(k)) throw new Error(`unknown chapter panel "${k}" in marketing-copy.json`);
-  return k;
-};
-const NETWORK_PANELS = ["scope", "pipe", "lens", "top"] as const;
-const NETWORK_TONES = ["sea", "rose", "sun", "slate"];
-function chapterDefs(): Record<string, ChapterDef> {
-  const S = COPY.shared;
-  return {
-    week: { title: S.week.title, final: true, words: WK_WORDS, steps: S.week.steps.map((s, i) => ({ panel: panel(s.panel), tone: WK_TONES[i] || s.tone, icon: s.icon, title: s.title, body: s.body })) },
-    intelligence: { title: S.intelligence.title, auto: true, steps: [
-      { panel: "focus", tone: "lilac", icon: "Focus", title: "One focus each week.", body: "Plant Intelligence reads your records and names the one thing that needs you most this week." },
-      { panel: "facts", tone: "field", icon: "Facts", title: "Every finding shows its facts.", body: "Each finding links to the records it used, so you can check it." },
-      { panel: "evry", tone: "sky", icon: "Evry", title: "Ask Evry why.", body: "Evry explains a finding against the rubric and prepares the work it points to. You approve each change." },
-      { panel: "share", tone: "dawn", icon: "Sharing", title: "You see it first.", body: "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share." },
-    ] },
-    sending: { title: S.sending.title, auto: true, mirror: true, link: S.sending.link, steps: NETWORK_PANELS.map((k, i) => ({ panel: k, tone: NETWORK_TONES[i] as string, icon: "", title: S.sending.steps[i]!.title, body: S.sending.steps[i]!.body })) },
-    "every-plant": { title: S.oversight_page.chapter.title, auto: true, steps: S.oversight_page.chapter.steps.map((s, i) => ({ panel: panel(s.panel), tone: ["lilac", "dawn", "sky", "sun"][i] as string, icon: "", title: s.title, body: s.body })) },
-    "network-intelligence": { title: S.oversight_page.intelligence.title, auto: true, mirror: true, steps: NETWORK_PANELS.map((k, i) => ({ panel: k, tone: NETWORK_TONES[i] as string, icon: "", title: S.oversight_page.intelligence.steps[i]!.title, body: S.oversight_page.intelligence.steps[i]!.body })) },
-  };
-}
-function cxCard(kind: PanelKind) {
-  const cls = kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "";
-  return '<div class="cx-card' + cls + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>";
-}
-function chapterSection(id: string, cls: string) {
-  const d = chapterDefs()[id];
-  if (!d) throw new Error(`unknown chapter ${id}`);
-  if (d.auto) return autoSection(id, cls, d);
-  return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
-    '<div class="cx-head"><h2 class="display h2' + (d.words ? ' cx-ttl">' + cxTitle(d.title, d.words) : '">' + t(d.title)) + "</h2></div>" +
-    '<ol class="cx-steps">' + d.steps.map((s, i) =>
-      '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg gsurf" data-tone="' + s.tone + '"></span>' + cxCard(s.panel) + "</div>" +
-      '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s.tone + '" aria-hidden="true">' + icon(s.icon) + '</span><h3 class="display h3">' + t(s.title) + "</h3></div>" :
-        '<span class="cx-num"><b>' + (i + 1) + "</b>" + t(s.icon) + '</span><h3 class="display h3">' + t(s.title) + "</h3>") + "<p>" + t(s.body) + "</p></div></li>",
-    ).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map((s) => '<span class="cx-bg gsurf" data-tone="' + s.tone + '"></span>').join("") +
-    d.steps.map((s) => cxCard(s.panel)).join("") + "</div></div></div></div></section>";
-}
-/* Revision 10: the auto-advancing list. Steps are tabs, the panel is the tab panel. d.mirror puts the heading in the list column. */
-function autoSection(id: string, cls: string, d: ChapterDef) {
-  const head = '<div class="cx-head' + (d.link ? " cx-head-link" : "") + '"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2>" +
-    (d.link ? '<a class="sec-icon-link" href="/oversight" aria-label="' + t(d.link) + '">' + icon("arrowUpRight") + "</a>" : "") + "</div>";
-  return '<section class="sec cx cx-auto' + (d.mirror ? " cx-mirror" : "") + " " + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap">' + (d.mirror ? "" : head) +
-    '<div class="cx-grid"><div class="cx-left">' + (d.mirror ? head : "") + '<ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map((s, i) =>
-      '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
-      '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s.title) + '</span><span class="cx-p">' + t(s.body) + "</span></span></button></li>",
-    ).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map((s) => '<span class="cx-bg gsurf" data-tone="' + s.tone + '" aria-hidden="true"></span>').join("") +
-    d.steps.map((s) => cxCard(s.panel).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card')).join("") + "</div></div></div></div></section>";
-}
 
 /* ---------- Sections ---------- */
 type HeroCopy = { eyebrow?: string; headline: string; subhead: string; cta_primary: string; cta_secondary?: string; note?: string };
@@ -516,6 +270,8 @@ function ovVig(i: number) {
   }
   return '<div class="pv">' + b + "</div>";
 }
+function cxHead(lead: string, title: string, sub: string) { return '<div class="cx-h">' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div></div>"; }
+function cxIcon(tone: string, name: IconName) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
 /* Revision 28: the sending paths. One display sentence over one large card; ovs* in engines.ts moves both. */
 const OVS_TONES = ["sky", "lilac", "sun"];
 function ovsBy(ic: IconName, names: string[]) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map((n) => "<b>" + n + "</b>").join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
@@ -560,16 +316,15 @@ function ovFaq(f: Copy["shared"]["oversight_page"]["faq"]) {
   }).join("") + "</div></div></div></section>";
 }
 
-/* ---------- Pages ---------- */
-/** The home page after the hero (HeroPanel, React). */
-export function homeHTML() {
+/* ---------- Pages: the sections that are still string markup (R3 rebuilds them) ---------- */
+export function homeParts() {
   const s = COPY.journey;
-  return problem(s.problem) + chapterSection("week", "sec-week") + proofMonday(s.proof) +
-    phSection(s.features, {}) + chapterSection("intelligence", "sec-intelligence") + chapterSection("sending", "sec-sending") + cta(s.cta);
+  return { problem: problem(s.problem), proof: proofMonday(s.proof), phases: phSection(s.features, {}), cta: cta(s.cta) };
 }
-export function oversightHTML() {
+export function oversightParts() {
   const P = COPY.shared.oversight_page;
-  return hero(P.hero, { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [ACCESS, "#every-plant"] }) +
-    problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
-    phSection(P.plants, { id: "plants", vig: ovVig, tones: OV_PH_TONES }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
+  return {
+    hero: hero(P.hero, { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [ACCESS, "#every-plant"] }),
+    problem: problem(P.problem), plants: phSection(P.plants, { id: "plants", vig: ovVig, tones: OV_PH_TONES }), paths: ovPaths(P.paths), faq: ovFaq(P.faq), cta: cta(P.cta),
+  };
 }

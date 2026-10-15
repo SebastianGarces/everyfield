@@ -2,6 +2,7 @@
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { m, useTransform, type MotionValue } from "motion/react";
+import type { Ref } from "react";
 import { cn } from "../cn";
 import { Icon } from "../Icon";
 import { back, bump, inOut, out, P } from "./curves";
@@ -21,13 +22,15 @@ type Props = {
   R?: (t: number) => number;
   size?: "md" | "sm";
   className?: string;
+  ref?: Ref<HTMLSpanElement>;
 };
 
 /**
  * A pictured button that is pressed and confirms: it presses, a green fill rises, the label swaps to a check and the
  * done label, and a shine sweeps across. The hero's "Approve and send" and every panel's confirm button.
+ * The check is 18 px, as in the prototype (its product-visual icon size wins over the button's 15 px rule).
  */
-export function DoneButton({ t, at, label, done, scale = 1, press = 200, R = one, size = "md", className }: Props) {
+export function DoneButton({ t, at, label, done, scale = 1, press = 200, R = one, size = "md", className, ref }: Props) {
   const k = scale;
   const ok = (v: number) => out(P(v, at + 160 * k, 320 * k)) * R(v);
   const transform = useTransform(t, (v) => "scale(" + (1 - 0.05 * bump(v, at, press)).toFixed(4) + ")");
@@ -40,6 +43,7 @@ export function DoneButton({ t, at, label, done, scale = 1, press = 200, R = one
   const shine = useTransform(t, (v) => "translate3d(" + (-120 + 400 * inOut(P(v, at + 330 * k, 650 * k))).toFixed(1) + "%,0,0)");
   return (
     <m.span
+      ref={ref}
       className={cn(
         "relative inline-grid flex-none place-items-center overflow-hidden bg-ink font-semibold whitespace-nowrap text-white shadow-pill will-change-transform",
         size === "md" ? "h-10 rounded-[12px] px-4 text-[13px]" : "h-[34px] rounded-[11px] px-[13px] text-[12.5px]",
@@ -51,7 +55,7 @@ export function DoneButton({ t, at, label, done, scale = 1, press = 200, R = one
       <m.span className="absolute inset-y-0 left-0 w-[40%] bg-[linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent)]" style={{ transform: shine }} />
       <m.span className="col-start-1 row-start-1 inline-flex items-center gap-1.5" style={l1}>{label}</m.span>
       <m.span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 text-[#0B3D1E] opacity-0" style={l2}>
-        <Icon icon={Tick02Icon} size={15} />
+        <Icon icon={Tick02Icon} size={18} />
         {done}
       </m.span>
     </m.span>

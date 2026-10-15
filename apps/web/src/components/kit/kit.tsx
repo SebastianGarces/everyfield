@@ -70,19 +70,10 @@ export function Badge({ status, size = "md", children, className }: { status: St
 }
 
 /** Initials in a small green circle (inside person chips). */
-export function Av({ children, className }: { children: ReactNode; className?: string }) {
+/** small: 20 px (meeting guests, names); who: 20 px amber (the assignee). */
+export function Av({ children, small, who }: { children: ReactNode; small?: boolean; who?: boolean }) {
   return (
-    <span className={cn("grid size-[22px] flex-none place-items-center rounded-full bg-green-100 text-[9.5px] font-bold tracking-[.02em] text-green-700", className)}>
-      {children}
-    </span>
-  );
-}
-
-/** A person chip: initials and a name on a white pill. */
-export function PersonChip({ initials, children, className, avClassName }: { initials: string; children: ReactNode; className?: string; avClassName?: string }) {
-  return (
-    <span className={cn("inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 text-[13px] font-semibold whitespace-nowrap text-ink shadow-mk-chip", className)}>
-      <Av className={avClassName}>{initials}</Av>
+    <span className={cn("grid flex-none place-items-center rounded-full font-bold tracking-[.02em]", who ? "size-5 bg-amber-100 text-[8.5px] text-amber-600" : small ? "size-5 bg-green-100 text-[9px] text-green-700" : "size-[22px] bg-green-100 text-[9.5px] text-green-700")}>
       {children}
     </span>
   );
