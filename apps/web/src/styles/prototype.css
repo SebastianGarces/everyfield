@@ -1319,6 +1319,8 @@ svg.i { width: 18px; height: 18px; flex: none; }
   [id] { scroll-margin-top: 76px; }
   .site-nav.open .nav-links { top: 64px; }
   .nav-pill { --np-h: 56px; --np-c: 42px; }
+  /* E8: on phones the pill floats inside the page margin (content edge) and clear of the notch and rounded corners. */
+  .nav-pill { top: calc(12px + env(safe-area-inset-top)); left: max(var(--mk-page-pad), env(safe-area-inset-left)); right: max(var(--mk-page-pad), env(safe-area-inset-right)); width: auto; }
   .hero .eyebrow { margin-bottom: 18px; }
   .mk-btn { height: 48px; padding: 0 20px; font-size: 15px; }
   .feat-list { grid-template-columns: 1fr; }
