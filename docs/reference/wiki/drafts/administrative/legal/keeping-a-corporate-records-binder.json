@@ -286,9 +286,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Writer opened all eight source URLs and checked retention wording and the single LSB verse. Independent Opus sentence-by-sentence source, scripture and screenshot review is pending; this is not author approval."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review of 66f7a9f1786e1904d730c5e42562f2792dd1811d on 2026-10-15. Re-opened all eight source URLs; all 32 quotes match the live sources (IRS PDFs and pages and RCW 24.03A.210 by downloaded text; FTC by live page). Every factual sentence matches its cited source. Retention periods match Publication 1828, Publication 4221-PC and the IRS employment-tax page word for word, with the correct starting events. The Washington example matches RCW 24.03A.210 and the article tells readers to check their own state. 1 Corinthians 14:40 matches read.lsbible.org exactly. No contradiction with setting-up-nonprofit-corporation. Lint passes with no warnings; desktop and mobile screenshots show the complete article, readable table and checklist, and the LSB notice. No copied text beyond short exact retention phrases."
     },
     "rulings": [
       "Map backlog how-to to allowed how_to; use phase 0 from the Legal section. The binder/index layout is a filing suggestion derived from recordkeeping guidance, not a legal mandate.",
