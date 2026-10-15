@@ -498,9 +498,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source mapping and exact-quote checks complete; independent Opus review of claims, scripture and desktop/mobile previews is required. Federal and New Jersey guidance checked 2026-10-15; Publication 15 is 2026, Publication 517 is 2025, and W-2/W-3 instructions cover tax year 2026."
+      "status": "passed",
+      "reviewer": "Independent Opus verifier (claude-opus-5-5)",
+      "notes": "Independent Opus re-review of d893c40 against 9901eac on 2026-10-15. The diff changes only the federal new-hire checklist item, the New Jersey new-hire attribution, the W-4 'ask for' wording, the Form 8274 table mention and two new source entries. Federal 20-day new-hire rule confirmed live on the OCSE New Hire Reporting page (quote matches exactly) and in 42 U.S.C. 653a(b)(2)(A) on law.cornell.edu. New Jersey Child Support quote ('Federal and state law requires...') confirmed live. Publication 15 'Ask all new employees...' confirmed live. Form 8274 confirmed live in Publication 517 and Publication 15-A. bin/wiki lint passes on Node 24 (1255 words); desktop and mobile screenshots render the table, checklist and LSB notice correctly. Earlier claims, scripture and remaining sections rest on the prior Opus review of 9901eac."
     },
     "rulings": [
       "US federal payroll-tax setup only; New Jersey is a labeled example. Readers must confirm their own state rules. Avoid treating one state's rules as national requirements.",
