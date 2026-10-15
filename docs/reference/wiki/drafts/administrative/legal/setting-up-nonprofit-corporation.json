@@ -36,9 +36,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": ""
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus review passed 2026-10-15 at d2333ee7a7446c3a31d18d13c2a9b1768d00d1ec. Scope: a scripted comparison against the published seed row shows the only content change is inside the scripture callout(s): LSB verse text and ' (LSB)' after an unchanged reference (Luke 14:28). Each verse was checked word for word on read.lsbible.org, one verse page at a time; wording and inner punctuation match. Unpaired speech marks at the start or end of a verse are covered by the article's outer quote marks, and partial-verse quotes keep the published article's extent. Lint passes; sampled desktop and mobile screenshots show the callouts and the LSB notice."
     },
     "rulings": []
   }
