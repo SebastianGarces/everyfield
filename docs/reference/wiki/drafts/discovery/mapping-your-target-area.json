@@ -1,0 +1,261 @@
+{
+  "church_id": null,
+  "content": "When you map the area around a possible church location, you can show roads, rivers and Census boundaries together. The Census Bureau's TIGERweb viewer lets you inspect those features without downloading mapping files.\n\nUse this guide to make a study map, attach the matching area data and check routes to a possible meeting place. Keep the boundary you choose separate from the routes you investigate.\n\n---\n\n## Name the area you mean\n\nStart with a named city or a set of census tracts. Write down the state, county and selected areas, and label the result as your chosen study area. Keep a sketch of any custom outline beside the list of Census areas used for data.\n\nRetain each area's full geographic identifier, called a GEOID. The Census Bureau uses these codes to match geographic areas to demographic data. Use the code alongside the area name when checking that your table and map describe the same place.\n\n---\n\n## Build a readable base map\n\nOpen TIGERweb and locate your area by name or geocode. Turn on the boundary layers you need, then add roads and water features. If a layer does not appear, check the zoom level. TIGERweb limits which features display at different map scales.\n\nThe Identify tool shows information for enabled, visible layers. Use it to inspect the selected area and its codes. Record the chosen boundary vintage, the version of the boundaries you are viewing. The guide documents a Select Vintage control and a Compare tool for viewing different vintages.\n\n<Callout type=\"tip\">\nKeep your chosen outline visually distinct from Census boundaries. If the outline cuts through a tract, label the tract data as describing the whole tract.\n</Callout>\n\n---\n\n## Attach data for the matching geography\n\nCore TIGER/Line files contain geographic codes but do not contain demographic data. Retrieve the figures separately through data.census.gov. For tract research, ACS five-year estimates are available; retain the table ID and geography with each download.\n\nA five-year ACS estimate describes a collection period, rather than a snapshot of its ending year. Keep that full period visible on your map notes.\n\nKeep margins of error with estimates. When comparing areas, use the same survey product and period, and check the geographic definitions. Census guidance cautions that variables and geographies can change and says to compare one-year estimates with one-year estimates, or five-year estimates with five-year estimates.\n\n---\n\n## Read commuting tables for their actual purpose\n\nThe Census Bureau's commuting questions concern travel to work. They do not ask about nonwork travel. Reported travel time describes a one-way trip on a typical workday during the reference week.\n\n| Table | What it describes |\n|---|---|\n| B08301 | Means of Transportation to Work |\n| B08303 | Travel Time to Work |\n\nSearch for these table IDs in data.census.gov using the areas already on your map. Check whether a table describes residents or workplaces. Unless a table indicates otherwise, Census commuting tables use residence geography.\n\n<Callout type=\"warning\">\nA commute estimate does not tell you how long someone would travel to church. Keep Sunday route questions separate from work-trip findings.\n</Callout>\n\n---\n\n## Check routes to the meeting place\n\nUse a directions tool for the actual journey you want to examine. Google Maps lets you choose starting points, destinations and travel modes. For a Sunday check, enter the relevant date and arrival or departure time. Its desktop instructions use Leave now, then Depart at or Arrive by, for a route with one destination.\n\nSave the starting point, destination, travel mode, selected time and displayed estimate together. Compare routes from the areas you have marked, including routes across rivers or major roads. Treat the result as a route estimate, and check road signs and actual conditions when visiting.\n\n---\n\n## Read traffic counts without turning them into attendance\n\nThe Federal Highway Administration defines traffic volume by movement past a point during a specified interval. Annual average daily traffic, or AADT, represents vehicle traffic on a typical day of the year. Short-term counts may be adjusted to estimate that annual figure.\n\nKeep the road location, year and measure beside a traffic figure. An annual vehicle-volume measure is not a count of unique residents, Sunday visitors or potential church attenders.\n\n---\n\n## Find the local traffic source\n\nTexas offers an example of a state resource. TxDOT provides a statewide traffic count map and the STARS II system, which includes daily, hourly, directional and historical statistics. In your state, ask the transportation department for the traffic-count source covering the roads on your map.\n\nIf the detail you need is missing, leave it marked as unknown and ask the agency. TxDOT directs readers to its traffic section when information is unavailable from its listed resources.\n\n<Callout type=\"important\">\nMapping and traffic resources were checked October 16, 2026. Confirm the boundary vintage and data period with the Census Bureau, route estimates with your mapping provider, and current local counts with the transportation agency before using them in a decision.\n</Callout>\n\n---\n\n## Save the map with its limits\n\nUse TIGERweb's Print tool to save the map. Choose a title, layout and format, and include the legend where the selected layout supports it. Generate the map and use the resulting link to open or save it.\n\n- [ ] Retain the chosen area names, GEOIDs and boundary vintage.\n- [ ] Attach tables with periods and margins of error.\n- [ ] Keep route estimates separate from commuting findings.\n- [ ] Label traffic figures with their road location and period.\n- [ ] Separate what a source reports from questions you still need to investigate.\n\n<Callout type=\"scripture\">\n*\"He who responds with a word before he hears, It is folly and shame to him.\"* — Proverbs 18:13 (LSB)\n</Callout>\n",
+  "content_type": "how_to",
+  "created_at": "2026-10-16T01:45:22.990449+00:00",
+  "excerpt": "Map your study area with Census boundaries, inspect travel routes and read traffic counts with their dates and limits.",
+  "id": "7de80dc9-faa3-4b4e-b4b5-b717df85dde5",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "discovery/finding-demographic-data-for-your-area",
+    "launch-team/launch-date/variables-that-drive-your-launch-date",
+    "launch-team/comparing-and-scoring-venues"
+  ],
+  "section_id": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+  "slug": "discovery/mapping-your-target-area",
+  "sort_order": 8,
+  "status": "draft",
+  "title": "Mapping Your Target Area",
+  "updated_at": "2026-10-16T01:45:22.990449+00:00",
+  "draft": {
+    "backlog_id": "A22",
+    "tier": "A",
+    "closes": [
+      "9.3",
+      "9.4.f",
+      "9.4.g"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "When you map the area around a possible church location, you can show roads, rivers and Census boundaries together. The Census Bureau's TIGERweb viewer lets you inspect those features without downloading mapping files. Evidence scope: The same page lists roads, rivers and legal/statistical boundaries. This is an application of those documented capabilities to a church location, not agency church-planting advice.",
+        "url": "https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_apps.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The TIGERweb, TIGERweb Decennial, and TIGERweb Economic Census applications provide a simple way to view our TIGER data without having to download the data.\nThe TIGERweb, TIGERweb Decennial, and TIGERweb Economic Census applications offer the ability to view:\nLinear features\nRoads, highways, streets\nRailroads\nRivers, streams, and other \"single-line\" drainage\nArea water\nRivers, lakes, and glaciers\nBoundaries for legal and statistical geographic entities",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Use this guide to make a study map, attach the matching area data and check routes to a possible meeting place. Keep the boundary you choose separate from the routes you investigate. Evidence scope: Editorial outline using the documented mapping/data relationship; route instructions below are supported by Google Maps Help. No attendance prediction or ministry boundary is inferred.",
+        "url": "https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Data users rely on GEOIDs to join the appropriate demographic data from censuses and surveys, such as the American Community Survey (ACS), to various levels of geography for data analysis, interpretation and mapping.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Start with a named city or a set of census tracts. Write down the state, county and selected areas, and label the result as your chosen study area. Keep a sketch of any custom outline beside the list of Census areas used for data. Evidence scope: An optional recordkeeping procedure built on the named Census geographies. A custom outline is expressly a writer/reader choice, not an official boundary.",
+        "url": "https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Some of the most common administrative/legal and statistical geographic entities with unique GEOIDs include states, counties, congressional districts, core based statistical areas (metropolitan and micropolitan areas), census tracts, block groups and census blocks.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Retain each area's full geographic identifier, called a GEOID. The Census Bureau uses these codes to match geographic areas to demographic data. Use the code alongside the area name when checking that your table and map describe the same place. Evidence scope: The matching instruction applies the source's explanation of GEOIDs as join identifiers.",
+        "url": "https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "GEOIDs are numeric codes that uniquely identify all administrative/legal and statistical geographic areas for which the Census Bureau tabulates data.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Open TIGERweb and locate your area by name or geocode. Turn on the boundary layers you need, then add roads and water features. If a layer does not appear, check the zoom level. TIGERweb limits which features display at different map scales. Evidence scope: The same page states that users can turn layers on/off and that visibility depends on map scale; these are documented capabilities, not an assumed search workflow.",
+        "url": "https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_apps.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The applications allow users to select features and view their attributes, to search for features by name or geocode, and to identify features by selecting them from a map.\nBecause geographic and locational context and relationships are important, the TIGERweb application determines which geographic entities and features may be visible based on map scale.\nUsers have the capability to turn on and off linear features and geographic entities by type.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "The Identify tool shows information for enabled, visible layers. Use it to inspect the selected area and its codes. Record the chosen boundary vintage, the version of the boundaries you are viewing. The guide documents a Select Vintage control and a Compare tool for viewing different vintages. Evidence scope: Guide sections 1.3.4 and 1.3.5 also document Select Vintage, Compare and identifying geographic codes. Recordkeeping is this guide's application of those controls.",
+        "url": "https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_User_Guide.pdf",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The Identify tool shows attribute information only for enabled (turned on in the Layer tab) map services and visible layers.\nThis tool proves beneficial for identifying the codes (e.g., Geographic Identifier for entities, Census Code for tribal areas, FIPS, LSADs, MTFCCs, TIGER/Line, etc.) used for feature/area.\nThe Compare tool allows the user to compare geographic areas from two separate vintages.\nChoose the Select Vintage drop-down menu to change the vintage of the data.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"tip\">\nKeep your chosen outline visually distinct from Census boundaries. If the outline cuts through a tract, label the tract data as describing the whole tract.\n</Callout> Evidence scope: Inference from geography-specific tabulation. The source does not publish this church mapping instruction; the instruction avoids representing a whole-area statistic as a custom-area statistic.",
+        "url": "https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Data users rely on GEOIDs to join the appropriate demographic data from censuses and surveys, such as the American Community Survey (ACS), to various levels of geography for data analysis, interpretation and mapping.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Core TIGER/Line files contain geographic codes but do not contain demographic data. Retrieve the figures separately through data.census.gov. For tract research, ACS five-year estimates are available; retain the table ID and geography with each download. Evidence scope: The tract availability clause is separately evidenced below; saving the table ID/geography is optional provenance practice.",
+        "url": "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The core TIGER/Line Files and Shapefiles do not include demographic data, but they do contain geographic entity codes that can be linked to the Census Bureau’s demographic data, available on data.census.gov.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "For tract research, ACS five-year estimates are available; retain the table ID and geography with each download.",
+        "url": "https://www.census.gov/data/developers/data-sets/acs-5year.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The ACS 5-year estimates are available for the nation, all states, the District of Columbia, Puerto Rico, all congressional districts and metropolitan statistical areas, counties, places (i.e., towns or cities), ZIP Code Tabulation Areas, census tracts, and block groups.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "A five-year ACS estimate describes a collection period, rather than a snapshot of its ending year. Keep that full period visible on your map notes.",
+        "url": "https://www.census.gov/newsroom/blogs/random-samplings/2022/03/period-estimates-american-community-survey.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The ACS estimates do not represent a fixed date, but rather the characteristics over an entire data collection period.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Keep margins of error with estimates. When comparing areas, use the same survey product and period, and check the geographic definitions. Census guidance cautions that variables and geographies can change and says to compare one-year estimates with one-year estimates, or five-year estimates with five-year estimates. Evidence scope: The same page states: Only compare 1-year estimates with 1-year estimates, and 5-year estimates with 5-year estimates. Matching periods for a spatial comparison is this guide's conservative comparison procedure.",
+        "url": "https://www.census.gov/programs-surveys/acs/guidance/comparing-acs-data.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "To help you interpret the reliability of the estimates, the Census Bureau publishes a margin of error (MOE) for every ACS estimate.\nOnly compare 1-year estimates with 1-year estimates, and 5-year estimates with 5-year estimates.\nBecause ACS variables and geographies may change over time, comparisons should be made with caution, or not compared at all.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "The Census Bureau's commuting questions concern travel to work. They do not ask about nonwork travel. Reported travel time describes a one-way trip on a typical workday during the reference week. Evidence scope: The same FAQ states: The reported travel time refers to a one-way trip on a typical work day during the reference week.",
+        "url": "https://www.census.gov/topics/employment/commuting/about/faq.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The ACS questions related to travel focus solely on commuting and do not ask about nonwork travel.\nThe reported travel time refers to a one-way trip on a typical work day during the reference week.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "| Table | What it describes |\n|---|---|\n| B08301 | Means of Transportation to Work |\n| B08303 | Travel Time to Work | Evidence scope: B08301 table metadata; the second row is separately sourced below.",
+        "url": "https://api.census.gov/data/2024/acs/acs5/groups/B08301.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Means of Transportation to Work",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "B08303 | Travel Time to Work",
+        "url": "https://api.census.gov/data/2024/acs/acs5/groups/B08303.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Travel Time to Work",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Search for these table IDs in data.census.gov using the areas already on your map. Check whether a table describes residents or workplaces. Unless a table indicates otherwise, Census commuting tables use residence geography. Evidence scope: Applying the documented distinction to the named official tables; data.census.gov access is established by the TIGER/Line source.",
+        "url": "https://www.census.gov/topics/employment/commuting/about/faq.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Unless the table indicates otherwise, it refers to residence-based geography.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"warning\">\nA commute estimate does not tell you how long someone would travel to church. Keep Sunday route questions separate from work-trip findings.\n</Callout> Evidence scope: Direct limit of the measured subject; no church travel preference is inferred.",
+        "url": "https://www.census.gov/topics/employment/commuting/about/faq.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "The ACS questions related to travel focus solely on commuting and do not ask about nonwork travel.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Use a directions tool for the actual journey you want to examine. Google Maps lets you choose starting points, destinations and travel modes. For a Sunday check, enter the relevant date and arrival or departure time. Its desktop instructions use Leave now, then Depart at or Arrive by, for a route with one destination. Evidence scope: The same opened help page documents starting/destination points, modes, those menu controls and the one-destination restriction. Sunday is the reader's selected date, not a vendor prediction of church travel.",
+        "url": "https://support.google.com/maps/answer/144339?co=GENIE.Platform%3DDesktop&hl=en",
+        "publisher": "Google Maps Help",
+        "quote": "starting point and destination\nmode of transportation\ntravel date or time\none destination\nLeave now\nDepart at or Arrive by",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Save the starting point, destination, travel mode, selected time and displayed estimate together. Compare routes from the areas you have marked, including routes across rivers or major roads. Treat the result as a route estimate, and check road signs and actual conditions when visiting. Evidence scope: Optional comparison/recordkeeping procedure using the source's inputs and estimated travel times. The same help page tells users to follow actual traffic regulations and confirm signage. The supporting exact quote is in the preceding Maps entry; this short excerpt supports the estimate label.",
+        "url": "https://support.google.com/maps/answer/144339?co=GENIE.Platform%3DDesktop&hl=en",
+        "publisher": "Google Maps Help",
+        "quote": "estimated travel time\nconfirm signage",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "The Federal Highway Administration defines traffic volume by movement past a point during a specified interval. Annual average daily traffic, or AADT, represents vehicle traffic on a typical day of the year. Short-term counts may be adjusted to estimate that annual figure. Evidence scope: The same chapter describes adjustment of short-term counts to AADT; the annual definition is separately supported below.",
+        "url": "https://www.fhwa.dot.gov/policyinformation/tmguide/tmg_2022/traffic-monitoring-program.cfm",
+        "publisher": "Federal Highway Administration",
+        "quote": "Volume data refers to the total number of vehicles or micromobility passing through a point on a roadway, bikeway, or walkway in a predefined time interval.\nAgencies should work with each other to ensure that enough data are collected and shared to allow calculation of accurate adjustment factors needed to convert short-term traffic counts into estimates of annual average daily traffic (AADT).",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Annual average daily traffic, or AADT, represents vehicle traffic on a typical day of the year.",
+        "url": "https://www.fhwa.dot.gov/policyinformation/tmguide/tmg_2022/appendix-l.cfm",
+        "publisher": "Federal Highway Administration",
+        "quote": "It is meant to represent traffic on a typical day of the year.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Keep the road location, year and measure beside a traffic figure. An annual vehicle-volume measure is not a count of unique residents, Sunday visitors or potential church attenders. Evidence scope: Recordkeeping follows the documented temporal and site-specific dimensions. The excluded interpretations follow from measuring traffic volume, not unique people or religious activity.",
+        "url": "https://www.fhwa.dot.gov/policyinformation/tmguide/tmg_2022/traffic-monitoring-program.cfm",
+        "publisher": "Federal Highway Administration",
+        "quote": "The continuous counts allow an agency to understand temporal (time-of-day (TOD), day of week (DOW), month-of-year (MOY) and multi-year – year-to-year (YtY)) changes in traffic volume, speed, class, and weight.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Texas offers an example of a state resource. TxDOT provides a statewide traffic count map and the STARS II system, which includes daily, hourly, directional and historical statistics. In your state, ask the transportation department for the traffic-count source covering the roads on your map. Evidence scope: The same opened page links the statewide traffic count map. Asking the relevant local agency is an editorial procedure, not a claim that every state supplies equivalent tools.",
+        "url": "https://www.txdot.gov/data-maps/traffic-count-maps.html",
+        "publisher": "Texas Department of Transportation",
+        "quote": "Detailed information such as daily, hourly, directional, vehicle classification, and historical statistics can be viewed in STARS II.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "If the detail you need is missing, leave it marked as unknown and ask the agency. TxDOT directs readers to its traffic section when information is unavailable from its listed resources.",
+        "url": "https://www.txdot.gov/data-maps/traffic-count-maps.html",
+        "publisher": "Texas Department of Transportation",
+        "quote": "If you have questions or if the information you need is not available from these resources, please contact TPP Traffic Section.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"important\">\nMapping and traffic resources were checked October 16, 2026. Confirm the boundary vintage and data period with the Census Bureau, route estimates with your mapping provider, and current local counts with the transportation agency before using them in a decision.\n</Callout> Evidence scope: Access date records this research session in UTC. The confirmation instruction applies each opened publisher's documented version, period or estimate limitations; it is editorial caution, not a publisher-mandated duty.",
+        "url": "https://www.txdot.gov/data-maps/traffic-count-maps.html",
+        "publisher": "Texas Department of Transportation",
+        "quote": "If you have questions or if the information you need is not available from these resources, please contact TPP Traffic Section.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Use TIGERweb's Print tool to save the map. Choose a title, layout and format, and include the legend where the selected layout supports it. Generate the map and use the resulting link to open or save it. Evidence scope: Guide section 1.3.7 documents Map Title, Map Layout, Map Format, Print Legend except MAP_ONLY, Generate Map and saving the resulting link.",
+        "url": "https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_User_Guide.pdf",
+        "publisher": "U.S. Census Bureau",
+        "quote": "TIGERweb allows the map display to be saved for printing.\nEnter a title in the Map Title field. Choose the map’s layout from the Map Layout drop-down menu.\nChoose the map’s format from the Map Format drop-down menu.\nPrint Legend displays the map’s legend along the bottom margin. This option is available for all map layouts except MAP_ONLY.\nWith all options completed, select the Generate Map button.\nSelect the link to open the map or right-click the mouse to download and save the map.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "- [ ] Retain the chosen area names, GEOIDs and boundary vintage.\n- [ ] Attach tables with periods and margins of error.\n- [ ] Keep route estimates separate from commuting findings.\n- [ ] Label traffic figures with their road location and period.\n- [ ] Separate what a source reports from questions you still need to investigate. Evidence scope: Editorial recap of procedures above. GEOID/vintage, routes/commuting and traffic dimensions each have their exact source quotations in earlier entries; no new external fact or duty is introduced.",
+        "url": "https://www.census.gov/programs-surveys/acs/guidance/comparing-acs-data.html",
+        "publisher": "U.S. Census Bureau",
+        "quote": "Because ACS variables and geographies may change over time, comparisons should be made with caution, or not compared at all.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"scripture\">\n*\"He who responds with a word before he hears, It is folly and shame to him.\"* — Proverbs 18:13 (LSB)\n</Callout>",
+        "url": "https://read.lsbible.org/proverbs/18/13",
+        "publisher": "The Lockman Foundation / Three Sixteen Publishing",
+        "quote": "He who responds with a word before he hears, It is folly and shame to him.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author opened every cited source and checked the verse individually. Independent Opus claim, scripture and full desktop/mobile review remains required. Procedural adaptations and measurement limits are identified in source claims. No author approval."
+    },
+    "rulings": [
+      "Resolved: Use a chosen study boundary and route checks; prescribe no universal radius, drive-time limit, attendance forecast or launch-date threshold. A22 is tier A. Existing demographic and launch-date articles retain their scope; primary mapping sources do not establish church methodology.",
+      "Resolved: Explain federal traffic definitions before using Texas as an explicitly local example. Avoid presenting a state tool as nationwide coverage.",
+      "Resolved: Use October 16, 2026 UTC as the access/as-of date throughout the draft. Source research occurred after midnight UTC on October 16; local New York date remains October 15."
+    ]
+  }
+}
