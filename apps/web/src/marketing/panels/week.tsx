@@ -163,7 +163,7 @@ export function FollowPanel() {
           </div>
         </St>
         <St i={2} className="mt-3 flex items-center justify-between gap-2.5">
-          <span className="text-[12.5px] text-text-3">You decide who reaches out.</span>
+          <span className="text-[12.5px] text-text-3">You and your team reach out.</span>
           <Done target="t0" at={3600} label="Add to my week" done="Added" R="follow.R" />
         </St>
         <St i={3} className="mt-3.5 border-t border-line pt-3">
@@ -205,7 +205,7 @@ export function FollowPanel() {
     </WeekFx>
   );
 }
-const FOLLOW_SAYS = "3 new guests came on Sunday. I made a follow-up task for each one.";
+const FOLLOW_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
 /** An open task's empty check ring. */
 function Ring() {
   return <span aria-hidden="true" className="size-[22px] flex-none rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--color-line-2)]" />;

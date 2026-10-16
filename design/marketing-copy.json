@@ -87,7 +87,7 @@
           "tone": "dawn",
           "icon": "task",
           "title": "No new guest slips through.",
-          "body": "After each gathering, Evry creates a follow-up task for every new guest and puts it on your list for the week. You decide who reaches out."
+          "body": "Three new guests came to your vision meeting. Evry creates a follow-up task for each one and adds it to your week. You and your team reach out."
         },
         {
           "panel": "teams",
@@ -232,7 +232,7 @@
         "headline": "Each plant, up close.",
         "items": [
           {
-            "label": "Phase journey",
+            "label": "Phases",
             "title": "Where the plant is on the way to launch.",
             "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
           },
@@ -663,7 +663,7 @@
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "The vision is clear on Sunday. By Wednesday, it is buried under small tasks. Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. When the vision and the daily work drift apart, momentum stalls, and time and money go to the wrong things. EveryField keeps the plan and the week in one place, so the most important work gets your time."
+          "body": "Every task matters, but not every task matters this week. EveryField keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
         },
         "proof": {
           "headline": "Here is what a Monday looks like.",
