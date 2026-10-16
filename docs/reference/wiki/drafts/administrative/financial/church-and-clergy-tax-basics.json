@@ -1,0 +1,398 @@
+{
+  "church_id": null,
+  "content": "Your church's federal income-tax exemption does not make a minister's pay tax-free. A minister can be an employee for income-tax purposes while paying self-employment tax on ministerial earnings.\n\nUse this reference to separate the church's tax questions from your own before reviewing compensation and reimbursements with your tax preparer. It summarizes U.S. federal rules; it does not resolve individual tax situations.\n\n---\n\n## Start with the church's exemption\n\nA church that meets section 501(c)(3) requirements is automatically exempt from federal income tax and does not have to apply for IRS recognition. The exemption depends on meeting those requirements, whether or not the church obtains a determination letter.\n\nThe church must be organized and operated exclusively for qualifying exempt purposes. It cannot distribute net earnings for private benefit or intervene in political campaigns. No substantial part of its activity may be attempting to influence legislation. Its purposes and activities also cannot be illegal or violate fundamental public policy.\n\n<Callout type=\"important\">\nFederal guidance checked October 15, 2026. This reference uses IRS Publication 1828, revised August 2015, and Publication 517 for 2025 returns. Confirm current forms, thresholds, payment dates and any later changes with the IRS before acting.\n</Callout>\n\n---\n\n## Know which filings can still apply\n\nChurches are generally not required to file Form 990, Form 990-EZ or Form 990-N. That exception does not eliminate employment-tax obligations or a return for unrelated business income.\n\nUnrelated business income generally comes from a trade or business that is regularly carried on and is not substantially related to the church's exempt purpose. Using the money for ministry does not, by itself, make the activity related. Exceptions exist, including certain activities where substantially all the work is performed by volunteers, so review the activity before deciding its tax treatment.\n\nA church with $1,000 or more in gross income from an unrelated trade or business during a taxable year must file Form 990-T. The filing test uses gross income, not the activity's profit.\n\n<Callout type=\"scripture\">\n*\"Render to all what is due them: tax to whom tax is due; custom to whom custom; fear to whom fear; honor to whom honor.\"* — Romans 13:7 (LSB)\n</Callout>\n\n---\n\n## Distinguish employment from ministerial tax treatment\n\nThe IRS clergy rules refer to duly ordained, commissioned or licensed ministers and services performed in the exercise of ministry. Review those qualifications and the work being paid for before applying ministerial treatment.\n\nIf a congregation employs you and pays you a salary, you are generally an employee with wages for income-tax purposes. The church reports an employee minister's compensation on Form W-2. Self-employment tax treatment does not, by itself, make you an independent contractor.\n\nMinisterial earnings are generally subject to Social Security and Medicare under the Self-Employment Contributions Act, or SECA, rather than payroll FICA. An applicable IRS-approved exemption can change that treatment. Do not assume the church's income-tax exemption is a personal exemption from SECA.\n\n---\n\n## Designate a housing allowance before payment\n\nIf your compensation includes a qualifying housing allowance, the employing church must officially designate a definite amount before paying it. It cannot determine the amount afterward. If no amount has been officially designated, the full salary is included in income.\n\nAn employment contract, church minutes, a budget or another official action taken before payment may show the designation. If a local congregation employs and pays you, that congregation must designate the allowance; a national church agency's resolution does not substitute for its action.\n\n---\n\n## Apply the housing exclusion limits\n\nFor a minister who owns a home, the income-tax exclusion is limited to the smallest of the following amounts:\n\n- The amount actually used to provide a home.\n- The amount officially designated as a housing allowance.\n- The home's fair rental value, including furnishings and utilities.\n\nThe allowance must also stay within reasonable pay for your services. A furnished parsonage has a related income-tax exclusion for its fair rental value, including utilities, subject to reasonable compensation. Include any excess rental allowance in gross income.\n\n<Callout type=\"warning\">\nThe housing exclusion is for income tax. For a minister in active ministry subject to SECA, the housing allowance or parsonage value is included when figuring net earnings from self-employment. An official designation alone does not make the payment free of all federal taxes.\n</Callout>\n\n---\n\n## Plan how personal taxes will be paid\n\nA duly ordained, commissioned or licensed minister's salary for ministerial services is not subject to mandatory federal income-tax withholding. A minister who is a common-law employee can agree with the church to voluntary withholding to cover income tax and self-employment tax.\n\nWithout withholding, or with too little withheld, estimated tax payments may be needed. Review the payment arrangement with your tax preparer instead of treating the absence of mandatory withholding as an absence of tax.\n\n---\n\n## Keep reimbursements separate from compensation\n\nAn accountable reimbursement plan must have a business connection, require adequate expense accounting, and require the employee to return excess reimbursements. Both the accounting and the return of excess amounts must happen within a reasonable period.\n\nProvide enough detail to identify the business nature of each expense and substantiate it. Broad labels such as \"miscellaneous business expenses\" are not sufficient. Qualifying accountable-plan reimbursements are excluded from income and are not reported on Form W-2.\n\nPayments under a nonaccountable plan are included with wages or other compensation on Form W-2. For employee ministers, that reporting does not itself create mandatory federal income-tax withholding or FICA on ministerial compensation.\n\n---\n\n## Prepare for your tax review\n\nUse these questions to review the records behind the tax treatment:\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?\n\n<Callout type=\"tip\">\nChoose your tax preparer carefully and provide all information needed for an accurate return. Publication 517 reminds you that you remain responsible for the accuracy of every item reported, even when a preparer signs the return.\n</Callout>",
+  "content_type": "reference",
+  "created_at": "2026-10-16T01:36:07.528443Z",
+  "excerpt": "Understand church income-tax exemption, ministerial SECA, housing allowance limits, withholding and expense reimbursements under U.S. federal rules.",
+  "id": "a185149e-1129-4459-abb5-ec28a386b3c1",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 6,
+  "related_article_slugs": [
+    "administrative/financial/setting-up-payroll-for-church-staff",
+    "administrative/legal/setting-up-501c3",
+    "administrative/legal/getting-your-churchs-ein",
+    "administrative/financial/donor-receipts-and-giving-statements"
+  ],
+  "section_id": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+  "slug": "administrative/financial/church-and-clergy-tax-basics",
+  "sort_order": 21,
+  "status": "draft",
+  "title": "Church and Clergy Tax Basics",
+  "updated_at": "2026-10-16T01:37:49.326089Z",
+  "draft": {
+    "backlog_id": "A7",
+    "tier": "A",
+    "closes": [
+      "17.3",
+      "17.4"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Your church's federal income-tax exemption does not make a minister's pay tax-free. A minister can be an employee for income-tax purposes while paying self-employment tax on ministerial earnings.\n\nA church that meets section 501(c)(3) requirements is automatically exempt from federal income tax and does not have to apply for IRS recognition. The exemption depends on meeting those requirements, whether or not the church obtains a determination letter.\n\nMinisterial earnings are generally subject to Social Security and Medicare under the Self-Employment Contributions Act, or SECA, rather than payroll FICA. An applicable IRS-approved exemption can change that treatment. Do not assume the church's income-tax exemption is a personal exemption from SECA.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Churches that meet the requirements of IRC Section 501(c)(3) are automatically 2 considered tax exempt and are not required to apply for and obtain recognition of tax-exempt status from the IRS.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Your church's federal income-tax exemption does not make a minister's pay tax-free. A minister can be an employee for income-tax purposes while paying self-employment tax on ministerial earnings.\n\nUse this reference to separate the church's tax questions from your own before reviewing compensation and reimbursements with your tax preparer. It summarizes U.S. federal rules; it does not resolve individual tax situations.\n\nIf a congregation employs you and pays you a salary, you are generally an employee with wages for income-tax purposes. The church reports an employee minister's compensation on Form W-2. Self-employment tax treatment does not, by itself, make you an independent contractor.\n\nMinisterial earnings are generally subject to Social Security and Medicare under the Self-Employment Contributions Act, or SECA, rather than payroll FICA. An applicable IRS-approved exemption can change that treatment. Do not assume the church's income-tax exemption is a personal exemption from SECA.\n\n<Callout type=\"warning\">\nThe housing exclusion is for income tax. For a minister in active ministry subject to SECA, the housing allowance or parsonage value is included when figuring net earnings from self-employment. An official designation alone does not make the payment free of all federal taxes.\n</Callout>\n\nUse these questions to review the records behind the tax treatment:",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "The compensation that a church or religious organization pays to its ministers for performing services in the exercise of ministry is not subject to FICA taxes. However, income that a minister earns in performing services in the exercise of his ministry is subject to SECA tax, unless the minister has timely applied for and received an exemption from SECA tax.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Your church's federal income-tax exemption does not make a minister's pay tax-free. A minister can be an employee for income-tax purposes while paying self-employment tax on ministerial earnings.\n\nIf a congregation employs you and pays you a salary, you are generally an employee with wages for income-tax purposes. The church reports an employee minister's compensation on Form W-2. Self-employment tax treatment does not, by itself, make you an independent contractor.\n\nMinisterial earnings are generally subject to Social Security and Medicare under the Self-Employment Contributions Act, or SECA, rather than payroll FICA. An applicable IRS-approved exemption can change that treatment. Do not assume the church's income-tax exemption is a personal exemption from SECA.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you are a minister of a church, your earnings for the services you perform in your capacity as a minister are subject to SE tax, even if you perform these services as an employee of that church.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Your church's federal income-tax exemption does not make a minister's pay tax-free. A minister can be an employee for income-tax purposes while paying self-employment tax on ministerial earnings.\n\nUse this reference to separate the church's tax questions from your own before reviewing compensation and reimbursements with your tax preparer. It summarizes U.S. federal rules; it does not resolve individual tax situations.\n\nIf a congregation employs you and pays you a salary, you are generally an employee with wages for income-tax purposes. The church reports an employee minister's compensation on Form W-2. Self-employment tax treatment does not, by itself, make you an independent contractor.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If a congregation employs you and pays you a salary, you are generally a common-law employee and income from the exercise of your ministry is wages for income tax purposes.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Use this reference to separate the church's tax questions from your own before reviewing compensation and reimbursements with your tax preparer. It summarizes U.S. federal rules; it does not resolve individual tax situations.\n\nChurches are generally not required to file Form 990, Form 990-EZ or Form 990-N. That exception does not eliminate employment-tax obligations or a return for unrelated business income.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Generally, churches and religious organizations are required to withhold, report and pay income and Federal Insurance Contributions Act (FICA) taxes for their employees.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Use this reference to separate the church's tax questions from your own before reviewing compensation and reimbursements with your tax preparer. It summarizes U.S. federal rules; it does not resolve individual tax situations.\n\nWithout withholding, or with too little withheld, estimated tax payments may be needed. Review the payment arrangement with your tax preparer instead of treating the absence of mandatory withholding as an absence of tax.\n\n<Callout type=\"tip\">\nChoose your tax preparer carefully and provide all information needed for an accurate return. Publication 517 reminds you that you remain responsible for the accuracy of every item reported, even when a preparer signs the return.\n</Callout>",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you choose to have someone prepare your tax return, choose that preparer wisely.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The church must be organized and operated exclusively for qualifying exempt purposes. It cannot distribute net earnings for private benefit or intervene in political campaigns. No substantial part of its activity may be attempting to influence legislation. Its purposes and activities also cannot be illegal or violate fundamental public policy.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "the organization must be organized and operated exclusively for religious, educational, scientific or other charitable purposes; n net earnings may not inure to the benefit of any private individual or shareholder; n no substantial part of its activity may be attempting to influence legislation; n the organization may not intervene in political campaigns; and n the organization’s purposes and activities may not be illegal or violate fundamental public policy.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"important\">\nFederal guidance checked October 15, 2026. This reference uses IRS Publication 1828, revised August 2015, and Publication 517 for 2025 returns. Confirm current forms, thresholds, payment dates and any later changes with the IRS before acting.\n</Callout>",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "For use in preparing 2025 Returns",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"important\">\nFederal guidance checked October 15, 2026. This reference uses IRS Publication 1828, revised August 2015, and Publication 517 for 2025 returns. Confirm current forms, thresholds, payment dates and any later changes with the IRS before acting.\n</Callout>",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Publication 1828 (Rev. 8-2015)",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Churches are generally not required to file Form 990, Form 990-EZ or Form 990-N. That exception does not eliminate employment-tax obligations or a return for unrelated business income.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "The following is a list of some of the organizations that are not required to file Form 990-N (e-Postcard) Form 990, 990-EZ, or 990-N. Electronic Notice for n Churches (as opposed to “religious organizations,” defined earlier)",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Churches are generally not required to file Form 990, Form 990-EZ or Form 990-N. That exception does not eliminate employment-tax obligations or a return for unrelated business income.\n\nA church with $1,000 or more in gross income from an unrelated trade or business during a taxable year must file Form 990-T. The filing test uses gross income, not the activity's profit.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "If a church, or other exempt organization, has gross income of $1,000 or more for any taxable year from the conduct of any unrelated trade or business, it must file IRS Form 990-T, Exempt Organization Business Income Tax Return, for that year.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Unrelated business income generally comes from a trade or business that is regularly carried on and is not substantially related to the church's exempt purpose. Using the money for ministry does not, by itself, make the activity related. Exceptions exist, including certain activities where substantially all the work is performed by volunteers, so review the activity before deciding its tax treatment.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "the activity constitutes a trade or business, n the trade or business is regularly carried on, and n the trade or business is not substantially related to the organization’s exempt purpose. (The fact that the organization uses the income to further its charitable or religious purposes does not make the activity substantially related to its exempt purposes.)",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Unrelated business income generally comes from a trade or business that is regularly carried on and is not substantially related to the church's exempt purpose. Using the money for ministry does not, by itself, make the activity related. Exceptions exist, including certain activities where substantially all the work is performed by volunteers, so review the activity before deciding its tax treatment.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Even if an activity meets the above criteria, the income may not be subject to tax if it meets one of the following exceptions: (a) substantially all the work in operat- ing the trade or business is performed by volunteers, (b) the activity is conducted 19 by the organization primarily for the convenience of its members or (c) the trade or business involves the selling of merchandise substantially all of which was donated.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "A church with $1,000 or more in gross income from an unrelated trade or business during a taxable year must file Form 990-T. The filing test uses gross income, not the activity's profit.",
+        "url": "https://www.irs.gov/charities-non-profits/unrelated-business-income-tax",
+        "publisher": "Internal Revenue Service",
+        "quote": "An exempt organization that has $1,000 or more of gross income from an unrelated business must file",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"scripture\">\n*\"Render to all what is due them: tax to whom tax is due; custom to whom custom; fear to whom fear; honor to whom honor.\"* — Romans 13:7 (LSB)\n</Callout>",
+        "url": "https://read.lsbible.org/romans/13/7",
+        "publisher": "The Lockman Foundation, Legacy Standard Bible",
+        "quote": "Render to all what is due them: tax to whom tax is due; custom to whom custom; fear to whom fear; honor to whom honor.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The IRS clergy rules refer to duly ordained, commissioned or licensed ministers and services performed in the exercise of ministry. Review those qualifications and the work being paid for before applying ministerial treatment.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "Ministers are individuals who are duly ordained, commissioned, or licensed by a religious body constituting a church or church denomination.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The IRS clergy rules refer to duly ordained, commissioned or licensed ministers and services performed in the exercise of ministry. Review those qualifications and the work being paid for before applying ministerial treatment.\n\nA duly ordained, commissioned or licensed minister's salary for ministerial services is not subject to mandatory federal income-tax withholding. A minister who is a common-law employee can agree with the church to voluntary withholding to cover income tax and self-employment tax.\n\nWithout withholding, or with too little withheld, estimated tax payments may be needed. Review the payment arrangement with your tax preparer instead of treating the absence of mandatory withholding as an absence of tax.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Unlike other exempt organizations or businesses, a church isn’t required to with- hold income tax from the compensation it pays to its duly ordained, commissioned or licensed ministers for performing services in the exercise of their ministry.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "If a congregation employs you and pays you a salary, you are generally an employee with wages for income-tax purposes. The church reports an employee minister's compensation on Form W-2. Self-employment tax treatment does not, by itself, make you an independent contractor.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "A church should report compensation paid to a minister on Form W-2, Wage and Tax Statement, if the minister is an employee,",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "If your compensation includes a qualifying housing allowance, the employing church must officially designate a definite amount before paying it. It cannot determine the amount afterward. If no amount has been officially designated, the full salary is included in income.\n\nUse these questions to review the records behind the tax treatment:\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "The church or organization that employs you must officially designate the payment as a housing allowance before it makes the payment. It must designate a definite amount. It can't determine the amount of the housing allowance at a later date.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "If your compensation includes a qualifying housing allowance, the employing church must officially designate a definite amount before paying it. It cannot determine the amount afterward. If no amount has been officially designated, the full salary is included in income.\n\nAn employment contract, church minutes, a budget or another official action taken before payment may show the designation. If a local congregation employs and pays you, that congregation must designate the allowance; a national church agency's resolution does not substitute for its action.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "The minister’s church or other qualified organization must designate the housing allowance by official action taken in advance of the payment.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "If your compensation includes a qualifying housing allowance, the employing church must officially designate a definite amount before paying it. It cannot determine the amount afterward. If no amount has been officially designated, the full salary is included in income.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "If none of the minister’s salary has been officially designated as a hous- ing allowance, the full salary must be included in gross income.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An employment contract, church minutes, a budget or another official action taken before payment may show the designation. If a local congregation employs and pays you, that congregation must designate the allowance; a national church agency's resolution does not substitute for its action.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "An official designation of an amount as a housing or rental allowance may be shown in an employment contract, in the minutes of a church or qualified organization, in a budget, or in any official action taken in advance of payment of the allowance.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An employment contract, church minutes, a budget or another official action taken before payment may show the designation. If a local congregation employs and pays you, that congregation must designate the allowance; a national church agency's resolution does not substitute for its action.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you are employed and paid by a local congregation, a resolution by a national church agency of your denomination doesn't effectively designate a housing allowance for you. The local congregation must officially designate the part of your salary that is a housing allowance.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An employment contract, church minutes, a budget or another official action taken before payment may show the designation. If a local congregation employs and pays you, that congregation must designate the allowance; a national church agency's resolution does not substitute for its action.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "If a minister is employed and paid by a local congregation, a designation by a national church agency won’t be effective. The local congregation must make the designation.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "For a minister who owns a home, the income-tax exclusion is limited to the smallest of the following amounts:\n\n- The amount actually used to provide a home.\n- The amount officially designated as a housing allowance.\n- The home's fair rental value, including furnishings and utilities.\n\nUse these questions to review the records behind the tax treatment:\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you own your home and you receive as part of your salary a housing or rental allowance, you may exclude from gross income the smallest of: The amount actually used to provide a home; The amount officially designated as a rental allowance; or The fair rental value of the home, including furnishings, utilities, garage, etc.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "For a minister who owns a home, the income-tax exclusion is limited to the smallest of the following amounts:\n\n- The amount actually used to provide a home.\n- The amount officially designated as a housing allowance.\n- The home's fair rental value, including furnishings and utilities.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "If a minister owns a home, the amount excluded from the minister’s gross income as a housing allowance is limited to the least of: (a) the amount actually used to provide a home, (b) the amount officially designated as a housing allowance or (c) the fair rental value of the home.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The allowance must also stay within reasonable pay for your services. A furnished parsonage has a related income-tax exclusion for its fair rental value, including utilities, subject to reasonable compensation. Include any excess rental allowance in gross income.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you receive in your salary an amount officially designated as a rental allowance (including an amount to pay utility costs), you can exclude the allowance from your gross income if: You use the amount to provide or rent a home, and The amount isn't more than reasonable pay for your services. The amount you exclude can't be more than the fair rental value of the home, including furnishings, plus the cost of utilities.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The allowance must also stay within reasonable pay for your services. A furnished parsonage has a related income-tax exclusion for its fair rental value, including utilities, subject to reasonable compensation. Include any excess rental allowance in gross income.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "A minister who is furnished a parsonage may exclude from income the fair rental value of the parsonage, including utilities. However, the amount excluded can’t be more than the reasonable pay for the minister’s services.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The allowance must also stay within reasonable pay for your services. A furnished parsonage has a related income-tax exclusion for its fair rental value, including utilities, subject to reasonable compensation. Include any excess rental allowance in gross income.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "You can exclude from gross income the fair rental value of a house or parsonage, including utilities, furnished to you as part of your earnings. However, the exclusion can't be more than the reasonable pay for your services.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The allowance must also stay within reasonable pay for your services. A furnished parsonage has a related income-tax exclusion for its fair rental value, including utilities, subject to reasonable compensation. Include any excess rental allowance in gross income.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "You must include in gross income the amount of any rental allowance that is more than the smallest of: Your reasonable salary, The fair rental value of the home plus utilities, or The amount actually used to provide a home.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"warning\">\nThe housing exclusion is for income tax. For a minister in active ministry subject to SECA, the housing allowance or parsonage value is included when figuring net earnings from self-employment. An official designation alone does not make the payment free of all federal taxes.\n</Callout>",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "This exclusion applies only for income tax purposes. It doesn't apply for SE tax purposes, as discussed earlier under Amounts included in gross income under Self-Employment Tax: Figuring Net Earnings",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"warning\">\nThe housing exclusion is for income tax. For a minister in active ministry subject to SECA, the housing allowance or parsonage value is included when figuring net earnings from self-employment. An official designation alone does not make the payment free of all federal taxes.\n</Callout>",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "The fair rental value of a parsonage or housing allowance is excludable from income only for income tax purposes. These amounts are not excluded in deter- mining the minister’s net earnings from self-employment for Self-Employment Contributions Act (SECA) tax purposes.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "A duly ordained, commissioned or licensed minister's salary for ministerial services is not subject to mandatory federal income-tax withholding. A minister who is a common-law employee can agree with the church to voluntary withholding to cover income tax and self-employment tax.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "An employee minister may, however, enter into a voluntary withholding agreement with the church by completing IRS Form W-4, Employee’s Withholding Allowance Certificate.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "A duly ordained, commissioned or licensed minister's salary for ministerial services is not subject to mandatory federal income-tax withholding. A minister who is a common-law employee can agree with the church to voluntary withholding to cover income tax and self-employment tax.\n\nWithout withholding, or with too little withheld, estimated tax payments may be needed. Review the payment arrangement with your tax preparer instead of treating the absence of mandatory withholding as an absence of tax.\n\nUse these questions to review the records behind the tax treatment:\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If you perform your services as a common-law employee of the church and your salary isn't subject to income tax withholding, you can enter into a voluntary withholding agreement with the church to cover any income and SE tax that may be due.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Without withholding, or with too little withheld, estimated tax payments may be needed. Review the payment arrangement with your tax preparer instead of treating the absence of mandatory withholding as an absence of tax.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "If your salary isn't subject to withholding, or if you don't pay enough tax through withholding, you may need to make estimated tax payments to avoid penalties for not paying enough tax as you earn your income.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An accountable reimbursement plan must have a business connection, require adequate expense accounting, and require the employee to return excess reimbursements. Both the accounting and the return of excess amounts must happen within a reasonable period.\n\nUse these questions to review the records behind the tax treatment:\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "To be an accountable plan, your employer's reimbursement arrangement must include all three of the following rules. Your expenses must have a business connection—that is, you must have paid or incurred deductible expenses while performing services as an employee of your employer. You must adequately account to your employer for these expenses within a reasonable period of time. You must return any excess reimbursement or allowance within a reasonable period of time.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An accountable reimbursement plan must have a business connection, require adequate expense accounting, and require the employee to return excess reimbursements. Both the accounting and the return of excess amounts must happen within a reasonable period.\n\n- [ ] Has the church reviewed which employment and unrelated-business returns apply?\n- [ ] Does the minister's employment reporting agree with the work arrangement?\n- [ ] Was the definite housing allowance officially designated before payment?\n- [ ] Do actual housing costs and fair rental value support the exclusion?\n- [ ] Is voluntary withholding or an estimated-payment plan in place where needed?\n- [ ] Do reimbursements meet the accountable-plan requirements?",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "An arrangement that an employer establishes to reimburse or advance employee business expenses will be an accountable plan if it: (1) involves a business con- nection, (2) requires the employee to substantiate expenses incurred and (3) requires the employee to return any excess amounts.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "An accountable reimbursement plan must have a business connection, require adequate expense accounting, and require the employee to return excess reimbursements. Both the accounting and the return of excess amounts must happen within a reasonable period.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Both the substantiation and the return of excess amounts must occur within a reasonable time.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Provide enough detail to identify the business nature of each expense and substantiate it. Broad labels such as \"miscellaneous business expenses\" are not sufficient. Qualifying accountable-plan reimbursements are excluded from income and are not reported on Form W-2.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Employees must provide the organization with sufficient information to identify the specific business nature of each expense and to substantiate each element of an expenditure. It isn’t sufficient for an employee to aggregate expenses into broad categories such as travel or to report expenses through the use of non-descriptive terms such as miscellaneous business expenses.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Provide enough detail to identify the business nature of each expense and substantiate it. Broad labels such as \"miscellaneous business expenses\" are not sufficient. Qualifying accountable-plan reimbursements are excluded from income and are not reported on Form W-2.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "The reimbursement isn't reported on your Form W-2.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Provide enough detail to identify the business nature of each expense and substantiate it. Broad labels such as \"miscellaneous business expenses\" are not sufficient. Qualifying accountable-plan reimbursements are excluded from income and are not reported on Form W-2.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "Employee business expenses reimbursed under an accountable plan are: (a) excluded from an employee’s gross income, (b) not required to be reported on the 24 employee’s IRS Form W-2, Wage and Tax Statement, and (c) exempt from the with- holding and payment of wages subject to FICA taxes and income tax withholdings.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Payments under a nonaccountable plan are included with wages or other compensation on Form W-2. For employee ministers, that reporting does not itself create mandatory federal income-tax withholding or FICA on ministerial compensation.",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "Your employer will combine any reimbursement paid to you under a nonaccountable plan with your wages, salary, or other compensation and report the combined total in box 1 of your Form W-2.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Payments under a nonaccountable plan are included with wages or other compensation on Form W-2. For employee ministers, that reporting does not itself create mandatory federal income-tax withholding or FICA on ministerial compensation.",
+        "url": "https://www.irs.gov/pub/irs-pdf/p1828.pdf",
+        "publisher": "Internal Revenue Service",
+        "quote": "If the church or religious organization reimburses or advances the employee for business expenses, but the arrangement does not satisfy the three requirements of an accountable plan, the amounts paid to the employees are considered wages subject to FICA taxes and income tax withholding, if applicable, and are reportable on Form W-2. (Amounts paid to employee ministers are treated as wages reportable on Form W-2, but are not subject to FICA taxes or income tax withholding.)",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "<Callout type=\"tip\">\nChoose your tax preparer carefully and provide all information needed for an accurate return. Publication 517 reminds you that you remain responsible for the accuracy of every item reported, even when a preparer signs the return.\n</Callout>",
+        "url": "https://www.irs.gov/publications/p517",
+        "publisher": "Internal Revenue Service",
+        "quote": "Although the tax preparer always signs the return, you’re ultimately responsible for providing all the information required for the preparer to accurately prepare your return and for the accuracy of every item reported on the return.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author source audit only; independent Opus review of claims, Romans 13:7 and desktop/mobile screenshots is pending. Sources accessed October 15, 2026, America/New_York. Publication 1828 is Rev. 8-2015; Publication 517 is for 2025 returns. Every clergy section includes quotations from both publications; the estimated-payment detail and preparer responsibility are stated explicitly in Publication 517."
+    },
+    "rulings": [
+      "Resolved editorial scope: federal overview only; state examples, annual tax rates, payment calendars and specialized exemptions are omitted. Consult current IRS instructions for individual situations.",
+      "Resolved overlap: retain the published payroll article's employee/SECA distinction and advance housing designation; leave hiring forms, payroll deposits, employer record-retention periods and wage-statement deadlines in that article.",
+      "Resolved wording: the $1,000 Form 990-T test is gross unrelated-business income of $1,000 or more for a taxable year, not profit or more than $1,000.",
+      "Resolved scope: the housing SECA statement is limited to active ministry subject to SECA; retirement and other specialized exceptions are not summarized."
+    ]
+  }
+}
