@@ -187,9 +187,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source mapping complete; independent Opus source, scripture and screenshot review required. No author approval."
+      "status": "passed",
+      "reviewer": "Opus verifier (independent, claude-code)",
+      "notes": "Independent review of cbd1f53dc026c981b1aadb2cbfd2407bcced58a7 on 2026-10-16. Reopened all 19 sources: Google Ads Help and policy pages (16701958, 143465, 2453998, 1722043, 6385083, 1722122, 1722035, 7478529), Google EU user consent policy, Meta Blueprint pages, Hootsuite, both FTC pages and the published privacy article; every factual sentence matches and none overstates its source. Consent warning is an inference from Google's unconditional religious-belief restriction (no consent exception on the page). No budget figures, fees or deadlines. Proverbs 11:1 matches read.lsbible.org word for word. Lint PASS (1126 words, no warnings); desktop and mobile screenshots complete with table, checklist and LSB notice."
     },
     "rulings": [
       "Retargeting scope: Explain mechanics and Google religious-category restrictions before any setup advice. Do not provide a church retargeting recipe, recommend list uploads, or imply consent overrides policy.",
