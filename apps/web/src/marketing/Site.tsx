@@ -19,9 +19,8 @@ const menuIcon = <Icon icon={Menu01Icon} />;
  *
  * One plain block holds them all. When a link opens a page, Next finds the page top from the page's outermost
  * elements: with the fixed skip link and the hidden pill among them (both sit above the viewport), it took the top
- * as out of view even at scroll 0, and scrolled every element into view in turn, footer first. Inside a smooth
- * in-page scroll (a link to "/" from "/#week") that ran as a glide to the footer, which WebKit then kept running
- * on the next page. With one block that starts at the document top, Next scrolls to 0 once, or not at all.
+ * as out of view even at scroll 0, and scrolled every element into view in turn, footer first. With one block that
+ * starts at the document top, Next scrolls to 0 once, or not at all.
  */
 export function Site({ path, children }: { path: string; children: ReactNode }) {
   const S = COPY.shared;
