@@ -392,9 +392,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus source, scripture, and desktop/mobile screenshot review. Sources accessed 2026-10-16. Scripture opened one verse at a time. Author review does not establish independent claim approval."
+      "status": "passed",
+      "reviewer": "Opus independent verifier (claude-opus-5-5)",
+      "notes": "Re-review of dba6ca1 after failed review of 496b803. Diff limited to the FTC section and one 465.1(a) source. Reviewer opened 16 CFR 465 on eCFR (current to 2026-10-14): 465.1(a), 465.2(a), 465.2(b) and 465.4 quotes exact; 465.2(b) paraphrase narrower than the rule, not broader. FTC Q&A incentive, FTC Act disclosure and effective-date wording re-read live. Earlier passes on Google, CDC, FTC moderation and Proverbs 15:1 (LSB) carried from the 496b803 review; that text is unchanged. Lint PASS (1,156 words); desktop and mobile shots render all 8 sections, callouts, checklist and LSB notice."
     },
     "rulings": [
       "Resolved editorial choice: distinguish federal business provisions from Google platform policy and ask counsel about applicability; no categorical nonprofit exemption or church-specific legal duty asserted.",
