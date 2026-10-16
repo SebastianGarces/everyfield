@@ -168,9 +168,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author researched and mapped claims; independent Opus source, scripture and screenshot review required. Accessed 2026-10-16 UTC. ECFA pages returned errors, so no claims rely on their snippets. The only lint warning is \"moreover\" inside the exact LSB scripture quotation; retained verbatim."
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "Initial review of a727b8a failed on B1 (bank-import condition) and B2 (BLS qualities); all other sources, the LSB verse (1 Corinthians 4:2) and rendering were verified then. Re-review of a3cd86a on 2026-10-16 UTC: the diff changes only the two requested sentences and the Aplos bank-integration source claim and quote. Both sentences reopened against their live sources (Aplos 'Can't find your bank?' section; BLS OOH Important Qualities) and match without overstatement. Lint passes (1,060 words; only warning is 'moreover' inside the exact LSB quote); desktop and mobile screenshots complete with the LSB notice. Sebastian's approval is still required before promotion."
     },
     "rulings": [
       "Resolved: phase 0 follows the existing financial section.",
