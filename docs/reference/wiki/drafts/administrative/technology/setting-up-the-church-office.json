@@ -147,9 +147,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author researched sources and checked scripture; independent Opus review of claims, verse and desktop/mobile screenshots remains pending. Section-level source claims map factual prose and practical applications. Volatile services checked 2026-10-16."
+      "status": "passed",
+      "reviewer": "Opus verifier (independent)",
+      "notes": "Independent Opus review of e6011b3 on 2026-10-16. Re-read all 13 source URLs (FTC pages in a browser) and matched every factual sentence; the 30-day ID window, PS Forms 1093 and 1583, the Street Addressing legal-document restriction, the OSHA checklist items, the Google Voice outage limits and the Workspace and shared-drive facts match their sources without overstatement. No prices. Colossians 3:23 matches read.lsbible.org word for word. Lint passes (1,105 words, 8 H2s, 4 callouts, no warnings); desktop and mobile screenshots render fully with the LSB notice."
     },
     "rulings": [
       "Use Google as a feature example only, without endorsement, prices, quotas or eligibility promises.",
