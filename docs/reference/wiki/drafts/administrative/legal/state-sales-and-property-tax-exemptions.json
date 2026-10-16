@@ -142,9 +142,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Writer checked all listed originals on 2026-10-16; independent Opus sentence, scripture and screenshot review remains required. Application and certificate PDFs were opened directly with urllib and read with pdftotext when the web tool could not retrieve them. Practical prompts and the records checklist are editorial applications of the cited agency instructions, not additional legal duties."
+      "status": "passed",
+      "reviewer": "verifier (claude-code, Opus)",
+      "notes": "Independent Opus review. Full review at 6fb4637 re-fetched every source and Mark 12:17 on lsbible.org and found two California claims (PR #33 comment 6206328037). Re-review at 7355049 on 2026-10-16: diff 6fb4637..7355049 changes only those two sentences and their two source claim fields. Religious Exemption sentence matches BOE religious_exemption.htm ('property owned by a religious organization and used exclusively for religious purposes'). The CDTFA sentence replaces the unsupported sales-tax application clause and is supported by the CDTFA nonprofit tax guide. bin/wiki lint, render, desktop and mobile shots and check-seed pass; PR screenshots match the 7355049 render byte for byte."
     },
     "rulings": [
       "Phase 0 follows published administrative/legal articles.",
