@@ -1,0 +1,179 @@
+{
+  "church_id": null,
+  "content": "Use your church's approved values as the starting point for its public identity. A logo belongs within that identity, alongside the words, colors and type your team uses to communicate.\n\nGive volunteers and designers a shared reference for those choices. A practical style guide can help them use the same visual elements and voice across your church's materials.\n\n---\n\n## Start with the values you already teach\n\nReturn to Defining Your Church Values before choosing artwork. It distinguishes foundational pillars from operating values, distinctives and lived culture. Bring your church's existing statements into the design conversation, and describe what those commitments look like in practice.\n\nUse those statements to assess proposed wording. The values article asks you to describe what you actually are and do. If a proposed tagline introduces a new commitment, return it to your leaders for a values discussion before treating it as approved copy.\n\n<Callout type=\"scripture\">\n*\"A good name is to be chosen over great wealth, Favor is better than silver and gold.\"* — Proverbs 22:1 (LSB)\n</Callout>\n\n---\n\n## Give the designer a clear brief\n\nWrite down the project before commissioning it. Asana's design-brief guidance covers the audience, goals, scope, budget, timeline and deliverables. Adapt those categories to your church.\n\nDescribe who you hope to reach and what the design needs to communicate. List the work you are requesting, such as a logo and a guide for using it. Agree on the budget and schedule with the designer before work begins.\n\nFollow the responsibilities described in Promotion Leader Role. Have the Promotion Leader coordinate creative partners under the Senior Pastor's leadership, manage review and approval, and check that the deliverables meet the agreed scope.\n\n---\n\n## Check names and marks before committing\n\nThe USPTO explains that a trademark can identify the source of goods or services through words, symbols or designs. Federal registration is optional and offers broader protection than an unregistered mark. Discuss your church's circumstances with a qualified trademark attorney rather than assuming every church must register.\n\nSearch for confusingly similar marks used with the same or related goods or services. The USPTO recommends checking federal registrations and pending applications, and common-law use. Its clearance guidance also lists state trademark and business registries, domain registries and internet searches.\n\nTreat that research as a search for conflicts, not a promise of clearance. A trademark attorney can interpret results and advise on federal registration.\n\n<Callout type=\"important\">\nTrademark guidance checked October 16, 2026. Confirm current guidance with the USPTO and an attorney before relying on it for your church's name or logo. This overview is general information, not legal advice.\n</Callout>\n\n---\n\n## Review the logo in the places you will use it\n\nAsk the designer to show the logo in your actual digital and printed materials. Adobe's logo guidance recommends checking how a design functions across different environments and sizes. Include a small mobile use and a large sign in that review.\n\nConsider a full church-name version and a simpler version for tight spaces. Check a single-color treatment too, as a practical test of visual complexity. Have the designer explain when to use each approved version.\n\nDocument the smallest readable size and the empty space around the logo. Stanford's identity guide illustrates both kinds of rules. Set specifications for your own artwork rather than borrowing another organization's measurements.\n\n<Callout type=\"warning\">\nCheck the license before using stock artwork in a logo. Adobe Stock, for example, says its images cannot be used in or as a logo. A license for other promotional uses does not establish permission for that use.\n</Callout>\n\n---\n\n## Keep the tagline faithful and clear\n\nUse the tagline to express what you want people to know in your church's voice. Adobe's brand-guide advice describes a tagline as a quick expression of value. Work from the commitments already approved by your church.\n\nUse the Promotion Leader article's emphasis on clarity and authentic messaging. Ask whether a guest would understand the proposed words and whether they describe the church truthfully. Bring unclear or inflated wording back for revision.\n\nRecord the approved wording and show how it appears with the church name. If the design combines the tagline and logo, have the designer provide instructions for using that combination and the separate elements.\n\n---\n\n## Choose colors and type people can read\n\nRecord digital color values and the printer's color specifications in the guide. Stanford's color guidance distinguishes digital RGB or HEX values from print color specifications. Give each supplier the values appropriate to the work.\n\nCheck the contrast between ordinary text and its background, including text placed over photographs. W3C's accessibility guidance recommends sufficient contrast and warns against using color alone to convey information. Apply those checks to invitations and website content, rather than assuming a brand color works for every purpose.\n\nSpecify readable text sizes, spacing and type styles. USWDS explains how these affect readability and advises against long passages of bold, italic or uppercase text. Show headings and body copy in a sample layout so volunteers can follow the chosen treatment.\n\n---\n\n## Make the style guide easy to use\n\nOrganize the decisions as instructions and examples. Use this outline as a working checklist for your own guide.\n\n| Part | What to include |\n|---|---|\n| Church identity | Existing values and approved public wording |\n| Logo | Approved versions, spacing, size and examples of misuse |\n| Color | Digital values and print specifications |\n| Type | Heading and body styles with readable spacing |\n| Files | Clearly identified logo files for the intended uses |\n\nAsk for a vector master as part of the agreed deliverables. SVG is a vector format that can scale without losing image quality. Request transparent PNG exports for digital uses that need them; PNG supports transparent backgrounds.\n\n---\n\n## Hand off the files with examples\n\nHave the Promotion Leader review the completed work against the brief and coordinate any corrections with the designer. Give volunteers and suppliers the guide alongside the approved artwork. Stanford's logo guidance explicitly recommends sharing design resources with vendors.\n\nInclude examples of the materials your team will produce, using the agreed logo, colors and type. For website examples, check narrow screens as well as wider ones. W3C recommends considering different viewport sizes and keeping text readable as the available space changes.\n\n<Callout type=\"tip\">\nTest the logo at the sizes and in the materials you plan to use. If it becomes unreadable, return to the designer for a suitable version before approving that application.\n</Callout>",
+  "content_type": "guide",
+  "created_at": "2026-10-16T01:43:41.817188Z",
+  "excerpt": "Use your church's approved values to brief a designer, check names and logos, and create a style guide volunteers can follow.",
+  "id": "3d8ec72a-b359-46e2-ae82-b6da8877eeb9",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "discovery/defining-your-church-values",
+    "launch-team/leadership/promotion-leader-role",
+    "administrative/technology/setting-up-your-website",
+    "administrative/technology/claiming-your-churchs-online-presence"
+  ],
+  "section_id": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+  "slug": "administrative/technology/building-your-churchs-brand",
+  "sort_order": 10,
+  "status": "draft",
+  "title": "Building Your Church's Brand: Logo, Tagline and Style Guide",
+  "updated_at": "2026-10-16T01:43:41.817188Z",
+  "draft": {
+    "backlog_id": "A26",
+    "tier": "A",
+    "closes": [
+      "19.1",
+      "19.4",
+      "19.5",
+      "19.6",
+      "19.7",
+      "19.8",
+      "31.3.a"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Opening, values section and style-guide identity row: use existing values; distinguish pillars, values, distinctives and lived culture; judge wording by actual church practice. Editorial application: return a new commitment to leaders instead of inventing a value.",
+        "url": "https://github.com/SebastianGarces/everyfield/blob/0d8d60cfd3b248bf07ba935753de9f7ec29d310b/docs/reference/wiki/seed.json",
+        "publisher": "EveryField, Defining Your Church Values",
+        "quote": "Pillars answer \"What do we believe?\" Values answer \"How do we operate?\" Distinctives answer \"What makes us unique?\"",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Values and tagline sections: describe actual practice; revise language that is inflated or untrue. This is an application of the existing article, not a new methodology.",
+        "url": "https://github.com/SebastianGarces/everyfield/blob/0d8d60cfd3b248bf07ba935753de9f7ec29d310b/docs/reference/wiki/seed.json#defining-your-church-values",
+        "publisher": "EveryField, Defining Your Church Values",
+        "quote": "Your distinctives should be honest, not aspirational. Describe what you actually are and do, not what you wish you were.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Brief and handoff sections: Promotion Leader coordinates designers under Senior Pastor leadership, manages reviews/approvals and checks deliverables. Tagline section applies the published clarity and authenticity principles.",
+        "url": "https://github.com/SebastianGarces/everyfield/blob/0d8d60cfd3b248bf07ba935753de9f7ec29d310b/docs/reference/wiki/seed.json#promotion-leader-role",
+        "publisher": "EveryField, Promotion Leader Role",
+        "quote": "developed in collaboration with the Senior Pastor … Manages review and approval processes … Ensures deliverables meet standards … Clarity over cleverness. … Authentic over polished.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening: logo is part of a wider identity; logo section and final tip: test real digital/print uses, sizes and single-color complexity; tagline section: document combinations and separate elements. Original church examples apply these design principles.",
+        "url": "https://blog.adobe.com/en/publish/2018/02/16/logos-learn-separates-great-good",
+        "publisher": "Adobe Creative Cloud Team",
+        "quote": "just one part of it. … digital platforms, communication channels, and physical objects. … one or two colors … guidelines for when to use them individually",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Opening shared style guide; logo versions; tagline definition and voice; guide instructions/examples. Church-specific wording applies published EveryField values and Promotion Leader guidance.",
+        "url": "https://www.adobe.com/creativecloud/business/teams/resources/how-to/brand-guide.html",
+        "publisher": "Adobe",
+        "quote": "a quick expression of value, in the brand’s voice. … Specify a full … Provide a secondary logo … a list of design do’s and don’ts",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Brief section: record goals, audience, scope, budget, timeline and deliverables; agree with designer before work; style guide and handoff follow agreed deliverables.",
+        "url": "https://asana.com/resources/design-brief",
+        "publisher": "Asana",
+        "quote": "brand overview, project scope, goals and objectives, target audience, budget and timeline, competitor analysis, and project deliverables. … review and approve",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Trademark section: trademarks can identify source through words, symbols or designs; registration optional and broader protection. As-of callout: confirm current USPTO/attorney guidance.",
+        "url": "https://www.uspto.gov/trademarks/basics/what-trademark",
+        "publisher": "United States Patent and Trademark Office",
+        "quote": "word, phrase, symbol, design … identifies your goods or services. … not required to register … broader rights and protections … Identifies the source",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Trademark search section: same/related services and confusing similarity; federal pending/registered and common-law use; additional registries and internet; attorney interpretation. General federal rule precedes state registries; no state-specific example.",
+        "url": "https://www.uspto.gov/trademarks/search/comprehensive-clearance-search-similar-trademarks",
+        "publisher": "United States Patent and Trademark Office",
+        "quote": "confusingly similar … registered and pending … common-law use … state trademark and business registries … Domain name registries … Internet … An attorney … interpret the search results … related to yours",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Logo section and guide logo row: own readable-size and empty-space rules; handoff: share guide with suppliers. Stanford illustrates practices, not requirements for churches.",
+        "url": "https://identity.stanford.edu/visual-identity/stanford-logos/",
+        "publisher": "Stanford University",
+        "quote": "minimum size and clear space requirements. … Do share these design guides and resources with vendors who work on Stanford projects.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Stock-art warning: Adobe Stock forbids images in/as logos; permission for another use does not establish logo permission. Provider-specific restriction, not universal license rule.",
+        "url": "https://helpx.adobe.com/stock/web/common-questions/usage-licensing.html",
+        "publisher": "Adobe Stock",
+        "quote": "these images cannot be used in or as a logo.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Colors section and guide color row: digital RGB/HEX versus print specifications; give suppliers appropriate values.",
+        "url": "https://identity.stanford.edu/design-elements/color/",
+        "publisher": "Stanford University",
+        "quote": "For digital files, use the RGB and/or HEX values … Printers often present colors using CMYK color values",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Colors section: contrast for ordinary text, including photos; color alone insufficient; handoff: review narrow/wide website examples for readable text. These are recommended design checks, not an assertion of church legal obligations.",
+        "url": "https://www.w3.org/WAI/tips/designing/",
+        "publisher": "World Wide Web Consortium, Web Accessibility Initiative",
+        "quote": "sufficient contrast … text on images … color should not be the only way information is conveyed. … different sized viewports … maximize readability and legibility.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Type section and guide type row: specify readable sizes, style and spacing; avoid long bold/italic/uppercase passages; demonstrate treatments in layouts.",
+        "url": "https://designsystem.digital.gov/components/typography/",
+        "publisher": "U.S. General Services Administration, U.S. Web Design System",
+        "quote": "size, style, and spacing of its type. … Avoid long sections of italic or bold text. … Avoid long sections of uppercase text.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Guide file delivery: request vector master; SVG is vector and resizes without losing quality.",
+        "url": "https://www.adobe.com/creativecloud/file-types/image/vector/svg-file.html",
+        "publisher": "Adobe",
+        "quote": "vector files like SVG can be significantly resized without losing any of their quality",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Guide file delivery: PNG export for digital uses needing transparency.",
+        "url": "https://www.adobe.com/creativecloud/file-types/image/comparison/jpeg-vs-png.html",
+        "publisher": "Adobe",
+        "quote": "PNG files, on the other hand, do support transparency.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Scripture callout: Proverbs 22:1, individually opened and checked against LSB; no claimed biblical design prescription.",
+        "url": "https://read.lsbible.org/proverbs/22/1",
+        "publisher": "The Lockman Foundation, Legacy Standard Bible",
+        "quote": "A good name is to be chosen over great wealth, Favor is better than silver and gold.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Awaiting independent Opus claim, scripture and screenshot review. Author opened all cited sources; excerpt ellipses separate exact short fragments. As of 2026-10-16."
+    },
+    "rulings": [
+      "Use existing values and Promotion Leader guidance; introduce no values or theological/methodological stance. Return substantive new commitments to leaders.",
+      "Practical design instructions apply cited guidance to church materials; Stanford examples illustrate types of specifications, not church requirements. No universal logo dimensions, palette size, tagline length, budget or production deadline.",
+      "Trademark overview uses federal USPTO guidance before mentioning state registries. No church-specific exemption or mandatory federal registration claim. Stock warning is specific to Adobe Stock.",
+      "Editorial choice: Phase 0 in the existing Technology section; up to four related published slugs. No publication or promotion."
+    ]
+  }
+}
