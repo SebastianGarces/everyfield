@@ -10,9 +10,11 @@ import { PanelClockProvider, useReduced, useTicker } from "@/components/motion/s
 // another, from Launch Sunday down to this week's tasks, and the line between them grows down as each one lands.
 // Transform and opacity only: every element already holds its final place, so nothing shifts.
 
-/** When each node lands (ms): Launch Sunday, the phase, the benchmark, the week card, then the three tasks. */
+/** When each node lands (ms): Launch Sunday, the phase, the launch milestone, the week card, then the three tasks. */
 const N = [0, 380, 760, 1140, 1420, 1600, 1780] as const;
 const END = 2300;
+/** R6 prototype C: when each plan tile lands (ms). */
+const PN = [0, 260, 520, 780] as const;
 const at = (n: number) => N[Math.max(0, Math.min(n, N.length - 1))]!;
 const gap = (n: number) => at(n + 1) - at(n);
 const scaleY = (p: number) => "scaleY(" + p.toFixed(4) + ")";
@@ -26,9 +28,18 @@ const FX = {
   "vision.out": (t: number, n: number) => scaleY(out(P(t, at(n) + 0.35 * gap(n), 0.45 * gap(n)))),
   /** ... and the part inside the next node (from its top edge to its icon). */
   "vision.in": (t: number, n: number) => scaleY(out(P(t, at(n - 1) + 0.8 * gap(n - 1), 0.35 * gap(n - 1)))),
-  /** The benchmark: the count and the bar fill together. */
-  "vision.count": (t: number) => 34 * out(P(t, 950, 1000)),
-  "vision.bar": (t: number) => "scaleX(" + out(P(t, 950, 1000)).toFixed(4) + ")",
+  /** The phase benchmark: the count and the bar fill together once the phase has landed. */
+  "vision.count": (t: number) => 34 * out(P(t, 560, 1000)),
+  "vision.bar": (t: number) => "scaleX(" + out(P(t, 560, 1000)).toFixed(4) + ")",
+  /** R6 prototype C: the plan band in the Monday dashboard. Tiles land left to right, a short line joins each pair. */
+  "plan.card": (t: number, k: number) => rise(t, PN[k] ?? 0),
+  "plan.task": (t: number, k: number) => rise(t, 1000 + k * 160),
+  "plan.link": (t: number, n: number) => "scaleX(" + out(P(t, (PN[n - 1] ?? 0) + 150, 220)).toFixed(4) + ")",
+  "plan.count": (t: number) => 34 * out(P(t, 420, 900)),
+  "plan.bar": (t: number) => "scaleX(" + out(P(t, 420, 900)).toFixed(4) + ")",
+  "plan.ms": (t: number) => "scaleX(" + out(P(t, 700, 600)).toFixed(4) + ")",
+  /** The launch milestone: its first task's segment fills. */
+  "vision.ms": (t: number) => "scaleX(" + out(P(t, 940, 600)).toFixed(4) + ")",
 };
 
 /**

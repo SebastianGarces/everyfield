@@ -7,8 +7,8 @@ import { Count, Move, Tf } from "@/components/motion/fx";
 import { ICONS } from "../icons";
 import { VisionScene } from "./vision-fx";
 
-// "The vision, down to this week": four levels of the demo church (Harvest Point, as in the Monday overview), from
-// Launch Sunday down to this week's tasks, each task with the goal it serves. Close to Instagram ad 13-a. Markup renders
+// "The vision, down to this week": four levels of the demo church (Harvest Point, as in the Monday overview): Launch
+// Sunday, the current phase with its benchmark, one launch milestone, and this week's tasks, each with the goal it serves. Close to Instagram ad 13-a. Markup renders
 // on the server; vision-fx.tsx moves it.
 
 /*
@@ -61,11 +61,23 @@ function PhaseTrack() {
   );
 }
 
-const TASKS = [
-  ["Invite the 9 guests from #11", "Vision meeting #12"],
-  ["Interview David Kim", "Close to committing"],
-  ["Record Maria Santos's commitment", "Signed on Oct 6"],
-] as const;
+/** This week's tasks: [title, what it is about, the tone and name of the goal it serves]. */
+export const TASKS = [
+  ["Set the launch team's personal invitation goal", "Launch prep", "green", "Promotion plan chosen"],
+  ["Invite the 9 guests from #11", "Vision meeting #12", "blue", "Committed adults"],
+  ["Interview David Kim", "Close to committing", "blue", "Committed adults"],
+] as const satisfies readonly (readonly [string, string, Tone, string])[];
+
+/** A thin progress bar whose fill grows from the left (fx gives its scaleX). */
+function Meter({ fx, fill, color }: { fx: string; fill: string; color: string }) {
+  return (
+    <div aria-hidden="true" className="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
+      <span className={cn("absolute inset-y-0 left-0 overflow-hidden rounded-full", fill)}>
+        <Tf fx={fx} as="span" layer={false} className={cn("absolute inset-0 origin-left rounded-full", color)} />
+      </span>
+    </div>
+  );
+}
 
 export function VisionZoom() {
   return (
@@ -85,28 +97,34 @@ export function VisionZoom() {
           </div>
         </Move>
 
-        <Level n={1} tone="violet" icon={ICONS.route} label="Phase 1" value="Core Group Development" end={<PhaseTrack />} />
-
-        <Level
-          n={2}
-          tone="blue"
-          icon={ICONS.users}
-          label="Playbook benchmark"
-          value="Committed adults"
-          end={
-            <span className={cn(NUM, "pt-1 text-[26px] leading-none")}>
-              <Count fx="vision.count" max={34} />
-              <span className="ml-1 font-sans text-[13px] font-medium tracking-normal text-text-3">of 50</span>
-            </span>
-          }
-        >
+        {/* The current phase with its benchmark (a benchmark, never a requirement). */}
+        <Level n={1} tone="violet" icon={ICONS.route} label="Phase 1" value="Core Group Development" end={<PhaseTrack />}>
           <div className="mt-3 ml-[50px]">
-            <div aria-hidden="true" className="relative h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
-              <span className="absolute inset-y-0 left-0 w-[68%] overflow-hidden rounded-full">
-                <Tf fx="vision.bar" as="span" layer={false} className="absolute inset-0 origin-left rounded-full bg-blue-500" />
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[12.5px] text-text-3">Benchmark: committed adults</span>
+              <span className={cn(NUM, "text-[20px] leading-none")}>
+                <Count fx="vision.count" max={34} />
+                <span className="ml-1 font-sans text-[12.5px] font-medium tracking-normal text-text-3">of 50</span>
               </span>
             </div>
-            <div className="mt-2 text-[12.5px] text-text-3">Up 9 in the last 28 days</div>
+            <Meter fx="vision.bar" fill="w-[68%]" color="bg-blue-500" />
+          </div>
+        </Level>
+
+        {/* A launch milestone: one of the nine set up with the Launch Sunday date. Its tasks are ordinary tasks. */}
+        <Level
+          n={2}
+          tone="green"
+          icon={ICONS.flag}
+          label="Launch milestone"
+          value="Promotion plan chosen"
+          end={<span className="pt-1 text-[12.5px] whitespace-nowrap text-text-3">1 of 2 tasks done</span>}
+        >
+          <div className="mt-3 ml-[50px] grid grid-cols-2 gap-1.5" aria-hidden="true">
+            <span className="relative h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
+              <Tf fx="vision.ms" as="span" layer={false} className="absolute inset-0 origin-left rounded-full bg-green-500" />
+            </span>
+            <span className="h-2 rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]" />
           </div>
         </Level>
 
@@ -122,7 +140,7 @@ export function VisionZoom() {
             </div>
           </div>
           <ul className="m-0 list-none p-0">
-            {TASKS.map(([title, link], k) => (
+            {TASKS.map(([title, link, tone, goal], k) => (
               <li key={title} className="relative border-t border-line">
                 <Move fx="vision.task" n={k} className="relative flex items-start gap-3 px-5 py-3">
                   <LineIn n={4 + k} to={22} />
@@ -138,7 +156,7 @@ export function VisionZoom() {
                       <span className="inline-flex items-center gap-1.5">
                         <Icon icon={ICONS.arrow} size={13} className="flex-none text-text-3" />
                         <span className="sr-only">serves</span>
-                        <StageChip tone="blue" className="h-[22px]">Committed adults</StageChip>
+                        <StageChip tone={tone} className="h-[22px]">{goal}</StageChip>
                       </span>
                     </span>
                   </span>

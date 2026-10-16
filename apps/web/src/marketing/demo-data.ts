@@ -5,7 +5,6 @@ export const HA_NAME = "Maria Lopez";
 export const HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
 export const CX_PEOPLE = [["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"], ["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"], ["tone-green", "Core group", 34, 34, "var(--ef-green-500)"]] as const;
 export const CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"] as const;
-export const CX_DRAFT = "Thank Kim for coming on Sunday. Ask what stood out to her, and offer to meet for coffee this week.";
 export const CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]] as const;
 export const CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]] as const;
 export const CX_Q = "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.";
