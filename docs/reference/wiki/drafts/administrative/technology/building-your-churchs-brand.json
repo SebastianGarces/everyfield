@@ -165,9 +165,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus claim, scripture and screenshot review. Author opened all cited sources; excerpt ellipses separate exact short fragments. As of 2026-10-16."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5, independent, claude-code)",
+      "notes": "Passed at reviewed draft commit f60878e3160eb880b505f1e1f074e5508c6fb159. The 0941c3c review (PR #39 comment 6206339258) passed every source claim, Proverbs 22:1 (LSB) word for word, lint and rendering except one changed claim in the brief section. f60878e changes only that sentence (\"check that the deliverables meet the agreed scope\" -> \"ensure the deliverables meet standards\") and the matching Promotion Leader Role source claim text. Re-opened the seed at 0d8d60c (launch-team/leadership/promotion-leader-role, Working with Designers and Vendors): \"Manages review and approval processes\" and \"Ensures deliverables meet standards\" match the new sentence; no overstatement. bin/wiki lint passes (1058 words, no warnings). Desktop 1280 and mobile 390 screenshots render the fixed sentence, all sections, callouts, table, scripture and the LSB notice; the PR-body images match a fresh render byte for byte. Editorial content/tooling proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Use existing values and Promotion Leader guidance; introduce no values or theological/methodological stance. Return substantive new commitments to leaders.",
