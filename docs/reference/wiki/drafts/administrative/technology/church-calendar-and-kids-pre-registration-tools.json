@@ -136,9 +136,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author checked primary and vendor pages, exact verse, source distinctions and published A14 consistency. Independent Opus source and screenshot review required; author does not approve claims."
+      "status": "passed",
+      "reviewer": "Opus verifier (independent), 2026-10-16 UTC",
+      "notes": "Reviewed 5b4b832. Re-read all 12 cited pages (Google Calendar 37083/37082; Planning Center approvals, event details, Check-Ins, Church Center pre-check; Breeze registrations and event settings; FTC COPPA rule page, COPPA FAQ, Start with Security, Protecting Personal Information). Every factual sentence matches its source without overstatement; COPPA wording matches the rule page, FAQ and published A14. 1 Corinthians 14:40 matches read.lsbible.org word for word. Lint passes (1,036 words, no warnings); desktop and 390px mobile screenshots complete with LSB notice. No copied text found. Sebastian approval still required."
     },
     "rulings": [
       "Resolved scope: compare documented capabilities without a vendor ranking, price claims, or an assertion that all products share the same workflow.",
