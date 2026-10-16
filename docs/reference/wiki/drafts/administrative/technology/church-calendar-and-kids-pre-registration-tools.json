@@ -1,0 +1,150 @@
+{
+  "church_id": null,
+  "content": "Use your church calendar to publish events, and use registration tools to collect sign-ups. Keep the handoff to children's check-in visible when you compare software. A form submission and a recorded arrival are different steps in the documented tools below.\n\nStart with the features you can demonstrate. This guide uses Google Calendar, Planning Center, and Breeze documentation as examples, without ranking them or recommending a vendor.\n\n---\n\n## Separate public events from private records\n\nGoogle Calendar can share a public calendar through a link, and people can subscribe to it. Google warns that a calendar displayed on a searchable website can appear in search results. Treat public event information as public wherever you display it.\n\nKeep children's registration responses out of public calendar descriptions. Use a separate, restricted place for family records, applying the FTC's advice to limit personal information access to people who need it for their work.\n\n<Callout type=\"warning\">\nA shareable calendar link is not a private registration system. Review the public calendar and the family records separately, using the visibility and access controls each tool actually provides.\n</Callout>\n\n---\n\n## Decide who can edit and publish\n\nIn Google Calendar, viewing event details, changing events, and managing sharing are different permissions. Choose the access that matches each person's responsibilities. For work or school calendars, the administrator controls whether sharing is available.\n\nIf your church uses an approval process, ask the provider to demonstrate it. Planning Center Calendar offers event-level approvals. Pending events under that setting stay off Church Center, shared calendar feeds, and kiosks until approved.\n\nCheck each publication destination. Planning Center documents separate controls for Church Center visibility and calendar feeds. An event unpublished in Church Center can still appear in an iCal feed. Use that distinction as a question when evaluating another platform, rather than assuming its controls work the same way.\n\n---\n\n## Compare the jobs you need done\n\nUse this worksheet for a demonstration with your Technology Leader and Children's Ministry Leader. The examples identify documented capabilities, not promises that every product includes them.\n\n| Job | What to ask the provider to show |\n|---|---|\n| Public calendar | How guests see events and how editors control sharing |\n| Sign-up | How a form response reaches the family or attendee record |\n| Arrival | How the team records a child as checked in |\n| Pickup | How workers use parent labels and record checkout |\n\nGoogle Calendar documents calendar sharing. Breeze documents forms that link responses to profiles, plus check-in and checkout settings. Planning Center documents event sign-ups and Check-Ins as connected products. Ask to see your intended combination working together.\n\n---\n\n## Trace registration through arrival and pickup\n\nIn Breeze, an event can limit its check-in list to respondents to selected forms. Its settings also offer a parent copy of a child's name tag and a checkout record. Being on the eligible list is distinct from recording check-in.\n\nPlanning Center supports sign-ups through Registrations and arrival through Check-Ins stations. Its Church Center app can generate a pre-check QR code. With Allow Complete Check-In turned off, the person must scan that code at a station to complete check-in.\n\n<Callout type=\"tip\">\nAsk the provider to demonstrate the exact arrival setting you intend to use. Planning Center also offers a complete-check-in option without scanning when labels are removed. Do not assume that every app confirmation means someone has arrived at your station.\n</Callout>\n\n---\n\n## Understand the federal privacy distinction\n\nCOPPA addresses covered operators of child-directed websites or online services for children under 13, and other operators with actual knowledge that they collect personal information online from children under 13.\n\nThe FTC says nonprofits generally are not subject to COPPA, while encouraging them to provide its protections to children. It also distinguishes information collected online from children from information adults provide about children.\n\nConsider addressing your registration form to a parent or guardian. Have counsel and your provider review who actually supplies information and how the tool collects it, rather than treating the form's label as the whole review.\n\n<Callout type=\"important\">\nFederal guidance and vendor features checked October 16, 2026. Confirm current COPPA guidance with the FTC and counsel, and current settings with your provider before launch. The nonprofit and adult-submission distinctions do not establish that every privacy obligation has been resolved.\n</Callout>\n\n---\n\n## Collect less and restrict access\n\nUse the FTC's business security guidance as a practical starting point for your church. It recommends collecting only necessary personal information and limiting access according to the work people do.\n\nReview each proposed registration field with the Children's Ministry Leader. Ask what job it supports before adding it. A provider's ability to collect a field is not a reason to collect it.\n\nCheck the station screen as well as staff accounts. Breeze distinguishes a staff-facing list from its public kiosk mode, which it recommends when people should not see names outside their family. Ask your provider to demonstrate what a family can see at the station you plan to use.\n\n---\n\n## Rehearse with fictitious information\n\nThe FTC recommends fictitious information for training or development when real personal information is unnecessary. Use a test family to walk through the documented controls with your team.\n\n- [ ] Open the public event and inspect its visibility.\n- [ ] Submit a test registration and find the resulting profile or eligible attendee.\n- [ ] Complete the configured arrival step and print the intended labels.\n- [ ] Check the parent-label matching process and checkout record.\n- [ ] Review what the public station displays about other families.\n\nCompare the result with the provider's documentation. Bring questions about children's pickup procedures to the Children's Ministry Leader rather than trying to settle them through software settings alone.\n\n---\n\n## Plan access changes and retention\n\nThe FTC recommends procedures to remove access when workers leave or change responsibilities. Apply that advice when a staff member or volunteer hands off calendar or registration duties.\n\nWrite down what information you retain, why, how you secure it, and how you dispose of it. Check legal retention needs before choosing deletion rules. The FTC's records guidance ties retention to business or legal needs, rather than a universal period for every record.\n\n<Callout type=\"scripture\">\n*\"But all things must be done properly and in an orderly manner.\"* — 1 Corinthians 14:40 (LSB)\n</Callout>",
+  "content_type": "how_to",
+  "created_at": "2026-10-16T01:35:28.454204Z",
+  "excerpt": "Compare calendar sharing and children's pre-registration tools, check privacy boundaries, and rehearse the handoff to arrival and pickup.",
+  "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+  "phase": 0,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "administrative/technology/setting-up-your-website",
+    "administrative/technology/choosing-assimilation-software",
+    "administrative/technology/website-privacy-cookies-and-email-sign-ups",
+    "launch-team/leadership/childrens-ministry-leader-role"
+  ],
+  "section_id": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+  "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools",
+  "sort_order": 5,
+  "status": "draft",
+  "title": "Church Calendar and Kids' Pre-Registration Tools",
+  "updated_at": "2026-10-16T01:36:47.532000Z",
+  "draft": {
+    "backlog_id": "A19",
+    "tier": "A",
+    "closes": [
+      "32.4.d",
+      "37.4"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Opening and public-calendar section: Google offers public calendar links and subscriptions; publication on searchable websites can expose the calendar in search results. Supports checking the public event during rehearsal.",
+        "url": "https://support.google.com/calendar/answer/37083?hl=en",
+        "publisher": "Google Calendar Help",
+        "quote": "If this website is searchable, people can find your calendar in search results.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Editor section and comparison worksheet: Google distinguishes viewing, editing and sharing permissions; work/school administrator policy controls sharing. Practical instruction to match role access uses these documented controls.",
+        "url": "https://support.google.com/calendar/answer/37082?hl=en",
+        "publisher": "Google Calendar Help",
+        "quote": "your administrator decides if you can share it.\nMake changes and manage sharing",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Editor section: Planning Center offers event-level approvals; pending events stay off Church Center, shared feeds and kiosks until approved.",
+        "url": "https://help.planningcenter.com/en/193265-require-event-approvals.html",
+        "publisher": "Planning Center Help",
+        "quote": "Events that are pending event-level approval cannot be published on Church Center and aren't included in shared calendar feeds",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Editor section: Church Center visibility differs from iCal feed visibility. Comparison/rehearsal questions apply that documented distinction.",
+        "url": "https://help.planningcenter.com/en/137791-manage-event-details.html",
+        "publisher": "Planning Center Help",
+        "quote": "If you keep the event unpublished, it can still appear on iCal feeds, but it will not appear on Church Center.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Opening, worksheet and arrival section: registration sign-ups and arrival at Check-Ins stations are separate connected steps; supports rehearsal of arrival.",
+        "url": "https://www.planningcenter.com/check-ins",
+        "publisher": "Planning Center",
+        "quote": "Organize your signups for VBS, camps, and midweek groups in Planning Center Registrations, then use your stations to check children into the event!",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Worksheet and rehearsal: Breeze forms link responses to profiles; demonstrates the registration-to-record step without claiming an integration in every product.",
+        "url": "https://support.breezechms.com/hc/en-us/articles/360001517634-Managing-Event-Registrations-for-Your-Church",
+        "publisher": "Breeze Church Management",
+        "quote": "link responses back to a profile in Breeze",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Arrival section: Breeze can restrict eligibility by form respondents; parent tags support matching; checkout records exist. Access section and rehearsal: public kiosk visibility is separate from staff list modes. These controls support comparing eligibility with recorded arrival and asking vendors to demonstrate each step.",
+        "url": "https://support.breezechms.com/hc/en-us/articles/360001169913-Editing-Event-Settings",
+        "publisher": "Breeze Church Management",
+        "quote": "Form Respondents\nworkers can match the tags\nsee names outside their own family.\nInclude Checkout\nThe date/time is recorded for each.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Arrival section and tip: Church Center pre-check generates a QR code; with complete check-in disabled a station scan completes arrival; complete check-in without a scan requires labels removed. Supports testing the configured arrival step rather than inferring arrival from a phone confirmation.",
+        "url": "https://help.planningcenter.com/en/138194-enable-the-church-center-app-for-an-event.html",
+        "publisher": "Planning Center Help",
+        "quote": "To complete their check-in, they must scan the QR code at a station.\nenable Allow Complete Check-In and remove all labels from the event/location.",
+        "accessed": "2026-10-16",
+        "kind": "vendor"
+      },
+      {
+        "claim": "Federal privacy section: COPPA covers child-directed services for children under 13 and other operators with actual knowledge of online personal-information collection from children under 13.",
+        "url": "https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa",
+        "publisher": "Federal Trade Commission",
+        "quote": "directed to children under 13 years of age\nactual knowledge that they are collecting personal information online",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Federal privacy section: nonprofits generally outside COPPA; FTC encourages protections; information supplied by adults differs from information collected from children. Parent-directed form is a practical consideration, not a guaranteed exemption. FAQ B.4 supports reviewing collection with counsel; the as-of callout makes no ruling about other laws.",
+        "url": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+        "publisher": "Federal Trade Commission",
+        "quote": "nonprofit entities generally are not subject to COPPA\ndoes not cover information collected from adults\nprovide COPPA’s protections to their child visitors",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Public/private separation, field review, access section and rehearsal: apply FTC guidance on necessary collection, job-based access and fictitious training information to the church. This is practical application of business guidance, not a statement of church legal duties. Fictitious-data guidance underpins all demonstration checklist items.",
+        "url": "https://www.ftc.gov/business-guidance/resources/start-security-guide-business",
+        "publisher": "Federal Trade Commission",
+        "quote": "Don’t collect personal information you don’t need.\nusing fictitious information for training or development purposes.\nemployees have access only on a “need to know” basis.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Final section: written retention policy covers need, security, duration and disposal; remove access when people leave or change work. Applies this guidance to church staff/volunteer handoffs; no invented record retention duration.",
+        "url": "https://www.ftc.gov/business-guidance/resources/protecting-personal-information-guide-business",
+        "publisher": "Federal Trade Commission",
+        "quote": "how to secure it, how long to keep it, and how to dispose of it securely\nno longer have access to sensitive information.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Scripture callout only, checked word for word as a single verse; no interpretive claim or software mandate is attached.",
+        "url": "https://read.lsbible.org/1-corinthians/14/40",
+        "publisher": "Legacy Standard Bible, The Lockman Foundation",
+        "quote": "But all things must be done properly and in an orderly manner.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author checked primary and vendor pages, exact verse, source distinctions and published A14 consistency. Independent Opus source and screenshot review required; author does not approve claims."
+    },
+    "rulings": [
+      "Resolved scope: compare documented capabilities without a vendor ranking, price claims, or an assertion that all products share the same workflow.",
+      "Resolved privacy wording: keep published A14 nonprofit and adult-submission COPPA distinctions; parent-facing forms are a consideration, not a blanket legal exemption. No state example.",
+      "Resolved safety boundary: demonstrate registration, arrival and checkout controls; leave pickup policy and exceptions to the Children's Ministry Leader. No new child-protection methodology or theological interpretation.",
+      "Sources and vendor capabilities checked 2026-10-16 UTC. Unopenable Planning Center VBS help page excluded. No open content-owner rulings identified."
+    ]
+  }
+}
