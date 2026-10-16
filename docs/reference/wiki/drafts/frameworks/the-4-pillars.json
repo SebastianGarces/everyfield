@@ -37,9 +37,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Awaiting independent Opus review of the F5 quotation, source, preservation diff, and desktop/mobile screenshots. Unchanged article claims are outside this correction."
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "F5 review of PR #27 at 3190743: Acts 2:42 block quote converted to exact LSB, preceding reference now Acts 2:42 (LSB). Scripted diff against seed.json shows only the inventoried quotation and the added (LSB) tag; row fields are unchanged except draft status, published_at and updated_at. Independent completeness search of all 108 published articles found exactly four Bible quotations outside scripture callouts (Acts 2:42 twice, Psalm 127:1, Colossians 3:23-24), all in the PR inventory; 2 Corinthians 6:14 in interviewing-for-fit is inside a scripture callout. Acts 2:42 was checked word for word on read.lsbible.org/acts/2/42 in one lookup. The existing read-time warning is inherited. bin/wiki lint passes. Desktop and mobile screenshots checked: the changed quotation and full LSB notice render, no horizontal overflow."
     },
     "rulings": [
       "F5 changes only the quotation outside the scripture callout and adds (LSB) to its existing reference. Existing callouts, methodology, and all other article wording stay unchanged."
