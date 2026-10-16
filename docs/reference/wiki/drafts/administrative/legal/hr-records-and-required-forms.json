@@ -166,9 +166,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened primary sources; independent Opus sentence-by-sentence, scripture and desktop/mobile review required. USCIS PDF and DOL fact sheets were fetched directly when the web reader failed."
+      "status": "passed",
+      "reviewer": "verifier (claude-code, Opus)",
+      "notes": "Independent Opus review. Full review at 7faf58a re-read every source and 1 Corinthians 14:40 on lsbible.org and found four changed or overstated sentences (PR #37 comment 6206464524). Re-review at e5ab7d8 on 2026-10-16: diff 7faf58a..e5ab7d8 changes only those four sentences and the matching Pub. 15 source claim field. The I-9 instructions sentence matches USCIS i-9instr ('Make the instructions for Form I-9 and Lists of Acceptable Documents available to the employee'). The W-4 sentence matches IRS Pub. 15 ('Ask all new employees to give you a signed Form W-4 when they start work. Make the form effective with the first wage payment.'). The pages sentence matches USCIS ('You are not required to retain or store the page(s) containing the Lists of Acceptable Documents or the instructions for Form I-9'). The electronic-storage tip matches USCIS ('Employers creating, modifying, or storing Form I-9 electronically are encouraged to review these and any other relevant standards'). No new overstatement. bin/wiki lint (1175 words), render, desktop and mobile shots and check-seed pass; PR screenshots match the e5ab7d8 render byte for byte. Editorial content proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Mechanics only. Employment-policy content, religious hiring preferences and ministerial-exception analysis are outside A27.",
