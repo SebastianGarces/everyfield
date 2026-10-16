@@ -100,9 +100,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "F2b author audit completed against primary agency/statute/vendor pages opened 2026-10-16. Independent Opus claim, scripture and screenshot review pending. Original scripture unchanged. Full claim-by-claim audit is in the PR body."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5), independent of the writer",
+      "notes": "Independent F2b review of fe55bcf on 2026-10-16. Scripted diff against the published seed row: every body change maps to a PR audit row; headings, scripture, ids and other metadata unchanged. Re-opened the sources for each correction: Logos/Faithlife (Sites sunset effective June 30, 2023), Church Online Platform (works with your chosen streaming provider), Subsplash, W3C WAI mobile page; price bands removed rather than replaced. Sampled 4 confirmed rows (Subsplash media/events/giving, Squarespace/Wix/WordPress builders, IANA .church, W3C small screens and touch); all hold. Isaiah 52:7 matches read.lsbible.org word for word. Lint passes with the inherited 'in today's'/'leverage' and read-time warnings; desktop and mobile screenshots complete with the LSB notice. Sebastian approval still required."
     },
     "rulings": [
       "Factual fixes only. Preserve article structure, headings, scripture and unrelated advice. Remove unsourced price ranges rather than invent new market estimates. Label existing schedules and recommendations as rules of thumb where no source establishes them. No promotion or merge."

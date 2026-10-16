@@ -141,9 +141,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "F2b author audit completed against primary agency/statute/vendor pages opened 2026-10-16. Independent Opus claim, scripture and screenshot review pending. Original scripture unchanged. Full claim-by-claim audit is in the PR body."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5), independent of the writer",
+      "notes": "Independent F2b review of fe55bcf on 2026-10-16. Scripted diff against the published seed row: every body change maps to a PR audit row; headings, scripture, ids and other metadata unchanged. Re-opened the sources for each correction: Planning Center Check-Ins help (visitors can be checked in without saving to the database), Pushpay ChMS page (acquired Church Community Builder), FellowshipOne Financials page, Breeze pricing (contacts, check-in, giving, 30-day trial), Planning Center pricing (first 30 days free); price bands removed rather than replaced. Sampled 5 confirmed rows (People custom fields and lists, Check-Ins families, free trials, Elvanto, Google Contacts); all hold. John 10:14 matches read.lsbible.org word for word. Lint passes with the inherited read-time warning; desktop and mobile screenshots complete with the LSB notice. Sebastian approval still required."
     },
     "rulings": [
       "Factual fixes only. Preserve article structure, headings, scripture and unrelated advice. Remove unsourced price ranges rather than invent new market estimates. Label existing schedules and recommendations as rules of thumb where no source establishes them. No promotion or merge."

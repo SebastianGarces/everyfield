@@ -188,9 +188,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "F2b author audit completed against primary agency/statute/vendor pages opened 2026-10-16. Independent Opus claim, scripture and screenshot review pending. Original scripture unchanged. Full claim-by-claim audit is in the PR body."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5), independent of the writer",
+      "notes": "Independent F2b review of fe55bcf on 2026-10-16. Scripted diff against the published seed row: every body change maps to a PR audit row; headings, scripture, ids and other metadata unchanged. Re-opened the sources for each correction: IRS EIN pages (mail approximately 4 weeks; online EIN issued immediately when approved), IRS church page (qualifying churches automatically exempt), IRS organizational test (unincorporated association and trust qualify), Texas Form 202 instructions (designator not required, three directors when board-managed, periodic report at most every four years), NC G.S. 55A-8-02/8-03, 55A-3-02 and 55A-16-22 (repealed), NY DOS FAQ (religious corporations file with the county clerk; no N-PCL publication rule), 15 Pa.C.S. 5307 and Bank of America unincorporated-association requirements. Sampled 11 confirmed rows; all hold. Luke 14:28 matches read.lsbible.org word for word. Lint passes with the inherited read-time warning; desktop and mobile screenshots complete with the LSB notice. Sebastian approval still required."
     },
     "rulings": [
       "Factual fixes only. Preserve article structure, headings, scripture and unrelated advice. Remove unsourced price ranges rather than invent new market estimates. Label existing schedules and recommendations as rules of thumb where no source establishes them. No promotion or merge."
