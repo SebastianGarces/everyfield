@@ -248,9 +248,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened every cited source and checked the verse individually. Independent Opus claim, scripture and full desktop/mobile review remains required. Procedural adaptations and measurement limits are identified in source claims. No author approval."
+      "status": "passed",
+      "reviewer": "verifier (Opus, independent)",
+      "notes": "Independent Opus review. Round 1 at 982c5f9 failed two claims (GEOID actor, AADT hedge). Round 2 at f248388: diff limited to those two body sentences and source claims 3, 18 and 19; census.gov geo-identifiers and FHWA TMG Appendix L reopened and match. All other sources, Proverbs 18:13 (LSB) on lsbible.org, lint and full desktop/mobile renders were checked in round 1 and are unchanged. Lint PASS, 940 words."
     },
     "rulings": [
       "Resolved: Use a chosen study boundary and route checks; prescribe no universal radius, drive-time limit, attendance forecast or launch-date threshold. A22 is tier A. Existing demographic and launch-date articles retain their scope; primary mapping sources do not establish church methodology.",
