@@ -1,4 +1,5 @@
 import { fail, loadConfig, run } from './lib.ts';
+import { cachedTriage } from './feedback.ts';
 
 /**
  * Human-approved merge for PRs that never merge automatically (Wiki articles, prototypes,
@@ -8,7 +9,7 @@ import { fail, loadConfig, run } from './lib.ts';
  * When main is protected, it also posts the evf/verify status for that head.
  */
 
-type Pr = { number: number; title: string; url: string; state: string; isDraft: boolean; baseRefName: string; headRefOid: string; mergeStateStatus: string };
+type Pr = { number: number; title: string; url: string; state: string; isDraft: boolean; baseRefName: string; headRefName: string; headRefOid: string; mergeStateStatus: string };
 
 function gh(args: string[]): string {
   const r = run('gh', args);
@@ -16,7 +17,7 @@ function gh(args: string[]): string {
   return r.stdout.trim();
 }
 
-const readPr = (n: number): Pr => JSON.parse(gh(['pr', 'view', String(n), '--json', 'number,title,url,state,isDraft,baseRefName,headRefOid,mergeStateStatus'])) as Pr;
+const readPr = (n: number): Pr => JSON.parse(gh(['pr', 'view', String(n), '--json', 'number,title,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus'])) as Pr;
 
 export function approve(root: string, n: number, opts: { ownerApproval?: string; head?: string }): number {
   const words = opts.ownerApproval?.trim() ?? '';
@@ -34,6 +35,13 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 
   const head = pr.headRefOid;
   const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  const fb = /^task\/fb-(\d+)$/.exec(pr.headRefName);
+  const ownerAfterVerifier = (cfg as { mergePolicy?: { feedbackOwnerAfterVerifier?: string[] } }).mergePolicy?.feedbackOwnerAfterVerifier ?? [];
+  if (fb && ownerAfterVerifier.includes(cachedTriage(root, Number(fb[1]))?.class ?? '')) {
+    const status = JSON.parse(gh(['api', `repos/${repo}/commits/${head}/status`])) as { statuses: Array<{ context: string; state: string; description: string | null }> };
+    const verified = status.statuses.find((s) => s.context === cfg.statusContext);
+    if (verified?.state !== 'success' || !verified.description?.startsWith('Verified')) fail(`PR #${n} is a P2/P3 feedback fix. The verifier must pass it first (evf ship) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`);
+  }
   gh(['pr', 'comment', String(n), '--body', `Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words.replace(/\n/g, '\n> ')}`]);
   if (pr.isDraft) gh(['pr', 'ready', String(n)]);
   const protectedMain = run('gh', ['api', `repos/${repo}/branches/${cfg.baseBranch}/protection`]).code === 0;

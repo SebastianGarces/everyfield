@@ -251,15 +251,18 @@ test('INV-gate-phases: local evidence producers can start before runtime complet
   assert.throws(()=>requireImplementation(f.root,'WP-003'),/G-AUTH/);
  }finally{f.close();}
 });
-test('INV-feedback-merge: P0/P1 feedback fixes merge through the verifier without human review; P2 needs evf approve',()=>{
+test('INV-feedback-merge: P0/P1 feedback fixes merge through the verifier; P2 is verified and then waits for the owner',()=>{
  const f=qualifiedFixture();try{
   f.cfg.verification.proofPlans['FB-1']=f.plan;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
   feedbackTriage(f.root,1,{cls:'p2',reason:'scoped feedback',wp:f.wp});
   const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});f.git('remote','add','origin',bare);f.git('push','-q','origin','main');f.task('fb-1');
   const task=parseTask('FB-1');verify(f.root,task,'author','full');const proof=verify(f.root,task,'verifier','full');
   const s=f.getState();s.reviews=[];s.protection={required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:0,dismiss_stale_reviews:true}};f.setState(s);
-  assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/Sebastian approves the rest with: bin\/evf approve/);
-  assert.equal(f.getState().calls.filter((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge').length,0);
+  assert.equal(ship(f.root,task,{maxUpdates:0}),0);
+  const held=f.getState().calls;
+  assert.equal(held.filter((c:any)=>c.args[0]==='pr'&&c.args[1]==='merge').length,0);
+  assert.ok(held.some((c:any)=>c.args[0]==='pr'&&c.args[1]==='comment'&&String(c.args.at(-1)).includes("waits for Sebastian's approval")));
+  assert.ok(held.some((c:any)=>c.args[0]==='api'&&String(c.args.join(' ')).includes('state=success')));
   const cache=join(evfDataDir(f.root),'feedback','issue-1.json'),record=JSON.parse(readFileSync(cache,'utf8'));record.class='p1';writeFileSync(cache,JSON.stringify(record));
   s.protection={};f.setState(s);
   assert.throws(()=>ship(f.root,task,{maxUpdates:0}),/Verified strict branch protection/);

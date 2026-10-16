@@ -60,6 +60,10 @@
       "p0",
       "p1"
     ],
+    "feedbackOwnerAfterVerifier": [
+      "p2",
+      "p3"
+    ],
     "feedbackPrototypes": "owner-merge",
     "humanApproved": "evf-approve-after-owner-chat-approval",
     "ordinaryApproval": {
@@ -68,8 +72,8 @@
       "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
     },
     "feedbackApproval": {
-      "approvedAtUtc": "2026-10-15T18:52:26Z",
-      "scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. Other feedback classes and prototypes need Sebastian's approval."
+      "approvedAtUtc": "2026-10-16T01:27:45Z",
+      "scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. P2 and P3 get the same full verification, then wait for Sebastian's chat approval before an agent merges them with evf approve. Prototypes need Sebastian's approval."
     },
     "wikiApproval": {
       "approvedAtUtc": "2026-10-15T18:52:26Z",

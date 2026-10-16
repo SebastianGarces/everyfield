@@ -133,13 +133,15 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
   if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
   const pr = prFor(wt, task);
   if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
-  const policy=(cfg as Config & {mergePolicy:{ordinary:string;feedbackVerifierMerge:string[]}}).mergePolicy;
+  const policy=(cfg as Config & {mergePolicy:{ordinary:string;feedbackVerifierMerge:string[];feedbackOwnerAfterVerifier:string[]}}).mergePolicy;
   if(policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
-  // Owner ruling 2026-10-15: listed feedback bug classes merge through the verifier like ordinary builds.
-  // Other classes need Sebastian's approval through `evf approve`; prototypes never ship here.
+  // Owner rulings 2026-10-15/16: P0/P1 feedback fixes merge through the verifier like ordinary builds.
+  // P2/P3 get the same full verification, then wait for Sebastian's chat approval and `evf approve`.
+  let holdForOwner=false;
   if(task.kind==='fb') {
     const cls=cachedTriage(root,task.issue!)?.class;
-    if(!cls||!(policy.feedbackVerifierMerge??[]).includes(cls))fail(`${task.id} is ${cls??'untriaged'}; only ${(policy.feedbackVerifierMerge??[]).join(', ')||'no'} feedback classes merge through the verifier. Sebastian approves the rest with: bin/evf approve <PR>`);
+    holdForOwner=!!cls&&(policy.feedbackOwnerAfterVerifier??[]).includes(cls);
+    if(!cls||!holdForOwner&&!(policy.feedbackVerifierMerge??[]).includes(cls))fail(`${task.id} is ${cls??'untriaged'}; evf ship handles feedback classes ${[...(policy.feedbackVerifierMerge??[]),...(policy.feedbackOwnerAfterVerifier??[])].join(', ')}. Sebastian approves the rest in chat; then: bin/evf approve <PR>`);
   }
 
 
@@ -157,6 +159,11 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
 
     pushBranch(wt, cfg, task);
     postStatus(wt, cfg, sha, "success", `Verified ${proof.mode} by ${proof.role} at ${sha.slice(0, 10)}`);
+    if(holdForOwner) {
+      gh(wt,["pr","comment",String(pr.number),"--body",`Verified at \`${sha.slice(0,10)}\` by the cross-model verifier. This feedback fix waits for Sebastian's approval; after he approves in chat, merge with \`bin/evf approve ${pr.number} --owner-approval "<his words>"\`.`]);
+      console.log(`ship: PR #${pr.number} is verified at ${sha.slice(0,10)} and waits for Sebastian's approval. Report it to the coordinator; do not merge.`);
+      return 0;
+    }
     const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
     if (merge.code === 0) return afterMerge(root, cfg, task, wt, pr.number, proof,authorProof);
 

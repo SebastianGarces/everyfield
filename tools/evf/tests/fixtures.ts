@@ -42,6 +42,7 @@ if(a[0]==='api') {
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
 else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
 else if(a[0]==='pr'&&a[1]==='edit')result='';
+else if(a[0]==='pr'&&a[1]==='comment')result='https://github.com/test/private/pull/'+a[2]+'#comment';
 else if(a[0]==='pr'&&a[1]==='merge'){
  if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
  const cp=require('node:child_process'),cwd=fs.realpathSync(process.cwd()+'/../..');
