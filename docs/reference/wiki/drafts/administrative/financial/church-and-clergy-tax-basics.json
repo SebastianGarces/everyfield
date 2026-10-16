@@ -384,9 +384,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source audit only; independent Opus review of claims, Romans 13:7 and desktop/mobile screenshots is pending. Sources accessed October 15, 2026, America/New_York. Publication 1828 is Rev. 8-2015; Publication 517 is for 2025 returns. Every clergy section includes quotations from both publications; the estimated-payment detail and preparer responsibility are stated explicitly in Publication 517."
+      "status": "passed",
+      "reviewer": "verifier (claude-opus-5-5)",
+      "notes": "Independent Opus review (verifier, claude-opus-5-5). Content, Romans 13:7 (LSB, lsbible.org) and desktop/mobile screenshots passed at 8998ebb (PR #32 comment 6206567871). Re-review at e2c8266: only the claim fields of sources 1, 3, 4, 5, 16, 26-29, 33, 34 and 43 changed; content and all quotes unchanged. All 44 claims are verbatim spans of the article; the 12 updated quotes were re-matched on irs.gov (Publication 517, Publication 1828) on October 15, 2026, and each supports its claimed sentences. bin/wiki lint passed."
     },
     "rulings": [
       "Resolved editorial scope: federal overview only; state examples, annual tax rates, payment calendars and specialized exemptions are omitted. Consult current IRS instructions for individual situations.",
