@@ -183,9 +183,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source mapping only; independent Opus claim, one-verse scripture and full desktop/mobile screenshot review required. Sources accessed 2026-10-16. No state examples. Procedural recommendations apply cited provider capabilities and the named published guides; they do not create legal duties. Source quotes are short exact excerpts; […] separates excerpts. Volatile provider options and federal rules are explicitly dated in the body. Author-only excerpt verification passed for all 19 source entries after normalizing PDF line-end hyphenation and removing LSB footnote markup. This checks quotation accuracy, not independent claim approval. Author rendered desktop and mobile, checked every section, item list, checklist and full LSB footer. Lint has only the exact-scripture word “moreover” warning."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5, independent, claude-code)",
+      "notes": "Passed at reviewed draft commit 8d4327b043d4ff542b718f45ee9fcbbd7716b204. The 815d4a6 review (PR #34 comment 6206347616) passed every source claim, 1 Corinthians 4:2 (LSB) word for word, lint and rendering except B1. 8d4327b changes only section 4 paragraph 2 and the source 8 claim and quote, as requested. Re-read https://www.myregistry.com/info/privacy.aspx?lang=en on 2026-10-16: the address is visible to people with list access; members can password-protect the list and control address visibility; with a hidden address a donor enters an address or requests it by email from the list owner. The new sentences match without overstatement and the source 8 quote is verbatim. bin/wiki lint passes (951 words; only warning is \"moreover\" inside the exact LSB quote); check-seed passes. Desktop 1280 and mobile 390 screenshots render all sections, callouts, list, checklist, scripture and the LSB notice, and the PR-body images match a fresh render byte for byte. Editorial content/tooling proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Resolved editorial choice: keep A20 as the assigned separate registry how-to and link the existing equipment guide; do not duplicate its purchasing plan.",
