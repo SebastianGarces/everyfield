@@ -288,9 +288,9 @@
       "slug": "discovery/the-worship-walk-work-witness-model"
     },
     {
-      "contentSHA256": "08aa2ab8227515b5c147038ec661152630e4d69c32db0bb66af90e157e8ed3f7",
+      "contentSHA256": "ec7733b3c830b5b5edb168bd577461451e09dd28af2c145315f4d0051d426dc2",
       "id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
-      "recordSHA256": "789827d105310c8e9b6eb21e5a0819e9841448bcc779c25de444c12422191e30",
+      "recordSHA256": "65ce22bbe9738ace8d0a32eaeac7fa2fcfc8b77112e47b5f71adf96304eb8090",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/understanding-the-4-pillars"
     },
@@ -316,9 +316,9 @@
       "slug": "frameworks/the-4-cs"
     },
     {
-      "contentSHA256": "a8dcf48b43b3fbc8e4c6b75c5bbd13bcdec5308a9b250c82a78c0021d044a5ea",
+      "contentSHA256": "74162aa1640718f089fcd97016e232960c5652d50fec91279adacc4576e511e2",
       "id": "4642b9be-89a3-47f5-829a-0636c644f6d6",
-      "recordSHA256": "0aa888a580c0912e81f1fcde218c06ac65a63295fd9aa8aa6f2ffdacc566e349",
+      "recordSHA256": "4432357799e80d300ccc3f23140160c076d19af5b8a259848cf0cc4fd1874d1c",
       "sectionId": "6f0b669a-4b7b-4113-aacd-9264a893c039",
       "slug": "frameworks/the-4-pillars"
     },
@@ -582,9 +582,9 @@
       "slug": "pre-launch/in-service-training-day"
     },
     {
-      "contentSHA256": "70e23305bd04ae50940ef49e7b69b035a2d121ab75577757c2a6c178bba394fe",
+      "contentSHA256": "8b4524512d09863340a6ee3ceb342b4aa3b8fc10aec76c992b30054d47ba4793",
       "id": "9a2df0b6-d4ac-4e50-9406-84a3503908d0",
-      "recordSHA256": "8419526d9f7dd52e2307f598337ff6ab6c656aa11986a5d1eea916da218db5cc",
+      "recordSHA256": "d465000cb8b419eb9973befabb9f944d9cda600b41ddbba5f3cee50d5af3427c",
       "sectionId": "ad384ca4-56a8-46ba-a4ae-df5f6bb20842",
       "slug": "pre-launch/launch-team-spiritual-preparation"
     },
@@ -4589,6 +4589,33 @@
       "previousRecordSHA256": "cac1c9e10cb8dd07f0e27d843cdd991b76b2de18ff54f618cbe079a92733b547",
       "recordSHA256": "9f5cfcea39e39e91b0a2482d4176f02e44c7dae4e72cc68da671d69a1a741cae",
       "slug": "training/peak-performance-training-series"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-16T01:23:56.019Z",
+      "id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
+      "pr": 27,
+      "previousRecordSHA256": "789827d105310c8e9b6eb21e5a0819e9841448bcc779c25de444c12422191e30",
+      "recordSHA256": "65ce22bbe9738ace8d0a32eaeac7fa2fcfc8b77112e47b5f71adf96304eb8090",
+      "slug": "discovery/understanding-the-4-pillars"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-16T01:23:56.371Z",
+      "id": "4642b9be-89a3-47f5-829a-0636c644f6d6",
+      "pr": 27,
+      "previousRecordSHA256": "0aa888a580c0912e81f1fcde218c06ac65a63295fd9aa8aa6f2ffdacc566e349",
+      "recordSHA256": "4432357799e80d300ccc3f23140160c076d19af5b8a259848cf0cc4fd1874d1c",
+      "slug": "frameworks/the-4-pillars"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-16T01:23:56.717Z",
+      "id": "9a2df0b6-d4ac-4e50-9406-84a3503908d0",
+      "pr": 27,
+      "previousRecordSHA256": "8419526d9f7dd52e2307f598337ff6ab6c656aa11986a5d1eea916da218db5cc",
+      "recordSHA256": "d465000cb8b419eb9973befabb9f944d9cda600b41ddbba5f3cee50d5af3427c",
+      "slug": "pre-launch/launch-team-spiritual-preparation"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4721,7 +4748,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "5c47d7a76b3451a4bbea2649d41d6d4b540546ea561b4ad168e216c15a6dd975",
+  "seedPayloadSHA256": "dce825a8bf6fab82ef7a371f2f8a8fe99369a8f8df0e03261cc1da8f11984618",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
