@@ -61,9 +61,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source audit completed; independent Opus claim, unchanged-scripture and desktop/mobile screenshot review pending. Full claim inventory and dispositions are in this PR body."
+      "status": "passed",
+      "reviewer": "Claude Opus 5.5 (verifier, independent)",
+      "notes": "Independent review of d9a4a1b on 2026-10-16 UTC. Scripted diff against the published seed row: every content change maps to a factual-correction row in the PR #48 audit table; headings, scripture, id, phase, content type, related links and other fields unchanged apart from draft status/timestamps; rendered HTML element counts match the published render except the intended paragraph/table-row changes. Corrections re-checked against the live sources (IRS housing-allowance FAQ, IRS employment-tax exceptions, Pub. 517, Reg. Z 1026.12(b)(5), Reg. E 1005.2(b), FASB ASU 2016-14, N.C. G.S. 36E-6, CFPB endorsement and conflicting-amount FAQs, GCFA audit guide and reserve checklist, NFF budget transcript, IRS record-retention page, Increase lockbox docs). 22 confirmed rows re-checked; none wrong. LSB verse verified on lsbible.org; lint passes; desktop and mobile renders complete with the LSB notice. Non-blocking notes are in the PR #48 verdict comment. Sebastian's approval is still required before promotion."
     },
     "rulings": [
       "F2a scope: factual corrections only; headings, scripture, article identity, phase, content type, related links and policy choices retained.",
