@@ -295,9 +295,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened every cited source on 2026-10-16 and checked claims, policy wording and the individual LSB verse. Independent Opus source, scripture and screenshot review is pending. This is not author approval."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5), independent of the writer",
+      "notes": "Reviewed head 0e85e58 on 2026-10-16. Re-read all 22 source URLs: every factual sentence matches its Google Search Central, Search Console Help or Analytics Help source, all 32 vendor quotes appear verbatim, and no requirement is stated more strongly than its source. Proverbs 18:13 matches read.lsbible.org word for word. Agrees with the published privacy article on cookies and consent. bin/wiki lint passes (1,123 words, no warnings); desktop and mobile screenshots render fully with the LSB notice. No copied text beyond the scripture quote. Sebastian's approval is still required."
     },
     "rulings": [
       "Resolved 2026-10-16: phase 0 and how_to match adjacent technology setup articles and the backlog how-to type.",
