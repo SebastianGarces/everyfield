@@ -1,0 +1,173 @@
+{
+  "church_id": null,
+  "content": "When you recruit volunteers to work with children, background checks belong within a wider screening process. CDC guidance places screening alongside supervision, safe environments, responses to concerns and training.\n\nUse this guide to prepare your screening workflow with your attorney and insurer. Keep the church's approved child-protection procedures in place throughout that work.\n\n---\n\n## Start with the federal reporting rules\n\nThe Fair Credit Reporting Act, or FCRA, governs the use of consumer reports for employment decisions, including hiring and retention. The federal process includes steps before ordering a report and before and after an unfavorable decision based on it.\n\nThe FTC's employer guidance describes employment decisions. Before using it for an unpaid volunteer role, ask your attorney which federal, state and local rules apply to that role and the report you intend to obtain. CDC recommends legal review of screening procedures and consultation with your insurer as needed.\n\n---\n\n## Set the screening process before ordering\n\nCDC recommends deciding how screening information will affect selection and who will make the final decision. Work with your attorney on the church's criteria before reviewing individual applicants.\n\nBuild a consistent process that includes an application, an interview and reference checks as well as the background check. Explain the church's youth-protection procedures to applicants. CDC advises against making screening exceptions for people you already know.\n\n<Callout type=\"warning\">\nA background check alone can create a false sense of security. Keep supervision and training in place after selection.\n</Callout>\n\n---\n\n## Confirm which checks the role needs\n\nAsk your attorney and screening provider which records and locations the search should cover. CDC notes that records are not always connected or comprehensive and that an applicant's moves may make searches in multiple states necessary.\n\nPennsylvania illustrates why the package matters. Its Department of Human Services lists child abuse history and state police criminal history clearances, plus an FBI clearance for some volunteers. Its volunteer FAQ says vendors may help applicants obtain the required clearances but cannot substitute searches of other databases for those clearances.\n\nTreat this as a Pennsylvania example. Confirm the requirements for your own location and volunteer duties with the responsible state agency and your attorney.\n\n---\n\n## Give notice and obtain written permission\n\nFor reports covered by the federal employment process, give a written disclosure in a separate document explaining that the report may inform employment decisions. Keep that disclosure out of the application.\n\nThe FTC gives this instruction exactly: \"Get written permission from the applicant or employee.\" Permission may be included in the disclosure document.\n\nBefore ordering, certify to the reporting company that you provided notice, obtained permission, complied with FCRA requirements and will not misuse the information in violation of applicable equal opportunity laws.\n\n<Callout type=\"tip\">\nAsk the provider and your attorney to review the disclosure, permission and certification documents together before you order reports.\n</Callout>\n\n---\n\n## Give the person a chance to review concerns\n\nIn the federal employment process, before taking an unfavorable action based on the report, provide a notice containing the report you relied on and a copy of *A Summary of Your Rights Under the Fair Credit Reporting Act*. Obtain the rights summary from the reporting company.\n\nAdvance notice gives the person an opportunity to review the information and explain concerns. Ask your attorney how to handle that opportunity and any additional rules for the particular role before finalizing the decision.\n\nIf the person identifies an error, the FTC directs them to contact the reporting company with supporting information and ask it to correct the report. They can ask that company to send the corrected report to the employer.\n\n---\n\n## Send the final notice when required\n\nAfter an unfavorable employment decision based on the report, the federal process requires another notice. It may be oral, written or electronic and must communicate:\n\n- That the decision was based on information in the report.\n- The reporting company's name, address and telephone number.\n- That the company did not make the decision and cannot give specific reasons for it.\n- The person's right to dispute inaccurate or incomplete information with the company.\n- The right to an additional free report, requested within 60 days of the employer's decision.\n\nHave your attorney confirm the notices that apply to volunteer selection. Keep the provider's reporting role separate from the church's selection decision.\n\n---\n\n## Protect the records outside EveryField\n\nEveryField does not store or track background checks. Keep screening reports and screening status in the church's separate, restricted screening records.\n\nThe FTC recommends limiting sensitive information to people who need it for their work. Store paper records securely and protect electronic access. Avoid sending sensitive information through unencrypted email.\n\nSet a written retention policy identifying what to keep, how to secure it and when to dispose of it. Satisfy applicable recordkeeping requirements before disposal. Then destroy paper and electronic consumer-report information so it cannot be read or reconstructed.\n\n---\n\n## Confirm renewals and review the workflow\n\nUse the applicable agency requirements to establish renewal dates. For covered employees and unpaid volunteers, Pennsylvania DHS states that clearances are required every 60 months from the oldest clearance's date, with more frequent checks possible under licensure or employer requirements.\n\n<Callout type=\"important\">\nFederal guidance and the Pennsylvania example were checked on October 16, 2026. Confirm current requirements with the FTC, your state's child-protection agency and your attorney before using these procedures.\n</Callout>\n\nReview the process with these questions:\n\n- [ ] Have your attorney and insurer reviewed the screening procedure?\n- [ ] Have you identified the required checks and the person making selection decisions?\n- [ ] Are disclosure, permission and required notices ready?\n- [ ] Are screening records restricted and renewal requirements confirmed?\n\n<Callout type=\"scripture\">\n*\"A prudent man sees evil and hides, But the simple pass on, and are punished.\"* — Proverbs 22:3 (LSB)\n</Callout>",
+  "content_type": "guide",
+  "created_at": "2026-10-16T01:51:23Z",
+  "excerpt": "A screening workflow covering federal consumer-report procedures, state clearance requirements, private records and renewal checks outside EveryField.",
+  "id": "54755550-faf2-47ff-9990-1dcdd442fda7",
+  "phase": 2,
+  "published_at": null,
+  "read_time_minutes": 5,
+  "related_article_slugs": [
+    "launch-team/leadership/childrens-ministry-leader-role",
+    "administrative/purchasing/childrens-ministry-equipment",
+    "administrative/financial/church-insurance-basics"
+  ],
+  "section_id": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+  "slug": "launch-team/volunteer-background-check-process",
+  "sort_order": 10,
+  "status": "draft",
+  "title": "Volunteer Background Check Process",
+  "updated_at": "2026-10-16T01:51:23Z",
+  "draft": {
+    "backlog_id": "A28",
+    "tier": "A",
+    "closes": [
+      "34.11.d"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Introduction and warning: screening is part of prevention alongside supervision, safe environments, response and training. CDC MMWR summarizes its prevention components.",
+        "url": "https://www.cdc.gov/Mmwr/preview/mmwrhtml/mm5623a5.htm",
+        "publisher": "Centers for Disease Control and Prevention",
+        "quote": "screening and selecting employees and volunteers; ... monitoring behavior; ... ensuring safe environments; ... training in child sexual-abuse prevention.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Introduction, sections 1-3, warning, tip, closing checklist: CDC 2007 report, printed pp. 2, 4-8. Recommends legal/insurer review; consistent screening and named decision maker; application, interview, references, no exceptions for known applicants; checks have incomplete geographic coverage. These are recommendations, not new legal mandates. The practical review questions apply those recommendations.",
+        "url": "https://stacks.cdc.gov/view/cdc/7538/cdc_7538_DS1.pdf",
+        "publisher": "Centers for Disease Control and Prevention",
+        "quote": "Identify who will make the final selection. ... Records are not always linked or comprehensive, ... attorney and insurance company, as needed.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 1: federal employment decisions using consumer reports require FCRA compliance; hiring and retention are included.",
+        "url": "https://www.ftc.gov/business-guidance/privacy-security/credit-reporting",
+        "publisher": "Federal Trade Commission",
+        "quote": "When you use consumer reports to make employment decisions like hiring, promotion, reassignment, and retention, the Fair Credit Reporting Act requires",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 4: quote reproduced exactly in body; permission may share disclosure document. FTC employer guidance is framed around applicants and employees, not a blanket classification of unpaid volunteers.",
+        "url": "https://www.ftc.gov/business-guidance/resources/using-consumer-reports-what-employers-need-know",
+        "publisher": "Federal Trade Commission",
+        "quote": "Get written permission from the applicant or employee.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 4: written standalone disclosure belongs outside the application.",
+        "url": "https://www.ftc.gov/business-guidance/resources/using-consumer-reports-what-employers-need-know",
+        "publisher": "Federal Trade Commission",
+        "quote": "in a stand-alone format",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 1, 4 and tip: before ordering, certify disclosure and permission, compliance with all FCRA requirements, and no unlawful discrimination or misuse; ask counsel to check applicability to the actual role. See Before You Get Background Information, FTC subsection.",
+        "url": "https://www.eeoc.gov/laws/guidance/background-checks-what-employers-need-know",
+        "publisher": "U.S. Equal Employment Opportunity Commission and Federal Trade Commission",
+        "quote": "complied with all of the FCRA requirements;",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5 and closing checklist: before adverse employment action provide the report and named rights summary supplied by the reporting company; advance notice permits review. Sections Using Background Information, FTC subsection.",
+        "url": "https://www.eeoc.gov/laws/guidance/background-checks-what-employers-need-know",
+        "publisher": "U.S. Equal Employment Opportunity Commission and Federal Trade Commission",
+        "quote": "all of the FCRA requirements;",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5: notice precedes the final decision and allows review. No fixed waiting interval is asserted. Counsel-review questions implement the source process.",
+        "url": "https://www.eeoc.gov/laws/guidance/background-checks-what-employers-need-know",
+        "publisher": "U.S. Equal Employment Opportunity Commission and Federal Trade Commission",
+        "quote": "opportunity to review the report",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 5-6: FTC August 2025 guidance, If You’re Turned Down for a Job or Promotion. Final oral/written/electronic notice identifies report-based decision, reporting company contact details, company not decision-maker, dispute and additional free report rights. Request within 60 days of employer decision. Person can send supporting evidence to reporting company and request corrected report be sent to employer.",
+        "url": "https://consumer.ftc.gov/articles/employer-background-checks-and-your-rights",
+        "publisher": "Federal Trade Commission",
+        "quote": "name, address, and phone number ... didn’t make the decision ... inaccurate or incomplete. ... within 60 days of the employer’s decision.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 3 and 8, important callout, closing checklist: PA DHS clearance list distinguishes required child-abuse and state-police clearances from FBI clearance for some volunteers. Renewal rule is every 60 months measured from oldest clearance, potentially more frequently. This example does not establish requirements in other states.",
+        "url": "https://www.pa.gov/agencies/dhs/resources/keep-kids-safe/child-abuse-clearances",
+        "publisher": "Pennsylvania Department of Human Services",
+        "quote": "Clearances are required for an employee or unpaid volunteer every 60 months from the date of the oldest clearance.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 3: current Volunteer FAQ dated October 1, 2026, pp. 1-2. Vendors can assist applications for required clearances, cannot replace those clearances with searches in other databases, and selection responsibility remains with the organization.",
+        "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/dhs/documents/keepkidssafe/clearances/documents/kks-faq-volunteers.pdf",
+        "publisher": "Pennsylvania Department of Human Services",
+        "quote": "PA Child Abuse, PSP, and DHS FBI ... process clearances through other databases in lieu of these three clearances.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 7 and closing checklist: FTC Scale Down and Lock It recommend limited access, secure paper storage, protected electronic access, avoiding unencrypted sensitive email, and a written retention policy covering security, duration and disposal.",
+        "url": "https://www.ftc.gov/business-guidance/resources/protecting-personal-information-guide-business",
+        "publisher": "Federal Trade Commission",
+        "quote": "develop a written records retention policy ... Scale down access to data. ... Unencrypted email is not a secure way to transmit information.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 7: recordkeeping requirements must be met before disposing of reports.",
+        "url": "https://www.eeoc.gov/laws/guidance/background-checks-what-employers-need-know",
+        "publisher": "U.S. Equal Employment Opportunity Commission and Federal Trade Commission",
+        "quote": "applicable recordkeeping requirements",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 7: dispose of paper and electronic consumer-report information so it cannot be read or reconstructed. FTC lists both physical and electronic methods.",
+        "url": "https://www.ftc.gov/business-guidance/resources/disposing-consumer-report-information-rule-tells-how",
+        "publisher": "Federal Trade Commission",
+        "quote": "destroy or erase electronic files or media containing consumer report information so that the information cannot be read or reconstructed;",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 7: current product scope excludes background checks and removes background-check fields and filters from People/team/training reads. The instruction to keep reports and status outside EveryField implements this scope.",
+        "url": "https://github.com/SebastianGarces/everyfield/blob/0d8d60cfd3b248bf07ba935753de9f7ec29d310b/docs/product/scope.md",
+        "publisher": "EveryField, current approved product scope",
+        "quote": "Background-check fields/filters are removed from otherwise retained People/team/training reads.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Final scripture callout: Proverbs 22:3 opened individually; exact LSB verse with a space for the poetic line break. No theological or policy conclusion is drawn from the verse.",
+        "url": "https://read.lsbible.org/proverbs/22/3",
+        "publisher": "The Lockman Foundation / Legacy Standard Bible",
+        "quote": "A prudent man sees evil and hides, But the simple pass on, and are punished.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author source audit completed 2026-10-16; independent Opus source, scripture and screenshot review pending. Sources were opened directly, including current DHS-linked FAQ dated 2026-10-01. Federal employment procedure is explicit; volunteer applicability is left to counsel. Source quotations are short excerpts; ellipses mark separate excerpts. Source claim fields map body sections and procedural questions to the opened context. No publication approval."
+    },
+    "rulings": [
+      "Resolved wording: describe the general federal employment-report process before the Pennsylvania example; do not classify all unpaid volunteers as employees or imply that consent alone determines FCRA applicability. Counsel must confirm rules before use.",
+      "Resolved scope: keep all background-check reports and status outside EveryField. Do not add storage, fields, reminders or tracking promises.",
+      "Resolved article boundary: explain the process without prescribing child-protection policy, disqualification criteria, pastoral decisions or a universal renewal period. B10 remains separate.",
+      "Resolved source choice: use the live DHS-linked Volunteer FAQ dated 2026-10-01. Older indexed 2024 URL returned 404 and supplies no claims.",
+      "Resolved date: all sources accessed 2026-10-16 UTC; statutory, agency and vendor procedures may change. No fees, residence exceptions, processing-time promises or fixed pre-adverse waiting period are supplied."
+    ]
+  }
+}
