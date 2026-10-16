@@ -158,9 +158,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source audit completed 2026-10-16; independent Opus source, scripture and screenshot review pending. Sources were opened directly, including current DHS-linked FAQ dated 2026-10-01. Federal employment procedure is explicit; volunteer applicability is left to counsel. Source quotations are short excerpts; ellipses mark separate excerpts. Source claim fields map body sections and procedural questions to the opened context. No publication approval."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5, independent, claude-code)",
+      "notes": "Passed at reviewed draft commit 3ba8fb5da767d43572704eac02f14e95c0086f62. The aa4694d review (PR #44 comment 6206413021) passed every source claim, Proverbs 22:3 (LSB) word for word, lint and rendering except F1 and one source-metadata fix. 3ba8fb5 changes only the section 4 certification sentence and the claim, URL, publisher and quote of the two source entries named in that review. Re-read https://www.ftc.gov/business-guidance/resources/using-consumer-reports-what-employers-need-know on 2026-10-16: the new sentence carries all three certification items, including \"all of the FCRA requirements\" and \"will not discriminate ... or otherwise misuse the information, as provided by any applicable federal or state equal opportunity laws or regulations\", with \"the person\" for \"the applicant or employee\"; no overstatement. Both new quotes and the cited headings (Before You Get a Consumer Report; Before You Take an Adverse Action) are verbatim. bin/wiki lint passes (965 words, no warnings); check-seed passes. Desktop 1280 and mobile 390 screenshots render all sections, callouts, list, checklist, scripture and the LSB notice, and the PR-body images match a fresh render byte for byte. Editorial content/tooling proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Resolved wording: describe the general federal employment-report process before the Pennsylvania example; do not classify all unpaid volunteers as employees or imply that consent alone determines FCRA applicability. Counsel must confirm rules before use.",
