@@ -1,0 +1,214 @@
+{
+  "church_id": null,
+  "content": "Plan your service around the people the venue can safely accommodate. Include how they arrive, move through the building and leave, rather than considering only the seated gathering.\n\nStart with the approved occupancy and your actual room layout. Then use attendance estimates and on-site observations to plan admissions and respond to crowding.\n\n---\n\n## Confirm the limit with the local authority\n\nIn the United States, building codes mostly belong to state and local governments. NIST explains that jurisdictions adopt model codes and may change their provisions. Begin with your local fire marshal and building department when confirming the occupancy limit for your proposed worship use.\n\nAsk the owner for the occupancy documentation and ask the local authority which rooms and arrangements it covers. In Fairfax County, Virginia, for example, assembly occupancy submissions include floor plans, seating diagrams and occupancy documents. Its guidance explicitly includes places of worship.\n\n<Callout type=\"important\">\nThe agency guidance here was checked October 16, 2026. Confirm current occupancy requirements and the approved layout with your local fire marshal and building department. The Fairfax examples describe that locality's process.\n</Callout>\n\n---\n\n## Check the setup you will actually use\n\nA different room arrangement can need a different occupancy assessment. Fairfax notes that spaces with multiple configurations may have different seating diagrams and occupant loads. Ask about your proposed setup before changing it.\n\nBring a drawing that shows the seating, stage, tables and equipment alongside exits and aisles. Fairfax's submission guidance asks for these details, including exit-door and aisle widths. Ask which approved drawing your setup team should follow.\n\nWalk the routes before admitting people. Check that designated exits are available for immediate use, paths are unobstructed and exit signs remain visible. Fairfax's assembly checklist asks operators to check these conditions.\n\n<Callout type=\"warning\">\nKeep crowds out of exit aisles and doorways. Fairfax's checklist addresses obstructions caused by people as well as objects. An empty chair does not excuse a blocked exit route.\n</Callout>\n\n---\n\n## Include people beyond the worship seats\n\nCount the people using the space, including those serving. Fairfax's checklist limits the number of persons inside an occupancy to its approved load; it does not describe a limit only for seated guests.\n\nAsk the local authority how the building's limits apply to the worship room, children's rooms and shared areas. Ask how children, volunteers and people moving between rooms should be included in the count for your arrangement.\n\nFor practical planning, the UK's Health and Safety Executive, or HSE, advises considering young people and people with disabilities when assessing crowd risks. Use its event guidance here as planning advice, with local officials confirming the applicable US requirements.\n\n---\n\n## Forecast attendance before setting the plan\n\nHSE suggests considering past attendance, pre-event registration, publicity and particularly busy days when estimating turnout. Use those inputs for your service rather than assuming every gathering will draw the same crowd.\n\n| Planning input | Question to answer |\n|---|---|\n| Previous attendance | What happened at comparable gatherings? |\n| Registration | What interest have people already expressed? |\n| Publicity | How widely is this gathering being promoted? |\n| Special activities | Might these bring additional visitors? |\n| Weather and transport | Could these affect attendance? |\n\nConsider how visitors will find their way. HSE notes that guests may be unfamiliar with a venue's layout. Include entrances, seating areas and exits in the information your team provides.\n\n---\n\n## Keep a live count during the gathering\n\nHSE recommends monitoring both the total number of people and their distribution. Watch entrances, exits, queues and confined areas. A total below the venue limit does not tell you whether a particular doorway is becoming crowded.\n\nHand counters at entry and exit points are among HSE's suggested counting methods. Choose a method your team can maintain while people arrive and depart. Keep the current count available to the person coordinating admissions.\n\nGive counters time to do the job. HSE advises checking that staff who monitor crowds alongside other duties have enough opportunity to monitor, or considering additional help during busy periods.\n\n<Callout type=\"tip\">\nWatch the queues as well as the count. HSE recommends monitoring how people are distributed, not only the overall total. Ask someone to report developing congestion while others track admissions.\n</Callout>\n\n---\n\n## Plan the handover between services\n\nHSE identifies arrival, movement inside the venue and departure as separate crowd-management concerns. For larger crowds, it suggests phased arrivals and departures, including staggered event times.\n\nIf you are considering another service, plan what happens while one gathering leaves and the next arrives. Review entrances, waiting areas and departure routes with the venue. Check where opposing flows of people could meet.\n\nKeep waiting lines away from emergency access routes. HSE advises providing a safe way out of a queue without forcing people against the queue or into moving vehicles. Include parking directions in the arrival information where people will drive.\n\n---\n\n## Decide how to respond before capacity is reached\n\nWhere arrivals might exceed safe capacity, HSE advises planning how to monitor numbers and redirect excess people. It also identifies overflow space as an option to consider. Discuss that option with the owner and local fire marshal before offering it.\n\nAsk which proposed overflow room is approved for the intended use and what limit applies there. Keep the response within the confirmed occupancy arrangements. Train the team to follow that plan rather than allowing more people into a full space.\n\nGive guests clear directions before and during the gathering. HSE recommends using visitor information, signs and stewards to direct people toward safe routes and away from prohibited areas.\n\n---\n\n## Brief the team and review what happened\n\nHSE advises giving volunteers the information and training needed for their work, with supervision suited to the event's risks. Before opening, confirm these arrangements:\n\n- [ ] Volunteers know their crowd-management duties.\n- [ ] The team knows how to report crowding.\n- [ ] A coordinator can receive reports and direct a response.\n- [ ] Emergency arrangements are ready.\n\nAfter the gathering, discuss problems and successes and revise the plan where needed. HSE recommends debriefing after events, particularly after significant incidents or when considering changes to layouts or procedures.\n\n<Callout type=\"scripture\">\n*\"But all things must be done properly and in an orderly manner.\"* — 1 Corinthians 14:40 (LSB)\n</Callout>\n",
+  "content_type": "guide",
+  "created_at": "2026-10-16T01:50:47.837529+00:00",
+  "excerpt": "Confirm local occupancy limits, check your service layout, count people and plan queues, turnover and overflow before the room fills.",
+  "id": "2ffa2efb-c2a1-43e0-a15f-2bdca0fc84f9",
+  "phase": 2,
+  "published_at": null,
+  "read_time_minutes": 6,
+  "related_article_slugs": [
+    "launch-team/comparing-and-scoring-venues",
+    "launch-team/leadership/facilities-leader-role",
+    "pre-launch/pre-launch-services",
+    "administrative/financial/church-insurance-basics"
+  ],
+  "section_id": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+  "slug": "launch-team/planning-services-around-room-capacity",
+  "sort_order": 2,
+  "status": "draft",
+  "title": "Planning Services Around Room Capacity",
+  "updated_at": "2026-10-16T01:50:47.837529+00:00",
+  "draft": {
+    "backlog_id": "A25",
+    "tier": "A",
+    "closes": [
+      "33.2"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Section 1: US building-code authority is mostly state/local; adopted model codes may be changed. Ask the local authorities rather than prescribing a nationwide room limit.",
+        "url": "https://www.nist.gov/buildings-construction/understanding-building-codes",
+        "publisher": "National Institute of Standards and Technology",
+        "quote": "In the U.S., building codes mostly fall under the purview of state and local governments.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 1, 2 and 7: Request occupancy documentation and actual-use plans; configurations may have different occupant loads; confirm approval for any proposed overflow room. These are questions applying the local example, not national permit requirements.",
+        "url": "https://www.fairfaxcounty.gov/landdevelopment/posting-maximum-occupant-load",
+        "publisher": "Fairfax County Land Development Services",
+        "quote": "may have different seating diagrams/occupant loads for each use.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 1 and 2: The local example includes worship; the submission calls for plans showing seating, stages, fixtures, exits and aisle widths. The actual setup should be checked against its approval.",
+        "url": "https://www.fairfaxcounty.gov/landdevelopment/posting-maximum-occupant-load",
+        "publisher": "Fairfax County Land Development Services",
+        "quote": "Location and sizes of stages",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 2, 3 and 7: The approved load concerns persons inside, not just seated guests. Ask about each room and the people in it, including children and volunteers. Do not exceed the confirmed limit.",
+        "url": "https://www.fairfaxcounty.gov/fire-ems/fire-marshal/assembly-occupancy-guideline",
+        "publisher": "Fairfax County Office of the Fire Marshal",
+        "quote": "Is the number of persons inside the occupancy limited to the approved occupant load?",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 2: Exit paths must remain usable, including while people gather there; checking exits before opening is also supported by HSE controls guidance.",
+        "url": "https://www.fairfaxcounty.gov/fire-ems/fire-marshal/assembly-occupancy-guideline",
+        "publisher": "Fairfax County Office of the Fire Marshal",
+        "quote": "Are exit aisles, exit passageways, and exit doorways not obstructed",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening and sections 3 and 4: Plan for the actual crowd, young people, disabilities, prior turnout, registration, publicity, busy occasions, weather/transport and unfamiliar visitors. Table applies these forecasting inputs as questions.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-assess.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "previous attendance figures",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 3 and 4: Consider the people attending and their needs. These are event-planning recommendations, not US code or childcare-ratio claims.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-assess.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Remember to consider young people and people with disabilities or learning difficulties when deciding the appropriate action to take.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 8: Debrief problems and successes, particularly after incidents or when considering layout/procedure changes, and improve the next plan.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-assess.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "It is also good practice to debrief after an event and certainly after any significant incident/emergency or when any changes in venue design or procedures are considered.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening and section 5: Track the total and distribution, including entrances, queues and confined areas. Hand counters at entries/exits are a suggested method, not a legal mandate.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-monitoring.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "monitoring the distribution of people (to help prevent local overcrowding)",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Opening and sections 6, 7 and 8: Plan arrivals, circulation and departures; for larger crowds consider staggered times; keep exits/queues safe; prepare emergency arrangements and consider redirection/overflow if arrivals might exceed capacity.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-controls.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "staggering the start and/or finish of several events within the venue",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 6 and 7: Identify and discuss crossing flows and safe queues; overflow/redirection is an option to plan, subject to local occupancy confirmation.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-controls.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Consider providing overflow space and additional routes for excess people to prevent crushing, when deciding on the most appropriate action to take.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 4, 7 and 8: Provide visitor directions, train volunteers, arrange suitable supervision and clear communications with a control point for crowd reports and coordinated responses.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-control-inside.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Everyone, including volunteers, should have the information, instruction and training needed to work safely and without risks to health.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Scripture callout: exact complete verse, checked individually on the publisher site; no code rule or attendance threshold is derived from the verse.",
+        "url": "https://read.lsbible.org/1-corinthians/14/40",
+        "publisher": "The Lockman Foundation / Three Sixteen Publishing",
+        "quote": "But all things must be done properly and in an orderly manner.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 4 and 8: Forecast table and debrief summary use the agency lists. Prior turnout, registrations, publicity, busy days, additional visitors and weather/transport are inputs, not attendance guarantees.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-assess.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "When forecasting the expected turnout,you could consider:",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 4: Give visitors venue information because the building may be unfamiliar.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-assess.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Visitors may be unfamiliar with venue layout and its facilities.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5: Use entry/exit counts and hand counters; allocate sufficient time or help if monitoring competes with other duties.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-monitoring.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "If monitoring is done by staff as part of other duties, eg ticket checking, make sure they have enough opportunities and time to do this.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 5: Hand counters are an option for live entry/exit estimates. Report crowding as well as total numbers.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-monitoring.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Counting systems at entry and exit points can help you estimate numbers within your venue or area of the venue, for example:",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 2 and 8: Opening checks include unlocked exits, clear routes and emergency arrangements.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-controls.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Before allowing people into the venue, ensure all exits are unlocked, pedestrian routes are clear and your emergency arrangements are in place.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 6: Queues must have a safe way out and must not obstruct emergency access. These instructions apply the agency guidance to service turnover.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-controls.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Make sure there is a safe way people can get out of a queue without having to move against those queuing behind them or into the path of moving vehicles.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Sections 2, 4 and 7: Keep routes clear and communicate directions with signs and stewards.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-control-inside.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "Provide  an appropriate number of signposts and/or stewards wearing tabards on the day to direct people to safe walkways, viewing areas and to prevent people from entering prohibited areas.",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      },
+      {
+        "claim": "Section 8: Central coordination of crowd reports supports the briefing checklist.",
+        "url": "https://www.hse.gov.uk/event-safety/crowd-management-control-inside.htm",
+        "publisher": "UK Health and Safety Executive",
+        "quote": "coordinate the response of all staff responsible for crowd management",
+        "accessed": "2026-10-16",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author checked source pages and the individual LSB verse. Independent Opus claim, scripture and screenshot review remains pending; source entries map practical applications to the guidance they apply."
+    },
+    "rulings": [
+      "Editorial, resolved: use local fire marshal/building department approval for the actual configuration; do not calculate a universal occupancy from floor area.",
+      "Editorial, resolved: omit attendance percentages, universal service-addition triggers and childcare ratios; no rule of thumb is presented as law.",
+      "Editorial, resolved: identify UK HSE material as practical event-planning guidance, not US law; explain US state/local code authority before the Fairfax example.",
+      "Editorial, resolved: keep four nearest published articles as related links; do not repeat venue scoring, insurance selection or the Pre-Launch Service schedule.",
+      "Source attribution: Contains public sector information published by the Health and Safety Executive and licensed under the Open Government Licence. Licence confirmed at https://www.hse.gov.uk/help/copyright.htm on 2026-10-16. Quotations remain research metadata, not copied article prose."
+    ]
+  }
+}
