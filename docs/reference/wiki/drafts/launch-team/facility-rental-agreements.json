@@ -215,9 +215,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author checked source claims and exact verse; independent Opus review of claims, scripture and full screenshots remains required. As of October 15, 2026. Checklist questions are applications of cited terms, not asserted legal requirements."
+      "status": "passed",
+      "reviewer": "Opus (verifier, independent)",
+      "notes": "Independent Opus re-review of 05be75d (prior review failed 608f327). Fixes B1 and B2 confirmed: cost table replaced exactly as requested, no split words at 390 px; sources[8] claim matches Clover Park Fees and Step Four (re-fetched 2026-10-15); sources[7] wording updated to match the table. Body otherwise unchanged; earlier passed checks of all sources and Proverbs 15:22 (LSB) stand. Lint passes, 1,001 words, no warnings. Desktop and mobile screenshots render fully with the LSB notice once."
     },
     "rulings": [
       "Resolved: cover federal ADA entity scope before local agreement examples; do not give a universal worship-use entitlement or accessibility exemption for the venue.",
