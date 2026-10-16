@@ -263,9 +263,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author opened the cited sources individually on 2026-10-16 and checked the LSB verse individually. Independent Opus source, scripture and screenshot review is required. Source claims map to named article sections; quoted excerpts are brief anchors, and the reviewer must read the full cited sections. This is editorial content/tooling proof, not application acceptance."
+      "status": "passed",
+      "reviewer": "Opus (independent verifier, claude-code)",
+      "notes": "Passed at reviewed draft commit a9b115c4722bfdae74c8430757c897895138d10b. The 9ce7c6f review (PR #38 comment 6206320754) passed every source claim except B1. a9b115c removes only the unsupported speed-test sentence and the matching phrase in the OBS Stream Connection Troubleshooting source claim; the remaining paragraph matches that page (wired connection recommended because Wi-Fi may be unstable; dropped frames mean an unstable connection or an unsustainable bitrate; lower the video bitrate). 1 Corinthians 14:40 (LSB) matched word for word in the prior review and is unchanged. bin/wiki lint passes (1,037 words, no warnings). Desktop 1280 and mobile 390 screenshots show complete content, readable tables and checklist, and the LSB notice. This is editorial content/tooling proof, not application acceptance."
     },
     "rulings": [
       "Use YouTube Live and OBS as an explicit worked example; do not imply that all platforms share controls or eligibility.",
