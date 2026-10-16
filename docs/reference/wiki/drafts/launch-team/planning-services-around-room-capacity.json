@@ -199,9 +199,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author checked source pages and the individual LSB verse. Independent Opus claim, scripture and screenshot review remains pending; source entries map practical applications to the guidance they apply."
+      "status": "passed",
+      "reviewer": "verifier (claude-code, Opus)",
+      "notes": "Independent Opus review. Full review at a8504e2 re-fetched all 7 sources and 1 Corinthians 14:40 on lsbible.org and found three overstated or misattributed sentences (PR #43 comment 6206361767). Re-review at 2d79794 on 2026-10-16: diff a8504e2..2d79794 changes only those three sentences and their three source claim fields. The queue sentence matches HSE crowd-management-controls ('Queuing should not block emergency access routes'). The checklist sentence matches Fairfax assembly-occupancy-guideline self-inspection item 11 ('Is the number of persons inside the occupancy limited to the approved occupant load?'). The posting sentence matches Fairfax LDS posting-maximum-occupant-load minimum submission requirements (floor plan and seating diagrams; any other document pertaining to occupancy limits). bin/wiki lint, desktop and mobile shots pass; PR screenshots match the 2d79794 render byte for byte."
     },
     "rulings": [
       "Editorial, resolved: use local fire marshal/building department approval for the actual configuration; do not calculate a universal occupancy from floor area.",
