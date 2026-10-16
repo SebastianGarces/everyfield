@@ -1,0 +1,229 @@
+{
+  "church_id": null,
+  "content": "Your venue comparison identifies a promising place to meet. Before you commit, check the written terms for the rooms, activities and hours your church needs. Keep unresolved permissions separate from the venue's score.\n\nUse this checklist with the proposed agreement, current fee schedule and insurance instructions in front of you. Bring unclear terms to a local attorney and insurance questions to your agent.\n\n---\n\n## Start with access and legal scope\n\nUnder the federal Americans with Disabilities Act, religious entities are exempt from Title III. Public entities are subject to Title II. The Department of Justice describes these as different obligations, so ask an attorney which rules apply to the parties and activities in your arrangement.\n\nReview practical access alongside that legal discussion. Washington's Education Ombuds checklist asks about parking, entrances, routes to meeting rooms, restrooms and emergency exits. Use those questions to check the specific areas offered to you.\n\n<Callout type=\"warning\">\nThis is general guidance, not legal advice. The district agreements below are local examples. Ask a local attorney to review your proposed agreement before signing.\n</Callout>\n\n---\n\n## Name the use, rooms and hours\n\nAsk the venue to identify your permitted activities and each room included. Describe worship and children's activities rather than leaving the use unclear. Fairfax County Public Schools in Virginia uses an agreement specifically for religious and cultural programs. Its sample excludes storage, so ask about equipment storage separately.\n\nCheck access before and after the gathering. Fairfax's auditorium guidelines include setup and breakdown in requested time, tie fees to total time in the building, and require separate requests for dressing rooms.\n\n- [ ] Which rooms are included, and which need separate approval?\n- [ ] Do the requested hours include setup, sound checks and teardown?\n- [ ] Are additional rehearsal dates included?\n- [ ] What equipment must you request separately?\n\n---\n\n## Price the whole reservation\n\nUse the owner's current quote to fill in the cost questions below. Clover Park School District in Washington separates space rental from special equipment and lighting. Its guidance also describes staffing charges, possible security and possible cleaning or damage deposits.\n\n| Item | Question to resolve |\n|---|---|\n| Space | Which rooms and hours does the quote cover? |\n| Staff | Which employees are required, and what time is billable? |\n| Equipment | What is included, and what costs extra? |\n| Deposits | What is refundable, and under what conditions? |\n| Payment | When is payment due, and what confirms the booking? |\n\nClover Park describes its booking fee as nonrefundable and says the booking is not confirmed until payment of that fee. Ask your venue how its own process works. Keep the booking payment separate from questions about cleaning and damage deposits.\n\n<Callout type=\"important\">\nExamples were checked October 15, 2026. Confirm current terms, fees, deadlines and insurance requirements with Fairfax County Public Schools, Frederick County Public Schools or Clover Park School District before relying on their examples. Confirm current federal accessibility guidance with the Department of Justice and Texas insurance guidance with the Texas Department of Insurance where relevant.\n</Callout>\n\n---\n\n## Check insurance against the policy\n\nGive your agent the venue's written insurance instructions. Clover Park asks for a certificate showing the district as both certificate holder and additional insured. Ask what your own venue requires and which policy documents support that status.\n\nThe Texas Department of Insurance explains that certificate wording cannot expand policy coverage. Its guidance also says a certificate's cancellation-notice provision cannot go beyond the policy's requirements. These are Texas examples of why the underlying documents matter.\n\n<Callout type=\"tip\">\nAsk your agent to show the policy or endorsement supporting an additional-insured request. Texas insurance guidance permits requesting policy copies. Keep the coverage question separate from what appears in the certificate-holder box.\n</Callout>\n\n---\n\n## Read what the signature commits you to\n\nLook for personal payment obligations as well as obligations of the church. Fairfax's religious and cultural sample makes the signer financially liable if the organization does not pay in full. Ask your attorney what the signature would mean under your agreement.\n\nRead indemnity and hold-harmless language with the attorney, too. Fairfax's sample places liabilities arising from the organization's use on the organization and includes attorneys' fees. Ask which losses you would accept and which your insurer would cover.\n\nDo not treat a certificate of insurance as an answer to every contractual promise. Compare the agreement with the actual policy documents.\n\n---\n\n## Check cancellation in both directions\n\nAsk what happens when you cancel, when the owner needs the space, and when weather closes the building. Fairfax's sample allows relocation or cancellation because of school activities and programs.\n\nFrederick County Public Schools in Maryland says event cancellations and modifications must be made by email to its coordinator and school site administrators at least 10 calendar days before the event. It says full facility fees and/or custodian fees apply when cancellation or modification occurs less than 10 calendar days before the event.\n\nUse that as a local example of a deadline to record accurately. Ask your venue about the notice method, recipients, charges and any refund terms. Distinguish cancellation of one gathering from ending the whole agreement.\n\n---\n\n## Check the end date and renewal\n\nRead the start and end provisions before planning beyond the term. New York City's commercial-leasing guide recommends negotiating a renewal option and addressing how renewal rent will be determined. Use that as a discussion prompt for your arrangement, without assuming a recurring school permit works like a commercial lease.\n\nAsk whether continued use needs a new application, written renewal or another approval. If there is a renewal option, ask how to exercise it and how the next price is set. Keep the owner's answer with the proposed terms.\n\n---\n\n## Review the final packet\n\nReturn to unresolved permissions and costs from your venue comparison. Consider an attorney's review of unclear lease terms, as the Small Business Administration suggests.\n\n- [ ] Match the rooms, activities and access hours to your request.\n- [ ] Match the quote to the staff and equipment you need.\n- [ ] Review liability wording and insurance documents with the appropriate professionals.\n- [ ] Record cancellation and renewal instructions before committing.\n\n<Callout type=\"scripture\">\n*\"Without consultation, plans are frustrated, But with many counselors they succeed.\"* — Proverbs 15:22 (LSB)\n</Callout>\n",
+  "content_type": "reference",
+  "created_at": "2026-10-16T01:41:30.075130Z",
+  "excerpt": "Questions to review with a venue, attorney and insurance agent before committing to a facility rental agreement.",
+  "id": "a6d16285-21c8-4bb2-a481-07f856c54729",
+  "phase": 2,
+  "published_at": null,
+  "read_time_minutes": 6,
+  "related_article_slugs": [
+    "launch-team/comparing-and-scoring-venues",
+    "administrative/financial/church-insurance-basics",
+    "launch-team/leadership/facilities-leader-role"
+  ],
+  "section_id": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+  "slug": "launch-team/facility-rental-agreements",
+  "sort_order": 10,
+  "status": "draft",
+  "title": "Facility Rental Agreements: Terms to Check",
+  "updated_at": "2026-10-16T01:41:30.075130Z",
+  "draft": {
+    "backlog_id": "A24",
+    "tier": "A",
+    "closes": [
+      "22.5.g",
+      "33.1"
+    ],
+    "approver": "Sebastian",
+    "replaces_id": null,
+    "sources": [
+      {
+        "claim": "Permitted-use questions in the introduction and rooms section are applications of sample I, which names religious/cultural use and specified rooms and times.",
+        "url": "https://www.fcps.edu/sites/default/files/media/pdf/longtermuse.pdf",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "sole purpose of religious/cultural programs",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Ask about storage separately; sample III.G excludes storage.",
+        "url": "https://www.fcps.edu/sites/default/files/media/pdf/longtermuse.pdf",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "Storage space is not available",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Signature and indemnity review: III.B makes the signer financially liable if the organization does not pay in full; III.F includes attorneys’ fees in indemnity. These are local sample terms, not universal legal obligations.",
+        "url": "https://www.fcps.edu/sites/default/files/media/pdf/longtermuse.pdf",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "financially liable",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The indemnity review question includes legal costs under III.F; ask an attorney about the promise and insurer about coverage.",
+        "url": "https://www.fcps.edu/sites/default/files/media/pdf/longtermuse.pdf",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "including attorneys’ fees",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Cancellation in both directions: IV.C allows moving a program or canceling because of school activities; IV.A and IV.G distinguish ending the agreement from a single event.",
+        "url": "https://www.fcps.edu/sites/default/files/media/pdf/longtermuse.pdf",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "could be canceled due to FCPS activities",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Rooms-and-hours prose, checklist and final packet: Auditorium Use Guidelines say requested time should include setup, breakdown and actual event time, including separate rehearsals; fees relate to total time. Sound checks are an application to the church request.",
+        "url": "https://www.fcps.edu/services/community-resources/community-use-school-facilities/community-use-guidelines",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "should include setup and breakdown time as well as actual event time",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Auditorium guidelines require separate dressing-room requests and clearly stated equipment needs. Checklist questions apply those terms to the proposed reservation.",
+        "url": "https://www.fcps.edu/services/community-resources/community-use-school-facilities/community-use-guidelines",
+        "publisher": "Fairfax County Public Schools",
+        "quote": "dressing rooms. Those must be requested.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Cost section and table are questions applying Please Keep in Mind items 1–6: staff and billable time, special equipment, security, possible deposits; Fees describes hourly charges, payment deadlines, booking and credits/refunds. The important callout asks readers to confirm current terms.",
+        "url": "https://www.cloverpark.k12.wa.us/facilities-rental",
+        "publisher": "Clover Park School District",
+        "quote": "Rentals do not include special equipment, lighting, etc.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Booking paragraph distinguishes the nonrefundable booking fee from possible cleaning/damage deposits; Fees says payment of the booking fee confirms booking.",
+        "url": "https://www.cloverpark.k12.wa.us/facilities-rental",
+        "publisher": "Clover Park School District",
+        "quote": "A non-refundable booking fee is required",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Insurance section asks agent to compare the district request with the church policy: Insurance Requirements names both certificate holder and additional insured.",
+        "url": "https://www.cloverpark.k12.wa.us/facilities-rental",
+        "publisher": "Clover Park School District",
+        "quote": "Certificate Holder & Additional Insured",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Federal rule first: III-1.5000 exempts religious entities from Title III. Opening scope and legal-review question avoid extending that statement to other entities or all accessibility law.",
+        "url": "https://www.ada.gov/resources/title-iii-manual/",
+        "publisher": "U.S. Department of Justice",
+        "quote": "Religious entities are exempt from the requirements of title III",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "III-1.7000 distinguishes public-entity Title II obligations. Counsel should assess actual parties and activities; no automatic venue exemption is claimed.",
+        "url": "https://www.ada.gov/resources/title-iii-manual/",
+        "publisher": "U.S. Department of Justice",
+        "quote": "a public entity, is subject to title II",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Practical access prose applies the venue-site-visit questions about parking, entrances, meeting rooms, restrooms and emergency exits, without importing the checklist dimensions as universal mandates. Web reader failed; author opened and read the page directly with Python urllib.",
+        "url": "https://www.oeo.wa.gov/en/event-accessibility-checklist",
+        "publisher": "Washington State Governor's Office of the Education Ombuds",
+        "quote": "Are meeting rooms along an accessible route of travel?",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Insurance prose and tip: FAQ 3 permits policy/endorsement copies, FAQ 5 limits certificate cancellation notice to policy requirements, and FAQ 19 separates certificate holder naming from policy rights. Review actual documents rather than infer coverage from the certificate.",
+        "url": "https://www.tdi.texas.gov/certificates/faq.html",
+        "publisher": "Texas Department of Insurance",
+        "quote": "The certificate cannot go beyond the policy’s requirements.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "The tip and signature section call for actual policy/endorsement documents; FAQ 12 expressly permits asking the agent for policy copies.",
+        "url": "https://www.tdi.texas.gov/certificates/faq.html",
+        "publisher": "Texas Department of Insurance",
+        "quote": "may request a copy of the policy.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Certificate wording does not expand coverage; apply this to agent review, not as a nationwide certificate-form statute.",
+        "url": "https://www.tdi.texas.gov/bulletins/2006/cc16.html",
+        "publisher": "Texas Department of Insurance",
+        "quote": "neither amends, extends, or alters any term or condition of the coverage",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Cancellation section: Frederick local rule uses at least 10 calendar days before event, email to coordinator and site administrators; full facility fees and/or custodian fees for less than 10 days. Final checklist applies the local-rule example as a notice question.",
+        "url": "https://www.fcps.org/connect_with_fcps/use_of_facilities",
+        "publisher": "Frederick County Public Schools",
+        "quote": "at least 10 calendar days prior to the event date",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Full facility fees and/or custodian fees are the stated consequence of late cancellations/modifications, not a claim about universal penalties.",
+        "url": "https://www.fcps.org/connect_with_fcps/use_of_facilities",
+        "publisher": "Frederick County Public Schools",
+        "quote": "The full facility fees and/or custodian fees will be assessed",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Renewal section applies the guide’s Renewal Options, page 18: negotiate the option and how rent is determined; section is a discussion prompt, not a statement that a school permit is a commercial lease.",
+        "url": "https://www.nyc.gov/assets/sbs/downloads/pdf/about/reports/commercial-lease-guide-accessible.pdf",
+        "publisher": "NYC Department of Small Business Services",
+        "quote": "negotiating for an option to renew in your lease",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Intro, warning, signature-review referral and final checklist recommend considering local legal review of unclear terms; retain SBA’s suggestion strength, without saying law mandates attorney review.",
+        "url": "https://www.sba.gov/counseling/manage-your-business/",
+        "publisher": "U.S. Small Business Administration",
+        "quote": "You might want to ask an attorney to review a lease with you before signing",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Intro and final packet keep scoring distinct from permission and revisit unresolved terms, agreeing with published A23; author read actual seed row at base SHA 0d8d60c.",
+        "url": "https://github.com/SebastianGarces/everyfield/blob/0d8d60c/docs/reference/wiki/seed.json",
+        "publisher": "EveryField published Wiki, A23",
+        "quote": "It does not grant permission to use a building or replace checking the rental agreement.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Exact Proverbs 15:22 LSB scripture. Web reader errored; author fetched only this verse page with urllib and inspected passageHtml in __NEXT_DATA__, excluding verse numbers and footnotes.",
+        "url": "https://read.lsbible.org/?q=Proverbs+15%3A22",
+        "publisher": "Legacy Standard Bible",
+        "quote": "Without consultation, plans are frustrated, But with many counselors they succeed.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      },
+      {
+        "claim": "Warning and opening professional-review recommendation follows the NYC guide introductory instruction to consult professionals before signing, while the final section retains SBA’s softer suggestion.",
+        "url": "https://www.nyc.gov/assets/sbs/downloads/pdf/about/reports/commercial-lease-guide-accessible.pdf",
+        "publisher": "NYC Department of Small Business Services",
+        "quote": "Consult an attorney and other professional advisors before you sign a commercial lease.",
+        "accessed": "2026-10-15",
+        "kind": "primary"
+      }
+    ],
+    "claim_check": {
+      "status": "pending",
+      "reviewer": "",
+      "notes": "Author checked source claims and exact verse; independent Opus review of claims, scripture and full screenshots remains required. As of October 15, 2026. Checklist questions are applications of cited terms, not asserted legal requirements."
+    },
+    "rulings": [
+      "Resolved: cover federal ADA entity scope before local agreement examples; do not give a universal worship-use entitlement or accessibility exemption for the venue.",
+      "Resolved: present local agreement provisions as questions for the proposed rental. Omit local dollar limits and payment deadlines except the precisely sourced Frederick cancellation example.",
+      "Resolved: preserve A23 separation of permission and scoring, and the insurance article distinction between a certificate and policy coverage.",
+      "Resolved: quote Proverbs 15:22 exactly as a standalone scripture callout without a new theology or methodology claim."
+    ]
+  }
+}
