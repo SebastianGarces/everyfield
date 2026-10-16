@@ -68,9 +68,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Author source audit completed 2026-10-16. Full classifications and before/after fixes are in the PR body. Independent Opus review is pending. Scripture is unchanged from the published row."
+      "status": "passed",
+      "reviewer": "verifier (claude-code, Opus)",
+      "notes": "Independent Opus re-review on 2026-10-16. Full review at 48e0e20 failed (PR #45 comment 6206409585). Diff 52f5efc..b887080 changes only the reviewed items: blank lines after the three video tables, EasyWorship and MediaShout platform cells and their sources, the projector budget label, the check-in device row, the liability callout, the subwoofer bullet, the venue-factor intro and matching source-claim text. Reviewer opened the sources: EasyWorship lists 'Mac OS: macOS 14 (Sonoma) or later' and foldback; mediashout.com/download offers 'MediaShout for Windows or Mac' with separate Windows and Mac downloads; the Epson LS12000 spec lists '4K UHD (3840 x 2160)'; Planning Center Check-Ins says 'you need a computer, phone, or tablet with internet access'; Microsoft lists PowerPoint for Mac editions. Liability and subwoofer sentences are now labeled advice; the power factor is a labeled planning checklist. No new overstatement. Scripted diff against seed.json: only content, status, published_at and updated_at differ; headings, callouts, separators and scripture lines are unchanged. bin/wiki lint (6/6) and check-seed pass; render shows the three sentences as paragraphs, not table rows; desktop and mobile shots show all sections and the LSB notice. Editorial content proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Factual corrections only. Existing article id, heading sequence, scripture, phase, related articles and editorial voice retained.",
