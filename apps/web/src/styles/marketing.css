@@ -71,7 +71,11 @@
 
 @layer base {
   /* Light only: the root declares it, so browsers never draw a dark canvas, scrollbars or form controls. */
-  html { color-scheme: light; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+  /* In-page anchor links glide. Smoothing turns on only once the page has loaded (PageScroll sets the attribute):
+     the browser's own jump to a #fragment on load stays instant, so it cannot glide toward a point that moves when the
+     pinned sections measure themselves. Next reads the same attribute and opens a new page at its top instantly. */
+  @media (prefers-reduced-motion: no-preference) { html[data-scroll-behavior="smooth"] { scroll-behavior: smooth; } }
   body {
     background: var(--color-mk-canvas); color: var(--color-ink);
     font-family: var(--font-sans); font-size: 16px; line-height: 1.55;
@@ -83,7 +87,7 @@
   [id] { scroll-margin-top: 88px; }
   @media (max-width: 640px) { [id] { scroll-margin-top: 76px; } }
   /* Reduced motion: no transitions and no CSS animations anywhere (each scene also shows its still frame). */
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 }
 
 /* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */
