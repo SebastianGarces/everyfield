@@ -64,11 +64,15 @@ export function ScrollChapter({ id, title, steps }: Props) {
   // Clocks: one scene time and one stagger clock per desktop panel and per phone panel, and the switch clock (time
   // since the active step changed) that drives the crossfade.
   const [clocks] = useState(() => {
-    const mt = steps.map(() => motionValue(0)), msince = steps.map(() => motionValue(1e6));
+    // A phone panel starts at its still frame, so the server HTML (and a page without JavaScript) shows the finished
+    // picture. The first observer report moves a panel below the fold to frame 0 to wait for its entrance.
+    const mt = steps.map((s) => motionValue(SCENES[s.kind].still)), msince = steps.map(() => motionValue(1e6));
     return {
       sw: motionValue(0),
       sel: motionValue(sel(0, -1)),
-      t: steps.map(() => motionValue(0)),
+      // The first desktop card's clock starts at its still frame for the server HTML (shown without JavaScript, see
+      // noScript); a mount effect puts it back to 0 before the chapter first shows it.
+      t: steps.map((s, i) => motionValue(i === 0 ? SCENES[s.kind].still : 0)),
       since: steps.map(() => motionValue(1e6)),
       mt,
       msince,
@@ -114,6 +118,9 @@ export function ScrollChapter({ id, title, steps }: Props) {
     step(true);
   }, [reduced, setActive]);
   useEffect(() => () => clearTimeout(st.current.tm), []);
+
+  // With JavaScript the first desktop card starts its scene from 0, as before (reduced motion moves it to still below).
+  useEffect(() => { clocks.t[0]?.set(0); }, [clocks]);
 
   // Reduced motion: every panel shows its still frame and nothing ticks.
   useEffect(() => {
@@ -243,13 +250,19 @@ export function ScrollChapter({ id, title, steps }: Props) {
       go();
     }, { threshold: 0.12 });
     io.observe(V);
+    // First report per phone panel: off screen, it goes to frame 0 and waits; on screen, it plays on from its still
+    // frame (no jump back to an empty card). Later entrances start the scene at 0.
+    const reported: boolean[] = [];
     const mio = new IntersectionObserver((es) => {
       setMobOn((cur) => {
         const next = [...cur];
         for (const e of es) {
           const k = mobs.current.indexOf(e.target as HTMLDivElement);
           if (k < 0) continue;
-          if (e.isIntersecting && !cur[k] && !reduced) { clocks.mt[k]!.set(0); clocks.msince[k]!.set(0); }
+          const first = !reported[k];
+          reported[k] = true;
+          if (!reduced && first && !e.isIntersecting) clocks.mt[k]!.set(0);
+          if (!reduced && !first && e.isIntersecting && !cur[k]) { clocks.mt[k]!.set(0); clocks.msince[k]!.set(0); }
           next[k] = e.isIntersecting;
         }
         return next;
@@ -351,9 +364,9 @@ export function ScrollChapter({ id, title, steps }: Props) {
               data-idle={on && !reduced ? undefined : ""}
               className="ef-ui sticky top-(--cx-top) isolate grid h-[min(560px,calc(100vh-var(--cx-top)-28px))] min-h-[500px] place-items-center overflow-hidden rounded-frame shadow-mk-frame"
             >
-              {steps.map((s, i) => <DeskBg key={i} tone={s.tone} sw={clocks.sw} sel={clocks.sel} i={i} />)}
+              {steps.map((s, i) => <DeskBg key={i} tone={s.tone} sw={clocks.sw} sel={clocks.sel} i={i} noScript={i === 0} />)}
               {steps.map((s, i) => (
-                <DeskPanel key={i} sw={clocks.sw} sel={clocks.sel} i={i} t={clocks.t[i]!} since={clocks.since[i]!} place="vis">
+                <DeskPanel key={i} sw={clocks.sw} sel={clocks.sel} i={i} t={clocks.t[i]!} since={clocks.since[i]!} place="vis" noScript={i === 0}>
                   {s.panel}
                 </DeskPanel>
               ))}
@@ -383,20 +396,20 @@ export function cardFrame(role: Role, s: number) {
   if (role === "prev") { const po = sine(P(s, 0, 250)); return { o: 1 - po, y: -6 * po }; }
   return { o: 0, y: 0 };
 }
-export function DeskPanel({ sw, sel, i, t, since, place, children }: { sw: MotionValue<number>; sel: MotionValue<number>; i: number; t: MotionValue<number>; since: MotionValue<number>; place: "vis" | "auto"; children: ReactNode }) {
+export function DeskPanel({ sw, sel, i, t, since, place, noScript, children }: { sw: MotionValue<number>; sel: MotionValue<number>; i: number; t: MotionValue<number>; since: MotionValue<number>; place: "vis" | "auto"; noScript?: boolean; children: ReactNode }) {
   const f = ([s, r]: number[]) => cardFrame(roleOf(i, r!), s!);
   const transform = useTransform([sw, sel], (v: number[]) => "translate3d(0px," + f(v).y.toFixed(2) + "px,0)");
   const opacity = useTransform([sw, sel], (v: number[]) => +f(v).o.toFixed(3));
   const visibility = useTransform([sw, sel], (v: number[]): string => (f(v).o > 0 ? "visible" : "hidden"));
-  const slot = useMemo((): PanelSlot => ({ t, since, stagger: 240, place, card: { transform, opacity, visibility } }), [t, since, place, transform, opacity, visibility]);
+  const slot = useMemo((): PanelSlot => ({ t, since, stagger: 240, place, noScript, card: { transform, opacity, visibility } }), [t, since, place, noScript, transform, opacity, visibility]);
   return <PanelSlotProvider slot={slot}>{children}</PanelSlotProvider>;
 }
 /** The active step's gradient fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
  *  axe sorted a negative z-index gradient above the white card and reported false contrast failures. */
-export function DeskBg({ tone, sw, sel, i }: { tone: string; sw: MotionValue<number>; sel: MotionValue<number>; i: number }) {
+export function DeskBg({ tone, sw, sel, i, noScript }: { tone: string; sw: MotionValue<number>; sel: MotionValue<number>; i: number; noScript?: boolean }) {
   const opacity = useTransform([sw, sel], ([s, r]: number[]) => { const k = roleOf(i, r!); return +(k === "active" ? inOut(P(s!, 0, 500)) : k === "prev" ? 1 : 0).toFixed(3); });
   const zIndex = useTransform(sel, (r) => (r >> 4 === i ? 1 : 0));
-  return <m.span aria-hidden="true" className={cn("mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone)} style={{ opacity, zIndex }} />;
+  return <m.span aria-hidden="true" className={cn("mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]", tone, noScript && "[html:not([data-js])_&]:opacity-100!")} style={{ opacity, zIndex }} />;
 }
 
 /**

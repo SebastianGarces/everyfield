@@ -9,8 +9,8 @@ import { EvryPanel, FactsPanel, FocusPanel, SharePanel } from "@/marketing/panel
 import { LensPanel, PipePanel, ScopePanel, TopPanel } from "@/marketing/panels/network";
 import { PhasesRail } from "@/marketing/rail/PhasesRail";
 import { CtaSection } from "@/marketing/sections/CtaSection";
-import { ProofSection } from "@/marketing/sections/ProofSection";
 import { ProblemSection } from "@/marketing/sections/SectionHead";
+import { VisionSection } from "@/marketing/sections/VisionSection";
 import { Site } from "@/marketing/Site";
 import { ACCESS_PATH } from "@/site";
 
@@ -25,7 +25,7 @@ export default function Home() {
       </HeroPanel>
       <ProblemSection headline={J.problem.headline} body={J.problem.body} />
       <WeekChapter />
-      <ProofSection headline={J.proof.headline} body={J.proof.body} caption={J.proof.caption} />
+      <VisionSection headline={J.vision.headline} body={J.vision.body} bridge={J.vision.bridge} caption={J.vision.caption} />
       <PhasesRail id="features" headline={J.features.headline} items={J.features.items} vignettes="phases" />
       <AutoChapter id="intelligence" panels={{ focus: <FocusPanel />, facts: <FactsPanel />, evry: <EvryPanel />, share: <SharePanel /> }} revealUp />
       <AutoChapter id="sending" panels={{ scope: <ScopePanel />, pipe: <PipePanel />, lens: <LensPanel />, top: <TopPanel /> }} />

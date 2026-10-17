@@ -9,7 +9,7 @@ import { isPanelKind, type PanelKind } from "../scene-data";
 import { AutoList, type AutoStep } from "./AutoList";
 
 type Id = "intelligence" | "sending" | "every-plant" | "network-intelligence";
-type Def = { title: string; mirror?: boolean; link?: string; steps: { kind: PanelKind; tone: string; title: string; body: string }[] };
+type Def = { title: string; lead?: string; mirror?: boolean; link?: string; steps: { kind: PanelKind; tone: string; title: string; body: string }[] };
 
 const NETWORK = ["scope", "pipe", "lens", "top"] as const;
 const NETWORK_TONES = ["g-sea", "g-rose", "g-sun", "g-slate"];
@@ -20,12 +20,11 @@ function defs(id: Id): Def {
     case "intelligence":
       return {
         title: S.intelligence.title,
-        steps: [
-          { kind: "focus", tone: "g-lilac", title: "One focus each week.", body: "Plant Intelligence reads your records and names the one thing that needs you most this week." },
-          { kind: "facts", tone: "g-field", title: "Every finding shows its facts.", body: "Each finding links to the records it used, so you can check it." },
-          { kind: "evry", tone: "g-sky", title: "Ask Evry why.", body: "Evry explains a finding against the rubric and prepares the work it points to. You approve each change." },
-          { kind: "share", tone: "g-dawn", title: "You see it first.", body: "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share." },
-        ],
+        lead: S.intelligence.lead,
+        steps: S.intelligence.steps.map((s, i) => {
+          if (!isPanelKind(s.panel)) throw new Error(`intelligence step ${i}: unknown panel "${s.panel}"`);
+          return { kind: s.panel, tone: ["g-lilac", "g-field", "g-sky", "g-dawn"][i]!, title: s.title, body: s.body };
+        }),
       };
     case "sending":
       return { title: S.sending.title, mirror: true, link: S.sending.link, steps: NETWORK.map((k, i) => ({ kind: k, tone: NETWORK_TONES[i]!, ...S.sending.steps[i]! })) };
@@ -63,6 +62,7 @@ export function AutoChapter({ id, panels, revealUp }: { id: Id; panels: Partial<
           <Icon icon={ICONS.arrowUpRight} size={18} className="[&_path]:[stroke-width:1.8]" />
         </Link>
       ) : null}
+      {d.lead ? <p className="mt-4 text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">{d.lead}</p> : null}
     </div>
   );
   const steps: AutoStep[] = d.steps.map((s) => {

@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Av, StageChip, type Tone } from "@/components/kit/kit";
-import { Count, Done, Fade, Field, MoodBot, Move, Swap, Target, Tf, Typed } from "@/components/motion/fx";
+import { Count, Done, Fade, Field, MoodBot, Move, Target, Tf, Typed } from "@/components/motion/fx";
 import { St } from "@/components/motion/scene";
 import { PanelCard } from "../chapters/panel-frame";
-import { CX_DRAFT, CX_PEOPLE, CX_SIGNS, CX_TEAMS, CX_TYPES } from "../demo-data";
+import { CX_PEOPLE, CX_SIGNS, CX_TEAMS, CX_TYPES } from "../demo-data";
 import { ICONS } from "../icons";
 import { CHIP } from "./classes";
 import { Head, Lab, Num, PIcon } from "./parts";
-import { FollowRest, Fly, Shell, WeekFx } from "./week-fx";
+import { Fly, FlyGuest, WeekFx } from "./week-fx";
 
 // The home week chapter: reach, gather, follow up, commit. Markup renders on the server; the timing is in week-fx.tsx.
 
@@ -142,50 +142,73 @@ function Drop({ j, more, children }: { j: number; more?: boolean; children: Reac
   );
 }
 
-/* ---------- 3. Follow: Evry turns new guests into follow-ups, drafts one, you approve ---------- */
-const FGUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]] as const;
+/* ---------- 3. Follow: Evry makes a follow-up task for each new guest of the vision meeting; they move to your week ---------- */
+const FGUESTS = [["KW", "Kim Wu"], ["JO", "James Okafor"], ["SN", "Sara Nunez"]] as const;
+const WEEK_TASKS = [["Interview David Kim", "Fri Oct 17"], ["Record Maria Santos's commitment", "Signed on Oct 6"]] as const;
 
 export function FollowPanel() {
   return (
     <WeekFx>
-      <PanelCard kind="follow" variant={{ kind: "clip" }}>
-        <Shell />
-        <Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub="3 new guests from Sunday's vision meeting" />
-        <St i={1}><FollowRow g={FGUESTS[0]} k={0} /></St>
-        <Move fx="follow.draft" target="draft" className="mb-2 ml-8 origin-top rounded-[12px] bg-surface px-3 py-2.5 text-[12.5px] leading-[1.45] text-ink-2 opacity-0 shadow-[inset_0_0_0_1px_var(--color-line)]">
-          <span className="mb-1 flex items-center gap-[5px] text-[11.5px] font-semibold text-text-3"><Icon icon={ICONS.sparkle} size={13} />Drafted for Tom</span>
-          <Typed text={CX_DRAFT} fx="follow.type" />
-        </Move>
-        <FollowRest>
-          <St i={2}><FollowRow g={FGUESTS[1]} k={1} /></St>
-          <St i={3}><FollowRow g={FGUESTS[2]} k={2} /></St>
-          <St i={4} className="mt-3.5 flex items-center justify-between gap-2.5">
-            <Swap fx="follow.swap" className="text-[12.5px]" a={<span className="text-text-3">Nothing is saved until you approve.</span>} b={<span className="text-text-3">Assigned to Tom and Ana</span>} />
-            <Done target="t0" at={4900} label="Approve" done="Approved" R="follow.R" />
-          </St>
-        </FollowRest>
+      <PanelCard kind="follow">
+        <Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub="After vision meeting #12" />
+        <St i={1} className="rounded-[14px] bg-surface px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
+          <Typed text={FOLLOW_SAYS} fx="follow.type" className="text-[13px] leading-[1.45] text-ink-2" />
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {FGUESTS.map((g, k) => (
+              <Move key={g[1]} as="span" fx="follow.chip" n={k} target={"fsrc" + k} className={cn(CHIP, "h-7 gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0")}>
+                <Av small>{g[0]}</Av>
+                {g[1]}
+              </Move>
+            ))}
+          </div>
+        </St>
+        <St i={2} className="mt-3 flex items-center justify-between gap-2.5">
+          <span className="text-[12.5px] text-text-3">You and your team reach out.</span>
+          <Done target="t0" at={3600} label="Add to my week" done="Added" R="follow.R" />
+        </St>
+        <St i={3} className="mt-3.5 border-t border-line pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <Lab flush>Your week</Lab>
+            <Tf fx="follow.bump" className="grid origin-right text-[12.5px] font-semibold text-text-2">
+              <Count fx="follow.count" max={5} unit=" tasks" />
+            </Tf>
+          </div>
+          <ul className="m-0 mt-1 list-none p-0">
+            {WEEK_TASKS.map(([title, sub]) => (
+              <li key={title} className="flex h-[46px] items-center gap-2.5 border-b border-line">
+                <Ring />
+                <span className="min-w-0 flex-1"><L1>{title}</L1><L2>{sub}</L2></span>
+              </li>
+            ))}
+            {FGUESTS.map((g, k) => (
+              <li key={g[1]} className={cn("relative flex h-[46px] items-center gap-2.5", k < FGUESTS.length - 1 && "border-b border-line")}>
+                {/* An empty slot until the guest's task lands in it. */}
+                <Move as="span" fx="follow.slot" n={k} className="pointer-events-none absolute inset-x-0 inset-y-2 rounded-[10px] border border-dashed border-line-2" />
+                <Target name={"fdst" + k} className="grid size-[22px] flex-none place-items-center">
+                  <Move as="span" fx="follow.row" n={k} className="grid opacity-0"><Av small>{g[0]}</Av></Move>
+                </Target>
+                <Move fx="follow.row" n={k} className="flex min-w-0 flex-1 items-center gap-2 opacity-0">
+                  <span className="min-w-0 flex-1"><L1>Follow up with {g[1]}</L1><L2>New guest · due Tue Oct 14</L2></span>
+                  <span className="inline-flex h-[22px] flex-none items-center rounded-full bg-green-50 px-2 text-[11px] font-semibold text-green-700 shadow-mk-green-edge">New</span>
+                </Move>
+              </li>
+            ))}
+          </ul>
+        </St>
+        {FGUESTS.map((g, k) => (
+          <FlyGuest key={g[1]} k={k}>
+            <Av small>{g[0]}</Av>
+            {g[1]}
+          </FlyGuest>
+        ))}
       </PanelCard>
     </WeekFx>
   );
 }
-function FollowRow({ g, k }: { g: (typeof FGUESTS)[number]; k: number }) {
-  return (
-    <div className="flex h-[50px] items-center gap-2.5">
-      <span className="inline-grid flex-none">
-        <Move as="span" fx="follow.avOut" n={k} className="col-start-1 row-start-1"><Av>{g[0]}</Av></Move>
-        <Move as="span" fx="follow.avIn" n={k} className="col-start-1 row-start-1 grid size-[22px] place-items-center rounded-full bg-green-500 text-ink opacity-0">
-          <Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
-        </Move>
-      </span>
-      <span className="min-w-0 flex-1">
-        <Swap fx="follow.task" n={k} block a={<><L1>{g[1]}</L1><L2>New guest</L2></>} b={<><L1>Follow up with {g[1]}</L1><L2>Due Oct 10</L2></>} />
-      </span>
-      <Move as="span" fx="follow.who" n={k} className={cn(CHIP, "h-[26px] gap-[7px] pr-[9px] pl-[3px] text-[12px] opacity-0")}>
-        <Av who>{g[2]}</Av>
-        {g[3]}
-      </Move>
-    </div>
-  );
+const FOLLOW_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
+/** An open task's empty check ring. */
+function Ring() {
+  return <span aria-hidden="true" className="size-[22px] flex-none rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--color-line-2)]" />;
 }
 function L1({ children }: { children: ReactNode }) {
   return <span className="block overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap">{children}</span>;
