@@ -9,7 +9,7 @@ export function fixture() {
  cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
  const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
  const progressPath=join(root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
- progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,progress.packages[p.id]??{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
+ progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
  writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
@@ -42,6 +42,7 @@ if(a[0]==='api') {
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
 else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
 else if(a[0]==='pr'&&a[1]==='edit')result='';
+else if(a[0]==='pr'&&a[1]==='comment')result='https://github.com/test/private/pull/'+a[2]+'#comment';
 else if(a[0]==='pr'&&a[1]==='merge'){
  if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
  const cp=require('node:child_process'),cwd=fs.realpathSync(process.cwd()+'/../..');

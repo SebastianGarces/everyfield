@@ -14,7 +14,7 @@
     {
       "id": "WP-097",
       "title": "Early access site",
-      "goal": "Publish the five-page early access site and receive, retain and export access requests.",
+      "goal": "Provide the shipped five-page early access site and its rebuilt React marketing foundations; receive, retain and export access requests.",
       "lane": "web",
       "domain": "admin",
       "depends_on": [],
@@ -24,19 +24,18 @@
         "Owner early access ruling, 2026-10-14; approved marketing prototype and reviewed access/privacy/terms copy."
       ],
       "outputs": [
-        "E3: Real apps/web scaffold and shared packages; home, /oversight, /access, /privacy and /terms, responsive and accessible, with live-page navigation, sitemap and robots.",
+        "E3/E6: Real apps/web scaffold and shared packages; home, /oversight, /access, /privacy and /terms, responsive and accessible, with live-page navigation, sitemap and robots. The shipped React rebuild uses Server Components for static marketing and client leaves for interaction/animation, typed design/marketing-copy.json, Tailwind 4 importing design/handoff/tokens.css, next/font, Hugeicons and Motion; marketing stays light only.",
         "E4: Shared packages/db and packages/domain package.json and tsconfig files; the DB client, early_access_request and early_access_attempt schemas with their migration ledger and early-access migration; packages/domain/src/early-access/ request logic; two validated access forms, one stored request and one email to EARLY_ACCESS_EMAIL_TO per admitted submission, rate-limit-first sent-only duplicate suppression and bounded pending retry with the same mail idempotency key, abuse limits, truthful failure/contact fallback, operator CSV export and scheduled request/IP retention.",
+        "E7 and later marketing maintenance: home/oversight Open Graph and Twitter PNGs with metadata and alt text, deterministic share-image and mesh-image renderers with freshness locks, public/mesh SVG assets, and the component color-literal lint. R5 page-level scrolling uses apps/web/src/components/frame/PageScroll.tsx for the cancellable in-page glide and apps/web/src/components/frame/reader-input.ts for the site's single inline-script exception; reuse this scroll owner and input script. These outputs live in apps/web/src/app/, src/marketing/, src/components/, src/styles/, scripts/ and public/mesh/.",
         "E5: Preview on the owner Vercel project everyfield with the new everyfield-v3 Neon database and Resend; approved production on everyfield.app and www.everyfield.app, leaving v2 data separate."
       ],
       "owning_paths": [
         "apps/web/",
         "packages/db/",
-        "packages/domain/",
-        "scripts/early-access/",
-        "tests/integration/access-requests/"
+        "packages/domain/"
       ],
       "interfaces": [
-        "Existing app scaffold consumed and extended by WP-087; static public pages are separate from product authentication.",
+        "Existing app scaffold and rebuilt marketing foundations consumed and extended by WP-087, WP-088 and WP-049; static light-only public pages are separate from product authentication and product dark mode.",
         "Access submission returns received, invalid with field errors, rate_limited by email or IP, or unavailable with contact fallback; no email-existence disclosure."
       ],
       "acceptance_gates": [
@@ -48,7 +47,10 @@
       "spec_paths": [
         "docs/product/operations.md",
         "docs/architecture/core.md",
-        "docs/plan/release-gates.json"
+        "docs/plan/release-gates.json",
+        "design/handoff/README.md",
+        "apps/web/README.md",
+        "apps/web/package.json"
       ],
       "specialist": "implementor",
       "context_scope": {
@@ -82,7 +84,7 @@
         "tsconfig.base.json",
         ".gitignore"
       ],
-      "integration_rule": "Only the early access site is delivered here. Shared packages/db and packages/domain ownership is limited to their package.json and tsconfig files, the DB client, early access request/attempt schemas, migration and receipt ledger, and src/early-access/. Later packages retain their owning paths and extend those shared packages after WP-097 under the existing prerequisite ordering rule. WP-087 extends the scaffold and WP-049 adds feedback, planters/trust pages, product sign-in links and the before-customer-data privacy update. Preserve existing source/reference bytes and v2 data.",
+      "integration_rule": "Only the early access site is delivered here. Shared packages/db and packages/domain ownership is limited to their package.json and tsconfig files, the DB client, early access request/attempt schemas, migration and receipt ledger, and src/early-access/. Later packages retain their owning paths and extend those shared packages after WP-097 under the existing prerequisite ordering rule. WP-087 extends the scaffold, WP-088 extends the existing design foundations for the product app, and WP-049 reuses the rebuilt marketing components and approved vision content to add feedback, planters/trust pages, product sign-in links and the before-customer-data privacy update. Preserve existing source/reference bytes and v2 data.",
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "fast_track": {
@@ -92,7 +94,7 @@
         "checks": "Normal tests and cross-model review; owner approval of the preview before go-live.",
         "signed_evf_proof_required": false
       },
-      "ui_composition_rule": "Reuse the approved E3 public pages and marketing handoff; any remaining page work goes to ui-designer on Opus 5.5. Do not wait for the later product AppShell design milestones."
+      "ui_composition_rule": "Reuse the shipped rebuilt React marketing components, typed copy, single token source and light-only marketing layer; any remaining UI work goes to ui-designer on Opus 5.5. Do not wait for the later product AppShell design milestones."
     },
     {
       "id": "WP-001",
@@ -3496,10 +3498,11 @@
       "inputs": [
         "Short brief from docs/package-context.py WP-049; linked details on demand.",
         "WP-006 reviewed producer/interface milestone",
-        "WP-031 reviewed producer/interface milestone"
+        "WP-031 reviewed producer/interface milestone",
+        "Shipped apps/web/src/marketing/ Server Components, apps/web/src/components/ frame and animated leaves, design/marketing-copy.json and light-only marketing styles; reuse the owner-reviewed vision section from R4/R6 when it is merged, without treating a local prototype as shipped."
       ],
       "outputs": [
-        "Extend the WP-097 public site with reviewed planters and trust pages, product sign-in links and the later before-customer-data privacy/terms update; initial five pages and access request storage/mail/export/retention belong to WP-097.",
+        "Extend the rebuilt WP-097 React marketing components and owner-reviewed vision section with reviewed planters and trust pages, product sign-in links and the later before-customer-data privacy/terms update; initial five pages and access request storage/mail/export/retention belong to WP-097.",
         "Safe automatic public feedback serializer, private originals and own-user native status; truthful issue/triage reconciliation. Consume externally merged workflow when supplied, no competing rubric."
       ],
       "owning_paths": [
@@ -3514,7 +3517,7 @@
         "apps/web/src/app/terms/"
       ],
       "interfaces": [
-        "Existing WP-097 public pages and request module; later product privacy/terms disclosures and reviewed planters/trust copy.",
+        "Existing WP-097 rebuilt public pages, shared marketing frame, approved vision content and request module; later product privacy/terms disclosures and reviewed planters/trust copy.",
         "feedback.listOwn/getOwnStatus bounded authenticated-original-user DTO; separate public feedback repo sanitized title/body + actual repo/issue locator + truthful publication/triage outcomes, no admin DTO or roadmap."
       ],
       "acceptance_gates": [
@@ -3530,7 +3533,7 @@
         "docs/product/operations.md"
       ],
       "integration_rule": "One package owner integrates after direct prerequisites and named gates; schema/contracts/domain producers review shared changes. One Evry integrator composes disjoint adapter files. No progress status changes without accepted implementation evidence.",
-      "goal": "Deliver feedback, reviewed planters/trust pages, product sign-in links and the before-customer-data privacy update on the WP-097 site.",
+      "goal": "Extend the rebuilt WP-097 marketing components with feedback, reviewed planters/trust pages, product sign-in links and the before-customer-data privacy update.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
@@ -3549,7 +3552,7 @@
       },
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Compose screens from WP-088 foundations and WP-089/WP-090 components; match the approved prototype layout, typography, colors and copy style. Feature behavior comes from owned requirements.",
+      "ui_composition_rule": "Reuse the rebuilt marketing frame, Server Components, typed copy and interactive/animated leaves; extend the owner-reviewed vision section when merged. Marketing stays light only. Compose product feedback UI from WP-088 foundations and WP-089/WP-090 components; match the approved prototype look. Feature behavior comes from owned requirements.",
       "ui_depends_on": [
         "WP-088",
         "WP-089",
@@ -6701,7 +6704,7 @@
     {
       "id": "WP-088",
       "title": "Design foundations and AppShell",
-      "goal": "Deliver prototype tokens, fonts, icons and AppShell before shared components.",
+      "goal": "Extend the shipped apps/web design foundations with shared product foundations, product-only dark mode and AppShell before shared product components.",
       "lane": "ui",
       "domain": "design-system",
       "depends_on": [
@@ -6710,10 +6713,12 @@
       "estimate_engineer_days": 3.0,
       "inputs": [
         "Short brief from docs/package-context.py WP-088; linked details on demand.",
-        "WP-087 reviewed producer/interface milestone"
+        "WP-087 reviewed producer/interface milestone",
+        "Existing apps/web/src/styles/marketing.css imports design/handoff/tokens.css; apps/web/src/app/layout.tsx uses next/font; apps/web/src/components/Icon.tsx uses Hugeicons; apps/web/src/components/motion/ and apps/web/scripts/check-color-literals.mjs supply Motion and color-literal lint."
       ],
       "outputs": [
-        "Prototype light/dark tokens, fonts and Hugeicons, plus AppShell, top bar, top navigation and rail.",
+        "Shared product foundations reuse the shipped Tailwind 4 token source design/handoff/tokens.css, next/font font setup, Hugeicons, Motion and color-literal lint; extend these without creating a second foundation system.",
+        "Product AppShell, top bar, top navigation and rail, with light/dark product themes. Marketing pages remain light only under every browser and system setting.",
         "Foundation and shell previews cover focus, narrow screens and role-dependent navigation."
       ],
       "owning_paths": [
@@ -6723,15 +6728,17 @@
         "tests/ui/shell/"
       ],
       "interfaces": [
-        "Prototype light/dark tokens, fonts and Hugeicons, plus AppShell, top bar, top navigation and rail.",
+        "Shared product foundations reuse the shipped Tailwind 4 token source design/handoff/tokens.css, next/font font setup, Hugeicons, Motion and color-literal lint; extend these without creating a second foundation system.",
+        "Product AppShell, top bar, top navigation and rail, with light/dark product themes. Marketing pages remain light only under every browser and system setting.",
         "Foundation and shell previews cover focus, narrow screens and role-dependent navigation."
       ],
       "acceptance_gates": [
         "Inspect foundations and the shell against the matching prototype views.",
-        "Tokens, fonts, icons and shell exports compose without a second foundation system.",
+        "Shared product foundations compose with the shipped tokens, fonts, icons, Motion and color-literal lint without a second foundation system; product dark mode never changes the light-only marketing pages.",
         "Keyboard/focus/theme/role and narrow-screen shell behavior works in the preview."
       ],
       "spec_paths": [
+        "design/handoff/README.md",
         "design/handoff/foundations.md",
         "design/handoff/components.md",
         "design/handoff/screens.md",
@@ -6765,7 +6772,7 @@
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
-      "estimate_basis": "Foundations, fonts/icons and the first three Layout inventory rows; component rows are split into WP-089 and WP-090."
+      "estimate_basis": "Extend shipped marketing foundations for the product and build the first three Layout inventory rows; component rows are split into WP-089 and WP-090."
     },
     {
       "id": "WP-089",
@@ -7989,7 +7996,7 @@
     }
   ],
   "build_plan_notes": {
-    "foundation": "WP-097 first delivers the early access site and app scaffold. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 delivers tokens/fonts/icons/AppShell, WP-089 controls/surfaces/overlays and WP-090 data/content/domain display. Only product feature UI tasks wait for these design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed commit on main and owner go-live approval before WP-087 starts.",
+    "foundation": "WP-097 delivers the early access site and app scaffold, including the shipped React marketing rebuild: Tailwind 4 importing design/handoff/tokens.css, next/font, Hugeicons, Motion, color-literal lint, share/mesh image generators and light-only public pages. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 extends these existing foundations and adds product AppShell and product-only dark mode; marketing remains light. WP-089 adds controls/surfaces/overlays and WP-090 data/content/domain display. WP-049 reuses the rebuilt marketing components and owner-reviewed vision section when merged, retaining feedback, reviewed planters/trust pages, sign-in links and the before-customer-data privacy update. Only product feature UI tasks wait for the design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed go-live commit on main and owner approval before WP-087 starts. Later maintenance does not replace that go-live evidence.",
     "milestones": "C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.",
     "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
   },

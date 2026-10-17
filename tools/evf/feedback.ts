@@ -135,7 +135,7 @@ export function feedbackTriage(root:string,n:number,o:{cls?:string;reason?:strin
   if(record.class==="question"&&o.reply) gh(["issue","close",String(n),"-R",fb.repo!,"--reason","completed"]);
   if(record.class==="duplicate"||record.class==="spam") gh(["issue","close",String(n),"-R",fb.repo!,"--reason","not planned"]);
   appendFileSync(join(dataDir(root),"triage-log.jsonl"),JSON.stringify(record)+"\n");
-  console.log(`FB-${n}: ${CLASS_LABEL[record.class]}. Human review is required for implemented feedback PRs; questions await a separately reviewed answer.`);return 0;
+  console.log(`FB-${n}: ${CLASS_LABEL[record.class]}. Merge routes follow .agents/skills/ship/SKILL.md; questions await a separately reviewed answer.`);return 0;
  });
 }
 function promote(root:string,n:number):number {

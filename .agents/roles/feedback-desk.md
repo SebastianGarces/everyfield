@@ -46,9 +46,10 @@ The hook considers intake, eligible pending work and unresolved reservations. Mo
 4. Start work for P0 and P1 now, then small features, within the limit. Put
    `bin/evf task brief FB-<n>` in each task note and delegate:
    - Bug: `implementor` (Sol). A bug only in UI code: `ui-designer` (Opus, tier UI-1 or UI-2).
-     The independent verifier checks full current-stage proof. Follow `.agents/skills/ship/SKILL.md` for merge authority.
+     P0 and P1: the independent verifier merges, as for ordinary builds. P2 and P3: the verifier runs `evf ship`,
+     which verifies the PR and stops; after Sebastian approves in chat, merge with `bin/evf approve`. Follow `.agents/skills/ship/SKILL.md` for merge authority.
    - `feature-small`: `ui-designer` (Opus, tier UI-2 or UI-3) for the prototype. The PR is a draft
-     that waits for Sebastian. Full scoped proof remains required; owner product review controls promotion/merge.
+     that waits for Sebastian. Full scoped proof remains required; After Sebastian approves it in chat, merge it with `bin/evf approve`.
    - A P0 over the limit: start it with `--over-limit` and say so in the digest.
 5. On Mondays also start P2 and P3 issues within the limit.
 6. Write a short digest in the workspace note: new P0/P1, prototypes waiting for Sebastian,
