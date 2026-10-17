@@ -8,14 +8,20 @@ import { loadDag, loadRegistry } from '../lib.ts';
 
 const source = resolve(import.meta.dirname, '../../..');
 test('BUG-workflow: preserve selected producer dependencies across forward references', () => {
- const dag = loadDag(source);
- const {blocks} = buildBlocks(source, dag.packages);
+ const f=fixture();try{
+ const dag = loadDag(f.root);
+ const {blocks} = buildBlocks(f.root, dag.packages);
  const by = new Map(blocks.map(b => [b.wp, blocks.filter(x => x.wp === b.wp)]));
  for (const p of dag.packages) for (const d of p.depends_on) {
   const producer = by.get(d)!;
   const finals = [producer.find(b => b.part === 'contract') ?? producer.find(b => b.part === 'api') ?? producer[0]].map(b => b.key);
   for (const b of by.get(p.id)!) for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
  }
+ const progressPath=join(f.root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
+ progress.packages['WP-097'].status='done';writeFileSync(progressPath,JSON.stringify(progress));
+ const completed=buildBlocks(f.root,dag.packages).blocks;
+ assert.deepEqual(completed.find(b=>b.taskId==='WP-087')!.dependsOn,[]);
+ }finally{f.close();}
 });
 test('INV-context: load current acceptance and fail when its required input is missing', () => {
  const registry=loadRegistry(source);

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 3,
-  "updated_at": "2026-10-14T17:33:08.113Z",
+  "revision": 4,
+  "updated_at": "2026-10-17T16:41:32.810Z",
   "packages": {
     "WP-001": {
       "status": "not_started",
@@ -764,11 +764,55 @@
       "notes": ""
     },
     "WP-097": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "done",
+      "revision": 1,
+      "updated_at": "2026-10-17T16:41:32.810Z",
+      "evidence": [
+        {
+          "path": "intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization: independent Sol/Codex approval at b084c1484a3b6258a8aa01dd815c068d29bf32f2; Squash merge and first production deployment: identical tree at release 7470996c9857b4feb847f6260fc90e84ab543558); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json; /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/step-zero.json; intent://local/current-review/note/9eaee90d-ca4b-414e-8741-faae553df175 (supporting earlier Opus integrated-preview approval only, at e70a0c88)",
+          "commit": "7470996c9857b4feb847f6260fc90e84ab543558",
+          "test": "corepack pnpm check; python3 design/handoff/export.py --check; python3 docs/check-all.py",
+          "result": "passed",
+          "note": "Owner go-live approval: intent://local/current-review/note/spec (Overnight decision log, 2026-10-14 20:40 UTC: corrected version approved for go-live); intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization, squash merge and public production verification); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json"
+        }
+      ],
+      "notes": "Owner-approved fast-track completion with normal tests and independent review; no signed evf proof.",
+      "fast_track": {
+        "commit": "7470996c9857b4feb847f6260fc90e84ab543558",
+        "checks": [
+          {
+            "command": "corepack pnpm check",
+            "result": "passed",
+            "evidence": "/Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/check.log"
+          },
+          {
+            "command": "python3 design/handoff/export.py --check",
+            "result": "passed",
+            "evidence": "/Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/handoff.log"
+          },
+          {
+            "command": "python3 docs/check-all.py",
+            "result": "passed",
+            "evidence": "/Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/docs.log"
+          }
+        ],
+        "author": {
+          "actor": "Opus UI designer, E3 agent-149820f7-9d46-4f8d-b406-8f71f028fa82 and E7/final color correction agent-36d46132-2435-487f-a82a-04d5e0a1a21f",
+          "model_family": "Opus"
+        },
+        "verifier": {
+          "actor": "Sol/Codex, E5 final color reviewer agent-3b109537-e27e-42b0-aef1-9a066f98a953",
+          "model_family": "Sol",
+          "verdict": "approved",
+          "commit": "7470996c9857b4feb847f6260fc90e84ab543558",
+          "evidence": "intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization: independent Sol/Codex approval at b084c1484a3b6258a8aa01dd815c068d29bf32f2; Squash merge and first production deployment: identical tree at release 7470996c9857b4feb847f6260fc90e84ab543558); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json; /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/step-zero.json; intent://local/current-review/note/9eaee90d-ca4b-414e-8741-faae553df175 (supporting earlier Opus integrated-preview approval only, at e70a0c88)"
+        },
+        "owner_go_live": {
+          "actor": "Sebastian",
+          "commit": "7470996c9857b4feb847f6260fc90e84ab543558",
+          "evidence": "intent://local/current-review/note/spec (Overnight decision log, 2026-10-14 20:40 UTC: corrected version approved for go-live); intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization, squash merge and public production verification); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json"
+        }
+      }
     }
   }
 }
