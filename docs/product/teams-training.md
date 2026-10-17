@@ -245,3 +245,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 ## Consumer closure and proof
 
 [Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+
+## Organization development programs
+
+Organization apprenticeship and residency programs have a separate owner and versioned enrollment contract from plant team training. Both kinds ship before alpha. Resident completion and director confirmation remain separate attributable facts. Existing enrollments keep their plan until a reviewed deliberate version change. Feedback is visible to the resident, director and organization Owner/Admin. See REQ-MUL-010 through REQ-MUL-014 in [People](people.md#multiplication-pathway-contract).

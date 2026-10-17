@@ -17380,5 +17380,342 @@
       "PostgreSQL scope/claim/publication integration",
       "browser and Evry denial/grounding evaluations"
     ]
+  },
+  {
+    "id": "AC-MUL-001--MUL-001",
+    "shared_gate_id": "AC-MUL-001",
+    "feature_id": "MUL-001",
+    "requirement_ids": [
+      "REQ-MUL-001"
+    ],
+    "case_ids": [
+      "ADR1-001"
+    ],
+    "operations": [
+      "orgPeople.create",
+      "orgPeople.update",
+      "orgPeople.retire",
+      "orgPeople.restore",
+      "orgPeople.read"
+    ],
+    "work_packages": [
+      "WP-011",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-002--MUL-002",
+    "shared_gate_id": "AC-MUL-002",
+    "feature_id": "MUL-002",
+    "requirement_ids": [
+      "REQ-MUL-002"
+    ],
+    "case_ids": [
+      "ADR1-002",
+      "ADR1-009"
+    ],
+    "operations": [
+      "pipelineAccess.readPerson",
+      "orgPeople.readNotes"
+    ],
+    "work_packages": [
+      "WP-006",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-003--MUL-003",
+    "shared_gate_id": "AC-MUL-003",
+    "feature_id": "MUL-003",
+    "requirement_ids": [
+      "REQ-MUL-003"
+    ],
+    "case_ids": [
+      "ADR1-003"
+    ],
+    "operations": [
+      "residency.setSharing",
+      "residency.leave",
+      "residency.readSharing"
+    ],
+    "work_packages": [
+      "WP-007",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-004--MUL-004",
+    "shared_gate_id": "AC-MUL-004",
+    "feature_id": "MUL-004",
+    "requirement_ids": [
+      "REQ-MUL-004"
+    ],
+    "case_ids": [
+      "ADR1-004"
+    ],
+    "operations": [
+      "residency.invite",
+      "residency.respondInvitation"
+    ],
+    "work_packages": [
+      "WP-008",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-005--MUL-005",
+    "shared_gate_id": "AC-MUL-005",
+    "feature_id": "MUL-005",
+    "requirement_ids": [
+      "REQ-MUL-005"
+    ],
+    "case_ids": [
+      "ADR1-005"
+    ],
+    "operations": [
+      "orgPeople.export",
+      "orgPeople.remove"
+    ],
+    "work_packages": [
+      "WP-011",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-006--MUL-006",
+    "shared_gate_id": "AC-MUL-006",
+    "feature_id": "MUL-006",
+    "requirement_ids": [
+      "REQ-MUL-006"
+    ],
+    "case_ids": [
+      "ADR1-006"
+    ],
+    "operations": [],
+    "work_packages": [
+      "WP-009",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-007--MUL-007",
+    "shared_gate_id": "AC-MUL-007",
+    "feature_id": "MUL-007",
+    "requirement_ids": [
+      "REQ-MUL-007"
+    ],
+    "case_ids": [
+      "ADR1-007"
+    ],
+    "operations": [
+      "pipeline.saveGoal",
+      "pipeline.readGoals"
+    ],
+    "work_packages": [
+      "WP-098",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-008--MUL-008",
+    "shared_gate_id": "AC-MUL-008",
+    "feature_id": "MUL-008",
+    "requirement_ids": [
+      "REQ-MUL-008"
+    ],
+    "case_ids": [
+      "ADR1-008"
+    ],
+    "operations": [
+      "pipeline.saveStages",
+      "pipeline.moveStage",
+      "pipeline.listPeople",
+      "pipeline.recordAssessmentOccurrence",
+      "pipeline.proposeStageMove"
+    ],
+    "work_packages": [
+      "WP-098",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-009--MUL-009",
+    "shared_gate_id": "AC-MUL-009",
+    "feature_id": "MUL-009",
+    "requirement_ids": [
+      "REQ-MUL-009"
+    ],
+    "case_ids": [
+      "ADR1-009"
+    ],
+    "operations": [
+      "pipeline.logConversation",
+      "pipeline.readConversationCounts",
+      "pipeline.readConversationNote",
+      "orgPeople.addNote",
+      "orgPeople.updateNote",
+      "orgPeople.removeNote"
+    ],
+    "work_packages": [
+      "WP-098",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-010--MUL-010",
+    "shared_gate_id": "AC-MUL-010",
+    "feature_id": "MUL-010",
+    "requirement_ids": [
+      "REQ-MUL-010"
+    ],
+    "case_ids": [
+      "ADR1-010"
+    ],
+    "operations": [
+      "development.saveProgram",
+      "development.publishVersion",
+      "development.readProgram"
+    ],
+    "work_packages": [
+      "WP-099",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-011--MUL-011",
+    "shared_gate_id": "AC-MUL-011",
+    "feature_id": "MUL-011",
+    "requirement_ids": [
+      "REQ-MUL-011"
+    ],
+    "case_ids": [
+      "ADR1-011"
+    ],
+    "operations": [
+      "development.enroll",
+      "development.applyVersion",
+      "development.updateEnrollment"
+    ],
+    "work_packages": [
+      "WP-099",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-012--MUL-012",
+    "shared_gate_id": "AC-MUL-012",
+    "feature_id": "MUL-012",
+    "requirement_ids": [
+      "REQ-MUL-012"
+    ],
+    "case_ids": [
+      "ADR1-012"
+    ],
+    "operations": [
+      "development.completeMilestone",
+      "development.confirmMilestone",
+      "development.recordFeedback",
+      "development.readFeedback",
+      "development.recordUnlinkedCompletion"
+    ],
+    "work_packages": [
+      "WP-099",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-013--MUL-013",
+    "shared_gate_id": "AC-MUL-013",
+    "feature_id": "MUL-013",
+    "requirement_ids": [
+      "REQ-MUL-013"
+    ],
+    "case_ids": [
+      "ADR1-013"
+    ],
+    "operations": [
+      "residency.readMine"
+    ],
+    "work_packages": [
+      "WP-100",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-014--MUL-014",
+    "shared_gate_id": "AC-MUL-014",
+    "feature_id": "MUL-014",
+    "requirement_ids": [
+      "REQ-MUL-014"
+    ],
+    "case_ids": [
+      "ADR1-014"
+    ],
+    "operations": [
+      "residency.readProgress",
+      "residency.resolveReading"
+    ],
+    "work_packages": [
+      "WP-100",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-015--MUL-015",
+    "shared_gate_id": "AC-MUL-015",
+    "feature_id": "MUL-015",
+    "requirement_ids": [
+      "REQ-MUL-015"
+    ],
+    "case_ids": [
+      "ADR1-015"
+    ],
+    "operations": [
+      "development.draftPlan"
+    ],
+    "work_packages": [
+      "WP-101",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-016--MUL-016",
+    "shared_gate_id": "AC-MUL-016",
+    "feature_id": "MUL-016",
+    "requirement_ids": [
+      "REQ-MUL-016"
+    ],
+    "case_ids": [
+      "ADR1-016"
+    ],
+    "operations": [
+      "pipelineSharing.setConsent",
+      "pipelineSharing.readConsent",
+      "pipelineSharing.checkAggregateAccess"
+    ],
+    "work_packages": [
+      "WP-007",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-017--MUL-017",
+    "shared_gate_id": "AC-MUL-017",
+    "feature_id": "MUL-017",
+    "requirement_ids": [
+      "REQ-MUL-017"
+    ],
+    "case_ids": [
+      "ADR1-017"
+    ],
+    "operations": [
+      "orgPeople.findDuplicates",
+      "orgPeople.merge",
+      "orgPeople.unmerge"
+    ],
+    "work_packages": [
+      "WP-015",
+      "WP-102"
+    ]
   }
 ]

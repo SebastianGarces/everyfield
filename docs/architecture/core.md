@@ -45,3 +45,7 @@ The transaction and Evry review rules above apply once to all durable domain ope
 Authorized pure reads have no durable domain effects and do not initiate model generation. Actor-private Evry conversation, attachment, draft, proposal, run and receipt protocols grant no domain authority and never advance intelligence inputs. Domain effects require a separately approved owning-domain operation. Trusted internal producers and jobs remain unavailable as model or arbitrary HTTP executors. Model tools expose bounded authorized reads and candidate preparation, with no approval, command executor, arbitrary code, SQL, network or filesystem capability. Tool grouping and dispatch implementation belong to builders.
 
 These are design contracts. Documentation checks do not establish application, SQL, trigger, auth, provider or restore acceptance.
+
+## Organization Person and residency foundation
+
+ADR-001 extends the Person owner to an exact plant or organization. Conditional plant aliases preserve all existing plant-only consumer constraints; organization stages and programs are separate from recruitment. The static [Person registry](person-references.json) includes every new invitation, pipeline, enrollment and resident-link reference and its retirement, merge and inverse rules. S0 producers establish shared locks, ownership and projection boundaries before the later consumers. See [REQ-MUL-001 through REQ-MUL-017](../product/people.md#multiplication-pathway-contract).

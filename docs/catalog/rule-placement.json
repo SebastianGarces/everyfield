@@ -4236,6 +4236,246 @@
       "requirement": "REQ-ADM-006",
       "operation": "marketing.expireAccessRequests",
       "reason": "Phase 4 early access export and scheduled retention, 2026-10-14."
+    },
+    {
+      "requirement": "REQ-MUL-001",
+      "operation": "orgPeople.create",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-001",
+      "operation": "orgPeople.update",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-001",
+      "operation": "orgPeople.retire",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-001",
+      "operation": "orgPeople.restore",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-001",
+      "operation": "orgPeople.read",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-017",
+      "operation": "orgPeople.findDuplicates",
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
+    },
+    {
+      "requirement": "REQ-MUL-017",
+      "operation": "orgPeople.merge",
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
+    },
+    {
+      "requirement": "REQ-MUL-017",
+      "operation": "orgPeople.unmerge",
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
+    },
+    {
+      "requirement": "REQ-MUL-002",
+      "operation": "pipelineAccess.readPerson",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-003",
+      "operation": "residency.setSharing",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-003",
+      "operation": "residency.leave",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-003",
+      "operation": "residency.readSharing",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-004",
+      "operation": "residency.invite",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-004",
+      "operation": "residency.respondInvitation",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-005",
+      "operation": "orgPeople.export",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-005",
+      "operation": "orgPeople.remove",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-007",
+      "operation": "pipeline.saveGoal",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-007",
+      "operation": "pipeline.readGoals",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.saveStages",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.moveStage",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.listPeople",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.recordAssessmentOccurrence",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "pipeline.logConversation",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "pipeline.readConversationCounts",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "pipeline.readConversationNote",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-010",
+      "operation": "development.saveProgram",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-010",
+      "operation": "development.publishVersion",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-010",
+      "operation": "development.readProgram",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-011",
+      "operation": "development.enroll",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-011",
+      "operation": "development.applyVersion",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-011",
+      "operation": "development.updateEnrollment",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.completeMilestone",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.confirmMilestone",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.recordFeedback",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.readFeedback",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-013",
+      "operation": "residency.readMine",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-014",
+      "operation": "residency.readProgress",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-014",
+      "operation": "residency.resolveReading",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-015",
+      "operation": "development.draftPlan",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-016",
+      "operation": "pipelineSharing.setConsent",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-016",
+      "operation": "pipelineSharing.readConsent",
+      "reason": "ADR-001 behavior operation introduced with this requirement."
+    },
+    {
+      "requirement": "REQ-MUL-016",
+      "operation": "pipelineSharing.checkAggregateAccess",
+      "reason": "Explicit contributor-minimum and current-opt-in denial examples without exposing totals."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.proposeStageMove",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-002",
+      "operation": "orgPeople.readNotes",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.addNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.updateNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.removeNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.recordUnlinkedCompletion",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
     }
   ],
   "operation_additions": [
@@ -4248,6 +4488,246 @@
       "id": "marketing.expireAccessRequests",
       "requirement": "REQ-ADM-006",
       "reason": "Phase 4 early access ruling, 2026-10-14; operator CSV export and restricted scheduled retention."
+    },
+    {
+      "id": "orgPeople.create",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-001"
+    },
+    {
+      "id": "orgPeople.update",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-001"
+    },
+    {
+      "id": "orgPeople.retire",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-001"
+    },
+    {
+      "id": "orgPeople.restore",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-001"
+    },
+    {
+      "id": "orgPeople.read",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-001"
+    },
+    {
+      "id": "orgPeople.findDuplicates",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-017"
+    },
+    {
+      "id": "orgPeople.merge",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-017"
+    },
+    {
+      "id": "orgPeople.unmerge",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-017"
+    },
+    {
+      "id": "pipelineAccess.readPerson",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-002"
+    },
+    {
+      "id": "residency.setSharing",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-003"
+    },
+    {
+      "id": "residency.leave",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-003"
+    },
+    {
+      "id": "residency.readSharing",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-003"
+    },
+    {
+      "id": "residency.invite",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-004"
+    },
+    {
+      "id": "residency.respondInvitation",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-004"
+    },
+    {
+      "id": "orgPeople.export",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-005"
+    },
+    {
+      "id": "orgPeople.remove",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-005"
+    },
+    {
+      "id": "pipeline.saveGoal",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-007"
+    },
+    {
+      "id": "pipeline.readGoals",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-007"
+    },
+    {
+      "id": "pipeline.saveStages",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-008"
+    },
+    {
+      "id": "pipeline.moveStage",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-008"
+    },
+    {
+      "id": "pipeline.listPeople",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-008"
+    },
+    {
+      "id": "pipeline.recordAssessmentOccurrence",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-008"
+    },
+    {
+      "id": "pipeline.logConversation",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-009"
+    },
+    {
+      "id": "pipeline.readConversationCounts",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-009"
+    },
+    {
+      "id": "pipeline.readConversationNote",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-009"
+    },
+    {
+      "id": "development.saveProgram",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-010"
+    },
+    {
+      "id": "development.publishVersion",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-010"
+    },
+    {
+      "id": "development.readProgram",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-010"
+    },
+    {
+      "id": "development.enroll",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-011"
+    },
+    {
+      "id": "development.applyVersion",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-011"
+    },
+    {
+      "id": "development.updateEnrollment",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-011"
+    },
+    {
+      "id": "development.completeMilestone",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-012"
+    },
+    {
+      "id": "development.confirmMilestone",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-012"
+    },
+    {
+      "id": "development.recordFeedback",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-012"
+    },
+    {
+      "id": "development.readFeedback",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-012"
+    },
+    {
+      "id": "residency.readMine",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-013"
+    },
+    {
+      "id": "residency.readProgress",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-014"
+    },
+    {
+      "id": "residency.resolveReading",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-014"
+    },
+    {
+      "id": "development.draftPlan",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-015"
+    },
+    {
+      "id": "pipelineSharing.setConsent",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-016"
+    },
+    {
+      "id": "pipelineSharing.readConsent",
+      "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-016"
+    },
+    {
+      "id": "pipelineSharing.checkAggregateAccess",
+      "requirement": "REQ-MUL-016",
+      "reason": "ADR-001 S0 policy eligibility only, preserving stage-4 aggregate delivery deferral."
+    },
+    {
+      "id": "pipeline.proposeStageMove",
+      "requirement": "REQ-MUL-008",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.readNotes",
+      "requirement": "REQ-MUL-002",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.addNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.updateNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.removeNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "development.recordUnlinkedCompletion",
+      "requirement": "REQ-MUL-012",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
     }
   ]
 }

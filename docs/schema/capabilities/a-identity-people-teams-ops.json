@@ -1741,6 +1741,165 @@
       "retention": "Existing versioned migration journal, approved references, isolated fixture/preview records, operational evidence and optional content-free provider telemetry keep their own engineering lifecycle. No additional customer-domain table is required.",
       "current_tables": [],
       "notes": "Sources: OPS-002 through 011. Liveness/readiness derive process/dependency/job/reference/backup state. Optional telemetry records only allowed latency/token/status/build/run correlation in its selected provider. Migration checksums/applied history, named preview checkout/revision/URL/environment, proof coverage, tool classification and workflow version are engineering artifacts/configuration. Immutable reference content belongs to group C; safe issue locators are CAP-A-046 and recovery copies CAP-A-052. No historical Evry tables, general audit browser or customer workflow configuration is revived."
+    },
+    {
+      "id": "CAP-A-054",
+      "name": "Organization Person lifecycle and duty projections",
+      "feature_ids": [
+        "MUL-001",
+        "MUL-002",
+        "MUL-005",
+        "MUL-006",
+        "MUL-017"
+      ],
+      "persists": true,
+      "entities": [
+        "organization Person",
+        "pipeline",
+        "program",
+        "enrollment",
+        "resident link",
+        "consent"
+      ],
+      "facts": [
+        "Organizations of either kind own Person identity and lifecycle: create, edit, retire, restore and read under exact organization authority. Email is editable contact information, not identity proof. Retirement stops new current references; restore never restores seats, consent or a merged source. Export/removal follow REQ-MUL-005. Duplicate selection, merge and guarded Unmerge follow REQ-MUL-017 in S1 WP-015, consuming the S0 reference/inverse interface. Every new Person consumer registers retirement, merge and inverse behavior before closure. Plant recruitment, household, commitment and ministry facts remain plant-only; organization stage kinds never enter plant progression.",
+        "A current exact-organization Owner or Admin can administer its pipeline. Assigned responsible staff and program directors must hold a current eligible seat in that organization and receive only their named duties. A linked resident has only their own residency projection, without an organization seat or directory access. Internal stage labels, reasons, staff conversation notes, assessment metadata and inactivity flags are hidden from residents. No director or organization role gains plant editing, account-private documents, reflections, private-care bodies or existence signals. Central audit contains IDs, actor, change kind and revisions, never protected note, reason or feedback bodies. The S0 portion proves exact duty decisions and restricted note projections against supplied records. Rendering pipeline stage labels is a later WP-098 projection; program directors do not gain responsible-staff note access merely by directing a program.",
+        "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+        "The foundation creation interface accepts only account-owner-confirmed values and preserves ordinary Phase 1 entry, one active seat and an attributable creation event. A sending organization cannot create or edit the plant on the resident's behalf. Residency commissioning, plant prefill and lineage are deferred to ADR delivery stage 3. Future handoff must explicitly resolve an existing organization staff seat; an Owner follows the existing manual exceptional ownership process. No seat-transfer engine or silent geographic attestation is introduced.",
+        "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close."
+      ],
+      "history": "attributable versioned facts and corrections",
+      "invariants": [
+        "Exact organization ownership, separate resident consent, no additional seat, no cross-organization individual sharing.",
+        "Plant consumers remain plant-only; organization lifecycle follows the full Person contract and registered inverse rules."
+      ],
+      "retention": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "current_tables": [],
+      "notes": "ADR-001 stages 1 and 2 are in scope. Stages 3 and 4 remain deferred; S0 sharing infrastructure grants no aggregate delivery or NI input."
+    },
+    {
+      "id": "CAP-A-055",
+      "name": "Resident invitation and consent foundations",
+      "feature_ids": [
+        "MUL-003",
+        "MUL-004",
+        "MUL-016"
+      ],
+      "persists": true,
+      "entities": [
+        "organization Person",
+        "pipeline",
+        "program",
+        "enrollment",
+        "resident link",
+        "consent"
+      ],
+      "facts": [
+        "An accepted resident link records separate choices for sharing six-foundation completion and resident milestone progress with the exact organization. Disclose categories and excluded private content before acceptance; acceptance grants only explicitly chosen categories. The resident can stop either category or leave. Withdrawal takes effect immediately in current reads, exports, saved results, history, jobs, source bytes and model context; stale consent revisions fail. Account-private reading and documents remain account-owned. A link neither creates a seat nor consumes another seat. An ended link cannot be revived by replaying an invitation or an old approval. Enrollment facts the organization independently owns remain subject to its removal policy; consent loss does not erase genuine organizational facts.",
+        "An organization Owner or Admin may invite a specific pipeline person to link an EveryField account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.",
+        "A sending-church Owner or Admin may opt in to sharing pipeline totals separately for each current network relationship and withdraw immediately. Default is off. Share only aggregate stage-kind counts, active residents and commissioned counts by year, never individual candidates, notes, reasons, feedback, assessment metadata or private progress. A network result requires at least two currently contributing organizations; hide unavailable contributions rather than substituting zero or allowing subtraction, filters, saved history or stale jobs to identify a single church or person. A network's own pipeline confers no right to a church's pipeline. Aggregate delivery, network-defined church stages and revised Network Intelligence inputs remain deferred to ADR stage 4; S0 establishes only consent/revocation categories and minimum-contributor rules. The S0 eligibility check returns only an allowed/withheld decision and the minimum contributor rule, without totals or individual records; it rechecks current opt-ins and refuses fewer than two distinct contributors."
+      ],
+      "history": "attributable versioned facts and corrections",
+      "invariants": [
+        "Exact organization ownership, separate resident consent, no additional seat, no cross-organization individual sharing.",
+        "Plant consumers remain plant-only; organization lifecycle follows the full Person contract and registered inverse rules."
+      ],
+      "retention": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "current_tables": [],
+      "notes": "ADR-001 stages 1 and 2 are in scope. Stages 3 and 4 remain deferred; S0 sharing infrastructure grants no aggregate delivery or NI input."
+    },
+    {
+      "id": "CAP-A-056",
+      "name": "Goals, human pipeline stages and leadership conversations",
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "persists": true,
+      "entities": [
+        "organization Person",
+        "pipeline",
+        "program",
+        "enrollment",
+        "resident link",
+        "consent"
+      ],
+      "facts": [
+        "Both sending churches and sending networks may record multiple goals with nonnegative leader and plant targets, target year and rationale. At a stated as-of instant in the organization timezone, show own-pipeline counts by each fixed stage kind: count distinct live same-organization people whose current pipeline stage has that kind. A person appears once; retired or merged people and foreign organizations do not count. Also show active residents: distinct live same-organization people with at least one active enrollment in a residency-kind program; apprenticeship enrollment and the editable pipeline label alone do not qualify. Multiple active residency programs still count the person once. These are current observations, not forecasts, readiness scores or an undefined total of leaders. Plant targets may be stored, but observed plants sent is unavailable with reason deferred_stage_3 until commissioning/lineage arrives in stage 3; do not substitute zero or count Commissioned-kind people as plants. Aggregate church/network sharing remains stage 4. A goal never moves a person, commissions an enrollment or creates a plant.",
+        "Start with Potential leader, Apprentice, Resident, Commissioned and Not continuing. Owners and Admins may rename, reorder and add stages mapped to the fixed kinds potential_leader, apprentice, resident, commissioned, not_continuing or other. Show exact changes for review before saving. Refuse deletion of occupied stages and retain old labels in dated history. A human records each move and its reason; no automatic recruitment event or program completion moves an organization person. Not continuing is an ordinary outcome. Record only whether an outside assessment occurred, when and by whom, never its outcome. Staff may query people with no move for six months using the stated calendar and as-of date. Counts use kinds, not editable labels. Evry may propose only the selected Person and destination stage identities. The proposal does not move anyone and accepts no note, reason or other free text. A human completes an exact native review and supplies the required reason outside model/conversation input; the native move rechecks current authority and revisions.",
+        "Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person. Logging leadership conversations is human-only. Organization ordinary Person notes use the same Owner/Admin or responsible-staff audience and never enter models. Only the original author with current exact-organization duty may update or remove such a note; removal clears the body and retains only necessary attributable body-free history."
+      ],
+      "history": "attributable versioned facts and corrections",
+      "invariants": [
+        "Exact organization ownership, separate resident consent, no additional seat, no cross-organization individual sharing.",
+        "Plant consumers remain plant-only; organization lifecycle follows the full Person contract and registered inverse rules."
+      ],
+      "retention": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "current_tables": [],
+      "notes": "ADR-001 stages 1 and 2 are in scope. Stages 3 and 4 remain deferred; S0 sharing infrastructure grants no aggregate delivery or NI input."
+    },
+    {
+      "id": "CAP-A-057",
+      "name": "Versioned development programs and enrollment",
+      "feature_ids": [
+        "MUL-010",
+        "MUL-011",
+        "MUL-012",
+        "MUL-015"
+      ],
+      "persists": true,
+      "entities": [
+        "organization Person",
+        "pipeline",
+        "program",
+        "enrollment",
+        "resident link",
+        "consent"
+      ],
+      "facts": [
+        "Both apprenticeship and residency programs ship before alpha for either organization kind. Define director, meeting rhythm, expected length, ordered stages with editable month ranges, milestones and Wiki reading lists. Start blank or from the residency template: Assimilating 2 to 3 months, Training and planning 6 to 9 months, Gathering 2 to 3 months, Sending and planting 2 to 3 months. Offer milestones to start a small group and raise a replacement, present the vision to sending leadership and write a church planting prospectus. Directors review drafts before publication. Publishing a changed plan creates a new version; existing enrollments keep their plan unless the director deliberately reviews and applies the version. Reading pointers pin canonical article and revision and recheck current source entitlement; organization content never grants general library access.",
+        "Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and stale revisions. Current program stages are distinct from internal pipeline stages.",
+        "A currently linked resident marks their own milestone complete; the current program director confirms separately. Resident completion never supplies director confirmation. For an enrollee without a current accepted resident link in this organization, the current program director may instead record the enrollee completion and confirm it in one dated, attributable native action. That action records the director as recorder and confirmer, the actual completion instant and confirmation instant, and a program-leader-recorded source; the enrolled Person remains the subject. It creates no account link or seat and cannot be used while a current resident link exists. Recheck link status at commit, so a concurrent acceptance refuses this path and requires the linked-resident flow. A subsequent link does not rewrite prior director-recorded facts. Retain correction history for each fact. Hands-on assignments are described milestones; dated feedback is visible only to the linked resident, current director and organization Owner/Admin of either kind. Other staff and foreign residents cannot read feedback. Feedback does not judge calling. Recheck duty, version, link and consent at use. Neither completion path automatically commissions or creates a plant.",
+        "Evry may read authorized pipeline facts and draft program plans and milestone lists. Every durable write uses exact human review of all effects and fresh authority, reference, revision and consent checks at execution. Native and assistant calls have the same results and denials. Staff may ask who has not moved in six months. Evry never ranks people, assesses calling or reads leadership conversation notes into a model; it also excludes private care, internal reasons, assessment metadata and assignment feedback unless a separately reviewed model-safe allowlist explicitly authorizes a category. Program drafting never publishes or enrolls without reviewed effects. Agreement and commissioning drafts remain deferred with delivery stage 3. Conversation logging and reason-bearing stage moves are native-only. A bounded stage-move proposal accepts only Person and destination stage identities and refuses any note/reason/free-text field. It returns a draft with no durable effect; human review collects the reason outside the conversation/model and commits the native operation. Model context and receipts omit that human-only body."
+      ],
+      "history": "attributable versioned facts and corrections",
+      "invariants": [
+        "Exact organization ownership, separate resident consent, no additional seat, no cross-organization individual sharing.",
+        "Plant consumers remain plant-only; organization lifecycle follows the full Person contract and registered inverse rules."
+      ],
+      "retention": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "current_tables": [],
+      "notes": "ADR-001 stages 1 and 2 are in scope. Stages 3 and 4 remain deferred; S0 sharing infrastructure grants no aggregate delivery or NI input."
+    },
+    {
+      "id": "CAP-A-058",
+      "name": "Seatless My residency and consented progress",
+      "feature_ids": [
+        "MUL-013",
+        "MUL-014"
+      ],
+      "persists": true,
+      "entities": [
+        "organization Person",
+        "pipeline",
+        "program",
+        "enrollment",
+        "resident link",
+        "consent"
+      ],
+      "facts": [
+        "A linked Discovery account keeps its private Wiki reading and documents and gains My residency showing its program, current program stage, next meeting, own milestones and confirmation state, entitled reading list and exact sharing controls. It can mark its own milestone done, stop sharing or leave. It cannot see the internal pipeline label, reasons, staff notes, assessment metadata or six-month inactivity flag. It receives no People, Meetings, Tasks, Launch, organization directory, plant workspace or second seat. Current link loss removes the projection immediately, including cached navigation and downloads.",
+        "A director sees only the linked resident's consented completion facts for the six canonical Discovery foundations and permitted milestone progress. Do not return private reading rows, reflections or documents. Foundation completion means one eligible actual reader completed all six above the existing threshold; do not pool readers or infer completion from a program milestone. Program reading uses current entitled canonical sources, including the organization's published versions. Withdrawal, link termination, source unpublication or lost relationship access removes content and shared progress from current results, history and downloadable bytes. Linking does not broaden Discovery reading rights to unrelated organization libraries."
+      ],
+      "history": "attributable versioned facts and corrections",
+      "invariants": [
+        "Exact organization ownership, separate resident consent, no additional seat, no cross-organization individual sharing.",
+        "Plant consumers remain plant-only; organization lifecycle follows the full Person contract and registered inverse rules."
+      ],
+      "retention": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "current_tables": [],
+      "notes": "ADR-001 stages 1 and 2 are in scope. Stages 3 and 4 remain deferred; S0 sharing infrastructure grants no aggregate delivery or NI input."
     }
   ],
   "observations": [

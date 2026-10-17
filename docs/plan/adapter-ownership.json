@@ -54,7 +54,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -80,7 +80,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -105,7 +105,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-014",
         "WP-015"
@@ -127,7 +127,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-014",
         "WP-015"
@@ -149,7 +149,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -174,7 +174,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -199,7 +199,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-020",
         "WP-021",
@@ -223,7 +223,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-020",
         "WP-021",
@@ -247,7 +247,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-023",
         "WP-024",
@@ -271,7 +271,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-023",
         "WP-024",
@@ -295,7 +295,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-016",
         "WP-017",
@@ -319,7 +319,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-016",
         "WP-017",
@@ -343,7 +343,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-027",
         "WP-028",
@@ -366,7 +366,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-027",
         "WP-028",
@@ -389,7 +389,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-032",
         "WP-038",
@@ -420,7 +420,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-007",
         "WP-032",
@@ -452,7 +452,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-045",
         "WP-046"
@@ -474,7 +474,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-045",
         "WP-046"
@@ -496,7 +496,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-034",
         "WP-035"
@@ -518,7 +518,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-034",
         "WP-035"
@@ -540,7 +540,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-004",
         "WP-036",
@@ -563,7 +563,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-004",
         "WP-036",
@@ -586,7 +586,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-030",
         "WP-031"
@@ -608,7 +608,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-030",
         "WP-031"
@@ -630,7 +630,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -661,7 +661,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -692,7 +692,7 @@
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
       "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter\u2019s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
       "domain_producers": [
         "WP-002"
       ],
@@ -702,6 +702,28 @@
         "tests/evry/adapters/helpers/reads/",
         "packages/evry/src/adapters/helpers/commands/",
         "tests/evry/adapters/helpers/commands/"
+      ]
+    },
+    {
+      "work_package": "WP-101",
+      "domain": "multiplication",
+      "kind": "reads_and_candidate_preparation",
+      "consumes": [
+        "Exact operations selected by owning_package/evry_packages in the catalog, plus reviewed effect and safe-source contracts."
+      ],
+      "may_modify_shared_root": false,
+      "composition_owner": "evry-kernel-integrator",
+      "closure_gate": "Real native/assistant parity for current stage 1/2 operations, exact durable-write approval and current authority/consent; protected notes/reasons/feedback and private care never enter models.",
+      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "domain_producers": [
+        "WP-098",
+        "WP-099",
+        "WP-100"
+      ],
+      "operation_kind": "query_and_command",
+      "owning_paths": [
+        "apps/web/src/server/evry/multiplication/",
+        "tests/evals/multiplication/"
       ]
     }
   ],

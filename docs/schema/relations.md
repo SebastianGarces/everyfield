@@ -31,6 +31,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `invitation(inviter_id)` | `account(id)` | restrict |  |
 | `invitation(accepted_account_id)` | `account(id)` | restrict |  |
 | `invitation(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `invitation(resident_person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `affiliation(plant_id)` | `plant(id)` | restrict |  |
 | `affiliation(account_id)` | `account(id)` | restrict |  |
 | `affiliation(sending_church_id)` | `organization(id)` | restrict |  |
@@ -40,46 +41,50 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `affiliation(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `person(plant_id)` | `plant(id)` | restrict |  |
 | `person(linked_account_id)` | `account(id)` | restrict |  |
-| `person(household_id, plant_id)` | `household(id, plant_id)` | restrict |  |
-| `person(photo_object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
-| `person(merged_into_person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
-| `person(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person(household_id, tenant_id)` | `household(id, plant_id)` | restrict |  |
+| `person(photo_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `person(merged_into_person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
+| `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person(tenant_id)` | `tenant(id)` | restrict |  |
+| `person(organization_id)` | `organization(id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
-| `person_note(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
-| `person_note(participation_id, plant_id)` | `participation(id, plant_id)` | restrict |  |
-| `person_note(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person_note(participation_id, tenant_id)` | `participation(id, plant_id)` | restrict |  |
+| `person_note(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person_note(tenant_id)` | `tenant(id)` | restrict |  |
 | `tag(plant_id)` | `plant(id)` | restrict |  |
 | `tag(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_tag(plant_id)` | `plant(id)` | restrict |  |
-| `person_tag(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `person_tag(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_tag(tag_id, plant_id)` | `tag(id, plant_id)` | restrict |  |
 | `person_skill(plant_id)` | `plant(id)` | restrict |  |
-| `person_skill(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `person_skill(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_skill(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `four_cs(plant_id)` | `plant(id)` | restrict |  |
-| `four_cs(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `interview(plant_id)` | `plant(id)` | restrict |  |
-| `interview(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `interview(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `interview(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `commitment(plant_id)` | `plant(id)` | restrict |  |
-| `commitment(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
-| `commitment(witness_person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `commitment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `commitment(witness_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `commitment(object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `commitment(corrected_commitment_id, plant_id)` | `commitment(id, plant_id)` | restrict |  |
 | `commitment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_merge(plant_id)` | `plant(id)` | restrict |  |
-| `person_merge(source_id, plant_id)` | `person(id, plant_id)` | restrict |  |
-| `person_merge(survivor_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `person_merge(source_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
+| `person_merge(survivor_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_merge(operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
 | `person_merge(reversed_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
-| `person_merge(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person_merge(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `person_merge(tenant_id)` | `tenant(id)` | restrict |  |
 | `team(plant_id)` | `plant(id)` | restrict |  |
 | `team(template_version_id)` | `reference_version(id)` | restrict |  |
-| `team(leader_person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `team(leader_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `team(leader_role_id, plant_id)` | `team_role(id, plant_id)` | restrict |  |
 | `team(responsibility_offer_version_id)` | `reference_version(id)` | restrict |  |
 | `team(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -88,7 +93,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `team_role(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `team_tenure(plant_id)` | `plant(id)` | restrict |  |
 | `team_tenure(role_id, plant_id)` | `team_role(id, plant_id)` | restrict |  |
-| `team_tenure(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `team_tenure(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `team_tenure(previous_tenure_id, plant_id)` | `team_tenure(id, plant_id)` | restrict |  |
 | `team_tenure(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `responsibility(plant_id)` | `plant(id)` | restrict |  |
@@ -109,13 +114,13 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `training_requirement(source_revision_id)` | `article_revision(id)` | restrict | Pinned training article source may be global or an entitled organization revision; native assignment validates canonical article, published state and current exact source rights. |
 | `training_requirement(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `training_assignment(plant_id)` | `plant(id)` | restrict |  |
-| `training_assignment(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `training_assignment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `training_assignment(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
 | `training_assignment(version_id, program_id)` | `training_version(id, program_id)` | restrict | Same-program compound FK fixes the version to program_id; assignment and version inherit the same plant through their compound program FK. No cross-plant assignment is possible. |
 | `training_assignment(selection_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
 | `training_assignment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `training_credit(plant_id)` | `plant(id)` | restrict |  |
-| `training_credit(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `training_credit(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `training_credit(version_id, plant_id)` | `training_version(id, plant_id)` | restrict |  |
 | `training_credit(assignment_id, plant_id)` | `training_assignment(id, plant_id)` | restrict |  |
 | `training_credit(prior_credit_id, plant_id)` | `training_credit(id, plant_id)` | restrict |  |
@@ -130,12 +135,12 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `meeting_item(plant_id)` | `plant(id)` | restrict |  |
 | `meeting_item(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `meeting_item(assigned_person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `meeting_item(assigned_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `meeting_item(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `participation(plant_id)` | `plant(id)` | restrict |  |
 | `participation(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `participation(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
-| `participation(inviter_person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `participation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `participation(inviter_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `participation(prior_vision_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `participation(card_author_id)` | `account(id)` | restrict |  |
 | `participation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -148,7 +153,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(plant_id)` | `plant(id)` | restrict |  |
 | `task(creator_id)` | `account(id)` | restrict |  |
 | `task(assignee_id)` | `account(id)` | restrict |  |
-| `task(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `task(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `task(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `task(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
 | `task(launch_id)` | `launch(plant_id)` | restrict | Launch uses plant_id as its primary key; task CHECK launch_id = plant_id enforces the same plant whenever this optional relation exists. |
@@ -168,11 +173,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `recurrence(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `obligation(plant_id)` | `plant(id)` | restrict |  |
 | `obligation(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `obligation(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `obligation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `obligation(assignee_id)` | `account(id)` | restrict |  |
 | `obligation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |
-| `contact_outcome(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `contact_outcome(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `contact_outcome(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `contact_outcome(obligation_id, plant_id)` | `obligation(id, plant_id)` | restrict |  |
 | `contact_outcome(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
@@ -184,7 +189,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `phase_transition(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `attestation(plant_id)` | `plant(id)` | restrict |  |
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
-| `attestation(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `attestation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch(plant_id)` | `plant(id)` | restrict |  |
 | `launch(reference_version_id)` | `reference_version(id)` | restrict |  |
@@ -192,7 +197,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
-| `launch_guest(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `launch_guest(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `launch_guest(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_guest(plant_id)` | `launch(plant_id)` | restrict |  |
 | `launch_debrief(form_version_id)` | `reference_version(id)` | restrict |  |
@@ -309,13 +314,13 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `communication(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `communication_recipient(plant_id)` | `plant(id)` | restrict |  |
 | `communication_recipient(communication_id, plant_id)` | `communication(id, plant_id)` | restrict |  |
-| `communication_recipient(person_id, plant_id)` | `person(id, plant_id)` | restrict |  |
+| `communication_recipient(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `communication_recipient(mail_id, plant_id)` | `mail(id, tenant_id)` | restrict |  |
 | `communication_recipient(original_recipient_id, plant_id)` | `communication_recipient(id, plant_id)` | restrict |  |
 | `communication_recipient(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `mail(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail(recipient_account_id)` | `account(id)` | restrict |  |
-| `mail(recipient_person_id, tenant_id)` | `person(id, plant_id)` | restrict |  |
+| `mail(recipient_person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `mail(operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
 | `mail(notice_id, tenant_id)` | `notice(id, tenant_id)` | restrict |  |
 | `mail(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
@@ -412,6 +417,81 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `evidence_link(resulting_record_id)` | `record(id)` | restrict | Exact inverse result endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse. |
 | `evidence_link(consumer_record_id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `record(tenant_id)` | `tenant(id)` | restrict |  |
+| `sending_goal(organization_id)` | `organization(id)` | restrict |  |
+| `sending_goal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_stage(organization_id)` | `organization(id)` | restrict |  |
+| `pipeline_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_person(organization_id)` | `organization(id)` | restrict |  |
+| `pipeline_person(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_person(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
+| `pipeline_person(stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
+| `pipeline_person(responsible_seat_id)` | `seat(id)` | restrict | Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access. |
+| `pipeline_stage_move(organization_id)` | `organization(id)` | restrict |  |
+| `pipeline_stage_move(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_stage_move(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
+| `pipeline_stage_move(from_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
+| `pipeline_stage_move(to_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
+| `pipeline_stage_move(actor_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `leadership_conversation(organization_id)` | `organization(id)` | restrict |  |
+| `leadership_conversation(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `leadership_conversation(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
+| `leadership_conversation(staff_account_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `development_program(organization_id)` | `organization(id)` | restrict |  |
+| `development_program(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_program(director_seat_id)` | `seat(id)` | restrict | Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access. |
+| `development_program(current_version_id, id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
+| `development_program_version(organization_id)` | `organization(id)` | restrict |  |
+| `development_program_version(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_program_version(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
+| `development_stage(organization_id)` | `organization(id)` | restrict |  |
+| `development_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_stage(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
+| `development_milestone(organization_id)` | `organization(id)` | restrict |  |
+| `development_milestone(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_milestone(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
+| `development_milestone(stage_id, version_id, organization_id)` | `development_stage(id, version_id, organization_id)` | restrict |  |
+| `development_reading(organization_id)` | `organization(id)` | restrict |  |
+| `development_reading(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_reading(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
+| `development_reading(article_id)` | `reference_item(id)` | restrict | Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access. |
+| `development_reading(source_revision_id)` | `article_revision(id)` | restrict | Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access. |
+| `development_enrollment(organization_id)` | `organization(id)` | restrict |  |
+| `development_enrollment(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `development_enrollment(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
+| `development_enrollment(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
+| `development_enrollment(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
+| `development_enrollment(current_stage_id, version_id, organization_id)` | `development_stage(id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(organization_id)` | `organization(id)` | restrict |  |
+| `enrollment_milestone(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `enrollment_milestone(enrollment_id, version_id, organization_id)` | `enrollment_plan(enrollment_id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(completed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `enrollment_milestone(confirmed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `assignment_feedback(organization_id)` | `organization(id)` | restrict |  |
+| `assignment_feedback(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `assignment_feedback(enrollment_milestone_id, organization_id)` | `enrollment_milestone(id, organization_id)` | restrict |  |
+| `assignment_feedback(author_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `assignment_feedback(supersedes_id, organization_id)` | `assignment_feedback(id, organization_id)` | restrict |  |
+| `residency_link(organization_id)` | `organization(id)` | restrict |  |
+| `residency_link(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `residency_link(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
+| `residency_link(account_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `residency_link(affiliation_id)` | `affiliation(id)` | restrict | The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads. |
+| `residency_link(invitation_id, organization_id)` | `invitation(id, tenant_id)` | restrict |  |
+| `pipeline_sharing(organization_id)` | `organization(id)` | restrict |  |
+| `pipeline_sharing(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_sharing(relationship_id)` | `affiliation(id)` | restrict | The affiliation must name this sending church and exact current sending network; no inherited or transitive sharing. |
+| `pipeline_sharing(network_id)` | `organization(id)` | restrict |  |
+| `pipeline_sharing(changed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
+| `enrollment_plan(organization_id)` | `organization(id)` | restrict |  |
+| `enrollment_plan(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `enrollment_plan(enrollment_id, program_id, organization_id)` | `development_enrollment(id, program_id, organization_id)` | restrict |  |
+| `enrollment_plan(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
+| `enrollment_plan(adopted_by)` | `account(id)` | restrict |  |
+| `organization_person_removal(organization_id)` | `organization(id)` | restrict |  |
+| `organization_person_removal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `organization_person_removal(person_record_id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `organization_person_removal(requested_by)` | `account(id)` | restrict |  |
 
 ## Person references
 
@@ -419,16 +499,17 @@ Every declared Person FK has one registration in `target.json.person_references`
 
 | Consumer | Person field and owner | Producers |
 |---|---|---|
-| `person` | `merged_into_person_id, plant_id` | WP-004, WP-006, WP-011, WP-012 |
-| `person_note` | `person_id, plant_id` | WP-004, WP-014 |
+| `invitation` | `resident_person_id, tenant_id` | WP-004, WP-006, WP-008, WP-009 |
+| `person` | `merged_into_person_id, tenant_id` | WP-004, WP-006, WP-011, WP-012 |
+| `person_note` | `person_id, tenant_id` | WP-004, WP-006, WP-014, WP-098 |
 | `person_tag` | `person_id, plant_id` | WP-004, WP-013 |
 | `person_skill` | `person_id, plant_id` | WP-004, WP-013 |
 | `four_cs` | `person_id, plant_id` | WP-004, WP-014 |
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
-| `person_merge` | `source_id, plant_id` | WP-004, WP-015 |
-| `person_merge` | `survivor_id, plant_id` | WP-004, WP-015 |
+| `person_merge` | `source_id, tenant_id` | WP-004, WP-015 |
+| `person_merge` | `survivor_id, tenant_id` | WP-004, WP-015 |
 | `team` | `leader_person_id, plant_id` | WP-004, WP-016 |
 | `team_tenure` | `person_id, plant_id` | WP-004, WP-017 |
 | `training_assignment` | `person_id, plant_id` | WP-004, WP-019 |
@@ -443,3 +524,8 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `launch_guest` | `person_id, plant_id` | WP-004, WP-046 |
 | `communication_recipient` | `person_id, plant_id` | WP-004, WP-029 |
 | `mail` | `recipient_person_id, tenant_id` | WP-004, WP-028, WP-031 |
+| `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |
+| `pipeline_stage_move` | `person_id, organization_id` | WP-004, WP-098 |
+| `leadership_conversation` | `person_id, organization_id` | WP-004, WP-098 |
+| `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
+| `residency_link` | `person_id, organization_id` | WP-004, WP-008 |

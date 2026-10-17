@@ -1,10 +1,10 @@
 # Future build plan
 
-The approved target has 96 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
+The approved target has 101 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 255 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 96.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 278.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 97 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -23,6 +23,7 @@ Each row lists only packages newly reached in that dependency-closed slice.
 | S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090 |
 | S1 | People/meeting/task native and reviewed Evry vertical slice | WP-012, WP-013, WP-014, WP-015, WP-016, WP-020, WP-021, WP-022, WP-023, WP-024, WP-025, WP-051, WP-052, WP-053, WP-059, WP-060 |
 | S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037 |
+| S2M | ADR-001 stages 1 and 2 after planter S2 and before alpha | WP-098, WP-099, WP-100, WP-101, WP-102 |
 | S3 | Full phases/Plant and Network Intelligence/Launch/operations | WP-026, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049 |
 | S4 | All assistant adapters and whole-target integration | WP-054, WP-055, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-068, WP-069, WP-070, WP-071, WP-072, WP-073, WP-074, WP-075, WP-076, WP-077, WP-078, WP-079, WP-080, WP-081, WP-082, WP-083, WP-084, WP-085 |
 | S5 | Full target release rehearsal | WP-056, WP-057, WP-058, WP-091, WP-092, WP-093, WP-094, WP-095, WP-096 |
@@ -38,22 +39,22 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
 | WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 4 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 7 | 2 | 2 |
-| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 99 | 5 |
+| WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 116 | 5 |
 | WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 20 | 8 | 2.5 |
 | WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |
 | WP-090 | Shared data, content and domain display components | 0 | 0 | 0 | 0 | 4.5 |
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 11 | 10 | 2.5 |
-| WP-006 | Tenant and independent grant policies C1 | 7 | 5 | 16 | 5 | 2 |
-| WP-007 | Organizations and consent relationships | 8 | 13 | 45 | 8 | 2.5 |
-| WP-011 | People core and account links | 13 | 30 | 13 | 2 | 2.5 |
-| WP-008 | Invitation lifecycle and atomic acceptance | 6 | 11 | 40 | 3 | 2 |
-| WP-009 | Onboarding and discovery conversion | 6 | 8 | 21 | 4 | 2 |
+| WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 17 | 6 | 2 |
+| WP-007 | Organizations and consent relationships | 10 | 19 | 47 | 9 | 2.5 |
+| WP-011 | People core and account links | 15 | 37 | 15 | 3 | 2.5 |
+| WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 41 | 4 | 2 |
+| WP-009 | Onboarding and discovery conversion | 7 | 8 | 22 | 4 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 35 | 5 | 2.5 |
 | WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 2 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 24 | 6 | 2 |
-| WP-015 | Corrections duplicate resolution and merge | 8 | 7 | 88 | 4 | 2.5 |
+| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 89 | 4 | 2.5 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 3 | 2 |
 | WP-016 | Team catalog and lifecycle | 1 | 22 | 6 | 2 | 2 |
 | WP-017 | Roster roles leader appointments/org chart | 8 | 17 | 30 | 3 | 2 |
@@ -87,7 +88,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 161 | 4 | 4 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 2 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 4 | 2.5 |
-| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 65 | 9 | 3.5 |
+| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 65 | 10 | 3.5 |
 | WP-051 | Evry conversation/run framework spike | 32 | 18 | 19 | 4 | 3 |
 | WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 3 |
 | WP-053 | Evry proposal approval execution C3b | 52 | 13 | 69 | 8 | 3.5 |
@@ -123,11 +124,16 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-091 | Core SQL race/privacy/correction integration | 10 | 0 | 80 | 0 | 2.5 |
 | WP-092 | Knowledge SQL race/privacy/correction integration | 9 | 0 | 11 | 0 | 1.5 |
 | WP-093 | Intelligence SQL race/privacy/correction integration | 6 | 0 | 32 | 0 | 2 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1086 | 0 | 14 |
+| WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 5 |
+| WP-099 | Development programs and enrollment | 3 | 11 | 3 | 10 | 5 |
+| WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 3.5 |
+| WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 4 |
+| WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 5.5 |
+| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1103 | 0 | 14.5 |
 | WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1086 | 5 | 14 |
+| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1103 | 5 | 14 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 2 |
 
 ## Package splits
@@ -145,7 +151,7 @@ WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/fi
 
 WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-011 → WP-012 → WP-015 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
 
-The graph has 480 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
+The graph has 520 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
 
 ## Exact dependency graph
 
@@ -241,6 +247,11 @@ graph LR
   WP091["WP-091: Core SQL race/privacy/correction integration"]
   WP092["WP-092: Knowledge SQL race/privacy/correction integration"]
   WP093["WP-093: Intelligence SQL race/privacy/correction integration"]
+  WP098["WP-098: Organization pipeline, goals and conversations"]
+  WP099["WP-099: Development programs and enrollment"]
+  WP100["WP-100: My residency and consented progress"]
+  WP101["WP-101: Pipeline and development Evry adapters"]
+  WP102["WP-102: Multiplication privacy, race and parity integration"]
   WP056["WP-056: Cross-module race/privacy/correction integration"]
   WP094["WP-094: Core browser/file/native-Evry parity integration"]
   WP095["WP-095: Knowledge browser/file/native-Evry parity integration"]
@@ -699,6 +710,44 @@ graph LR
   WP049 --> WP093
   WP050 --> WP093
   WP055 --> WP093
+  WP017 --> WP098
+  WP018 --> WP098
+  WP019 --> WP098
+  WP027 --> WP098
+  WP028 --> WP098
+  WP029 --> WP098
+  WP030 --> WP098
+  WP033 --> WP098
+  WP034 --> WP098
+  WP035 --> WP098
+  WP036 --> WP098
+  WP037 --> WP098
+  WP015 --> WP098
+  WP088 -. UI .-> WP098
+  WP089 -. UI .-> WP098
+  WP090 -. UI .-> WP098
+  WP098 --> WP099
+  WP088 -. UI .-> WP099
+  WP089 -. UI .-> WP099
+  WP090 -. UI .-> WP099
+  WP099 --> WP100
+  WP007 --> WP100
+  WP008 --> WP100
+  WP035 --> WP100
+  WP088 -. UI .-> WP100
+  WP089 -. UI .-> WP100
+  WP090 -. UI .-> WP100
+  WP098 --> WP101
+  WP099 --> WP101
+  WP100 --> WP101
+  WP053 --> WP101
+  WP088 -. UI .-> WP101
+  WP089 -. UI .-> WP101
+  WP090 -. UI .-> WP101
+  WP101 --> WP102
+  WP088 -. UI .-> WP102
+  WP089 -. UI .-> WP102
+  WP090 -. UI .-> WP102
   WP015 --> WP056
   WP019 --> WP056
   WP023 --> WP056
@@ -714,6 +763,7 @@ graph LR
   WP091 --> WP056
   WP092 --> WP056
   WP093 --> WP056
+  WP102 --> WP056
   WP048 --> WP094
   WP056 --> WP094
   WP048 --> WP095
@@ -725,6 +775,7 @@ graph LR
   WP094 --> WP057
   WP095 --> WP057
   WP096 --> WP057
+  WP102 --> WP057
   WP057 --> WP058
   WP033 --> WP058
 ```

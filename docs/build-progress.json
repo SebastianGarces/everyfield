@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 4,
-  "updated_at": "2026-10-17T16:41:32.810Z",
+  "revision": 5,
+  "updated_at": "2026-10-17T17:27:47.434Z",
   "packages": {
     "WP-001": {
       "status": "not_started",
@@ -813,6 +813,41 @@
           "evidence": "intent://local/current-review/note/spec (Overnight decision log, 2026-10-14 20:40 UTC: corrected version approved for go-live); intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization, squash merge and public production verification); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json"
         }
       }
+    },
+    "WP-098": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-099": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-100": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-101": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "WP-102": {
+      "status": "not_started",
+      "revision": 0,
+      "updated_at": null,
+      "evidence": [],
+      "notes": ""
     }
   }
 }

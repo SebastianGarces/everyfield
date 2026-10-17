@@ -122,6 +122,20 @@
       ],
       "stage": "early-access-go-live",
       "owner_ruling_date": "2026-10-14"
+    },
+    {
+      "id": "G-MULTIPLICATION",
+      "title": "ADR-001 before-alpha stages 1 and 2",
+      "owner": "Pipeline, program, resident and integration owners",
+      "closure": "WP-098..102 prove stages 1 and 2 after planter S2, with S0 organization Person/consent foundations. Sol and Opus review the P2 contract before S0 starts. Full target release cannot defer these portions. Stages 3/4, coaching and cross-church individual sharing remain excluded.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
+      ]
     }
   ],
   "owner_product_questions": [
@@ -203,6 +217,18 @@
       "question": "Review access, privacy and terms copy before WP-097 go-live. Review planters and trust copy before WP-049 publishes those pages; home and oversight copy is already approved.",
       "recommendation": "Approve the initial collection, retention, vendor and contact disclosures before WP-097 go-live. Keep planters/trust links hidden until their WP-049 copy review, and update product privacy before customer data.",
       "decision_before": "WP-097 go-live for access/privacy/terms; WP-049 publication for planters/trust; product privacy update before customer data."
+    },
+    {
+      "id": "Q-ORG-DELETION",
+      "owner": "Sebastian",
+      "question": "What are the deletion, retention, access-suspension and recovery rules for a whole sending church or sending network organization?",
+      "status": "open-owner-decision",
+      "scope": "outside alpha; individual organization Person removal follows REQ-MUL-005; no whole-organization deletion operation or policy is introduced.",
+      "title": "Whole-organization deletion",
+      "slice": "after-alpha",
+      "work_packages": [],
+      "recommendation": "Keep whole-organization deletion outside alpha until Sebastian approves its separate policy; do not infer it from individual Person removal.",
+      "decision_before": "Any whole-organization deletion feature; outside alpha"
     }
   ],
   "implementation_tests_run": 0,

@@ -58,6 +58,20 @@ def render(root):
                'Capability inventories cover %s feature IDs and %s persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.' %
                (len({f for c in caps for f in c['feature_ids']}), sum(c['persists'] for c in caps)), '',
                (here / 'design-rules.md').read_text().strip(), '']
+    # New reviewed FKs carry their named exception in the authority. Render any
+    # that are not already described by the retained design rules.
+    documented = '\n'.join(readme)
+    extra_exceptions = []
+    for table in tables:
+        for fk in table['foreign_keys']:
+            if not fk.get('scope_exception'):
+                continue
+            name = (table['name'] + '(' + ', '.join(fk['columns']) + ') -> '
+                    + fk['references']['table'] + '(' + ', '.join(fk['references']['columns']) + ')')
+            if '- `' + name + '`:' not in documented:
+                extra_exceptions.append('- `' + name + '`: ' + fk['scope_exception'])
+    if extra_exceptions:
+        readme += ['## Additional scope exceptions', '', *extra_exceptions, '']
     readme += ['## Architecture alignment amendments', '',
                'Fix 2 records these small gap fixes to the adopted starting schema. They do not authorize application implementation.', '',
                '| ID | Change |', '|---|---|']
