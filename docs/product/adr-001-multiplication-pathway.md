@@ -1,6 +1,6 @@
 # ADR-001: Multiplication pathway for sending churches and networks
 
-**Status:** Accepted by the product owner on 2026-10-16, with the rulings in [Owner rulings](#owner-rulings-2026-10-16). Proposed on 2026-10-15. Acceptance sets product direction. It does not yet add a requirement, case, operation, schema or package: each item in [Proposed changes to the current contract](#proposed-changes-to-the-current-contract) still goes through a reviewed contract change. Requirement JSON in `docs/catalog/requirements/` stays the behavior authority until those changes land.
+**Status:** Accepted by the product owner on 2026-10-16, with the rulings in [Owner rulings](#owner-rulings-2026-10-16). Proposed on 2026-10-15. Stages 1 and 2 are specified by REQ-MUL-001 through REQ-MUL-016, ADR1-001 through ADR1-016, the target schema and WP-098 through WP-102. Requirement JSON in `docs/catalog/requirements/` is the behavior authority. Stages 3 and 4 remain deferred under the [2026-10-17 delivery ruling](#contract-reconciliation-and-delivery-ruling-2026-10-17). Contract review is required before S0 starts; this ADR grants no implementation authority.
 
 **Deciders:** product owner (Sebastian), methodology owner for anything that touches the Playbook or rubrics.
 
@@ -261,3 +261,7 @@ Acceptance needs these contract changes. Each one goes through its own reviewed 
 5. **The church Owner and Admins see a director's feedback** on a resident's assignments.
 6. **The church sending stage exists.** The starter template is Cooperating, Supporting, Sending and Multiplying. Movement is not in the template. A network edits its stages with an editor like the pipeline stage editor.
 7. **Send Network is not a design partner.** The books are one input among many sources of know-how.
+
+## Contract reconciliation and delivery ruling, 2026-10-17
+
+Stages 1 and 2 are now specified by REQ-MUL-001 through REQ-MUL-016 in [People](people.md#multiplication-pathway-contract), the target schema and WP-098 through WP-102. Both organization kinds own their own pipeline. Network totals sharing defaults off per relationship, is Owner/Admin opt-in, never reveals individual candidates, withdraws immediately and requires at least two contributing organizations. Its delivery and church-stage/NI work remain stage 4. Stages 3 and 4 are deferred; agreement review tasks require an existing plant. Coaching remains excluded from alpha. Organization pipeline removal/export retains only needed facts and minimal attribution, without inventing a retention period or importing account cancellation timing. These owner/coordinator rulings supersede any earlier proposed timing or unresolved question above.

@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "as_of": "2026-10-14",
-  "scope": "Documentation-only full approved target with 96 active packages. WP-086 is retired into WP-085. Implementation state is owned solely by docs/build-progress.json.",
+  "as_of": "2026-10-17",
+  "scope": "Documentation-only full approved target including ADR-001 stages 1 and 2. Stages 3 and 4 are deferred. Implementation state is owned solely by docs/build-progress.json.",
   "resource_assumptions": {
     "engineers": 4,
     "qa_engineers": 1,
@@ -351,7 +351,8 @@
         "assessment/run storage, reference versions and current sharing/affiliation relationships; reader_feedback stores assessment/finding feedback while feedback stores private application feedback.",
         "launch_guest same-plant Launch-to-Person relation, interview responses and published summary projections with typed event history.",
         "Private file_object namespaces and exact typed organization/account/plant references, deletion policies and reviewed migration checks.",
-        "Preserve existing early_access_request, early_access_attempt and schema_migration tables and the already applied 0001_early_access.sql migration; do not recreate migration 0001 or its ledger."
+        "Preserve existing early_access_request, early_access_attempt and schema_migration tables and the already applied 0001_early_access.sql migration; do not recreate migration 0001 or its ledger.",
+        "Organization Person owner keys, resident invitation/link/consent, restricted note/feedback projections, removal witnesses and registered downstream Person consumers are in the baseline schema."
       ],
       "owning_paths": [
         "packages/db/src/schema/",
@@ -359,7 +360,8 @@
         "tests/integration/db/"
       ],
       "interfaces": [
-        "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports."
+        "docs/schema/target.json reviewed starting table/column/FK design, changeable through reviewed migrations; packages/db short UoW/pool and typed schema exports.",
+        "Organization Person owner keys, resident invitation/link/consent, restricted note/feedback projections, removal witnesses and registered downstream Person consumers are in the baseline schema."
       ],
       "acceptance_gates": [
         "The current target baseline migrates successfully on a fresh database; docs/schema/check.py and real DDL/record-subtype integrity checks pass.",
@@ -502,7 +504,8 @@
       "outputs": [
         "flat independent seat/domain grants plus current multiple affiliation and per-org sharing predicates; no coaching or delegated network approvals",
         "One ordinary accepted same-workspace Owner/Admin plant administration policy; Owner-only workspace deletion, CRM lead title grants nothing, no exclusive controller/handoff or duplicated permission rows; runtime native/Evry parity",
-        "One active account seat, exact server-derived plant/typed organization/account scope and current lifecycle/purpose; no affiliation/title/platform wildcard."
+        "One active account seat, exact server-derived plant/typed organization/account scope and current lifecycle/purpose; no affiliation/title/platform wildcard.",
+        "Exact organization duty checks and seatless resident projections; no inherited plant access or protected-note/model path."
       ],
       "owning_paths": [
         "packages/domain/src/access/",
@@ -511,7 +514,8 @@
         "tests/integration/access/"
       ],
       "interfaces": [
-        "flat independent seat/domain grants plus current multiple affiliation and per-org sharing predicates; no coaching or delegated network approvals"
+        "flat independent seat/domain grants plus current multiple affiliation and per-org sharing predicates; no coaching or delegated network approvals",
+        "Exact organization duty checks and seatless resident projections; no inherited plant access or protected-note/model path."
       ],
       "acceptance_gates": [
         "cross-tenant direct operation denied",
@@ -535,7 +539,8 @@
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "case_requirements_at_start": [
           "REQ-IDN-029",
-          "REQ-KNOW-116"
+          "REQ-KNOW-116",
+          "REQ-MUL-002"
         ]
       },
       "estimate_factors": {
@@ -569,7 +574,8 @@
         "WP-006 reviewed producer/interface milestone"
       ],
       "outputs": [
-        "multiple exact-org relationship requests/approval/end/history; default oversight and per-org ON sharing with scoped planter notices"
+        "multiple exact-org relationship requests/approval/end/history; default oversight and per-org ON sharing with scoped planter notices",
+        "Resident progress consent and per-network totals-only opt-in/revocation are foundation contracts; aggregate delivery remains stage 4."
       ],
       "owning_paths": [
         "packages/domain/src/organizations/",
@@ -579,7 +585,8 @@
       ],
       "interfaces": [
         "multiple exact-org relationship requests/approval/end/history; default oversight and per-org ON sharing with scoped planter notices",
-        "WP-007 owns the relationship-sharing mutation boundary used by privacy.setSharing and settings.saveSection. Preserve omitted fields, exact categories and current relationship/consent revisions in one caller-owned short transaction."
+        "WP-007 owns the relationship-sharing mutation boundary used by privacy.setSharing and settings.saveSection. Preserve omitted fields, exact categories and current relationship/consent revisions in one caller-owned short transaction.",
+        "Resident progress consent and per-network totals-only opt-in/revocation are foundation contracts; aggregate delivery remains stage 4."
       ],
       "acceptance_gates": [
         "disclosed defaults",
@@ -604,7 +611,9 @@
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "case_requirements_at_start": [
-          "REQ-KNOW-112"
+          "REQ-KNOW-112",
+          "REQ-MUL-003",
+          "REQ-MUL-016"
         ]
       },
       "estimate_factors": {
@@ -644,7 +653,8 @@
       "outputs": [
         "create/describe/revoke/resend/accept invitation",
         "V3-IDN-PLANTER-001 stable target-extension identity now maps ordinary Owner CRM bootstrap and lead ministry assignment; normal invite acceptance activates only its explicit ordinary seat",
-        "One transaction claims token and activates domain account/seat/association/Person/receipt/audit/security-mail intent; deterministic account-exists resume and racing claims."
+        "One transaction claims token and activates domain account/seat/association/Person/receipt/audit/security-mail intent; deterministic account-exists resume and racing claims.",
+        "Organization-initiated resident invitation with addressed acceptance/decline and stale, revoke, expiry and concurrent-claim defenses."
       ],
       "owning_paths": [
         "packages/domain/src/identity/",
@@ -653,7 +663,8 @@
         "tests/integration/identity/"
       ],
       "interfaces": [
-        "create/describe/revoke/resend/accept invitation"
+        "create/describe/revoke/resend/accept invitation",
+        "Organization-initiated resident invitation with addressed acceptance/decline and stale, revoke, expiry and concurrent-claim defenses."
       ],
       "acceptance_gates": [
         "parallel revoke/register/claim",
@@ -677,7 +688,9 @@
         "operations": "owned_and_features",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "case_requirements_at_start": []
+        "case_requirements_at_start": [
+          "REQ-MUL-004"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -713,7 +726,8 @@
         "create plant, leadership/journey attestation, completion",
         "No-church Discovery account accesses Wiki/editor plus account/creation controls; creation supplies main Phase 1 evidence without strict readiness; selected document carry-forward is scoped proposal.",
         "CreateChurchFromDiscovery atomic Phase 1/authority/creation-origin provenance; actual unfinished checklist preserved; not_sure never auto-declares Phase 0.",
-        "Owner CRM create/link and recorded lead-answer contract close here; WP017 proves real ordinary role/container assignment integration. A frozen interface alone does not close full onboarding vertical acceptance."
+        "Owner CRM create/link and recorded lead-answer contract close here; WP017 proves real ordinary role/container assignment integration. A frozen interface alone does not close full onboarding vertical acceptance.",
+        "Residency handoff interface preserves explicit account confirmation, one seat and Phase 1; no stage 3 commissioning/prefill implementation."
       ],
       "owning_paths": [
         "packages/domain/src/onboarding/",
@@ -724,7 +738,8 @@
       ],
       "interfaces": [
         "create plant, leadership/journey attestation, completion",
-        "Consume C0/WP-002 creation-entry contract and WP-004 schema; do not depend on later WP-038 phase-engine implementation or create a dependency cycle"
+        "Consume C0/WP-002 creation-entry contract and WP-004 schema; do not depend on later WP-038 phase-engine implementation or create a dependency cycle",
+        "Residency handoff interface preserves explicit account confirmation, one seat and Phase 1; no stage 3 commissioning/prefill implementation."
       ],
       "acceptance_gates": [
         "back/reentry/drafts",
@@ -748,7 +763,9 @@
         "operations": "owned_and_features",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "case_requirements_at_start": []
+        "case_requirements_at_start": [
+          "REQ-MUL-006"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -860,7 +877,8 @@
       ],
       "outputs": [
         "scoped CRUD/query/activity and linked-account contract",
-        "Explicit adult/child/unknown person classification and People-owned current commitment projection; no required DOB or household inference."
+        "Explicit adult/child/unknown person classification and People-owned current commitment projection; no required DOB or household inference.",
+        "Organization-owned full Person lifecycle, export/removal policy, duplicate/merge/Unmerge and registered reference/inverse recipe; plant-only facts remain scoped."
       ],
       "owning_paths": [
         "packages/domain/src/people/",
@@ -871,7 +889,8 @@
       "interfaces": [
         "scoped CRUD/query/activity and linked-account contract",
         "Explicit adult/child/unknown person classification and People-owned current commitment projection; no required DOB or household inference.",
-        "PersonName {suppliedDisplayName, optional givenName/familyName}; People create/link/display/search/export/duplicate-selection input/output contract. Existing source validation remains evidence; C0 freezes target representation."
+        "PersonName {suppliedDisplayName, optional givenName/familyName}; People create/link/display/search/export/duplicate-selection input/output contract. Existing source validation remains evidence; C0 freezes target representation.",
+        "Organization-owned full Person lifecycle, export/removal policy, duplicate/merge/Unmerge and registered reference/inverse recipe; plant-only facts remain scoped."
       ],
       "acceptance_gates": [
         "same-tenant person/user",
@@ -895,7 +914,9 @@
         "case_requirements_at_start": [
           "REQ-KNOW-069",
           "REQ-KNOW-098",
-          "REQ-KNOW-099"
+          "REQ-KNOW-099",
+          "REQ-MUL-001",
+          "REQ-MUL-005"
         ]
       },
       "estimate_factors": {
@@ -4123,9 +4144,10 @@
         "WP-055",
         "WP-091",
         "WP-092",
-        "WP-093"
+        "WP-093",
+        "WP-102"
       ],
-      "estimate_engineer_days": 14.0,
+      "estimate_engineer_days": 14.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-056; linked details on demand.",
         "WP-015 reviewed producer/interface milestone",
@@ -4202,7 +4224,8 @@
         "WP-056",
         "WP-094",
         "WP-095",
-        "WP-096"
+        "WP-096",
+        "WP-102"
       ],
       "estimate_engineer_days": 14.0,
       "inputs": [
@@ -7326,9 +7349,349 @@
         "table_days": 0,
         "gate_days": 0.04
       }
+    },
+    {
+      "id": "WP-098",
+      "title": "Organization pipeline, goals and conversations",
+      "goal": "Organization-owned pipeline goals, human stage moves and restricted leadership conversations for churches and networks.",
+      "lane": "domain",
+      "domain": "people",
+      "depends_on": [
+        "WP-017",
+        "WP-018",
+        "WP-019",
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-030",
+        "WP-033",
+        "WP-034",
+        "WP-035",
+        "WP-036",
+        "WP-037",
+        "WP-015"
+      ],
+      "estimate_engineer_days": 4.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-098; linked details on demand.",
+        "Accepted ADR-001 and owner rulings, 2026-10-16 and 2026-10-17."
+      ],
+      "outputs": [
+        "Organization-owned pipeline goals, human stage moves and restricted leadership conversations for churches and networks."
+      ],
+      "owning_paths": [
+        "packages/domain/src/multiplication/pipeline/",
+        "packages/contracts/src/multiplication/pipeline/",
+        "apps/web/src/features/multiplication/pipeline/",
+        "tests/integration/multiplication/pipeline/"
+      ],
+      "interfaces": [
+        "Organization-owned pipeline goals, human stage moves and restricted leadership conversations for churches and networks."
+      ],
+      "acceptance_gates": [
+        "Owned requirements and named cases pass at real applicable SQL, native, browser/file and assistant layers, including denied actors and replay.",
+        "Current authority, person lifecycle/reference locks, exact consent, history, receipts and safe audit remain coherent.",
+        "No private-care, protected staff notes or cross-owner individual data reaches models or resident results."
+      ],
+      "spec_paths": [
+        "docs/product/people.md",
+        "docs/product/adr-001-multiplication-pathway.md",
+        "docs/architecture/security.md",
+        "docs/architecture/person-references.json"
+      ],
+      "specialist": "implementor",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "ui_composition_rule": "UI implementation belongs to ui-designer on Opus 5.5; design the currently undrawn pipeline/program/My residency states using the reviewed product components. Contract and API work have no presentation prerequisite.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "operations": "owned_and_features",
+        "cases": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.1,
+        "operation_days": 0.05,
+        "case_days": 0.025,
+        "table_days": 0.1,
+        "gate_days": 0.3
+      },
+      "integration_rule": "One owner integrates after direct prerequisite milestones. Schema, access, Person and source-rights producers review shared contracts. Current-state proof and independent review precede closure; no stage 3/4 behavior."
+    },
+    {
+      "id": "WP-099",
+      "title": "Development programs and enrollment",
+      "goal": "Versioned apprenticeship and residency definitions, cohorts, enrollments, completion, confirmation and restricted feedback.",
+      "lane": "domain",
+      "domain": "people",
+      "depends_on": [
+        "WP-098"
+      ],
+      "estimate_engineer_days": 5.0,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-099; linked details on demand.",
+        "Accepted ADR-001 and owner rulings, 2026-10-16 and 2026-10-17."
+      ],
+      "outputs": [
+        "Versioned apprenticeship and residency definitions, cohorts, enrollments, completion, confirmation and restricted feedback."
+      ],
+      "owning_paths": [
+        "packages/domain/src/multiplication/development/",
+        "packages/contracts/src/multiplication/development/",
+        "apps/web/src/features/multiplication/development/",
+        "tests/integration/multiplication/development/"
+      ],
+      "interfaces": [
+        "Versioned apprenticeship and residency definitions, cohorts, enrollments, completion, confirmation and restricted feedback."
+      ],
+      "acceptance_gates": [
+        "Owned requirements and named cases pass at real applicable SQL, native, browser/file and assistant layers, including denied actors and replay.",
+        "Current authority, person lifecycle/reference locks, exact consent, history, receipts and safe audit remain coherent.",
+        "No private-care, protected staff notes or cross-owner individual data reaches models or resident results."
+      ],
+      "spec_paths": [
+        "docs/product/people.md",
+        "docs/product/adr-001-multiplication-pathway.md",
+        "docs/architecture/security.md",
+        "docs/architecture/person-references.json"
+      ],
+      "specialist": "implementor",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "ui_composition_rule": "UI implementation belongs to ui-designer on Opus 5.5; design the currently undrawn pipeline/program/My residency states using the reviewed product components. Contract and API work have no presentation prerequisite.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "operations": "owned_and_features",
+        "cases": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.1,
+        "operation_days": 0.05,
+        "case_days": 0.025,
+        "table_days": 0.1,
+        "gate_days": 0.3
+      },
+      "integration_rule": "One owner integrates after direct prerequisite milestones. Schema, access, Person and source-rights producers review shared contracts. Current-state proof and independent review precede closure; no stage 3/4 behavior."
+    },
+    {
+      "id": "WP-100",
+      "title": "My residency and consented progress",
+      "goal": "Seatless resident projection, current consent controls and entitled foundations/reading sources.",
+      "lane": "domain",
+      "domain": "people",
+      "depends_on": [
+        "WP-099",
+        "WP-007",
+        "WP-008",
+        "WP-035"
+      ],
+      "estimate_engineer_days": 3.5,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-100; linked details on demand.",
+        "Accepted ADR-001 and owner rulings, 2026-10-16 and 2026-10-17."
+      ],
+      "outputs": [
+        "Seatless resident projection, current consent controls and entitled foundations/reading sources."
+      ],
+      "owning_paths": [
+        "packages/domain/src/multiplication/residency/",
+        "packages/contracts/src/multiplication/residency/",
+        "apps/web/src/features/multiplication/residency/",
+        "tests/integration/multiplication/residency/"
+      ],
+      "interfaces": [
+        "Seatless resident projection, current consent controls and entitled foundations/reading sources."
+      ],
+      "acceptance_gates": [
+        "Owned requirements and named cases pass at real applicable SQL, native, browser/file and assistant layers, including denied actors and replay.",
+        "Current authority, person lifecycle/reference locks, exact consent, history, receipts and safe audit remain coherent.",
+        "No private-care, protected staff notes or cross-owner individual data reaches models or resident results."
+      ],
+      "spec_paths": [
+        "docs/product/people.md",
+        "docs/product/adr-001-multiplication-pathway.md",
+        "docs/architecture/security.md",
+        "docs/architecture/person-references.json"
+      ],
+      "specialist": "implementor",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "ui_composition_rule": "UI implementation belongs to ui-designer on Opus 5.5; design the currently undrawn pipeline/program/My residency states using the reviewed product components. Contract and API work have no presentation prerequisite.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "operations": "owned_and_features",
+        "cases": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.1,
+        "operation_days": 0.05,
+        "case_days": 0.025,
+        "table_days": 0.1,
+        "gate_days": 0.3
+      },
+      "integration_rule": "One owner integrates after direct prerequisite milestones. Schema, access, Person and source-rights producers review shared contracts. Current-state proof and independent review precede closure; no stage 3/4 behavior."
+    },
+    {
+      "id": "WP-101",
+      "title": "Pipeline and development Evry adapters",
+      "goal": "Bounded authorized reads, plan drafting and reviewed pipeline/program commands; model-safe projections exclude protected bodies.",
+      "lane": "domain",
+      "domain": "people",
+      "depends_on": [
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-053"
+      ],
+      "estimate_engineer_days": 4.0,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-101; linked details on demand.",
+        "Accepted ADR-001 and owner rulings, 2026-10-16 and 2026-10-17."
+      ],
+      "outputs": [
+        "Bounded authorized reads, plan drafting and reviewed pipeline/program commands; model-safe projections exclude protected bodies."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/evry/multiplication/",
+        "tests/evals/multiplication/"
+      ],
+      "interfaces": [
+        "Bounded authorized reads, plan drafting and reviewed pipeline/program commands; model-safe projections exclude protected bodies."
+      ],
+      "acceptance_gates": [
+        "Owned requirements and named cases pass at real applicable SQL, native, browser/file and assistant layers, including denied actors and replay.",
+        "Current authority, person lifecycle/reference locks, exact consent, history, receipts and safe audit remain coherent.",
+        "No private-care, protected staff notes or cross-owner individual data reaches models or resident results."
+      ],
+      "spec_paths": [
+        "docs/product/people.md",
+        "docs/product/adr-001-multiplication-pathway.md",
+        "docs/architecture/security.md",
+        "docs/architecture/person-references.json"
+      ],
+      "specialist": "implementor",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "ui_composition_rule": "UI implementation belongs to ui-designer on Opus 5.5; design the currently undrawn pipeline/program/My residency states using the reviewed product components. Contract and API work have no presentation prerequisite.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "operations": "evry_owned",
+        "cases": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.1,
+        "operation_days": 0.05,
+        "case_days": 0.025,
+        "table_days": 0.1,
+        "gate_days": 0.3
+      },
+      "integration_rule": "One owner integrates after direct prerequisite milestones. Schema, access, Person and source-rights producers review shared contracts. Current-state proof and independent review precede closure; no stage 3/4 behavior."
+    },
+    {
+      "id": "WP-102",
+      "title": "Multiplication privacy, race and parity integration",
+      "goal": "Real SQL, browser, file and native/Evry proof of stages 1 and 2, person reference races, revocation and denied actors.",
+      "lane": "integration",
+      "domain": "people",
+      "depends_on": [
+        "WP-101"
+      ],
+      "estimate_engineer_days": 5.0,
+      "inputs": [
+        "Short brief from docs/package-context.py WP-102; linked details on demand.",
+        "Accepted ADR-001 and owner rulings, 2026-10-16 and 2026-10-17."
+      ],
+      "outputs": [
+        "Real SQL, browser, file and native/Evry proof of stages 1 and 2, person reference races, revocation and denied actors."
+      ],
+      "owning_paths": [
+        "apps/web/src/server/integration/multiplication/",
+        "tests/integration/target/multiplication/",
+        "tests/e2e/target/multiplication/"
+      ],
+      "interfaces": [
+        "Real SQL, browser, file and native/Evry proof of stages 1 and 2, person reference races, revocation and denied actors."
+      ],
+      "acceptance_gates": [
+        "Owned requirements and named cases pass at real applicable SQL, native, browser/file and assistant layers, including denied actors and replay.",
+        "Current authority, person lifecycle/reference locks, exact consent, history, receipts and safe audit remain coherent.",
+        "No private-care, protected staff notes or cross-owner individual data reaches models or resident results."
+      ],
+      "spec_paths": [
+        "docs/product/people.md",
+        "docs/product/adr-001-multiplication-pathway.md",
+        "docs/architecture/security.md",
+        "docs/architecture/person-references.json"
+      ],
+      "specialist": "implementor",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ],
+      "ui_composition_rule": "UI implementation belongs to ui-designer on Opus 5.5; design the currently undrawn pipeline/program/My residency states using the reviewed product components. Contract and API work have no presentation prerequisite.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "operations": "owned_and_features",
+        "cases": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 2,
+        "requirement_days": 0.1,
+        "operation_days": 0.05,
+        "case_days": 0.025,
+        "table_days": 0.1,
+        "gate_days": 0.3
+      },
+      "integration_rule": "One owner integrates after direct prerequisite milestones. Schema, access, Person and source-rights producers review shared contracts. Current-state proof and independent review precede closure; no stage 3/4 behavior."
     }
   ],
-  "edge_count": 480,
+  "edge_count": 520,
   "topological_merge_order": [
     "WP-097",
     "WP-087",
@@ -7420,6 +7783,11 @@
     "WP-091",
     "WP-092",
     "WP-093",
+    "WP-098",
+    "WP-099",
+    "WP-100",
+    "WP-101",
+    "WP-102",
     "WP-056",
     "WP-094",
     "WP-095",
@@ -7457,8 +7825,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 96.5,
-  "total_engineer_days": 255.0,
+  "critical_path_unconstrained_days": 97.0,
+  "total_engineer_days": 277.5,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -7660,6 +8028,72 @@
       "meaning": "Teams/training/communication/Wiki/documents"
     },
     {
+      "id": "S2M",
+      "required_packages": [
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
+      ],
+      "cumulative_packages": [
+        "WP-097",
+        "WP-001",
+        "WP-002",
+        "WP-003",
+        "WP-004",
+        "WP-005",
+        "WP-006",
+        "WP-007",
+        "WP-008",
+        "WP-009",
+        "WP-010",
+        "WP-011",
+        "WP-012",
+        "WP-013",
+        "WP-014",
+        "WP-015",
+        "WP-016",
+        "WP-017",
+        "WP-018",
+        "WP-019",
+        "WP-020",
+        "WP-021",
+        "WP-022",
+        "WP-023",
+        "WP-024",
+        "WP-025",
+        "WP-027",
+        "WP-028",
+        "WP-029",
+        "WP-030",
+        "WP-031",
+        "WP-032",
+        "WP-033",
+        "WP-034",
+        "WP-035",
+        "WP-036",
+        "WP-037",
+        "WP-050",
+        "WP-051",
+        "WP-052",
+        "WP-053",
+        "WP-059",
+        "WP-060",
+        "WP-087",
+        "WP-088",
+        "WP-089",
+        "WP-090",
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
+      ],
+      "dependency_closed": true,
+      "meaning": "ADR-001 stages 1 and 2 after planter S2 and before alpha"
+    },
+    {
       "id": "S3",
       "required_packages": [
         "WP-026",
@@ -7736,7 +8170,12 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
       ],
       "dependency_closed": true,
       "meaning": "Full phases/Plant and Network Intelligence/Launch/operations"
@@ -7859,7 +8298,12 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
       ],
       "dependency_closed": true,
       "meaning": "All assistant adapters and whole-target integration"
@@ -7973,7 +8417,12 @@
         "WP-093",
         "WP-094",
         "WP-095",
-        "WP-096"
+        "WP-096",
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
       ],
       "dependency_closed": true,
       "meaning": "Full target release rehearsal"
@@ -7998,7 +8447,8 @@
   "build_plan_notes": {
     "foundation": "WP-097 delivers the early access site and app scaffold, including the shipped React marketing rebuild: Tailwind 4 importing design/handoff/tokens.css, next/font, Hugeicons, Motion, color-literal lint, share/mesh image generators and light-only public pages. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 extends these existing foundations and adds product AppShell and product-only dark mode; marketing remains light. WP-089 adds controls/surfaces/overlays and WP-090 data/content/domain display. WP-049 reuses the rebuilt marketing components and owner-reviewed vision section when merged, retaining feedback, reviewed planters/trust pages, sign-in links and the before-customer-data privacy update. Only product feature UI tasks wait for the design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed go-live commit on main and owner approval before WP-087 starts. Later maintenance does not replace that go-live evidence.",
     "milestones": "C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.",
-    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages."
+    "adapter_ownership": "DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages.",
+    "multiplication": "S0 installs organization Person integrity, resident invitation/access/consent, projections, retention and reference/inverse contracts. WP-098..102 deliver ADR stages 1 and 2 after planter S2 and before alpha. Stage 3 commissioning/prefill/lineage/agreements and stage 4 network totals/church stages/rubric are deferred. Stage 4 sharing defaults off per relationship, totals only with at least two contributing organizations and immediate withdrawal. Agreement review tasks require an existing plant. Coaching and cross-church individual sharing remain excluded."
   },
   "package_splits": [
     {

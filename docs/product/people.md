@@ -372,3 +372,119 @@ Historical genuine acquisition is independent from current size. Use each canoni
 ## Consumer closure and proof
 
 [Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+
+## Multiplication pathway contract
+
+ADR-001 stages 1 and 2 are current before-alpha obligations for sending churches and sending networks. The following clauses are authoritative in [the People requirement catalog](../catalog/requirements/people.json). S0 installs organization Person integrity, access and invitation/consent, restricted projections, removal/export and reference/inverse rules; WP-098 through WP-102 deliver the later product after planter S2.
+
+<a id="req-mul-001"></a>
+### REQ-MUL-001: Organization Person lifecycle
+
+Organizations of either kind own pipeline Person records under the full Person lifecycle: create, edit, retire, restore, export, remove on request, duplicate selection, merge and guarded Unmerge. Identity is scoped to one organization. Email is editable contact information, not identity proof. Retirement stops new current references; restore never restores seats, consent or a merged source. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. Every new Person consumer registers retirement, merge and inverse behavior before closure. Plant recruitment, household, commitment and ministry facts remain plant-only; organization stage kinds never enter plant progression.
+
+Owner: WP-011.
+
+<a id="req-mul-002"></a>
+### REQ-MUL-002: Pipeline duty authority and restricted projections
+
+A current exact-organization Owner or Admin can administer its pipeline. Assigned responsible staff and program directors must hold a current eligible seat in that organization and receive only their named duties. A linked resident has only their own residency projection, without an organization seat or directory access. Internal stage labels, reasons, staff conversation notes, assessment metadata and inactivity flags are hidden from residents. No director or organization role gains plant editing, account-private documents, reflections, private-care bodies or existence signals. Central audit contains IDs, actor, change kind and revisions, never protected note, reason or feedback bodies.
+
+Owner: WP-006.
+
+<a id="req-mul-003"></a>
+### REQ-MUL-003: Resident consent and revocation foundation
+
+An accepted resident link records separate choices for sharing six-foundation completion and resident milestone progress with the exact organization. Disclose categories and excluded private content before acceptance; acceptance grants only explicitly chosen categories. The resident can stop either category or leave. Withdrawal takes effect immediately in current reads, exports, saved results, history, jobs, source bytes and model context; stale consent revisions fail. Account-private reading and documents remain account-owned. A link neither creates a seat nor consumes another seat. An ended link cannot be revived by replaying an invitation or an old approval. Enrollment facts the organization independently owns remain subject to its removal policy; consent loss does not erase genuine organizational facts.
+
+Owner: WP-007.
+
+<a id="req-mul-004"></a>
+### REQ-MUL-004: Organization invitation to a resident account
+
+An organization Owner or Admin may invite a specific pipeline person to link an EveryField account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.
+
+Owner: WP-008.
+
+<a id="req-mul-005"></a>
+### REQ-MUL-005: Organization pipeline export and removal
+
+An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.
+
+Owner: WP-011.
+
+<a id="req-mul-006"></a>
+### REQ-MUL-006: Residency handoff interface preserves ordinary creation
+
+The foundation creation interface accepts only account-owner-confirmed values and preserves ordinary Phase 1 entry, one active seat and an attributable creation event. A sending organization cannot create or edit the plant on the resident's behalf. Residency commissioning, plant prefill and lineage are deferred to ADR delivery stage 3. Future handoff must explicitly resolve an existing organization staff seat; an Owner follows the existing manual exceptional ownership process. No seat-transfer engine or silent geographic attestation is introduced.
+
+Owner: WP-009.
+
+<a id="req-mul-007"></a>
+### REQ-MUL-007: Sending goals and observed counts
+
+Both sending churches and sending networks can record multiple sending goals with nonnegative leader and plant targets, target year and rationale. Show observed counts at a stated as-of date and organization-local calendar, never forecasts, readiness rates or fitness verdicts. A goal does not move people, commission residents or create a plant. Current own-pipeline counts use distinct live people and dated genuine moves; a later correction retains history rather than counting a person twice.
+
+Owner: WP-098.
+
+<a id="req-mul-008"></a>
+### REQ-MUL-008: Configurable human pipeline stages
+
+Start with Potential leader, Apprentice, Resident, Commissioned and Not continuing. Owners and Admins may rename, reorder and add stages mapped to the fixed kinds potential_leader, apprentice, resident, commissioned, not_continuing or other. Show exact changes for review before saving. Refuse deletion of occupied stages and retain old labels in dated history. A human records each move and its reason; no automatic recruitment event or program completion moves an organization person. Not continuing is an ordinary outcome. Record only whether an outside assessment occurred, when and by whom, never its outcome. Staff may query people with no move for six months using the stated calendar and as-of date. Counts use kinds, not editable labels.
+
+Owner: WP-098.
+
+<a id="req-mul-009"></a>
+### REQ-MUL-009: Leadership conversations
+
+Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person.
+
+Owner: WP-098.
+
+<a id="req-mul-010"></a>
+### REQ-MUL-010: Apprenticeship and residency program definitions
+
+Both apprenticeship and residency programs ship before alpha for either organization kind. Define director, meeting rhythm, expected length, ordered stages with editable month ranges, milestones and Wiki reading lists. Start blank or from the residency template: Assimilating 2 to 3 months, Training and planning 6 to 9 months, Gathering 2 to 3 months, Sending and planting 2 to 3 months. Offer milestones to start a small group and raise a replacement, present the vision to sending leadership and write a church planting prospectus. Directors review drafts before publication. Publishing a changed plan creates a new version; existing enrollments keep their plan unless the director deliberately reviews and applies the version. Reading pointers pin canonical article and revision and recheck current source entitlement; organization content never grants general library access.
+
+Owner: WP-099.
+
+<a id="req-mul-011"></a>
+### REQ-MUL-011: Enrollment, cohort and deliberate plan changes
+
+Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and stale revisions. Current program stages are distinct from internal pipeline stages.
+
+Owner: WP-099.
+
+<a id="req-mul-012"></a>
+### REQ-MUL-012: Resident completion, director confirmation and feedback
+
+A currently linked resident marks their own milestone complete; the current director confirms separately. Record who and when for each fact and retain correction history. Completing a milestone never supplies director confirmation. Hands-on assignments are described milestones; dated human feedback is visible only to the linked resident, current director and organization Owner/Admin, including both organization kinds. Other staff and foreign residents cannot read feedback. Feedback does not create a calling judgment. Recheck link, duty, version and consent on reads and writes, including races. No completion or feedback automatically commissions or creates a plant.
+
+Owner: WP-099.
+
+<a id="req-mul-013"></a>
+### REQ-MUL-013: My residency without a seat
+
+A linked Discovery account keeps its private Wiki reading and documents and gains My residency showing its program, current program stage, next meeting, own milestones and confirmation state, entitled reading list and exact sharing controls. It can mark its own milestone done, stop sharing or leave. It cannot see the internal pipeline label, reasons, staff notes, assessment metadata or six-month inactivity flag. It receives no People, Meetings, Tasks, Launch, organization directory, plant workspace or second seat. Current link loss removes the projection immediately, including cached navigation and downloads.
+
+Owner: WP-100.
+
+<a id="req-mul-014"></a>
+### REQ-MUL-014: Consented foundations and reading sources
+
+A director sees only the linked resident's consented completion facts for the six canonical Discovery foundations and permitted milestone progress. Do not return private reading rows, reflections or documents. Foundation completion means one eligible actual reader completed all six above the existing threshold; do not pool readers or infer completion from a program milestone. Program reading uses current entitled canonical sources, including the organization's published versions. Withdrawal, link termination, source unpublication or lost relationship access removes content and shared progress from current results, history and downloadable bytes. Linking does not broaden Discovery reading rights to unrelated organization libraries.
+
+Owner: WP-100.
+
+<a id="req-mul-015"></a>
+### REQ-MUL-015: Pipeline and residency Evry boundaries
+
+Evry may read authorized pipeline facts and draft program plans and milestone lists. Every durable write uses exact human review of all effects and fresh authority, reference, revision and consent checks at execution. Native and assistant calls have the same results and denials. Staff may ask who has not moved in six months. Evry never ranks people, assesses calling or reads leadership conversation notes into a model; it also excludes private care, internal reasons, assessment metadata and assignment feedback unless a separately reviewed model-safe allowlist explicitly authorizes a category. Program drafting never publishes or enrolls without reviewed effects. Agreement and commissioning drafts remain deferred with delivery stage 3.
+
+Owner: WP-101.
+
+<a id="req-mul-016"></a>
+### REQ-MUL-016: Network sharing boundary and deferred delivery
+
+A sending-church Owner or Admin may opt in to sharing pipeline totals separately for each current network relationship and withdraw immediately. Default is off. Share only aggregate stage-kind counts, active residents and commissioned counts by year, never individual candidates, notes, reasons, feedback, assessment metadata or private progress. A network result requires at least two currently contributing organizations; hide unavailable contributions rather than substituting zero or allowing subtraction, filters, saved history or stale jobs to identify a single church or person. A network's own pipeline confers no right to a church's pipeline. Aggregate delivery, network-defined church stages and revised Network Intelligence inputs remain deferred to ADR stage 4; S0 establishes only consent/revocation categories and minimum-contributor rules. The S0 eligibility check returns only an allowed/withheld decision and the minimum contributor rule, without totals or individual records; it rechecks current opt-ins and refuses fewer than two distinct contributors.
+
+Owner: WP-007.

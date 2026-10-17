@@ -19,7 +19,11 @@ test('BUG-workflow: preserve selected producer dependencies across forward refer
 });
 test('INV-context: load current acceptance and fail when its required input is missing', () => {
  const registry=loadRegistry(source);
- assert.equal(registry.length, 720);
+ const index=JSON.parse(readFileSync(join(source,'docs/catalog/index.json'),'utf8'));
+ const catalog=JSON.parse(readFileSync(join(source,index.acceptance_source),'utf8'));
+ assert.equal(index.counts.active_acceptance_bundles,catalog.length);
+ assert.equal(registry.length,index.counts.active_acceptance_bundles);
+ assert.deepEqual(registry.map(a=>a.id),catalog.map((a:{id:string})=>a.id));
  assert.deepEqual(registry.find(a=>a.id==='AC-EVR-001--EVR-001')?.required_test_layers,
   ['domain/contract','PostgreSQL integration where writes/concurrency','browser/tool evaluation where surfaced']);
  assert.deepEqual(registry.find(a=>a.id==='AC-DOC-016--DOC-016')?.required_test_layers,

@@ -458,3 +458,7 @@ Three truly adjacent answered weeks of Strained or Struggling in the same author
 ## Affiliation settings category adapter
 
 Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects. Exact operation fields and mappings are in `settings.saveSection`; `TARGET-IDN-010` includes the saved-policy, omitted-field, explicit-findings and stale-revision cases.
+
+## Resident link foundation
+
+An organization can invite an exact pipeline person to link an account without a seat. The addressed person accepts or declines with disclosed, separate progress-sharing choices and can withdraw or leave. The link grants only My residency and current entitled reading, never an organization directory, plant editing or account-private content. Foundation requirements and cases are REQ-MUL-002 through REQ-MUL-006 and REQ-MUL-016 in [People](people.md#multiplication-pathway-contract). Existing one-seat and coaching exclusions remain in force.

@@ -122,6 +122,20 @@
       ],
       "stage": "early-access-go-live",
       "owner_ruling_date": "2026-10-14"
+    },
+    {
+      "id": "G-MULTIPLICATION",
+      "title": "ADR-001 before-alpha stages 1 and 2",
+      "owner": "Pipeline, program, resident and integration owners",
+      "closure": "WP-098..102 prove stages 1 and 2 after planter S2, with S0 organization Person/consent foundations. Sol and Opus review the P2 contract before S0 starts. Full target release cannot defer these portions. Stages 3/4, coaching and cross-church individual sharing remain excluded.",
+      "status": "future-not-run",
+      "work_packages": [
+        "WP-098",
+        "WP-099",
+        "WP-100",
+        "WP-101",
+        "WP-102"
+      ]
     }
   ],
   "owner_product_questions": [

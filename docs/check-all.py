@@ -15,6 +15,7 @@ CHECKS = [
     ('architecture', ['docs/schema/check-architecture.py']),
     ('architecture self-test', ['docs/schema/check-architecture.py', '--self-test']),
     ('person references', ['docs/schema/check-person-references.py']),
+    ('multiplication contract', ['docs/check-multiplication.py']),
     ('package manifest', ['docs/package-context.py', '--check-manifest']),
     ('package plan', ['docs/package-context.py', '--check-plan']),
     ('owned case action ordering', ['docs/package-context.py', '--check-case-actions']),

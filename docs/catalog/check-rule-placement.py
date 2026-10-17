@@ -41,7 +41,7 @@ def check(root, write=False):
     assert len(added_links) == len(set(added_links)), 'Duplicate added operation link in ledger'
     assert all(row['reason'].strip() for row in mapping['added_links']), 'Added operation links need a reason'
     for rid, op in added_links:
-        assert rid in current and op not in before[rid]['operations'], 'Ledger link is not a baseline addition'
+        assert rid in current and op not in before.get(rid, {}).get('operations', []), 'Ledger link is not a baseline addition'
         if write and op not in current[rid]['operations']:
             current[rid]['operations'].append(op)
             current[rid].setdefault('operation_refs', []).append({'operation_id': op, 'catalog': 'docs/catalog/operations.json'})
