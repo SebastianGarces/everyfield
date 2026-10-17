@@ -832,6 +832,13 @@
       "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/building-your-churchs-brand"
+    },
+    {
+      "contentSHA256": "623654b03a8a4e42bab80a235707ed62276db0c1f87990cb517bb2fdc4baf201",
+      "id": "7de80dc9-faa3-4b4e-b4b5-b717df85dde5",
+      "recordSHA256": "869907efbdcceb7f230d17301c40909b2557d8341caa5d083eaa46c15f0ca329",
+      "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
+      "slug": "discovery/mapping-your-target-area"
     }
   ],
   "derivedFrom": {
@@ -4792,6 +4799,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
       "slug": "administrative/technology/building-your-churchs-brand"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:00:12.728Z",
+      "id": "7de80dc9-faa3-4b4e-b4b5-b717df85dde5",
+      "pr": 40,
+      "previousRecordSHA256": null,
+      "recordSHA256": "869907efbdcceb7f230d17301c40909b2557d8341caa5d083eaa46c15f0ca329",
+      "slug": "discovery/mapping-your-target-area"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4924,7 +4940,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "e1bdc5386e3c96750af4dd9a93083328793c4d052485f88ec3d05972dbc2fc89",
+  "seedPayloadSHA256": "3a6ebf481719d9fb3869a04e250f760ebc0449f61e18a456b756f030c25e8327",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
