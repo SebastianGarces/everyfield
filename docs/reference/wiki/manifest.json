@@ -811,6 +811,13 @@
       "recordSHA256": "8f93a49a8b42cec974bbef444d760809bd1a5f6ed44bb54445921608c8c99e46",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/facility-rental-agreements"
+    },
+    {
+      "contentSHA256": "3f38a30a46fe714e11f26a79db281da69c5af4c67ca7847d8fe0698c6ff5a933",
+      "id": "5bfe2f2d-9cc3-4b0f-a10e-ac59e56b33df",
+      "recordSHA256": "32b05a7af9dff4192b46055e16e028dd8b8e50f11786504ebb91c5135713c0ad",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/hr-records-and-required-forms"
     }
   ],
   "derivedFrom": {
@@ -4744,6 +4751,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "8f93a49a8b42cec974bbef444d760809bd1a5f6ed44bb54445921608c8c99e46",
       "slug": "launch-team/facility-rental-agreements"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:57:29.895Z",
+      "id": "5bfe2f2d-9cc3-4b0f-a10e-ac59e56b33df",
+      "pr": 37,
+      "previousRecordSHA256": null,
+      "recordSHA256": "32b05a7af9dff4192b46055e16e028dd8b8e50f11786504ebb91c5135713c0ad",
+      "slug": "administrative/legal/hr-records-and-required-forms"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4876,7 +4892,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "2656a1c3a29ba5fe1f0d30a8e2aa43f0f9b2f028aff67e9e9be14df1a4cfcf53",
+  "seedPayloadSHA256": "429179e036dcb6b33200684c815189d573b5ce936ffa2bb1134dd5cbbd7198ae",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
