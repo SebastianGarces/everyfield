@@ -1,37 +1,37 @@
 {
   "articles": [
     {
-      "contentSHA256": "64e316e4d45cf06e1de6fc93c9ab17f9cc26bbe747bf9cec0674952c47455b27",
+      "contentSHA256": "54aaacd0a8569fa14e78ec0f3cf611a2886b084381ca7bdb532ba9a9e2199ccc",
       "id": "60a3448a-7ee1-4020-adcc-17617c8fbe05",
-      "recordSHA256": "15ea535a081e79383e84b923b8e6c24b7d6b9ddb2ef162764ff88dbfcfd6bf8b",
+      "recordSHA256": "54a350f28cb23df06e971b2bebba2315234d4368662eb4dc00efcb7bba9b5503",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/collections-handling-cash-checks"
     },
     {
-      "contentSHA256": "dd51fbdeb91b3542f94926ea355f5f798d1ea5cfa2efea29f66bd400c760c681",
+      "contentSHA256": "e3a1cac012ddca4eef808e3528f6e6fa04e9c30b0c26964425342560bd3f86a9",
       "id": "06087acb-d11d-4ff2-92d5-e52ee5eee289",
-      "recordSHA256": "de2759643cadc3387e8f300c3cc0bb141daca277013ddce0545a5a5457c54e51",
+      "recordSHA256": "86c66596d39bef4cc9a22617ba8bcc345591c82e3376f1637a2adfdb9226d9b7",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/counting-procedures"
     },
     {
-      "contentSHA256": "d7e75bb5e79462c0d461abdf7236e16f27b470157821755e99a1a401576b25f4",
+      "contentSHA256": "1c19770d68487883b6b8443f359a2ecbc91a8955e560b022caed29e7b1620b9e",
       "id": "18ea59aa-702e-437d-a7e9-b9b89861e872",
-      "recordSHA256": "dd0a6f6dcd3c6a0999468ba1ed7d8de874a0877145fd9a89a6a6d4b47d426213",
+      "recordSHA256": "7686ba60dd2b6e47fe788a02b7fd599e72c8794d1767448562cc3e20438fd219",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/designated-giving-policies"
     },
     {
-      "contentSHA256": "89f7cf2a57c9b04d5e6449bcf1d1d8f8f1ed87d306a42252ff952120f2a0e82f",
+      "contentSHA256": "d4481902db286eee9721b3057244c6f38b900c2120d4d0223af043cc9fffc5ad",
       "id": "67b05674-0374-4ecf-978d-6793afa4c20f",
-      "recordSHA256": "296a24e9595a3b4e09cad0185a16cf90d1f9e07e9e7e0ee11774e5601d25f9cc",
+      "recordSHA256": "8fc82f56f9c70074dff289dcd4521aa72e19c081e6d02f634341472476b7ecdc",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/disbursements-and-approvals"
     },
     {
-      "contentSHA256": "1eebcdb9af304d0b6defd7670009db9a552f15bde3a6ccb75e2f970f311bdc98",
+      "contentSHA256": "97891b797db8bfbeaea80ed05df2bc38adaf83bd0d7d9d1d87427101047ca764",
       "id": "1956cc1d-d7b7-474d-9921-ea6cb3fc75be",
-      "recordSHA256": "064d54a7d094dae8cc4a4b43904c04ca149bc911e351229910e0d51b1666a940",
+      "recordSHA256": "b1e2f7b062585872d84657191840537e344775e887fe9e6a96444757476311af",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/first-year-budget-planning"
     },
@@ -4953,6 +4953,51 @@
       "previousRecordSHA256": "524b555919d0edeaee20513e8b65f247898f22f5ff3efa23198c6edec588d4f8",
       "recordSHA256": "3cd7e4fbb6ba575d9c0e8ed8adb2105ca47d60e74eed1afd1bb7081d565dbfe9",
       "slug": "administrative/purchasing/video-projection-system-guide"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:06:33.987Z",
+      "id": "60a3448a-7ee1-4020-adcc-17617c8fbe05",
+      "pr": 48,
+      "previousRecordSHA256": "15ea535a081e79383e84b923b8e6c24b7d6b9ddb2ef162764ff88dbfcfd6bf8b",
+      "recordSHA256": "54a350f28cb23df06e971b2bebba2315234d4368662eb4dc00efcb7bba9b5503",
+      "slug": "administrative/financial/collections-handling-cash-checks"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:06:34.327Z",
+      "id": "06087acb-d11d-4ff2-92d5-e52ee5eee289",
+      "pr": 48,
+      "previousRecordSHA256": "de2759643cadc3387e8f300c3cc0bb141daca277013ddce0545a5a5457c54e51",
+      "recordSHA256": "86c66596d39bef4cc9a22617ba8bcc345591c82e3376f1637a2adfdb9226d9b7",
+      "slug": "administrative/financial/counting-procedures"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:06:34.665Z",
+      "id": "18ea59aa-702e-437d-a7e9-b9b89861e872",
+      "pr": 48,
+      "previousRecordSHA256": "dd0a6f6dcd3c6a0999468ba1ed7d8de874a0877145fd9a89a6a6d4b47d426213",
+      "recordSHA256": "7686ba60dd2b6e47fe788a02b7fd599e72c8794d1767448562cc3e20438fd219",
+      "slug": "administrative/financial/designated-giving-policies"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:06:35.004Z",
+      "id": "67b05674-0374-4ecf-978d-6793afa4c20f",
+      "pr": 48,
+      "previousRecordSHA256": "296a24e9595a3b4e09cad0185a16cf90d1f9e07e9e7e0ee11774e5601d25f9cc",
+      "recordSHA256": "8fc82f56f9c70074dff289dcd4521aa72e19c081e6d02f634341472476b7ecdc",
+      "slug": "administrative/financial/disbursements-and-approvals"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:06:35.344Z",
+      "id": "1956cc1d-d7b7-474d-9921-ea6cb3fc75be",
+      "pr": 48,
+      "previousRecordSHA256": "064d54a7d094dae8cc4a4b43904c04ca149bc911e351229910e0d51b1666a940",
+      "recordSHA256": "b1e2f7b062585872d84657191840537e344775e887fe9e6a96444757476311af",
+      "slug": "administrative/financial/first-year-budget-planning"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -5085,7 +5130,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "a8d00f301bfa34baa163cf3f3922051cee76e907d40f5082c74e02b538684959",
+  "seedPayloadSHA256": "4756457e9e9978d73c95bdcf7b66a7dd29f2b4d5630f200c00f825c30d81f7e1",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
