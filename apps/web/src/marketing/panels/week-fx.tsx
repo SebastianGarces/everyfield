@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { FxProvider, useT, useTarget } from "@/components/motion/fx";
 import { m } from "@/components/motion/m";
-import { back, bump, clamp, inOut, out, P, pop, press, reset, rise, sine, swapIn, swapOut, transformOf } from "@/components/motion/curves";
+import { back, bump, clamp, inOut, out, P, pop, press, reset, rise, sine, transformOf, type Frame } from "@/components/motion/curves";
 import { useGeo } from "../chapters/panel-frame";
 import { CX_PEOPLE, CX_TEAMS } from "../demo-data";
 import { CHIP } from "./classes";
@@ -27,11 +27,12 @@ const peopleTotal = (t: number) => CX_PEOPLE.reduce((a, _, k) => a + peopleRow(t
 const R_MEET = (t: number) => reset(t, 6500);
 const flashR = (t: number, a: number, b: number) => out(P(t, a, 250)) * (1 - sine(P(t, b, 300))) * R_MEET(t);
 
-/* 3. Follow */
-const R_FOLLOW = (t: number) => reset(t, 7900);
-const openE = (t: number) => out(P(t, 2900, 450)) * R_FOLLOW(t);
-const rowAt = (k: number) => 1300 + k * 500;
-const checked = (t: number, k: number) => out(P(t, 5150 + k * 120, 380)) * R_FOLLOW(t);
+/* 3. Follow: Evry speaks, the guests appear, "Add to my week" is pressed at 3600, then each guest flies to its slot. */
+const R_FOLLOW = (t: number) => reset(t, 7400);
+const flyAt = (k: number) => 3900 + k * 260;
+const FLY = 700;
+const landAt = (k: number) => flyAt(k) + FLY;
+const landed = (t: number) => [0, 1, 2].reduce((a, k) => a + (t >= landAt(k) - 60 ? 1 : 0), 0);
 
 /* 4. Teams */
 const R_TEAMS = (t: number) => reset(t, 7000);
@@ -62,14 +63,15 @@ const FX = {
   "meet.count": (t: number) => 12 * out(P(t, 3850, 1100)) * R_MEET(t),
   "meet.drop": (t: number, j: number) => { const p = P(t, 3800 + j * 160, 420); return [0, -16 * (1 - back(p)), 1, clamp(p * 2.5) * R_MEET(t)]; },
   "follow.R": R_FOLLOW,
-  "follow.mood": (t: number) => (t >= 600 && t < 4300 ? "talking" : t >= 5100 && t < 6600 ? "happy" : "idle"),
-  "follow.draft": (t: number) => { const e = openE(t); return [0, 0, 0.96 + 0.04 * e, e]; },
-  "follow.type": (t: number) => P(t, 3150, 1200),
-  "follow.swap": (t: number) => out(P(t, 5150, 380)) * R_FOLLOW(t),
-  "follow.avOut": (t: number, k: number) => swapOut(checked(t, k)),
-  "follow.avIn": (t: number, k: number) => swapIn(checked(t, k)),
-  "follow.task": (t: number, k: number) => out(P(t, rowAt(k), 380)) * R_FOLLOW(t),
-  "follow.who": (t: number, k: number) => pop(t, rowAt(k) + 150, R_FOLLOW(t)),
+  "follow.mood": (t: number) => (t >= 600 && t < 1900 ? "talking" : t >= 5000 && t < 6600 ? "happy" : "idle"),
+  "follow.type": (t: number) => P(t, 600, 1300),
+  /** A guest chip pops in; it stays while a copy of it flies to your week. */
+  "follow.chip": (t: number, k: number) => pop(t, 1950 + k * 140, R_FOLLOW(t)),
+  /** The dashed slot fades as the guest arrives; the task row rises in where it lands. */
+  "follow.slot": (t: number, k: number): Frame => [0, 0, 1, 1 - out(P(t, landAt(k) - 120, 200)) * R_FOLLOW(t)],
+  "follow.row": (t: number, k: number) => rise(t, landAt(k) - 60, R_FOLLOW(t)),
+  "follow.count": (t: number) => 2 + (t < 7400 ? landed(t) : 0),
+  "follow.bump": (t: number) => "scale(" + (1 + 0.08 * [0, 1, 2].reduce((a, k) => Math.max(a, bump(t, landAt(k), 260)), 0)).toFixed(4) + ")",
   "teams.R": R_TEAMS,
   "teams.bump": (t: number, k: number) => "scale(" + (1 + 0.08 * bump(t, teamAt(k) + 950, 280)).toFixed(4) + ")",
   "teams.count": (t: number, k: number) => Math.round((Math.round(CX_TEAMS[k]![3] * base(t)) + (t >= teamAt(k) + 950 ? 1 : 0)) * R_TEAMS(t)),
@@ -80,43 +82,24 @@ export function WeekFx({ children }: { children: ReactNode }) {
   return <FxProvider fx={FX}>{children}</FxProvider>;
 }
 
-/** The rows under the draft move up by the closed draft's height, so the closed card has no gap. */
-export function FollowRest({ children }: { children: ReactNode }) {
+/** A guest chip flies from Evry's message into its slot in your week (an arc, as the teams chip), then fades into the row. */
+export function FlyGuest({ k, children }: { k: number; children: ReactNode }) {
   const t = useT();
   const { boxes, measured } = useGeo();
-  const dh = () => (boxes.current.draft?.h ?? 0) + 8;
-  const dn = useTransform([t, measured], ([v]: number[]) => transformOf(0, -dh() * (1 - openE(v!)), 1));
-  return <m.div className="will-change-transform" style={{ transform: dn }}>{children}</m.div>;
-}
-
-/**
- * The card's white shell follows the draft as it opens, so the closed card has no empty space. Compositor only: a static
- * top piece, a middle piece that scales in height, and a bottom piece that moves up by the closed amount. The white
- * ring runs around all three without overlapping. The shadow piece scales as one.
- */
-export function Shell() {
-  const t = useT();
-  const { boxes, measured } = useGeo();
-  const g = () => {
-    const H = boxes.current.card?.h ?? 0, dh = (boxes.current.draft?.h ?? 0) + 8;
-    return { H, dh, S: Math.max(0, Math.round(H - dh - 30)) };
+  const f = (v: number) => {
+    const b = boxes.current, a = b["fsrc" + k], d = b["fdst" + k];
+    if (!a || !d) return null;
+    const mm = inOut(P(v, flyAt(k), FLY));
+    const x0 = a.x, y0 = a.y, x1 = d.x - 3, y1 = d.y - 3;
+    const shown = v >= flyAt(k) ? 1 - sine(P(v, landAt(k) - 40, 220)) : 0;
+    return { x: x0 + (x1 - x0) * mm, y: y0 + (y1 - y0) * mm - 22 * Math.sin(Math.PI * mm), s: 1 + 0.05 * Math.sin(Math.PI * mm), o: shown * R_FOLLOW(v) };
   };
-  const cut = (v: number) => g().dh * (1 - openE(v));
-  const shade = useTransform([t, measured], ([v]: number[]) => { const { H } = g(); return H ? "scaleY(" + ((H - cut(v!)) / H).toFixed(4) + ")" : "none"; });
-  const mid = useTransform([t, measured], ([v]: number[]) => { const { dh } = g(); return dh > 8 ? "scaleY(" + ((dh - cut(v!)) / dh).toFixed(4) + ")" : "none"; });
-  const bottom = useTransform([t, measured], ([v]: number[]) => transformOf(0, -cut(v!), 1));
-  const top = useTransform(measured, () => `inset(-8px -8px ${g().H - g().S}px -8px)`);
-  const midTop = useTransform(measured, () => g().S + "px");
-  const midH = useTransform(measured, () => g().dh + "px");
-  const botClip = useTransform(measured, () => `inset(${g().S + g().dh}px -8px -8px -8px)`);
-  const piece = "pointer-events-none absolute -z-1 bg-white";
+  const transform = useTransform([t, measured], ([v]: number[]) => { const x = f(v!); return x ? transformOf(x.x, x.y, x.s) : "none"; });
+  const opacity = useTransform([t, measured], ([v]: number[]) => { const x = f(v!); return x ? +x.o.toFixed(3) : 0; });
   return (
-    <>
-      <m.span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-1 origin-top rounded-[22px] shadow-mk-panel-body will-change-transform" style={{ transform: shade }} />
-      <m.span aria-hidden="true" className={cn(piece, "inset-0 rounded-[22px] shadow-[var(--ui-ring)]")} style={{ clipPath: top }} />
-      <m.span aria-hidden="true" className={cn(piece, "inset-x-0 origin-top shadow-mk-ring-sides will-change-transform")} style={{ top: midTop, height: midH, transform: mid }} />
-      <m.span aria-hidden="true" className={cn(piece, "inset-0 rounded-[22px] shadow-[var(--ui-ring)] will-change-transform")} style={{ clipPath: botClip, transform: bottom }} />
-    </>
+    <m.span aria-hidden="true" className={cn(CHIP, "pointer-events-none absolute top-0 left-0 z-7 h-7 gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0 will-change-[transform,opacity]")} style={{ transform, opacity }}>
+      {children}
+    </m.span>
   );
 }
 

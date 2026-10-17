@@ -102,7 +102,7 @@ export function FactsPanel() {
   );
 }
 
-/* ---------- Ask Evry why ---------- */
+/* ---------- A vision meeting in one approval (Evry) ---------- */
 export function EvryPanel() {
   return (
     <IntelligenceFx>
@@ -123,18 +123,18 @@ export function EvryPanel() {
         <Move fx="evry.card" className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]">
           <div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-600">
             <Icon icon={ICONS.edit} />
-            Review 7 changes
+            Review 4 changes
             <span className="min-w-0 flex-1" />
-            <span className="font-medium">Assign follow-up tasks</span>
+            <span className="font-medium">Set up vision meeting</span>
           </div>
           <div className="flex flex-col gap-[9px] px-4 py-3">
             <div className="flex items-start gap-2.5 text-[12.5px]">
-              <Icon icon={ICONS.task} size={16} className="mt-px text-text-3" />
-              <span>Assign <b>Follow up with James Okafor</b> to <b>Tom</b>, due <b>Oct 10</b></span>
+              <Icon icon={ICONS.calendar} size={16} className="mt-px text-text-3" />
+              <span>Create <b>Vision meeting #13</b> on <b>Sun Oct 26</b> at the <b>Reyes home</b></span>
             </div>
             <div className="flex items-start gap-2.5 text-[12.5px] text-text-3">
               <Icon icon={ICONS.more} size={16} className="mt-px text-text-3" />
-              <span>6 more follow-ups in this change</span>
+              <span>The agenda, 23 guests and the invitation email</span>
             </div>
           </div>
           <div className="flex gap-2 border-t border-line px-4 py-2.5">

@@ -162,7 +162,7 @@ export function PlantVignette({ i }: { i: number }) {
   if (i === 0)
     return (
       <Vignette>
-        <Head icon="calendar" tone="blue" title="Phase journey" sub="Eastside Commons" right={<span className={K}>3 · Training</span>} />
+        <Head icon="calendar" tone="blue" title="Phases" sub="Eastside Commons" right={<span className={K}>3 · Training</span>} />
         <div className="mt-3.5 grid grid-cols-7 gap-1">
           {[1, 1, 1, 2, 0, 0, 0].map((s, k) => <span key={k} className={cn("h-2 rounded-[9px]", s === 1 ? "bg-ink" : s === 2 ? "bg-green-500" : "bg-surface-2")} />)}
         </div>

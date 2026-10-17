@@ -87,7 +87,7 @@
           "tone": "dawn",
           "icon": "task",
           "title": "No new guest slips through.",
-          "body": "Evry creates a follow-up for each new guest, assigns it to someone on your core team and drafts what to say. You approve."
+          "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
           "panel": "teams",
@@ -99,8 +99,31 @@
       ]
     },
     "intelligence": {
-      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. The step copy is still draft in the HTML.",
-      "title": "Know your next step, and why."
+      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
+      "title": "Know your next step, and why.",
+      "lead": "The why ties each step back to the launch plan.",
+      "steps": [
+        {
+          "panel": "focus",
+          "title": "One focus each week.",
+          "body": "Plant Intelligence reads your records and names the one thing that needs you most this week."
+        },
+        {
+          "panel": "facts",
+          "title": "Every finding shows its facts.",
+          "body": "Each finding links to the records it used, so you can check it."
+        },
+        {
+          "panel": "evry",
+          "title": "A vision meeting in one approval.",
+          "body": "Ask Evry to set up a vision meeting. It prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve."
+        },
+        {
+          "panel": "share",
+          "title": "You see it first.",
+          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."
+        }
+      ]
     },
     "trust_page": {
       "eyebrow": "Privacy and trust",
@@ -153,7 +176,7 @@
       },
       "problem": {
         "headline": "You usually hear about a struggling plant when it is already late.",
-        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices."
+        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
@@ -209,7 +232,7 @@
         "headline": "Each plant, up close.",
         "items": [
           {
-            "label": "Phase journey",
+            "label": "Phases",
             "title": "Where the plant is on the way to launch.",
             "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
           },
@@ -634,19 +657,26 @@
       "sections": {
         "hero": {
           "headline": "From calling to launch Sunday.",
-          "subhead": "Keep your people, gatherings, follow-ups and teams in one place as your core team and launch team grow toward launch Sunday.",
+          "subhead": "EveryField connects the launch plan to this week's work: the people to reach, the gatherings to hold and the next step for your plant.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. EveryField keeps it all in one place, so the most important work gets your time."
+          "body": "Every task matters, but not every task matters this week. EveryField keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
         },
         "proof": {
+          "note": "R6 (2026-10-17): no longer rendered on the site; the overview now sits inside the vision section. Kept for the prototype's second home story.",
           "headline": "Here is what a Monday looks like.",
           "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
+        },
+        "vision": {
+          "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. EveryField stores no vision statement.",
+          "headline": "The vision, down to this week.",
+          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. EveryField keeps them in one place with this week's tasks, so you open Monday knowing what to do and why.",
+          "bridge": "Monday morning"
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",
@@ -730,16 +760,16 @@
         "evry": {
           "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Ask Evry who from last Thursday has no follow-up yet. It shows the list, with a link to each person. Ask it to follow up, and it creates a task for each guest, assigns it to someone on your core team and drafts what to say. Nothing is saved until you approve the exact change on screen.",
+          "body": "Ask Evry to set up the next vision meeting. In one review it shows the meeting, the default 90-minute agenda, the guest list of prospects and the invitation email. Nothing is saved or sent until you approve the exact change on screen.",
           "example": {
-            "ask": "Who from Thursday's vision meeting has no follow-up owner?",
-            "answer": "Three first-time guests have no follow-up owner yet.",
-            "review": "Review 3 changes · Assign follow-up tasks · Approve or Edit"
+            "ask": "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.",
+            "answer": "Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.",
+            "review": "Review 4 changes · Set up vision meeting · Approve or Edit"
           },
           "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
         },
         "cta": {
-          "headline": "Start with the week in front of you.",
+          "headline": "Connect the vision to this week.",
           "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
@@ -762,7 +792,7 @@
         },
         "problem": {
           "headline": "You usually hear about a struggling plant when it is already late.",
-          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices."
+          "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone outside notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
         },
         "proof": {
           "headline": "One row for each plant. One status you can act on.",

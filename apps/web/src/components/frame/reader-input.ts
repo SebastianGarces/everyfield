@@ -14,3 +14,7 @@ declare global {
  */
 export const READER_INPUT_SCRIPT =
   `${JSON.stringify(READER_INPUT)}.forEach(function(t){addEventListener(t,function(){window.__readerInputAt=performance.now()},{capture:true,passive:true})})`;
+
+/** The same inline script marks the root with data-js before any content parses. Without JavaScript the attribute is
+ *  missing, so CSS (variant [html:not([data-js])_&]) can show a finished picture where a script-driven one stays hidden. */
+export const JS_FLAG_SCRIPT = `document.documentElement.setAttribute("data-js","")`;
