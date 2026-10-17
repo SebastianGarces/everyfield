@@ -64,7 +64,9 @@ export function ScrollChapter({ id, title, steps }: Props) {
   // Clocks: one scene time and one stagger clock per desktop panel and per phone panel, and the switch clock (time
   // since the active step changed) that drives the crossfade.
   const [clocks] = useState(() => {
-    const mt = steps.map(() => motionValue(0)), msince = steps.map(() => motionValue(1e6));
+    // A phone panel starts at its still frame, so the server HTML (and a page without JavaScript) shows the finished
+    // picture. The first observer report moves a panel below the fold to frame 0 to wait for its entrance.
+    const mt = steps.map((s) => motionValue(SCENES[s.kind].still)), msince = steps.map(() => motionValue(1e6));
     return {
       sw: motionValue(0),
       sel: motionValue(sel(0, -1)),
@@ -243,13 +245,19 @@ export function ScrollChapter({ id, title, steps }: Props) {
       go();
     }, { threshold: 0.12 });
     io.observe(V);
+    // First report per phone panel: off screen, it goes to frame 0 and waits; on screen, it plays on from its still
+    // frame (no jump back to an empty card). Later entrances start the scene at 0.
+    const reported: boolean[] = [];
     const mio = new IntersectionObserver((es) => {
       setMobOn((cur) => {
         const next = [...cur];
         for (const e of es) {
           const k = mobs.current.indexOf(e.target as HTMLDivElement);
           if (k < 0) continue;
-          if (e.isIntersecting && !cur[k] && !reduced) { clocks.mt[k]!.set(0); clocks.msince[k]!.set(0); }
+          const first = !reported[k];
+          reported[k] = true;
+          if (!reduced && first && !e.isIntersecting) clocks.mt[k]!.set(0);
+          if (!reduced && !first && e.isIntersecting && !cur[k]) { clocks.mt[k]!.set(0); clocks.msince[k]!.set(0); }
           next[k] = e.isIntersecting;
         }
         return next;
