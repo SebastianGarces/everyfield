@@ -755,6 +755,83 @@
       "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/comparing-and-scoring-venues"
+    },
+    {
+      "contentSHA256": "8ffbec53a6bb493a2b273c28ea0519a055e003ad1a1b82183469da819732a16a",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "contentSHA256": "07864515443f43ac3e65fd32c77d27bf7363ea0b939c070543f3624eec25c3b8",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "contentSHA256": "55d94f2e92baef2b90369e93a8cdd09bd4cb7c7e3faa3ce322671d65dc6dda94",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
+    },
+    {
+      "contentSHA256": "99ab2bb0901e2261d209ae480884944d7ba19d5e0dc849b580abf7c7116079b2",
+      "id": "a185149e-1129-4459-abb5-ec28a386b3c1",
+      "recordSHA256": "bc1812a664c681afe1e6bd7d35e32d7f814960c1e29cd9bec6768686dfe292e9",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/church-and-clergy-tax-basics"
+    },
+    {
+      "contentSHA256": "0bcf8e38b24f90d7a4cfa0de3309f3048a22ccce57d450349653ecee0e67de7e",
+      "id": "8c2bfbfe-b45b-4fe5-8c56-e2fc3e788dcb",
+      "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
+    },
+    {
+      "contentSHA256": "5151d1c38e30c1ab308c0f8d608435fa9793a917819d5f4343a206e90d4c5888",
+      "id": "34a14f39-54f4-40dd-8725-3475729e7c4a",
+      "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
+      "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
+      "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
+    },
+    {
+      "contentSHA256": "0f710efb4b9a861792579235005120193e275b5eb1b3deb74155b69aa7b13d17",
+      "id": "d741b30c-8135-4e94-a208-944ec91d9b86",
+      "recordSHA256": "d67781b49b127586b905e5e54652e83f703e5c02879f20bd6810ac2280a4042c",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/website-analytics-and-search-basics"
+    },
+    {
+      "contentSHA256": "e2a26d65c5498b2ee1aed440eb20bfdb49799ec803e1f21790249b9a040bdc48",
+      "id": "a6d16285-21c8-4bb2-a481-07f856c54729",
+      "recordSHA256": "8f93a49a8b42cec974bbef444d760809bd1a5f6ed44bb54445921608c8c99e46",
+      "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+      "slug": "launch-team/facility-rental-agreements"
+    },
+    {
+      "contentSHA256": "3f38a30a46fe714e11f26a79db281da69c5af4c67ca7847d8fe0698c6ff5a933",
+      "id": "5bfe2f2d-9cc3-4b0f-a10e-ac59e56b33df",
+      "recordSHA256": "32b05a7af9dff4192b46055e16e028dd8b8e50f11786504ebb91c5135713c0ad",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/hr-records-and-required-forms"
+    },
+    {
+      "contentSHA256": "e4323f25d20ae8d58d01441bd4dcd8b7f0675e9a2a95aa1495a9dc7ecea7bd39",
+      "id": "332e5398-9a02-4783-8b83-12995af70785",
+      "recordSHA256": "6337ec5bb4cc954a7c723765be0e0f6c029bba17f090016d1ae0dc51faab7850",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/streaming-equipment-and-setup"
+    },
+    {
+      "contentSHA256": "c3040e4ad8a1ccd25a176caea0cd9619683a665c8714909f79d708c83ca89187",
+      "id": "3d8ec72a-b359-46e2-ae82-b6da8877eeb9",
+      "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/building-your-churchs-brand"
     }
   ],
   "derivedFrom": {
@@ -4616,6 +4693,105 @@
       "previousRecordSHA256": "8419526d9f7dd52e2307f598337ff6ab6c656aa11986a5d1eea916da218db5cc",
       "recordSHA256": "d465000cb8b419eb9973befabb9f944d9cda600b41ddbba5f3cee50d5af3427c",
       "slug": "pre-launch/launch-team-spiritual-preparation"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:47:59.263Z",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "pr": 29,
+      "previousRecordSHA256": null,
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:50:50.451Z",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "pr": 30,
+      "previousRecordSHA256": null,
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:51:37.534Z",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "pr": 31,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:52:38.294Z",
+      "id": "a185149e-1129-4459-abb5-ec28a386b3c1",
+      "pr": 32,
+      "previousRecordSHA256": null,
+      "recordSHA256": "bc1812a664c681afe1e6bd7d35e32d7f814960c1e29cd9bec6768686dfe292e9",
+      "slug": "administrative/financial/church-and-clergy-tax-basics"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:53:19.714Z",
+      "id": "8c2bfbfe-b45b-4fe5-8c56-e2fc3e788dcb",
+      "pr": 33,
+      "previousRecordSHA256": null,
+      "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
+      "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:54:11.971Z",
+      "id": "34a14f39-54f4-40dd-8725-3475729e7c4a",
+      "pr": 34,
+      "previousRecordSHA256": null,
+      "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
+      "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:55:11.230Z",
+      "id": "d741b30c-8135-4e94-a208-944ec91d9b86",
+      "pr": 35,
+      "previousRecordSHA256": null,
+      "recordSHA256": "d67781b49b127586b905e5e54652e83f703e5c02879f20bd6810ac2280a4042c",
+      "slug": "administrative/technology/website-analytics-and-search-basics"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:56:29.102Z",
+      "id": "a6d16285-21c8-4bb2-a481-07f856c54729",
+      "pr": 36,
+      "previousRecordSHA256": null,
+      "recordSHA256": "8f93a49a8b42cec974bbef444d760809bd1a5f6ed44bb54445921608c8c99e46",
+      "slug": "launch-team/facility-rental-agreements"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:57:29.895Z",
+      "id": "5bfe2f2d-9cc3-4b0f-a10e-ac59e56b33df",
+      "pr": 37,
+      "previousRecordSHA256": null,
+      "recordSHA256": "32b05a7af9dff4192b46055e16e028dd8b8e50f11786504ebb91c5135713c0ad",
+      "slug": "administrative/legal/hr-records-and-required-forms"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:58:39.156Z",
+      "id": "332e5398-9a02-4783-8b83-12995af70785",
+      "pr": 38,
+      "previousRecordSHA256": null,
+      "recordSHA256": "6337ec5bb4cc954a7c723765be0e0f6c029bba17f090016d1ae0dc51faab7850",
+      "slug": "administrative/technology/streaming-equipment-and-setup"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:59:34.011Z",
+      "id": "3d8ec72a-b359-46e2-ae82-b6da8877eeb9",
+      "pr": 39,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
+      "slug": "administrative/technology/building-your-churchs-brand"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4748,7 +4924,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "dce825a8bf6fab82ef7a371f2f8a8fe99369a8f8df0e03261cc1da8f11984618",
+  "seedPayloadSHA256": "e1bdc5386e3c96750af4dd9a93083328793c4d052485f88ec3d05972dbc2fc89",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
