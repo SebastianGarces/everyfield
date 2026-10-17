@@ -56,7 +56,7 @@ test('INV-wiki: promotion preserves unrelated seed records and logs exact hashes
     assert.match(added.published_at,/^\d{4}-.*Z$/);
     assert.equal(added.published_at,added.updated_at);
     let manifest = JSON.parse(await readFile(join(f.seed,'manifest.json'),'utf8'));
-    assert.deepEqual(manifest.releases[0], { id:f.row.id,slug:f.row.slug,previousRecordSHA256:null,recordSHA256:hash(canonical(added)),approvedBy:'Sebastian',pr:12,date:added.updated_at });
+    assert.deepEqual(manifest.releases.at(-1), { id:f.row.id,slug:f.row.slug,previousRecordSHA256:null,recordSHA256:hash(canonical(added)),approvedBy:'Sebastian',pr:12,date:added.updated_at });
     assert.equal(manifest.seedPayloadSHA256,hash(bytes));
     assert.equal(manifest.articles.at(-1).contentSHA256,hash(added.content));
     await assert.rejects(readFile(f.draft),{ code:'ENOENT' });
@@ -67,7 +67,7 @@ test('INV-wiki: promotion preserves unrelated seed records and logs exact hashes
     assert.equal(second.status,0,second.output);
     assert.equal(wiki('check-seed','--seed-dir',f.seed).status,0);
     manifest = JSON.parse(await readFile(join(f.seed,'manifest.json'),'utf8'));
-    assert.equal(manifest.releases[1].previousRecordSHA256,manifest.releases[0].recordSHA256);
+    assert.equal(manifest.releases.at(-1).previousRecordSHA256,manifest.releases.at(-2).recordSHA256);
     const after = JSON.parse(await readFile(join(f.seed,'seed.json'),'utf8'));
     assert.equal(after.articles.length,before.articles.length + 1);
     assert.equal(after.articles.at(-1).title,'Revised synthetic fixture');
