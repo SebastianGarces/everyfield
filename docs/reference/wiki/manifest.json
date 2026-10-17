@@ -755,6 +755,27 @@
       "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/comparing-and-scoring-venues"
+    },
+    {
+      "contentSHA256": "8ffbec53a6bb493a2b273c28ea0519a055e003ad1a1b82183469da819732a16a",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "contentSHA256": "07864515443f43ac3e65fd32c77d27bf7363ea0b939c070543f3624eec25c3b8",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "contentSHA256": "55d94f2e92baef2b90369e93a8cdd09bd4cb7c7e3faa3ce322671d65dc6dda94",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
     }
   ],
   "derivedFrom": {
@@ -4616,6 +4637,33 @@
       "previousRecordSHA256": "8419526d9f7dd52e2307f598337ff6ab6c656aa11986a5d1eea916da218db5cc",
       "recordSHA256": "d465000cb8b419eb9973befabb9f944d9cda600b41ddbba5f3cee50d5af3427c",
       "slug": "pre-launch/launch-team-spiritual-preparation"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:47:59.263Z",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "pr": 29,
+      "previousRecordSHA256": null,
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:50:50.451Z",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "pr": 30,
+      "previousRecordSHA256": null,
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:51:37.534Z",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "pr": 31,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4748,7 +4796,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "dce825a8bf6fab82ef7a371f2f8a8fe99369a8f8df0e03261cc1da8f11984618",
+  "seedPayloadSHA256": "8e65bc85268399cc4c57c576d11629e25309e2a84c775f833b704f6a69f4f3b0",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
