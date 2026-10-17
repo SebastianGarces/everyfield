@@ -790,6 +790,13 @@
       "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
+    },
+    {
+      "contentSHA256": "5151d1c38e30c1ab308c0f8d608435fa9793a917819d5f4343a206e90d4c5888",
+      "id": "34a14f39-54f4-40dd-8725-3475729e7c4a",
+      "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
+      "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
+      "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
     }
   ],
   "derivedFrom": {
@@ -4696,6 +4703,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
       "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:54:11.971Z",
+      "id": "34a14f39-54f4-40dd-8725-3475729e7c4a",
+      "pr": 34,
+      "previousRecordSHA256": null,
+      "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
+      "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4828,7 +4844,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "03d401e54c073faaf7fba6617208055a9dadd435ae6d925b83eadbaa94d24057",
+  "seedPayloadSHA256": "6e585987773365a577459899017e7f6d3055a1ba32bc009793231055169a055e",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
