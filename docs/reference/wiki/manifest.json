@@ -783,6 +783,13 @@
       "recordSHA256": "bc1812a664c681afe1e6bd7d35e32d7f814960c1e29cd9bec6768686dfe292e9",
       "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
       "slug": "administrative/financial/church-and-clergy-tax-basics"
+    },
+    {
+      "contentSHA256": "0bcf8e38b24f90d7a4cfa0de3309f3048a22ccce57d450349653ecee0e67de7e",
+      "id": "8c2bfbfe-b45b-4fe5-8c56-e2fc3e788dcb",
+      "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
+      "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
+      "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
     }
   ],
   "derivedFrom": {
@@ -4680,6 +4687,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "bc1812a664c681afe1e6bd7d35e32d7f814960c1e29cd9bec6768686dfe292e9",
       "slug": "administrative/financial/church-and-clergy-tax-basics"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:53:19.714Z",
+      "id": "8c2bfbfe-b45b-4fe5-8c56-e2fc3e788dcb",
+      "pr": 33,
+      "previousRecordSHA256": null,
+      "recordSHA256": "d15eef953779dc5f3aad5359b08c46cf87de876d23fe924ec02eaaef2f925d45",
+      "slug": "administrative/legal/state-sales-and-property-tax-exemptions"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4812,7 +4828,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "4555bf73e6219b931fb5ba564ab6dbdb3fe5c445445c248c590717f271f479a6",
+  "seedPayloadSHA256": "03d401e54c073faaf7fba6617208055a9dadd435ae6d925b83eadbaa94d24057",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
