@@ -825,6 +825,13 @@
       "recordSHA256": "6337ec5bb4cc954a7c723765be0e0f6c029bba17f090016d1ae0dc51faab7850",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/streaming-equipment-and-setup"
+    },
+    {
+      "contentSHA256": "c3040e4ad8a1ccd25a176caea0cd9619683a665c8714909f79d708c83ca89187",
+      "id": "3d8ec72a-b359-46e2-ae82-b6da8877eeb9",
+      "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/building-your-churchs-brand"
     }
   ],
   "derivedFrom": {
@@ -4776,6 +4783,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "6337ec5bb4cc954a7c723765be0e0f6c029bba17f090016d1ae0dc51faab7850",
       "slug": "administrative/technology/streaming-equipment-and-setup"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:59:34.011Z",
+      "id": "3d8ec72a-b359-46e2-ae82-b6da8877eeb9",
+      "pr": 39,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e3199e72acfd416d0e5e8ec7f61ed003d9cd96a7672aef8843785c503a656f6b",
+      "slug": "administrative/technology/building-your-churchs-brand"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4908,7 +4924,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "9412826edb1dda2965bca0b6a0c6def3ca86b59a54b7ec416a9c8d9da8494426",
+  "seedPayloadSHA256": "e1bdc5386e3c96750af4dd9a93083328793c4d052485f88ec3d05972dbc2fc89",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
