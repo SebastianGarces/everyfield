@@ -29,7 +29,13 @@ export type Config = {
   stack: StackDef | null;
   checks: CheckDef[];
   maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[]; configChanges?: Array<"stack" | "checks"> }>;
+  mergePolicy: MergePolicy;
 };
+
+export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
+export type FeedbackBugClass = typeof FEEDBACK_BUG_CLASSES[number];
+/** Feedback bug classes that merge through the verifier, and those the verifier passes before Sebastian approves. */
+export type MergePolicy = { ordinary: string; feedbackVerifierMerge: FeedbackBugClass[]; feedbackOwnerAfterVerifier: FeedbackBugClass[] };
 
 export type Package = {
   id: string;
@@ -137,7 +143,24 @@ export function readJson<T>(path: string): T {
 export function loadConfig(root: string): Config {
   const path = join(root, "evf.config.json");
   if (!existsSync(path)) fail(`Missing ${path}.`);
-  return readJson<Config>(path);
+  const cfg = readJson<Config>(path);
+  parseMergePolicy(cfg.mergePolicy);
+  return cfg;
+}
+
+function parseMergePolicy(policy: unknown): asserts policy is MergePolicy {
+  if (typeof policy !== "object" || policy === null || Array.isArray(policy)) fail("evf.config.json mergePolicy must be an object.");
+  const p = policy as Record<string, unknown>;
+  const seen = new Set<string>();
+  for (const field of ["feedbackVerifierMerge", "feedbackOwnerAfterVerifier"]) {
+    const v = p[field];
+    if (!Array.isArray(v) || v.some((c) => !(FEEDBACK_BUG_CLASSES as readonly unknown[]).includes(c)) || new Set(v).size !== v.length)
+      fail(`evf.config.json mergePolicy.${field} must be a list of distinct classes from ${FEEDBACK_BUG_CLASSES.join(", ")}; got ${JSON.stringify(v)}.`);
+    for (const c of v as string[]) {
+      if (seen.has(c)) fail(`evf.config.json lists ${c} in both mergePolicy.feedbackVerifierMerge and mergePolicy.feedbackOwnerAfterVerifier; give each class one route.`);
+      seen.add(c);
+    }
+  }
 }
 
 export function loadDag(root: string): Dag {

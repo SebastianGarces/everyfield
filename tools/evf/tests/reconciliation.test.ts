@@ -33,7 +33,7 @@ test('INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from './fixtures.ts';
-import { parseTask, evfDataDir } from '../lib.ts';
+import { parseTask, evfDataDir, loadConfig } from '../lib.ts';
 import { feedbackTriage, startFeedbackTask, feedbackQueue, cachedTriage, readTriage, onFeedbackShipped, startedToday } from '../feedback.ts';
 import { verify, currentProof, validAttestation } from '../verify.ts';
 import { taskStart } from '../task.ts';
@@ -276,6 +276,51 @@ test('INV-human-approve: evf approve refuses without quoted owner approval and c
   const before=f.getState().calls.length;
   for(const ownerApproval of [undefined,'','yes'])assert.throws(()=>approve(f.root,6,{ownerApproval}),/Quote Sebastian's approval/);
   assert.equal(f.getState().calls.length,before);
+ }finally{f.close();}
+});
+const approvePr=(headRefName:string,extra:Record<string,unknown>={})=>({number:77,title:'Fixture PR',url:'https://github.com/test/private/pull/77',state:'OPEN',isDraft:false,baseRefName:'main',headRefName,headRefOid:'a'.repeat(40),mergeStateStatus:'CLEAN',files:[{path:'docs/reference/wiki/drafts/a1.json'}],...extra});
+const approveWrites=(f:any)=>f.getState().calls.filter((c:any)=>c.args[0]==='pr'&&['comment','merge','ready','update-branch'].includes(c.args[1])||c.args.includes('POST'));
+test('INV-human-approve-scope: ordinary build and OPS PRs refuse evf approve before any write',()=>{
+ const f=fixture();try{
+  for(const branch of ['task/wp-001','task/ops-1','ops/some-tooling']){
+   const s=f.getState();s.pr=approvePr(branch,{files:[{path:'tools/evf/ship.ts'}]});f.setState(s);
+   assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR'}),/cannot merge it.*bin\/evf ship/);
+  }
+  const s=f.getState();s.pr=approvePr('wiki/a1',{files:[{path:'tools/evf/ship.ts'}]});f.setState(s);
+  assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR'}),/outside docs\/reference\/wiki/);
+  assert.deepEqual(approveWrites(f),[]);
+ }finally{f.close();}
+});
+test('INV-human-approve-triage: a feedback PR without its triage record refuses instead of skipping verification',()=>{
+ const f=fixture();try{
+  const s=f.getState();s.pr=approvePr('task/fb-1');f.setState(s);
+  assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR'}),/FB-1 has no local triage record/);
+  assert.deepEqual(approveWrites(f),[]);
+ }finally{f.close();}
+});
+test('INV-human-approve-head: a behind or moved branch refuses; a stable approved head merges exactly that head',()=>{
+ const f=fixture();try{
+  const s=f.getState();s.pr=approvePr('wiki/a1',{mergeStateStatus:'BEHIND'});f.setState(s);
+  assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR',head:'a'.repeat(40)}),/is behind main.*ask Sebastian to approve the new head/);
+  s.pr=approvePr('wiki/a1',{headRefOid:'b'.repeat(40)});f.setState(s);
+  assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR',head:'a'.repeat(40)}),/not the a{40} Sebastian approved/);
+  assert.deepEqual(approveWrites(f),[]);
+  s.pr=approvePr('wiki/a1');f.setState(s);
+  assert.throws(()=>approve(f.root,77,{ownerApproval:'Approved for this PR',head:'a'.repeat(40)}),/fixture merge barrier/);
+  const merge=approveWrites(f).find((c:any)=>c.args[1]==='merge');
+  assert.deepEqual(merge.args,['pr','merge','77','--squash','--match-head-commit','a'.repeat(40)]);
+ }finally{f.close();}
+});
+test('INV-merge-policy-config: feedback merge routes must be distinct lists of known bug classes',()=>{
+ const f=fixture();try{
+  for(const field of ['feedbackVerifierMerge','feedbackOwnerAfterVerifier'])for(const bad of ['p2',123,['p9'],['feature-small'],['p2','p2'],undefined]){
+   const cfg=structuredClone(f.cfg);cfg.mergePolicy[field]=bad;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(cfg));
+   assert.throws(()=>loadConfig(f.root),new RegExp(`mergePolicy\\.${field} must be a list`));
+  }
+  const cfg=structuredClone(f.cfg);cfg.mergePolicy.feedbackOwnerAfterVerifier=['p1','p2','p3'];writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(cfg));
+  assert.throws(()=>loadConfig(f.root),/p1 in both/);
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  assert.deepEqual(loadConfig(f.root).mergePolicy.feedbackVerifierMerge,['p0','p1']);
  }finally{f.close();}
 });
 test('INV-feedback-preservation: approved owner promotion, demand ranking and exact reviewed question reply survive',()=>{
