@@ -50,9 +50,9 @@
       "slug": "administrative/legal/setting-up-501c3"
     },
     {
-      "contentSHA256": "42385d1c42f690d4d992a0ad6d8ecfe20ede63130bfb01d2caa9dca166b900a7",
+      "contentSHA256": "9794ddb88d67806d32fc0893bc06e8130ea63e3b9775edbab415c71f7726fd65",
       "id": "122ccabc-acb0-4b36-8c67-77f02ca88679",
-      "recordSHA256": "57a1fe0f28f885f16a4c5c3aef12c60828eefed5a52e8867cdaa9571fa0de953",
+      "recordSHA256": "1712a32e8284986b8f9cc14dde9806076b50cac7587385362f60032cb82edbb3",
       "sectionId": "490f9033-67a0-4372-94b1-2af78e0d7f07",
       "slug": "administrative/legal/setting-up-nonprofit-corporation"
     },
@@ -99,16 +99,16 @@
       "slug": "administrative/purchasing/video-projection-system-guide"
     },
     {
-      "contentSHA256": "af643f142d8b25e35a78a858b3ff6b17c12c0f45166220fc0a9e2785801808ce",
+      "contentSHA256": "b155abe5a508ab6c5d109886bebe0de5b1b3d445ea8754f6ede97d6a0bbc1f73",
       "id": "ffa40955-6eeb-4ad3-a340-796a93959a24",
-      "recordSHA256": "5ae5b2b768bc2f7afae34045621e1d5ef1ee7f1fb66e7ede3692c8daea992706",
+      "recordSHA256": "d6f632a1a1f6a1daba711a59093d878e889573c2b99b50b202bd7745db61ba97",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/choosing-assimilation-software"
     },
     {
-      "contentSHA256": "087d86915dcb5e9b8d238e018e6f17fed382ad3a271d8e18000ff39a6aa5267f",
+      "contentSHA256": "a9741a6beea5693e18de5b5b9c2bd17b4a735a407eb5514bccd5accb9d8a2e4f",
       "id": "69221cdc-562f-4648-8ad2-45e658550dd5",
-      "recordSHA256": "a4dbe2d4455abe0444daf9921ff846c55593d1ada69ce4e7a0c249106695905f",
+      "recordSHA256": "3a7d344085abfc2e949dbbbd795d5cb38458ffa30a0429cb43304505f60b289f",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/setting-up-your-website"
     },
@@ -4872,6 +4872,33 @@
       "previousRecordSHA256": null,
       "recordSHA256": "ac8766aff0735b7d27689318d41adddcc71df65c86d3304b1120bf228b1c0c3e",
       "slug": "pre-launch/boosted-posts-ads-and-retargeting"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:04:23.232Z",
+      "id": "122ccabc-acb0-4b36-8c67-77f02ca88679",
+      "pr": 42,
+      "previousRecordSHA256": "57a1fe0f28f885f16a4c5c3aef12c60828eefed5a52e8867cdaa9571fa0de953",
+      "recordSHA256": "1712a32e8284986b8f9cc14dde9806076b50cac7587385362f60032cb82edbb3",
+      "slug": "administrative/legal/setting-up-nonprofit-corporation"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:04:23.582Z",
+      "id": "ffa40955-6eeb-4ad3-a340-796a93959a24",
+      "pr": 42,
+      "previousRecordSHA256": "5ae5b2b768bc2f7afae34045621e1d5ef1ee7f1fb66e7ede3692c8daea992706",
+      "recordSHA256": "d6f632a1a1f6a1daba711a59093d878e889573c2b99b50b202bd7745db61ba97",
+      "slug": "administrative/technology/choosing-assimilation-software"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:04:23.932Z",
+      "id": "69221cdc-562f-4648-8ad2-45e658550dd5",
+      "pr": 42,
+      "previousRecordSHA256": "a4dbe2d4455abe0444daf9921ff846c55593d1ada69ce4e7a0c249106695905f",
+      "recordSHA256": "3a7d344085abfc2e949dbbbd795d5cb38458ffa30a0429cb43304505f60b289f",
+      "slug": "administrative/technology/setting-up-your-website"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -5004,7 +5031,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "4f20a601673f6b42a08d7fec8e828523381e87d7d1927e9ea45a0ab9d1045ff7",
+  "seedPayloadSHA256": "bf9202cf8f08598ea0206cd3057f75d7edfa498fa18cc6c87f9fbfb9f974d729",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
