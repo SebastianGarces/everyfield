@@ -860,6 +860,13 @@
       "recordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/volunteer-background-check-process"
+    },
+    {
+      "contentSHA256": "780610eb137a6822352fff7a9968f2adf1e92b7968e89972806edf12a55e4933",
+      "id": "9f0448b6-a28b-4b4f-af03-904ee9281837",
+      "recordSHA256": "ac8766aff0735b7d27689318d41adddcc71df65c86d3304b1120bf228b1c0c3e",
+      "sectionId": "ad384ca4-56a8-46ba-a4ae-df5f6bb20842",
+      "slug": "pre-launch/boosted-posts-ads-and-retargeting"
     }
   ],
   "derivedFrom": {
@@ -4856,6 +4863,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
       "slug": "launch-team/volunteer-background-check-process"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:03:44.512Z",
+      "id": "9f0448b6-a28b-4b4f-af03-904ee9281837",
+      "pr": 46,
+      "previousRecordSHA256": null,
+      "recordSHA256": "ac8766aff0735b7d27689318d41adddcc71df65c86d3304b1120bf228b1c0c3e",
+      "slug": "pre-launch/boosted-posts-ads-and-retargeting"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4988,7 +5004,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "07f400320f3c6d7e338949d6b51f81a7f77827bdd332a72b9d5ec4c80699b922",
+  "seedPayloadSHA256": "4f20a601673f6b42a08d7fec8e828523381e87d7d1927e9ea45a0ab9d1045ff7",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
