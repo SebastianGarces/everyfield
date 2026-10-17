@@ -797,6 +797,13 @@
       "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
       "sectionId": "c09f67b8-3785-431a-9692-d2add29f0b42",
       "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
+    },
+    {
+      "contentSHA256": "0f710efb4b9a861792579235005120193e275b5eb1b3deb74155b69aa7b13d17",
+      "id": "d741b30c-8135-4e94-a208-944ec91d9b86",
+      "recordSHA256": "d67781b49b127586b905e5e54652e83f703e5c02879f20bd6810ac2280a4042c",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/website-analytics-and-search-basics"
     }
   ],
   "derivedFrom": {
@@ -4712,6 +4719,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "798b52959051abf66679d541755898f660714846d00f4bf5850580ab85819aa7",
       "slug": "administrative/purchasing/using-a-gift-registry-for-equipment"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:55:11.230Z",
+      "id": "d741b30c-8135-4e94-a208-944ec91d9b86",
+      "pr": 35,
+      "previousRecordSHA256": null,
+      "recordSHA256": "d67781b49b127586b905e5e54652e83f703e5c02879f20bd6810ac2280a4042c",
+      "slug": "administrative/technology/website-analytics-and-search-basics"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4844,7 +4860,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "6e585987773365a577459899017e7f6d3055a1ba32bc009793231055169a055e",
+  "seedPayloadSHA256": "9b4e7407382f95cf178c9c0f83a5fb2314fd45dc2753f1605c14ed9c3723240d",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
