@@ -846,6 +846,13 @@
       "recordSHA256": "e82410c5cea48123a9f843ad76852a03912d60af1973492e791a42fc7588499b",
       "sectionId": "ad384ca4-56a8-46ba-a4ae-df5f6bb20842",
       "slug": "pre-launch/responding-to-online-reviews-and-comments"
+    },
+    {
+      "contentSHA256": "14e2aa7692a1d6cd4c822b3e993fcf880ea8302db8607c1b0f88882b6d28de4c",
+      "id": "2ffa2efb-c2a1-43e0-a15f-2bdca0fc84f9",
+      "recordSHA256": "d7198060daaa034477c8dddca870aa33681ca585385844b587bde0153af68451",
+      "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+      "slug": "launch-team/planning-services-around-room-capacity"
     }
   ],
   "derivedFrom": {
@@ -4824,6 +4831,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "e82410c5cea48123a9f843ad76852a03912d60af1973492e791a42fc7588499b",
       "slug": "pre-launch/responding-to-online-reviews-and-comments"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:01:55.764Z",
+      "id": "2ffa2efb-c2a1-43e0-a15f-2bdca0fc84f9",
+      "pr": 43,
+      "previousRecordSHA256": null,
+      "recordSHA256": "d7198060daaa034477c8dddca870aa33681ca585385844b587bde0153af68451",
+      "slug": "launch-team/planning-services-around-room-capacity"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4956,7 +4972,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "08675450492d8b24d4fd75d825253d36d136da4c49fd5b9c00bbeea486655f25",
+  "seedPayloadSHA256": "8e928640e58ff5773fef3f3e36dad39e2a460193d8a2882e48a61d5898fa3312",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
