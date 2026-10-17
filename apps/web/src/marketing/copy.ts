@@ -25,7 +25,7 @@ const journey = z.object({
     hero,
     problem: headBody,
     proof: headBody.extend({ caption: text.optional() }),
-    vision: headBody,
+    vision: headBody.extend({ bridge: text, caption: text.optional() }),
     features: z.object({
       headline: text,
       items: z.array(z.object({ label: text, title: text, body: text, short: text.optional() })),

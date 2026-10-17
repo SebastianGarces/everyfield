@@ -1,5 +1,5 @@
 import { Icon } from "@/components/Icon";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { Badge, StageChip, UiButton, type Tone } from "@/components/kit/kit";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { cn } from "@/components/cn";
@@ -9,8 +9,7 @@ import { Insight } from "./insight";
 
 // "Here is what a Monday looks like": the overview dashboard of the demo church (Harvest Point), close to the mockup.
 
-/** plan: an optional band above the cards (R6 prototype C puts the plan, from Launch Sunday to this week, there). */
-export function MondayOverview({ plan }: { plan?: ReactNode } = {}) {
+export function MondayOverview() {
   return (
     <AppFrame
       tabs
@@ -23,7 +22,7 @@ export function MondayOverview({ plan }: { plan?: ReactNode } = {}) {
         </span>
       }
       body={
-        <>{plan}<div className="grid grid-cols-[1fr_1fr_1.08fr] items-start gap-4 max-mk-nav:grid-cols-[1fr_1fr] max-mk-sm:grid-cols-[1fr]">
+        <div className="grid grid-cols-[1fr_1fr_1.08fr] items-start gap-4 max-mk-nav:grid-cols-[1fr_1fr] max-mk-sm:grid-cols-[1fr]">
           <div className="flex min-w-0 flex-col gap-4">
             <CoreGroup />
             <Meetings />
@@ -46,7 +45,7 @@ export function MondayOverview({ plan }: { plan?: ReactNode } = {}) {
             />
             <NeedsYou />
           </div>
-        </div></>
+        </div>
       }
     />
   );

@@ -87,7 +87,7 @@
           "tone": "dawn",
           "icon": "task",
           "title": "No new guest slips through.",
-          "body": "Three new guests came to your vision meeting. Evry creates a follow-up task for each one and adds it to your week. You and your team reach out."
+          "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
           "panel": "teams",
@@ -666,15 +666,17 @@
           "body": "Every task matters, but not every task matters this week. EveryField keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
         },
         "proof": {
+          "note": "R6 (2026-10-17): no longer rendered on the site; the overview now sits inside the vision section. Kept for the prototype's second home story.",
           "headline": "Here is what a Monday looks like.",
           "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
         "vision": {
-          "note": "R4 (2026-10-15): new home section after the proof section, from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a. R6 prototype (2026-10-16): four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each task with the goal it serves. EveryField stores no vision statement.",
+          "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. EveryField stores no vision statement.",
           "headline": "The vision, down to this week.",
-          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. EveryField keeps them in one place with this week's tasks, and Plant Intelligence names the next step and why."
+          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. EveryField keeps them in one place with this week's tasks, so you open Monday knowing what to do and why.",
+          "bridge": "Monday morning"
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",

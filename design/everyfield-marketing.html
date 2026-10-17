@@ -1064,6 +1064,30 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ef .kv .v, .ef .num { white-space: nowrap; }
 /* "Here is what a Monday looks like": overview dashboard, close to the mockup */
 .sec-monday .monday-frame { margin-top: 0; }
+/* R6 (2026-10-17): Sebastian chose variant B. The Phase 1 card carries its benchmark, level 3 is a launch milestone, and
+   the zoom's green line runs on through a "Monday morning" label down to the Monday overview in the same section. */
+.vz-bm { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.vz-num.vz-num-s { margin-left: 0; padding-top: 0; font-size: 20px; }
+.vz-ms { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vz-ms .vz-bar i { width: 100%; background: var(--ef-green-500); }
+.vz-bridge { grid-column: 2; margin: -36px 0; display: flex; flex-direction: column; align-items: center; }
+.vz-bridge i { display: block; width: 2px; height: clamp(28px,4vw,44px); border-radius: 99px; background: var(--ef-green-600); }
+.vz-bridge p { margin: 0; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 99px; background: var(--ef-surface); font-size: 14px; font-weight: 600; box-shadow: 0 0 0 1px rgba(24,29,25,.06), 0 4px 12px -6px rgba(24,29,25,.25); }
+.vz-bridge p .i { width: 16px; height: 16px; color: var(--ef-green-700); }
+.sec-vision .vz-grid { row-gap: 36px; }
+@media (max-width: 900px) { .vz-bridge { grid-column: 1; } }
+/* R6: the follow-up step. The guests' tasks land in empty slots of "Your week". */
+.cx-say { padding: 12px 14px; border-radius: 14px; background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 13px; line-height: 1.45; }
+.cx-say .cx-names { margin-top: 10px; }
+.cx-say .ha-chip { opacity: 0; will-change: transform, opacity; }
+.cx-wk { margin-top: 14px; border-top: 1px solid var(--ef-line); padding-top: 12px; }
+.cx-wk .row { display: flex; align-items: center; justify-content: space-between; }
+.cx-wk li { position: relative; display: flex; align-items: center; gap: 10px; height: 46px; border-bottom: 1px solid var(--ef-line); }
+.cx-wk li:last-child { border-bottom: 0; }
+.cx-wk .cx-ring { width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--ef-surface); box-shadow: inset 0 0 0 1.5px var(--ef-line-2); }
+.cx-wk .cx-slot { position: absolute; inset: 8px 0; border: 1px dashed var(--ef-line-2); border-radius: 10px; pointer-events: none; }
+.cx-wk .cx-new { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; opacity: 0; will-change: transform, opacity; }
+.cx-wk .cx-tag { margin-left: auto; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 99px; background: var(--ef-green-50); color: var(--ef-green-700); font-size: 11px; font-weight: 600; }
 /* R4 (2026-10-15): "The vision, down to this week". Head left, the four-level zoom on a dawn surface right (stacked
    below 901 px). One green line links the levels; each node draws its own part of it, so nothing is measured.
    It plays once when it scrolls in (transform and opacity only); reduced motion shows the end state. */
@@ -1535,14 +1559,14 @@ body.pbar-hidden { padding-bottom: 0; }
   "version": 2,
   "revision_note": "Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
-    "note": "Fix 9 (2026-10-14). Sebastian approved the look of every page. He approved the copy of the home page and the sending churches and networks page; those pages changed only where the copy conflicted with the product (coach access, church health wording). The copy of the other pages is not yet reviewed.",
+    "note": "Sebastian approved the look of every page and the home and sending churches and networks copy. On 2026-10-14 he approved the access, privacy and terms copy as drafted. Planters and trust copy is not yet reviewed.",
     "home": "look approved, copy approved",
     "oversight": "look approved, copy approved",
     "planters": "look approved, copy not yet reviewed",
     "trust": "look approved, copy not yet reviewed",
-    "access": "look approved, copy not yet reviewed",
-    "privacy": "look approved, copy not yet reviewed",
-    "terms": "look approved, copy not yet reviewed"
+    "access": "approved",
+    "privacy": "approved",
+    "terms": "approved"
   },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
@@ -1550,20 +1574,12 @@ body.pbar-hidden { padding-bottom: 0; }
     "brand": "EveryField",
     "nav": [
       {
-        "label": "Product",
-        "href": "#features"
+        "label": "Planters",
+        "href": "/"
       },
       {
-        "label": "For planters",
-        "href": "#planters"
-      },
-      {
-        "label": "For sending churches and networks",
-        "href": "#oversight"
-      },
-      {
-        "label": "Privacy",
-        "href": "#trust"
+        "label": "Churches & Networks",
+        "href": "/oversight"
       }
     ],
     "nav_cta": "Request early access",
@@ -1584,7 +1600,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "title": "Who it is for",
           "links": [
             "Planters",
-            "Sending churches and networks"
+            "Churches & Networks"
           ]
         },
         {
@@ -1628,7 +1644,7 @@ body.pbar-hidden { padding-bottom: 0; }
           "tone": "dawn",
           "icon": "task",
           "title": "No new guest slips through.",
-          "body": "Evry creates a follow-up for each new guest, assigns it to someone on your core team and drafts what to say. You approve."
+          "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
           "panel": "teams",
@@ -1773,7 +1789,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "headline": "Each plant, up close.",
         "items": [
           {
-            "label": "Phase journey",
+            "label": "Phases",
             "title": "Where the plant is on the way to launch.",
             "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
           },
@@ -1888,6 +1904,306 @@ body.pbar-hidden { padding-bottom: 0; }
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "Request early access as a planter"
       }
+    },
+    "access_page": {
+      "note": "E2 (2026-10-14): copy for /access, approved by Sebastian on 2026-10-14. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
+      "hero": {
+        "eyebrow": "Early access",
+        "headline": "Request early access",
+        "subhead": "EveryField is in early access for church planters and the churches and networks that send them."
+      },
+      "contact_email": "hello@everyfield.app",
+      "planter_form": {
+        "eyebrow": "For planters",
+        "headline": "Know what needs you this week.",
+        "body": "You do the work. EveryField keeps the record and points at the next step.",
+        "fields": {
+          "name": {
+            "label": "Your name",
+            "error": "Enter your name."
+          },
+          "email": {
+            "label": "Email",
+            "help": "We use your email to handle your early access request and limit spam.",
+            "error": "Enter an email address, such as name@example.com.",
+            "placeholder": "name@example.com"
+          },
+          "plant_name": {
+            "label": "Church plant name",
+            "help": "A working name is fine.",
+            "error": "Enter the name of your church plant. A working name is fine."
+          },
+          "city": {
+            "label": "City",
+            "help": "The city where you are planting.",
+            "error": "Enter the city where you are planting."
+          },
+          "phase": {
+            "label": "Phase",
+            "help": "Choose the phase you are in now.",
+            "error": "Choose the phase you are in now.",
+            "prompt": "Choose a phase"
+          },
+          "sending": {
+            "label": "Sending church or network",
+            "optional": true,
+            "help": "Leave it blank if you do not have one yet."
+          }
+        },
+        "phases": [
+          "0 · Discovery",
+          "1 · Core group",
+          "2 · Launch team",
+          "3 · Training",
+          "4 · Pre-launch",
+          "5 · Launch Sunday",
+          "6 · Post-launch"
+        ],
+        "submit": "Request early access",
+        "submitting": "Sending your request"
+      },
+      "network_form": {
+        "eyebrow": "For networks and sending churches",
+        "headline": "Bring EveryField to your network.",
+        "body": "We are working with a small group of networks and sending churches during early access.",
+        "fields": {
+          "name": {
+            "label": "Your name",
+            "error": "Enter your name."
+          },
+          "email": {
+            "label": "Email",
+            "help": "We use your email to handle your early access request and limit spam.",
+            "error": "Enter an email address, such as name@example.com.",
+            "placeholder": "name@example.com"
+          },
+          "organization": {
+            "label": "Network or church",
+            "error": "Enter the name of your network or church."
+          },
+          "role": {
+            "label": "Your role",
+            "help": "For example, network director or sending pastor.",
+            "error": "Enter your role."
+          },
+          "plants": {
+            "label": "Plants you send or support",
+            "optional": true,
+            "help": "A rough number is fine.",
+            "error": "Enter a whole number, such as 4."
+          },
+          "message": {
+            "label": "What would you like to talk about?",
+            "optional": true,
+            "help": "Tell us about your plants or what you want to see."
+          }
+        },
+        "submit": "Talk to us about your network",
+        "submitting": "Sending your request"
+      },
+      "errors": {
+        "too_long": "Shorten this to {max} characters or fewer."
+      },
+      "optional_label": "(optional)",
+      "privacy_note": {
+        "text": "We use these details to handle your early access request and limit spam. Read our privacy policy.",
+        "link": "privacy policy"
+      },
+      "outcomes": {
+        "received": {
+          "title": "Request received",
+          "body": "Thank you. We have your request and will reply by email. You will not get an automatic confirmation email."
+        },
+        "duplicate": {
+          "title": "We already have your request",
+          "body": "A request from this email on this form arrived in the last 24 hours, so we did not save a new one. We will reply by email."
+        },
+        "rate_limited_email": {
+          "title": "Too many requests from this email today",
+          "body": "Try again tomorrow, or email hello@everyfield.app."
+        },
+        "rate_limited_ip": {
+          "title": "Too many requests from this connection",
+          "body": "Try again in an hour, or email hello@everyfield.app."
+        },
+        "invalid": {
+          "title": "Check the marked fields",
+          "body": "Fix each field with a message below it, then send your request again."
+        },
+        "unavailable": {
+          "title": "Your request was not sent",
+          "body": "The request form is not working right now. Your answers are still in the form. Email them to hello@everyfield.app and we will reply.",
+          "link": "Email hello@everyfield.app"
+        },
+        "offline": {
+          "title": "Your request was not sent",
+          "body": "Check your internet connection and send it again. Your answers are still in the form."
+        }
+      }
+    },
+    "privacy_page": {
+      "note": "E2 (2026-10-14): Sebastian approved this privacy policy as drafted on 2026-10-14. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
+      "title": "Privacy policy",
+      "updated": "October 14, 2026",
+      "intro": [
+        "This policy covers everyfield.app, the early access site for EveryField. EveryField LLC runs the site.",
+        "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
+      ],
+      "sections": [
+        {
+          "heading": "What we collect",
+          "paragraphs": [],
+          "items": [
+            "From the planter form: your name, email, church plant name, city and phase. If you add it, your sending church or network.",
+            "From the network form: your name, email, network or church and role. If you add them, the number of plants you send or support and your message.",
+            "With each request: the date and time, the form you used and your IP address.",
+            "When you visit any page: Vercel, our hosting provider, keeps request logs. These include your IP address, your browser type and the page you opened."
+          ]
+        },
+        {
+          "heading": "Why we collect it",
+          "paragraphs": [],
+          "items": [
+            "To read your request and reply to you about early access.",
+            "To decide who joins early access, and when.",
+            "To stop spam and repeat requests. We use your email and IP address to limit how many requests can come from one email address or one internet connection."
+          ]
+        },
+        {
+          "heading": "What we do not do",
+          "paragraphs": [],
+          "items": [
+            "We do not add you to a newsletter or a mailing list.",
+            "We do not create an account for you.",
+            "We do not sell your information or share it for advertising.",
+            "We do not use advertising or tracking cookies."
+          ]
+        },
+        {
+          "heading": "Where it is stored and processed",
+          "paragraphs": [
+            "Vercel hosts the site through its global network. Neon stores requests in the United States, and Resend stores email data in the United States. These services may process information outside your country."
+          ],
+          "items": [
+            "Vercel hosts the site and runs the forms.",
+            "Neon stores each request in a database on Amazon Web Services, in the US East (N. Virginia) region, us-east-1.",
+            "Resend sends a copy of each request by email to our team inbox."
+          ]
+        },
+        {
+          "heading": "How long we keep it",
+          "paragraphs": [],
+          "items": [
+            "We keep each request in our database for 12 months after you send it, then delete it.",
+            "We delete the IP addresses we keep for request limits after 30 days.",
+            "Our providers may keep service logs and backup copies under their own retention policies.",
+            "If you join early access, we will tell you how the product handles your information before you use it."
+          ]
+        },
+        {
+          "heading": "Ask for a copy, a correction or deletion",
+          "paragraphs": [
+            "Email privacy@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
+            "We will reply by email about your request."
+          ]
+        },
+        {
+          "heading": "Children",
+          "paragraphs": [
+            "The forms are for adults who lead or support church plants. Do not send a request for a child."
+          ]
+        },
+        {
+          "heading": "Changes to this policy",
+          "paragraphs": [
+            "If we change this policy, we post the new version on this page and change the date at the top."
+          ]
+        },
+        {
+          "heading": "Contact",
+          "paragraphs": [
+            "Send questions about this policy to privacy@everyfield.app."
+          ]
+        }
+      ]
+    },
+    "terms_page": {
+      "note": "E2 (2026-10-14): terms for /terms, approved by Sebastian on 2026-10-14. Short terms for the marketing site during early access. Product terms come later.",
+      "title": "Terms",
+      "updated": "October 14, 2026",
+      "intro": [
+        "These terms apply to everyfield.app, the early access site for EveryField. EveryField LLC runs the site. When you use the site, you agree to these terms."
+      ],
+      "sections": [
+        {
+          "heading": "Early access",
+          "paragraphs": [
+            "EveryField is in early access. You cannot sign in or use the product on this site.",
+            "A request does not reserve a place. We choose who joins early access and when, and we can say no.",
+            "The product will have its own terms. We will give them to you before you use it."
+          ]
+        },
+        {
+          "heading": "What the site shows",
+          "paragraphs": [
+            "The site describes EveryField as we build it. Features can change before you can use them.",
+            "Names and numbers in the product pictures come from a sample church."
+          ]
+        },
+        {
+          "heading": "Your requests",
+          "paragraphs": [
+            "Send true information that you have the right to share. Request access only for yourself, or for a church or network you represent."
+          ]
+        },
+        {
+          "heading": "Fair use",
+          "paragraphs": [],
+          "items": [
+            "Do not use the site to send spam, to pose as someone else or to break the law.",
+            "Do not try to get around the request limits, overload the site or get into systems you have no right to use."
+          ]
+        },
+        {
+          "heading": "Our content",
+          "paragraphs": [
+            "The EveryField name, logo, text and pictures on this site belong to EveryField LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
+          ]
+        },
+        {
+          "heading": "No warranty",
+          "paragraphs": [
+            "We provide the site as it is. We work to keep it correct and online, but we do not promise that it is always correct, complete or available."
+          ]
+        },
+        {
+          "heading": "Limit of liability",
+          "paragraphs": [
+            "As far as the law allows, EveryField LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
+          ]
+        },
+        {
+          "heading": "Privacy",
+          "paragraphs": [
+            "Our privacy policy explains what we collect when you send a request and how to have it deleted."
+          ]
+        },
+        {
+          "heading": "Changes to these terms",
+          "paragraphs": [
+            "If we change these terms, we post the new version on this page and change the date at the top."
+          ]
+        },
+        {
+          "heading": "Contact",
+          "paragraphs": [
+            "Send questions about these terms to hello@everyfield.app."
+          ]
+        }
+      ],
+      "links": {
+        "privacy": "privacy policy"
+      }
     }
   },
   "directions": [
@@ -1904,18 +2220,20 @@ body.pbar-hidden { padding-bottom: 0; }
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "The vision is clear on Sunday. By Wednesday, it is buried under small tasks. Guests from Thursday's vision meeting need a follow-up. Commitment cards sit in a folder. The kids ministry still has no leader. When the vision and the daily work drift apart, momentum stalls, and time and money go to the wrong things. EveryField keeps the plan and the week in one place, so the most important work gets your time."
+          "body": "Every task matters, but not every task matters this week. EveryField keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
         },
         "proof": {
+          "note": "R6 (2026-10-17): no longer rendered on the site; the overview now sits inside the vision section. Kept for the prototype's second home story.",
           "headline": "Here is what a Monday looks like.",
           "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
         "vision": {
-          "note": "R4 (2026-10-15): new home section after the proof section, from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a. Four levels: Launch Sunday, the current phase, the phase benchmark and this week's tasks, each task with the goal it serves. EveryField stores no vision statement.",
+          "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. EveryField stores no vision statement.",
           "headline": "The vision, down to this week.",
-          "body": "Launch Sunday sets the date, and each phase has its benchmarks. EveryField keeps them in one place with this week's tasks, and Plant Intelligence names the next step and why."
+          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. EveryField keeps them in one place with this week's tasks, so you open Monday knowing what to do and why.",
+          "bridge": "Monday morning"
         },
         "features": {
           "headline": "Everything a plant needs, in the order you need it.",
@@ -2211,6 +2529,7 @@ var ICON = {
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   rocket: '<path d="M6.2 11.6l-2.9-.4c-.6-.1-1-.6-.7-1.2.8-1.7 3-3.7 7.2-3.3M6.2 11.6c1.1-1.8 2.4-3.6 3.5-4.9M6.2 11.6l5.7 5.7M9.7 6.7c3.7-4.1 7.5-5 9.9-4.6 1 .1 1.7.9 1.8 1.8.4 2.4-.5 6.2-4.6 9.9M11.9 17.3l.4 2.9c.1.6.7 1 1.2.7 1.7-.8 3.7-3 3.3-7.2M11.9 17.3c1.8-1.1 3.6-2.4 4.9-3.5"/><circle cx="15.5" cy="8" r="2"/><path d="M4 22l4-4M4 17l1.5-1.5"/>',
+  flag: '<path d="M5.5 21V4.5"/><path d="M5.5 5h11l-2.5 4 2.5 4h-11"/>',
   route: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><path d="M12 5H8.5a3.5 3.5 0 0 0 0 7h7a3.5 3.5 0 0 1 0 7H12"/>',
   task: '<rect x="4.5" y="4.5" width="15" height="15" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
@@ -2725,7 +3044,7 @@ function cxSwap(a, b, cls) { return '<span class="cx-swap' + (cls ? " " + cls : 
 var CX_PEOPLE = [["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"], ["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"], ["tone-green", "Core group", 34, 34, "var(--ef-green-500)"]];
 var CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"];
 var CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]];
-var CX_DRAFT = "Thank Kim for coming on Sunday. Ask what stood out to her, and offer to meet for coffee this week.";
+var CX_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
 var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
 var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
 var CX_Q = "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.";
@@ -2757,16 +3076,14 @@ var CX_MARK = {
       '<div class="cx-names cx-guests">' + guests.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">10 more</span></div></div>';
   },
   follow: function () {
-    var row = function (n) {
-      return '<div class="ha-li cx-fu"><span class="cx-lead"><span class="ha-av">' + n[0] + '</span><span class="ha-check">' + icon("check") + '</span></span><span class="grow">' +
-        cxSwap('<span class="cx-l1">' + n[1] + '</span><span class="cx-l2">New guest</span>', '<span class="cx-l1">Follow up with ' + n[1] + '</span><span class="cx-l2">Due Oct 10</span>') + "</span>" +
-        '<span class="ha-chip cx-who"><span class="ha-av">' + n[2] + "</span>" + n[3] + "</span></div>";
-    };
-    return '<div class="cx-h" data-st>' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry</div><div class="ha-sub">3 new guests from Sunday\'s vision meeting</div></div></div>' +
-      '<div data-st>' + row(CX_GUESTS[0]) + "</div>" +
-      '<div class="cx-draft"><span class="ha-lab">' + icon("sparkle") + "Drafted for Tom</span>" + cxTw("cx-dt", CX_DRAFT) + "</div>" +
-      '<div class="cx-dn"><div data-st>' + row(CX_GUESTS[1]) + "</div><div data-st>" + row(CX_GUESTS[2]) + "</div>" +
-      '<div class="ha-acts" data-st>' + cxSwap('<span class="faint">Nothing is saved until you approve.</span>', '<span class="faint">Assigned to Tom and Ana</span>', "cx-fs") + cxBtn("cx-t0", "Approve", "Approved") + "</div></div>";
+    var week = [["Interview David Kim", "Fri Oct 17"], ["Record Maria Santos's commitment", "Signed on Oct 6"]];
+    return '<div class="cx-h" data-st>' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry</div><div class="ha-sub">After vision meeting #12</div></div></div>' +
+      '<div class="cx-say" data-st>' + cxTw("cx-dt", CX_SAYS) + '<div class="cx-names">' + CX_GUESTS.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + "</div></div>" +
+      '<div class="ha-acts" data-st><span class="faint">You and your team reach out.</span>' + cxBtn("cx-t0", "Add to my week", "Added") + "</div>" +
+      '<div class="cx-wk" data-st><div class="row"><span class="ha-lab" style="margin:0">Your week</span><span class="faint" style="font-weight:600"><span data-n="wk">2</span> tasks</span></div><ul class="vz-tasks">' +
+      week.map(function (w) { return '<li><span class="cx-ring" aria-hidden="true"></span><span class="grow"><span class="cx-l1">' + w[0] + '</span><span class="cx-l2">' + w[1] + "</span></span></li>"; }).join("") +
+      CX_GUESTS.map(function (n) { return '<li><span class="cx-slot"></span><span class="cx-new"><span class="ha-av">' + n[0] + '</span><span class="grow"><span class="cx-l1">Follow up with ' + n[1] + '</span><span class="cx-l2">New guest · due Tue Oct 14</span></span><span class="cx-tag">New</span></span></li>'; }).join("") +
+      "</ul></div>";
   },
   teams: function () {
     return cxHead(cxIcon("tone-violet", "users"), "Your teams", "Harvest Point · committed adults") +
@@ -2892,7 +3209,7 @@ var OV_ROWS = [
 var CX_SCN = {
   people: { L: 6400, still: 4200, cur: [[0, "rest"], [700, "rest"], [1500, ".cx-t0"], [2500, ".cx-t0"], [3300, "rest"]], clicks: [2000] },
   meet: { L: 7200, still: 5600, cur: [[0, "rest"], [400, "rest"], [1000, ".cx-t0"], [2300, ".cx-t0"], [3100, ".cx-t1"], [3700, ".cx-t1"], [4500, "rest"]], clicks: [1100, 3300] },
-  follow: { L: 8600, still: 6500, cur: [[0, "mid"], [3700, "mid"], [4500, ".cx-t0"], [5400, ".cx-t0"], [6200, "mid"]], clicks: [4900] },
+  follow: { L: 7900, still: 6200, cur: [[0, "mid"], [2500, "mid"], [3200, ".cx-t0"], [3950, ".cx-t0"], [4700, "mid"]], clicks: [3600] },
   teams: { L: 7600, still: 6000, cur: [[0, "rest"], [700, "rest"], [1400, ".cx-t0"], [2100, ".cx-t0"], [2900, ".cx-t1"], [3800, ".cx-t1"], [4600, "rest"]], clicks: [1700, 3300] },
   focus: { L: 6800, still: 3700, end: 3700, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
   facts: { L: 6600, still: 3600, end: 3600, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
@@ -2938,7 +3255,7 @@ var CX_DEFS = {
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) }
 };
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : kind === "follow" ? " cx-clip" : "") + '" data-k="' + kind + '">' + (kind === "follow" ? '<span class="cx-shade"></span><span class="cx-shell"></span>' : "") + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);
@@ -3023,24 +3340,19 @@ var CX_RENDER = {
     cxPop(cxQ(I, ".cx-att .badge"), t, 4500, R);
   },
   follow: function (I, t) {
-    var R = cxRst(t, 7900), rows = cxQA(I, ".cx-fu");
-    rows.forEach(function (r, k) {
-      var at = 1300 + k * 500;
-      cxFlip(r.querySelector(".cx-swap"), haOut(haP(t, at, 380)) * R);
-      cxPop(r.querySelector(".cx-who"), t, at + 150, R);
-      cxFlip(r.querySelector(".cx-lead"), haOut(haP(t, 5150 + k * 120, 380)) * R);
+    /* Evry speaks, the guests pop in, "Add to my week" at 3600, then each guest's task lands in its slot. */
+    var R = cxRst(t, 7400), land = function (k) { return 4600 + k * 260; };
+    cxType(cxQ(I, ".cx-dt"), CX_SAYS, haP(t, 600, 1300));
+    cxQA(I, ".cx-say .ha-chip").forEach(function (c, k) { cxPop(c, t, 1950 + k * 140, R); });
+    cxDone(I, ".cx-t0", t, 3600, R);
+    var n = 0;
+    cxQA(I, ".cx-new").forEach(function (r, k) {
+      cxRise(r, t, land(k) - 60, R);
+      haTO(r.parentNode.querySelector(".cx-slot"), 0, 0, 1, 1 - haOut(haP(t, land(k) - 120, 200)) * R);
+      if (t >= land(k) - 60 && t < 7400) n++;
     });
-    /* The first task opens to show the drafted talking point. The rows under it move down to make room. */
-    var e = haOut(haP(t, 2900, 450)) * R, dh = I.dh || 0;
-    haTO(cxQ(I, ".cx-draft"), 0, 0, .96 + .04 * e, e);
-    haTO(cxQ(I, ".cx-dn"), 0, -dh * (1 - e), 1, 1);
-    var cut = dh * (1 - e), H = I.h || 1;
-    haSet(cxQ(I, ".cx-shell"), "bottom", cut.toFixed(1) + "px");
-    haSet(cxQ(I, ".cx-shade"), "transform", "scaleY(" + ((H - cut) / H).toFixed(4) + ")");
-    cxType(cxQ(I, ".cx-dt"), CX_DRAFT, haP(t, 3150, 1200));
-    cxDone(I, ".cx-t0", t, 4900, R);
-    cxFlip(cxQ(I, ".cx-fs"), haOut(haP(t, 5150, 380)) * R);
-    haSet(cxQ(I, ".evry-bot"), "mood", t >= 600 && t < 4300 ? "talking" : t >= 5100 && t < 6600 ? "happy" : "idle");
+    cxN(cxQ(I, '[data-n="wk"]'), 2 + n);
+    haSet(cxQ(I, ".evry-bot"), "mood", t >= 600 && t < 1900 ? "talking" : t >= 5000 && t < 6600 ? "happy" : "idle");
   },
   teams: function (I, t) {
     var R = cxRst(t, 7000), base = haOut(haP(t, 300, 900)), nums = cxQA(I, '[data-n="team"]'), bars = cxQA(I, ".cx-team .ha-meter > span"), fly = cxQA(I, ".cx-fly");
@@ -3474,22 +3786,26 @@ function vision(v) {
     return '<div class="vz-card' + cls + '" style="--d:' + [0, 380, 760][n] + 'ms"><div class="vz-row">' + (n ? line("vz-in", [0, 304, 684][n]) : "") + line("vz-out vz-gap", [133, 513, 893][n]) +
       '<span class="vz-ic ' + tone + '">' + icon(ic) + '</span><div style="min-width:0;flex:1"><div class="vz-l">' + t(label) + "</div>" + value + "</div>" + (end || "") + "</div>" + (extra || "") + "</div>";
   }
-  var tasks = [["Invite the 9 guests from #11", "Vision meeting #12"], ["Interview David Kim", "Close to committing"], ["Record Maria Santos's commitment", "Signed on Oct 6"]];
+  var tasks = [["Set the launch team's personal invitation goal", "Launch prep", "tone-green", "Promotion plan chosen"], ["Invite the 9 guests from #11", "Vision meeting #12", "tone-blue", "Committed adults"], ["Interview David Kim", "Close to committing", "tone-blue", "Committed adults"]];
   return '<section class="sec sec-vision" id="vision" aria-labelledby="vision-title"><div class="wrap vz-grid">' +
     '<div class="vz-head"><h2 class="display h2" id="vision-title">' + t(v.headline) + "</h2><p>" + t(v.body) + "</p></div>" +
     '<div class="vz vz-stage gsurf" data-tone="dawn"><div class="vz-stack ef">' +
       level(0, " vz-launch", "tone-green", "rocket", "Launch Sunday", '<div class="vz-date">Sun, Mar 14, 2027</div><div class="vz-sub">9 launch milestones and 23 preparation tasks</div>') +
-      level(1, "", "tone-violet", "route", "Phase 1", '<div class="vz-v">Core Group Development</div>', '<span class="vz-track" aria-hidden="true"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></span>') +
-      level(2, "", "tone-blue", "users", "Playbook benchmark", '<div class="vz-v">Committed adults</div>', '<span class="vz-num">34<small>of 50</small></span>',
-        '<div class="vz-meter"><div class="vz-bar" aria-hidden="true"><i></i></div><div class="vz-l">Up 9 in the last 28 days</div></div>') +
+      level(1, "", "tone-violet", "route", "Phase 1", '<div class="vz-v">Core Group Development</div>', '<span class="vz-track" aria-hidden="true"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></span>',
+        '<div class="vz-meter"><div class="vz-bm"><span class="vz-l">Benchmark: committed adults</span><span class="vz-num vz-num-s">34<small>of 50</small></span></div><div class="vz-bar" aria-hidden="true"><i></i></div></div>') +
+      level(2, "", "tone-green", "flag", "Launch milestone", '<div class="vz-v">Promotion plan chosen</div>', '<span class="vz-l" style="margin-left:auto;padding-top:4px;white-space:nowrap">1 of 2 tasks done</span>',
+        '<div class="vz-meter vz-ms" aria-hidden="true"><span class="vz-bar"><i></i></span><span class="vz-bar"></span></div>') +
       '<div class="vz-card" style="--d:1140ms"><div class="vz-row">' + line("vz-in", 1064) + line("vz-out", 1238) +
         '<span class="vz-ic tone-amber">' + icon("task") + '</span><div><div class="vz-week-t">This week</div><div class="vz-l" style="margin-top:2px">3 tasks for the core group</div></div></div>' +
         '<ul class="vz-tasks">' + tasks.map(function (k, i) {
           return '<li><div class="vz-row" style="--d:' + (1420 + i * 180) + 'ms">' + line("vz-in", [1364, 1564, 1744][i]) + (i < 2 ? line("vz-out", 1483 + i * 180) : "") +
             '<span class="vz-ring" aria-hidden="true"></span><span style="min-width:0;flex:1"><span class="vz-task-t">' + t(k[0]) + '</span><span class="vz-chain">' + t(k[1]) + '<span style="display:inline-flex;align-items:center;gap:6px">' + icon("arrow") +
-            '<span class="ovs-sr">serves</span><span class="stage-chip tone-blue" style="height:22px">Committed adults</span></span></span></span></div></li>';
+            '<span class="ovs-sr">serves</span><span class="stage-chip ' + k[2] + '" style="height:22px">' + t(k[3]) + '</span></span></span></span></div></li>';
         }).join("") + "</ul></div>" +
-    "</div></div></div></section>";
+    "</div></div>" +
+    '<div class="vz-bridge"><i aria-hidden="true"></i><p>' + icon("calendar") + t(v.bridge) + '</p><i aria-hidden="true"></i></div>' +
+    "</div>" +
+    '<div class="wrap"><div class="monday-frame" id="proof">' + visual(vMondayOverview(), v.caption) + "</div></div></section>";
 }
 /* Plays the zoom once when it scrolls in. A zoom already on screen at load stays settled. */
 function visionPlay(root) {
@@ -3752,7 +4068,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + proof(s.proof, story) + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -3775,7 +4091,7 @@ function pageOversight() {
 function ovVig(i) {
   var b = "";
   if (i === 0) {
-    b = pvHead("calendar", "tone-blue", "Phase journey", "Eastside Commons", '<span class="pv-k">3 · Training</span>') +
+    b = pvHead("calendar", "tone-blue", "Phases", "Eastside Commons", '<span class="pv-k">3 · Training</span>') +
       '<div class="ovv-seg">' + [1, 1, 1, 2, 0, 0, 0].map(function (s) { return '<span data-state="' + (s === 1 ? "done" : s === 2 ? "current" : "") + '"></span>'; }).join("") + "</div>" +
       '<div class="ovv-wk">' + [["Discovery", "10 wk"], ["Core group", "34 wk"], ["Launch team", "18 wk"], ["Training", "6 wk so far"]].map(function (r) { return "<span><b>" + r[1] + "</b>" + r[0] + "</span>"; }).join("") + "</div>";
   } else if (i === 1) {

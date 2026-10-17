@@ -13,8 +13,6 @@ import { PanelClockProvider, useReduced, useTicker } from "@/components/motion/s
 /** When each node lands (ms): Launch Sunday, the phase, the launch milestone, the week card, then the three tasks. */
 const N = [0, 380, 760, 1140, 1420, 1600, 1780] as const;
 const END = 2300;
-/** R6 prototype C: when each plan tile lands (ms). */
-const PN = [0, 260, 520, 780] as const;
 const at = (n: number) => N[Math.max(0, Math.min(n, N.length - 1))]!;
 const gap = (n: number) => at(n + 1) - at(n);
 const scaleY = (p: number) => "scaleY(" + p.toFixed(4) + ")";
@@ -31,13 +29,6 @@ const FX = {
   /** The phase benchmark: the count and the bar fill together once the phase has landed. */
   "vision.count": (t: number) => 34 * out(P(t, 560, 1000)),
   "vision.bar": (t: number) => "scaleX(" + out(P(t, 560, 1000)).toFixed(4) + ")",
-  /** R6 prototype C: the plan band in the Monday dashboard. Tiles land left to right, a short line joins each pair. */
-  "plan.card": (t: number, k: number) => rise(t, PN[k] ?? 0),
-  "plan.task": (t: number, k: number) => rise(t, 1000 + k * 160),
-  "plan.link": (t: number, n: number) => "scaleX(" + out(P(t, (PN[n - 1] ?? 0) + 150, 220)).toFixed(4) + ")",
-  "plan.count": (t: number) => 34 * out(P(t, 420, 900)),
-  "plan.bar": (t: number) => "scaleX(" + out(P(t, 420, 900)).toFixed(4) + ")",
-  "plan.ms": (t: number) => "scaleX(" + out(P(t, 700, 600)).toFixed(4) + ")",
   /** The launch milestone: its first task's segment fills. */
   "vision.ms": (t: number) => "scaleX(" + out(P(t, 940, 600)).toFixed(4) + ")",
 };

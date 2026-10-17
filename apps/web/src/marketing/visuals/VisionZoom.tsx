@@ -62,7 +62,7 @@ function PhaseTrack() {
 }
 
 /** This week's tasks: [title, what it is about, the tone and name of the goal it serves]. */
-export const TASKS = [
+const TASKS = [
   ["Set the launch team's personal invitation goal", "Launch prep", "green", "Promotion plan chosen"],
   ["Invite the 9 guests from #11", "Vision meeting #12", "blue", "Committed adults"],
   ["Interview David Kim", "Close to committing", "blue", "Committed adults"],
