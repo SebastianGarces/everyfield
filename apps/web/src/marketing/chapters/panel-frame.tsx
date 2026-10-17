@@ -16,6 +16,8 @@ import { SCENES, type PanelKind } from "../scene-data";
 export type PanelSlot = PanelClock & {
   place: "vis" | "mob" | "auto";
   card?: { transform: MotionValue<string>; opacity: MotionValue<number>; visibility: MotionValue<string> };
+  /** Without JavaScript this desktop card is shown (the week chapter's first card, at its still frame). */
+  noScript?: boolean;
 };
 const SlotContext = createContext<PanelSlot | null>(null);
 export function PanelSlotProvider({ slot, children }: { slot: PanelSlot; children: ReactNode }) {
@@ -97,6 +99,8 @@ export function PanelCard({ kind, variant = { kind: "card" }, className, childre
               : v === "clip"
                 ? "bg-transparent px-5 pt-[18px] pb-5 max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]"
                 : "bg-white px-5 pt-[18px] pb-5 shadow-mk-panel max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]",
+          // No JavaScript: the inline style keeps the card hidden; the root has no data-js, so this shows it.
+          slot.noScript && "[html:not([data-js])_&]:visible! [html:not([data-js])_&]:opacity-100! [html:not([data-js])_&]:transform-none!",
           className,
         )}
         style={style}
