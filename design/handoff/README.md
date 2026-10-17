@@ -64,7 +64,11 @@ The prototype adds keyboard access to clickable cards and rows with a script. Th
 
 ## Who builds the design system
 
-WP-088 builds the shared tokens, fonts, Hugeicons and AppShell. WP-089 builds controls, surfaces and overlays; WP-090 builds data, content and domain display components from [components.md](components.md). These packages own separate directories within `packages/ui`. Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088, WP-089 and WP-090; its contract and API parts do not.
+The live marketing site already imports `tokens.css` through `apps/web/src/styles/marketing.css`, loads Bricolage Grotesque and Instrument Sans through `next/font` in `apps/web/src/app/layout.tsx`, and uses Hugeicons, Motion and the color-literal lint in `apps/web/scripts/check-color-literals.mjs`. Static marketing is rendered with Server Components and interactive or animated leaves are client components. Share images and baked mesh assets have deterministic renderers and freshness locks in `apps/web/scripts/`.
+
+WP-088 extends these foundations into the shared product UI and adds AppShell and product-only dark mode. Reuse the single token source, fonts, icon library, Motion and lint instead of creating a second foundation system. Marketing stays light only, independent of the product theme and system setting. WP-089 builds controls, surfaces and overlays; WP-090 builds data, content and domain display components from [components.md](components.md). These packages own separate directories within `packages/ui`. Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088, WP-089 and WP-090; its contract and API parts do not.
+
+WP-049 extends the rebuilt marketing frame and components, reuses the owner-reviewed vision section when merged, and retains feedback, reviewed planters/trust pages, sign-in links and the before-customer-data privacy update. Local R4/R6 prototypes do not establish shipped content.
 
 ## Not designed yet
 

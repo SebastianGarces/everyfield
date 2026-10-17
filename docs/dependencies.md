@@ -1,6 +1,6 @@
 # Dependencies and compatibility gate
 
-Stable publisher registry versions were checked on **2026-10-13**. No package was installed. Pin exact compatible versions when implementation is separately authorized; a stable tag does not establish working Next/auth/driver/TS integration.
+Stable publisher registry versions were checked on **2026-10-13**. This was the pre-build registry baseline. Pin exact compatible versions when implementation is separately authorized; a stable tag does not establish working Next/auth/driver/TS integration.
 
 | Package | Stable checked version | Purpose |
 |---|---|---|
@@ -20,7 +20,7 @@ Stable publisher registry versions were checked on **2026-10-13**. No package wa
 
 ### Selected design libraries
 
-The [design handoff](../design/handoff/README.md) selects these. Versions were read from the npm registry on **2026-10-14**. Motion registry evidence is recorded in [dependencies.json](dependencies.json); record the other design libraries when you pin them. No package was installed.
+The [design handoff](../design/handoff/README.md) selects these. Versions were read from the npm registry on **2026-10-14**. Motion registry evidence is recorded in [dependencies.json](dependencies.json); record the other design libraries when you pin them. The installed marketing subset is recorded below.
 
 | Package | Stable checked version | Purpose |
 |---|---|---|
@@ -32,7 +32,13 @@ The [design handoff](../design/handoff/README.md) selects these. Versions were r
 
 The icon library is Hugeicons. Do not add lucide or a second icon set.
 
-Select Node 24 LTS for the Next deployment and operator artifact; it meets the selected engine constraints (AI SDK requires Node 22 or later). Vercel currently supports 24.x (default) and 22.x per its [official runtime documentation](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions), checked 2026-10-13. Actual deployment/runtime compatibility remains unproved. WP003 must compile representative RSC/client forms, route/stream transport, schema/MDX and document formats with the actual runtime and selected versions; prove interactive rollback, resumable auth and cookie/origin rules. Record official security advisories/peer constraints and licensed generated components in the lockfile review. If compatibility fails, keep the package blocked with a concrete supported-version proposal; do not quietly downgrade or claim a tested stack.
+### Shipped marketing foundations
+
+The installed source of truth is [apps/web/package.json](../apps/web/package.json) and the root lockfile, inspected on 2026-10-17 at main `01074ae`. The site pins Next 16.4.1, React/react-dom 19.3.1, TypeScript 6.0.3, Tailwind and `@tailwindcss/postcss` 4.3.3, Hugeicons React 1.1.10 and free icons 4.3.5, and Motion 14.2.0. The registry tables above are historical compatibility inputs, not instructions to replace the working site versions.
+
+The marketing CSS imports the generated [handoff tokens](../design/handoff/tokens.css). Bricolage Grotesque and Instrument Sans load through `next/font`; static marketing uses Server Components, with client leaves for interaction and animation. `apps/web/scripts/check-color-literals.mjs` keeps component colors in tokens. Share-image and baked mesh-image generators and freshness checks are already installed. WP-088 extends these foundations for the product AppShell and product-only dark mode. Marketing remains light only. WP-049 reuses the rebuilt marketing components and owner-reviewed vision section when merged. React Email remains a selected future design dependency; the site does not install it.
+
+Select Node 24 LTS for the Next deployment and operator artifact; it meets the selected engine constraints (AI SDK requires Node 22 or later). Vercel currently supports 24.x (default) and 22.x per its [official runtime documentation](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions), checked 2026-10-13. The WP-097 marketing subset has shipped on this runtime; the full product compatibility gate remains unproved. WP003 must compile representative RSC/client forms, route/stream transport, schema/MDX and document formats with the actual runtime and selected versions; prove interactive rollback, resumable auth and cookie/origin rules. Record official security advisories/peer constraints and licensed generated components in the lockfile review. If compatibility fails, keep the package blocked with a concrete supported-version proposal; do not quietly downgrade or claim a tested stack.
 
 One modular Next deployment is selected. Server Components call scoped server-only domain reads directly; Server Actions and Route Handlers are thin validated adapters. Better Auth owns identity; a shared domain transaction owns grants and records. No separate Bun/Hono/Elysia backend is part of the build. Their earlier comparison informed the selected topology; no alternative backend must be installed to retain capability.
 

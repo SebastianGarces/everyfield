@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
-import { buildBlocks } from '../plan.ts';
+import { buildBlocks, renderBlocks } from '../plan.ts';
 import { loadDag, loadRegistry } from '../lib.ts';
 
 const source = resolve(import.meta.dirname, '../../..');
@@ -453,6 +453,14 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
  assert.match(ui,/Screen map: design\/handoff\/screens\.md/);
  assert.match(ui,/screens\.md#L\d+: Sign in, with an invitation notice/);
  assert.match(renderBrief(source,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
+ for(const pkg of loadDag(source).packages.filter(p=>['WP-088','WP-049','WP-097'].includes(p.id))){
+  const {blocks,external}=buildBlocks(source,[pkg]);
+  const outputs=[renderBrief(source,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
+  for(const output of outputs){
+   assert.ok(output.includes(`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`),`${pkg.id} must print its own UI guidance`);
+   assert.doesNotMatch(output,/reuse approved E3 pages/i);
+  }
+ }
 
 });
 
