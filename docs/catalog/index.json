@@ -38,10 +38,10 @@
     "docs/acceptance/teams-training.json"
   ],
   "counts": {
-    "active_features": 291,
-    "active_acceptance_bundles": 736,
-    "requirements": 512,
-    "future_cases": 1102
+    "active_features": 292,
+    "active_acceptance_bundles": 737,
+    "requirements": 513,
+    "future_cases": 1103
   },
   "implementation_tests_run": 0,
   "generated_evry_tool_source": "docs/catalog/evry-tools.json"

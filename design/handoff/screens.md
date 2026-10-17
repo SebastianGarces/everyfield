@@ -188,7 +188,7 @@ These features have a route in the catalog because their results show on a scree
 | Communication templates and derived contact log | COM-008, COM-011 | WP-023, WP-027, WP-029, WP-032 | not designed: no screen of its own |
 | Team setup and assignment consequences | TEAM-003, TEAM-015 | WP-017, WP-019 | not designed: no screen of its own |
 | Request boundary, development account switching, Wiki crawler previews | IDN-004, IDN-028, WIKI-011 | WP-005, WP-006, WP-034, WP-050 | not designed: no screen of its own |
-| Organization pipeline and residency foundations | MUL-001, MUL-002, MUL-003, MUL-004, MUL-005, MUL-006, MUL-007, MUL-008, MUL-009, MUL-010, MUL-011, MUL-012, MUL-015, MUL-016 | `/organization/pipeline` | WP-006, WP-007, WP-008, WP-009, WP-011, WP-098, WP-099, WP-101 | not designed, ui-designer on Opus 5.5 owns the foundation, pipeline, program and consent states |
+| Organization pipeline and residency foundations | MUL-001, MUL-002, MUL-003, MUL-004, MUL-005, MUL-006, MUL-007, MUL-008, MUL-009, MUL-010, MUL-011, MUL-012, MUL-015, MUL-016, MUL-017 | `/organization/pipeline` | WP-006, WP-007, WP-008, WP-009, WP-011, WP-015, WP-098, WP-099, WP-101 | not designed, ui-designer on Opus 5.5 owns the foundation, pipeline, program and consent states |
 | My residency | MUL-013, MUL-014 | `/my-residency` | WP-100 | not designed, ui-designer on Opus 5.5 owns linked, withdrawn and source-unavailable states |
 
 ## Design system pages

@@ -13481,7 +13481,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Q": {
           "fixture_type": "person",
@@ -13492,7 +13494,8 @@
           "display_name": "Casey L.",
           "stage": null,
           "state": "live",
-          "revision": 2
+          "revision": 2,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -13503,7 +13506,11 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -13513,11 +13520,94 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "R": {
+          "fixture_type": "account",
+          "id": "R",
+          "email": "resident@example.test"
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "Program": {
+          "fixture_type": "development_program",
+          "id": "Program",
+          "organization_id": "O",
+          "kind": "residency",
+          "director_seat_id": "staff",
+          "revision": 3,
+          "current_version_id": "V1"
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
         }
       },
       "actor": {
@@ -13572,47 +13662,6 @@
       "subcases": [
         {
           "given": {
-            "Q": {
-              "fixture_type": "person",
-              "id": "Q",
-              "tenant_id": "B",
-              "organization_id": "B",
-              "plant_id": null,
-              "display_name": "Casey L.",
-              "stage": null,
-              "state": "live",
-              "revision": 2
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.merge",
-            "arguments": {
-              "source": "P",
-              "survivor": "Q",
-              "expected_revisions": {
-                "P": 4,
-                "Q": 2
-              }
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": [],
-            "error_code": "foreign_context_refused"
-          },
-          "name": "Foreign-owner merge changes nothing"
-        },
-        {
-          "given": {
             "execution": {
               "fixture_type": "execution_control",
               "request_repetitions": 2
@@ -13659,7 +13708,8 @@
               "stage": null,
               "state": "merged",
               "revision": 3,
-              "merged_into_person_id": "P"
+              "merged_into_person_id": "P",
+              "created_at": "2026-01-01T00:00:00Z"
             }
           },
           "actor": {
@@ -13684,91 +13734,6 @@
             "error_code": "use_reviewed_unmerge"
           },
           "name": "Ordinary restore refuses merged source"
-        },
-        {
-          "given": {
-            "execution": {
-              "fixture_type": "execution_control",
-              "request_repetitions": 2
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.merge",
-            "arguments": {
-              "source": "Q",
-              "survivor": "P",
-              "expected_revisions": {
-                "P": 4,
-                "Q": 2
-              },
-              "field_choices": {
-                "display_name": "P"
-              },
-              "request_key": "merge-1"
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": null,
-            "result": {
-              "survivor": "P",
-              "retired_source": "Q",
-              "historical_endpoints": [
-                "P",
-                "Q"
-              ],
-              "account_consent_transferred": false
-            }
-          },
-          "name": "Same-owner merge preserves two historical identities"
-        },
-        {
-          "given": {
-            "Merge": {
-              "fixture_type": "person_merge",
-              "id": "Merge",
-              "tenant_id": "O",
-              "source_id": "Q",
-              "survivor_id": "P",
-              "survivor_after_revision": 5
-            },
-            "disclosure": {
-              "fixture_type": "feedback_disclosure",
-              "person": "P",
-              "after_merge": true
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.unmerge",
-            "arguments": {
-              "merge": "Merge",
-              "expected_revision": 6
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": [],
-            "error_code": "inverse_conflict"
-          },
-          "name": "Unmerge refuses intervening feedback disclosure"
         },
         {
           "name": "Independent contact email can be edited",
@@ -13839,64 +13804,6 @@
           }
         },
         {
-          "name": "Duplicates require human selection",
-          "given": {
-            "P": {
-              "fixture_type": "person",
-              "id": "P",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey Lee",
-              "stage": null,
-              "state": "live",
-              "revision": 4,
-              "email": "shared@example.test"
-            },
-            "Q": {
-              "fixture_type": "person",
-              "id": "Q",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey L.",
-              "stage": null,
-              "state": "live",
-              "revision": 2,
-              "email": "shared@example.test"
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.findDuplicates",
-            "arguments": {
-              "person": "P"
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": null,
-            "result": {
-              "candidates": [
-                {
-                  "person": "Q",
-                  "display_name": "Casey L.",
-                  "reason": "shared contact email"
-                }
-              ],
-              "automatic_merge": false
-            }
-          }
-        },
-        {
           "name": "Ordinary retired contact restores without restoring access",
           "given": {
             "P": {
@@ -13909,7 +13816,9 @@
               "stage": null,
               "state": "retired",
               "revision": 5,
-              "retired_at": "2026-10-16T16:00:00Z"
+              "retired_at": "2026-10-16T16:00:00Z",
+              "created_at": "2026-01-01T00:00:00Z",
+              "linked_account_id": "R"
             }
           },
           "actor": {
@@ -13936,124 +13845,6 @@
               "seat_created": false,
               "sharing_restored": false
             }
-          }
-        },
-        {
-          "name": "Guarded Unmerge restores the exact eligible split",
-          "given": {
-            "Merge": {
-              "fixture_type": "person_merge",
-              "id": "Merge",
-              "tenant_id": "O",
-              "source_id": "Q",
-              "survivor_id": "P",
-              "survivor_after_revision": 6,
-              "reversed_operation_id": null
-            },
-            "P": {
-              "fixture_type": "person",
-              "id": "P",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey Lee",
-              "stage": null,
-              "state": "live",
-              "revision": 6
-            },
-            "Q": {
-              "fixture_type": "person",
-              "id": "Q",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey L.",
-              "stage": null,
-              "state": "merged",
-              "revision": 2,
-              "merged_into_person_id": "P"
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.unmerge",
-            "arguments": {
-              "merge": "Merge",
-              "expected_revision": 6
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": null,
-            "result": {
-              "source": "Q",
-              "survivor": "P",
-              "source_state": "live",
-              "reversed_once": true,
-              "seat_changes": 0
-            }
-          }
-        },
-        {
-          "name": "Merge refuses incompatible account links",
-          "given": {
-            "P": {
-              "fixture_type": "person",
-              "id": "P",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey Lee",
-              "stage": null,
-              "state": "live",
-              "revision": 4,
-              "linked_account_id": "R"
-            },
-            "Q": {
-              "fixture_type": "person",
-              "id": "Q",
-              "tenant_id": "O",
-              "organization_id": "O",
-              "plant_id": null,
-              "display_name": "Casey L.",
-              "stage": null,
-              "state": "live",
-              "revision": 2,
-              "linked_account_id": "X"
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "S",
-            "context": "O"
-          },
-          "clock": {
-            "now": "2026-10-17T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "orgPeople.merge",
-            "arguments": {
-              "source": "Q",
-              "survivor": "P",
-              "expected_revisions": {
-                "P": 4,
-                "Q": 2
-              }
-            }
-          },
-          "expected": {
-            "state": {},
-            "event": [],
-            "error_code": "linked_account_collision"
           }
         }
       ]
@@ -14109,7 +13900,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -14120,11 +13913,146 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "Stage": {
+          "fixture_type": "pipeline_stage",
+          "id": "Stage",
+          "organization_id": "O",
+          "stable_kind": "potential_leader",
+          "label": "Potential leader",
+          "position": 1,
+          "revision": 2
+        },
+        "PP": {
+          "fixture_type": "pipeline_person",
+          "id": "PP",
+          "person_id": "P",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 4
+        },
+        "Program": {
+          "fixture_type": "development_program",
+          "id": "Program",
+          "organization_id": "O",
+          "kind": "residency",
+          "director_seat_id": "staff",
+          "revision": 3,
+          "current_version_id": "V1"
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "E": {
+          "fixture_type": "development_enrollment",
+          "id": "E",
+          "organization_id": "O",
+          "person_id": "P",
+          "program_id": "Program",
+          "version_id": "V1",
+          "status": "active",
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
+        },
+        "D": {
+          "fixture_type": "account",
+          "id": "D",
+          "email": "other-staff@example.test"
+        },
+        "OtherSeat": {
+          "fixture_type": "seat",
+          "id": "OtherSeat",
+          "account": "D",
+          "tenant": "O",
+          "role": "Member",
+          "active": true
+        },
+        "Note": {
+          "fixture_type": "person_note",
+          "id": "Note",
+          "tenant_id": "O",
+          "plant_id": null,
+          "person_id": "P",
+          "author_id": "A",
+          "body": "Casey requested a private staff follow-up.",
+          "occurred_at": "2026-10-16T18:00:00Z",
+          "recorded_at": "2026-10-16T18:00:00Z",
+          "revision": 2
         }
       },
       "actor": {
@@ -14146,9 +14074,14 @@
         "state": {},
         "event": null,
         "result": {
-          "display_name": "Casey Lee",
-          "pipeline_stage": "Potential leader",
-          "audience": "organization_admin"
+          "allowed": true,
+          "duty": "organization_administration",
+          "can_read_contact": true,
+          "can_read_staff_notes": true,
+          "can_read_feedback": true,
+          "can_read_consented_progress": true,
+          "can_edit_plant": false,
+          "private_content": []
         }
       },
       "id": "ADR1-002",
@@ -14230,6 +14163,322 @@
             "error_code": "foreign_context_refused"
           },
           "name": "Other-organization staff cannot read Person"
+        },
+        {
+          "name": "Responsible staff receives only its Person duty",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": true
+            },
+            "Program": {
+              "fixture_type": "development_program",
+              "id": "Program",
+              "organization_id": "O",
+              "kind": "residency",
+              "director_seat_id": "OtherSeat",
+              "revision": 3,
+              "current_version_id": "V1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipelineAccess.readPerson",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "allowed": true,
+              "duty": "responsible_staff",
+              "can_read_contact": true,
+              "can_read_staff_notes": true,
+              "can_read_feedback": false,
+              "can_edit_plant": false,
+              "private_content": []
+            }
+          }
+        },
+        {
+          "name": "Program director receives program duty without staff-note access",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": true
+            },
+            "PP": {
+              "fixture_type": "pipeline_person",
+              "id": "PP",
+              "person_id": "P",
+              "organization_id": "O",
+              "stage_id": "Stage",
+              "responsible_seat_id": "OtherSeat",
+              "revision": 4
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipelineAccess.readPerson",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "allowed": true,
+              "duty": "program_director",
+              "can_read_consented_progress": true,
+              "can_read_feedback": true,
+              "can_read_staff_notes": false,
+              "can_edit_plant": false,
+              "private_content": []
+            }
+          }
+        },
+        {
+          "name": "Unassigned staff receives no Person duty",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": true
+            },
+            "Program": {
+              "fixture_type": "development_program",
+              "id": "Program",
+              "organization_id": "O",
+              "kind": "residency",
+              "director_seat_id": "OtherSeat",
+              "revision": 3,
+              "current_version_id": "V1"
+            },
+            "PP": {
+              "fixture_type": "pipeline_person",
+              "id": "PP",
+              "person_id": "P",
+              "organization_id": "O",
+              "stage_id": "Stage",
+              "responsible_seat_id": "OtherSeat",
+              "revision": 4
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipelineAccess.readPerson",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "access_denied"
+          }
+        },
+        {
+          "name": "Revoked responsible seat grants no duty",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": false
+            },
+            "Program": {
+              "fixture_type": "development_program",
+              "id": "Program",
+              "organization_id": "O",
+              "kind": "residency",
+              "director_seat_id": "OtherSeat",
+              "revision": 3,
+              "current_version_id": "V1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipelineAccess.readPerson",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "access_denied"
+          }
+        },
+        {
+          "name": "Owner reads a restricted organization Person note",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.readNotes",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "notes": [
+                {
+                  "body": "Casey requested a private staff follow-up.",
+                  "author": "A"
+                }
+              ],
+              "model_content": null
+            }
+          }
+        },
+        {
+          "name": "Responsible member reads its own restricted Person projection",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": true
+            },
+            "Program": {
+              "fixture_type": "development_program",
+              "id": "Program",
+              "organization_id": "O",
+              "kind": "residency",
+              "director_seat_id": "OtherSeat",
+              "revision": 3,
+              "current_version_id": "V1"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.readNotes",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "notes": [
+                {
+                  "body": "Casey requested a private staff follow-up.",
+                  "author": "A"
+                }
+              ],
+              "model_content": null
+            }
+          }
+        },
+        {
+          "name": "Director alone cannot read responsible-staff notes",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Member",
+              "active": true
+            },
+            "PP": {
+              "fixture_type": "pipeline_person",
+              "id": "PP",
+              "person_id": "P",
+              "organization_id": "O",
+              "stage_id": "Stage",
+              "responsible_seat_id": "OtherSeat",
+              "revision": 4
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.readNotes",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "access_denied"
+          }
         }
       ]
     },
@@ -14278,7 +14527,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -14289,11 +14540,35 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
         }
       },
       "actor": {
@@ -14356,7 +14631,11 @@
               "share_foundations": false,
               "share_milestones": false,
               "consent_revision": 3,
-              "ended_at": null
+              "ended_at": null,
+              "affiliation_id": "ResidentAffiliation",
+              "invitation_id": "AcceptedInvite",
+              "accepted_at": "2026-09-30T16:00:00Z",
+              "revision": 3
             }
           },
           "actor": {
@@ -14501,18 +14780,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
-        },
-        "L": {
-          "fixture_type": "residency_link",
-          "id": "L",
-          "organization_id": "O",
-          "person_id": "P",
-          "account_id": "R",
-          "share_foundations": true,
-          "share_milestones": true,
-          "consent_revision": 2,
-          "ended_at": null
+          "revision": 4,
+          "linked_account_id": null,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Invite": {
           "fixture_type": "invitation",
@@ -14521,7 +14791,8 @@
           "purpose": "residency_link",
           "recipient_email": "resident@example.test",
           "state": "pending",
-          "revision": 2
+          "revision": 2,
+          "resident_person_id": "P"
         },
         "execution": {
           "fixture_type": "execution_control",
@@ -14532,7 +14803,10 @@
           "invitation": "Invite",
           "account": "R",
           "address_verified": true,
-          "expires_at": "2026-10-18T16:00:00Z"
+          "expires_at": "2026-10-18T16:00:00Z",
+          "purpose": "residency_link",
+          "person": "P",
+          "organization": "O"
         }
       },
       "actor": {
@@ -14637,7 +14911,8 @@
               "purpose": "residency_link",
               "recipient_email": "resident@example.test",
               "state": "revoked",
-              "revision": 3
+              "revision": 3,
+              "resident_person_id": "P"
             }
           },
           "actor": {
@@ -14714,7 +14989,8 @@
               "purpose": "residency_link",
               "recipient_email": "resident@example.test",
               "state": "pending",
-              "revision": 2
+              "revision": 2,
+              "resident_person_id": "P"
             }
           },
           "actor": {
@@ -14795,7 +15071,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -14806,7 +15084,11 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "Program": {
           "fixture_type": "development_program",
@@ -14814,7 +15096,8 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -14824,11 +15107,127 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 2,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
+        },
+        "V0": {
+          "fixture_type": "development_program_version",
+          "id": "V0",
+          "organization_id": "O",
+          "program_id": "Program",
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2024-03-01T16:00:00Z",
+          "revision": 1
+        },
+        "ECompleted": {
+          "fixture_type": "development_enrollment",
+          "id": "ECompleted",
+          "organization_id": "O",
+          "person_id": "P",
+          "program_id": "Program",
+          "version_id": "V0",
+          "status": "completed",
+          "started_on": "2024-04-01",
+          "expected_end_on": "2025-07-01",
+          "revision": 9,
+          "current_stage_id": "GS0"
+        },
+        "GS0": {
+          "fixture_type": "development_stage",
+          "id": "GS0",
+          "organization_id": "O",
+          "version_id": "V0",
+          "label": "Sending and planting",
+          "position": 3,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "CompletedPlan": {
+          "fixture_type": "enrollment_plan",
+          "id": "CompletedPlan",
+          "organization_id": "O",
+          "enrollment_id": "ECompleted",
+          "program_id": "Program",
+          "version_id": "V0",
+          "adopted_at": "2024-04-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
         }
       },
       "actor": {
@@ -14858,7 +15257,8 @@
             "program_completion_count"
           ],
           "attribution": "Former participant",
-          "retention_deadline": null
+          "retention_deadline": null,
+          "retained_program_completions": 1
         }
       },
       "id": "ADR1-005",
@@ -14894,7 +15294,11 @@
               "share_foundations": false,
               "share_milestones": true,
               "consent_revision": 3,
-              "ended_at": null
+              "ended_at": null,
+              "affiliation_id": "ResidentAffiliation",
+              "invitation_id": "AcceptedInvite",
+              "accepted_at": "2026-09-30T16:00:00Z",
+              "revision": 3
             }
           },
           "actor": {
@@ -15056,7 +15460,8 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Q": {
           "fixture_type": "person",
@@ -15067,11 +15472,107 @@
           "display_name": "Casey L.",
           "stage": null,
           "state": "live",
-          "revision": 2
+          "revision": 2,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "Stage": {
+          "fixture_type": "pipeline_stage",
+          "id": "Stage",
+          "organization_id": "O",
+          "stable_kind": "potential_leader",
+          "label": "Potential leader",
+          "position": 1,
+          "revision": 2
+        },
+        "PP": {
+          "fixture_type": "pipeline_person",
+          "id": "PP",
+          "person_id": "P",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 4
+        },
+        "PQ": {
+          "fixture_type": "pipeline_person",
+          "id": "PQ",
+          "person_id": "Q",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 2
+        },
+        "Program": {
+          "fixture_type": "development_program",
+          "id": "Program",
+          "organization_id": "O",
+          "kind": "residency",
+          "director_seat_id": "staff",
+          "revision": 3,
+          "current_version_id": "V1"
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "E": {
+          "fixture_type": "development_enrollment",
+          "id": "E",
+          "organization_id": "O",
+          "person_id": "P",
+          "program_id": "Program",
+          "version_id": "V1",
+          "status": "active",
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
         }
       },
       "actor": {
@@ -15100,10 +15601,19 @@
           "leaders_target": 8,
           "plants_target": 2,
           "target_year": 2028,
-          "observed_leaders": 2,
-          "observed_plants": 0,
           "as_of": "2026-10-17",
-          "forecast": null
+          "forecast": null,
+          "people_by_stage_kind": {
+            "potential_leader": 2,
+            "apprentice": 0,
+            "resident": 0,
+            "commissioned": 0,
+            "not_continuing": 0,
+            "other": 0
+          },
+          "active_residents": 1,
+          "observed_plants_sent": null,
+          "plants_sent_availability": "deferred_stage_3"
         }
       },
       "id": "ADR1-007",
@@ -15130,17 +15640,27 @@
       "subcases": [
         {
           "given": {
-            "staff": {
+            "NetworkAccount": {
+              "fixture_type": "account",
+              "id": "NA",
+              "email": "network-admin@example.test"
+            },
+            "NetworkSession": {
+              "fixture_type": "session",
+              "account": "NA",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "NetworkSeat": {
               "fixture_type": "seat",
-              "account": "A",
+              "account": "NA",
               "tenant": "N",
               "role": "Admin",
               "active": true
             }
           },
           "actor": {
-            "account": "A",
-            "session": "S",
+            "account": "NA",
+            "session": "NetworkSession",
             "context": "N"
           },
           "clock": {
@@ -15238,11 +15758,91 @@
                   "target_year": 2028
                 }
               ],
-              "observed_leaders": 2,
-              "observed_plants": 0,
-              "as_of": "2026-10-17"
+              "as_of": "2026-10-17",
+              "people_by_stage_kind": {
+                "potential_leader": 2,
+                "apprentice": 0,
+                "resident": 0,
+                "commissioned": 0,
+                "not_continuing": 0,
+                "other": 0
+              },
+              "active_residents": 1,
+              "observed_plants_sent": null,
+              "plants_sent_availability": "deferred_stage_3"
             }
           }
+        },
+        {
+          "given": {
+            "NetworkAccount": {
+              "fixture_type": "account",
+              "id": "NA",
+              "email": "network-admin@example.test"
+            },
+            "NetworkSession": {
+              "fixture_type": "session",
+              "account": "NA",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "NetworkSeat": {
+              "fixture_type": "seat",
+              "account": "NA",
+              "tenant": "N",
+              "role": "Admin",
+              "active": true
+            },
+            "NetworkGoal": {
+              "fixture_type": "sending_goal",
+              "id": "NetworkGoal",
+              "organization_id": "N",
+              "leaders_target": 5,
+              "plants_target": 1,
+              "target_year": 2029,
+              "rationale": "Network apprenticeship",
+              "revision": 1
+            }
+          },
+          "actor": {
+            "account": "NA",
+            "session": "NetworkSession",
+            "context": "N"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipeline.readGoals",
+            "arguments": {
+              "target_year": 2029
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "goals": [
+                {
+                  "leaders_target": 5,
+                  "plants_target": 1,
+                  "target_year": 2029
+                }
+              ],
+              "people_by_stage_kind": {
+                "potential_leader": 0,
+                "apprentice": 0,
+                "resident": 0,
+                "commissioned": 0,
+                "not_continuing": 0,
+                "other": 0
+              },
+              "active_residents": 0,
+              "observed_plants_sent": null,
+              "plants_sent_availability": "deferred_stage_3"
+            },
+            "event": null
+          },
+          "name": "Network observations do not pool foreign church pipelines"
         }
       ]
     },
@@ -15281,7 +15881,8 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Stage": {
           "fixture_type": "pipeline_stage",
@@ -15481,7 +16082,15 @@
               "fixture_type": "pipeline_stage_move",
               "organization_id": "O",
               "person_id": "P",
-              "moved_at": "2026-04-01T18:00:00Z"
+              "moved_at": "2026-04-01T18:00:00Z",
+              "id": "Move",
+              "from_stage_id": null,
+              "to_stage_id": "Stage",
+              "old_label": null,
+              "new_label": "Potential leader",
+              "actor_id": "A",
+              "reason": "Casey asked to explore leadership",
+              "revision": 1
             }
           },
           "actor": {
@@ -15598,7 +16207,8 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Q": {
           "fixture_type": "person",
@@ -15609,7 +16219,8 @@
           "display_name": "Casey L.",
           "stage": null,
           "state": "live",
-          "revision": 2
+          "revision": 2,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "PP": {
           "fixture_type": "pipeline_person",
@@ -15622,6 +16233,27 @@
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "Stage": {
+          "fixture_type": "pipeline_stage",
+          "id": "Stage",
+          "organization_id": "O",
+          "stable_kind": "potential_leader",
+          "label": "Potential leader",
+          "position": 1,
+          "revision": 2
+        },
+        "Note": {
+          "fixture_type": "person_note",
+          "id": "Note",
+          "tenant_id": "O",
+          "plant_id": null,
+          "person_id": "P",
+          "author_id": "A",
+          "body": "Casey requested a private staff follow-up.",
+          "occurred_at": "2026-10-16T18:00:00Z",
+          "recorded_at": "2026-10-16T18:00:00Z",
+          "revision": 2
         }
       },
       "actor": {
@@ -15645,7 +16277,13 @@
       },
       "expected": {
         "state": {},
-        "event": null,
+        "event": {
+          "actor": "A",
+          "organization": "O",
+          "target_person": "P",
+          "change_kind": "leadership_conversation_recorded",
+          "revision_after": 1
+        },
         "result": {
           "person": "P",
           "conversation_count": 1,
@@ -15656,13 +16294,16 @@
       "id": "ADR1-009",
       "requirement": "Leadership conversations",
       "requirement_ids": [
-        "REQ-MUL-009"
+        "REQ-MUL-009",
+        "REQ-MUL-002"
       ],
       "feature_ids": [
-        "MUL-009"
+        "MUL-009",
+        "MUL-002"
       ],
       "acceptance_ids": [
-        "AC-MUL-009--MUL-009"
+        "AC-MUL-009--MUL-009",
+        "AC-MUL-002--MUL-002"
       ],
       "work_packages": [
         "WP-098",
@@ -15680,6 +16321,16 @@
             "execution": {
               "fixture_type": "execution_control",
               "request_repetitions": 2
+            },
+            "Conversation": {
+              "fixture_type": "leadership_conversation",
+              "id": "Conversation",
+              "organization_id": "O",
+              "person_id": "P",
+              "staff_account_id": "A",
+              "occurred_at": "2026-10-16T20:00:00Z",
+              "note": "Casey will meet the director next week",
+              "revision": 1
             }
           },
           "actor": {
@@ -15754,6 +16405,213 @@
             }
           },
           "name": "Quarter count uses organization calendar"
+        },
+        {
+          "name": "Author adds an organization Person note natively",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.addNote",
+            "arguments": {
+              "person": "P",
+              "body": "Casey asked to meet on Tuesday",
+              "request_key": "staff-note-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": {
+              "actor": "A",
+              "organization": "O",
+              "target_person": "P",
+              "change_kind": "person_note_added",
+              "revision_after": 1
+            },
+            "result": {
+              "author": "A",
+              "body": "Casey asked to meet on Tuesday",
+              "model_content": null
+            }
+          }
+        },
+        {
+          "name": "Original author edits its native note",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.updateNote",
+            "arguments": {
+              "note": "Note",
+              "body": "Casey asked to meet on Wednesday",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "body": "Casey asked to meet on Wednesday",
+              "author": "A",
+              "revision": 3
+            }
+          }
+        },
+        {
+          "name": "Original author removes the native note body",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.removeNote",
+            "arguments": {
+              "note": "Note",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "removed": true,
+              "body": null,
+              "audit_contains_body": false
+            }
+          }
+        },
+        {
+          "name": "Admin cannot edit another author note",
+          "given": {
+            "D": {
+              "fixture_type": "account",
+              "id": "D",
+              "email": "other-author@example.test"
+            },
+            "Note": {
+              "fixture_type": "person_note",
+              "id": "Note",
+              "tenant_id": "O",
+              "plant_id": null,
+              "person_id": "P",
+              "author_id": "D",
+              "body": "Casey requested a private staff follow-up.",
+              "occurred_at": "2026-10-16T18:00:00Z",
+              "recorded_at": "2026-10-16T18:00:00Z",
+              "revision": 2
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.updateNote",
+            "arguments": {
+              "note": "Note",
+              "body": "Changed by a different person",
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "access_denied"
+          }
+        },
+        {
+          "name": "Stage-label projection is supplied by the pipeline producer",
+          "given": {
+            "Stage": {
+              "fixture_type": "pipeline_stage",
+              "id": "Stage",
+              "organization_id": "O",
+              "stable_kind": "potential_leader",
+              "label": "Potential leader",
+              "position": 1,
+              "revision": 2
+            },
+            "PQ": {
+              "fixture_type": "pipeline_person",
+              "id": "PQ",
+              "organization_id": "O",
+              "person_id": "Q",
+              "stage_id": "Stage",
+              "responsible_seat_id": "staff",
+              "revision": 2
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipeline.listPeople",
+            "arguments": {}
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "people": [
+                {
+                  "display_name": "Casey Lee",
+                  "pipeline_stage": "Potential leader"
+                },
+                {
+                  "display_name": "Casey L.",
+                  "pipeline_stage": "Potential leader"
+                }
+              ],
+              "total": 2
+            }
+          }
         }
       ]
     },
@@ -15792,7 +16650,8 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Program": {
           "fixture_type": "development_program",
@@ -15800,14 +16659,19 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "V1": {
           "fixture_type": "development_program_version",
           "id": "V1",
           "organization_id": "O",
           "program_id": "Program",
-          "revision": 1
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -15817,11 +16681,49 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
         }
       },
       "actor": {
@@ -16022,7 +16924,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Q": {
           "fixture_type": "person",
@@ -16033,7 +16937,8 @@
           "display_name": "Casey L.",
           "stage": null,
           "state": "live",
-          "revision": 2
+          "revision": 2,
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "Program": {
           "fixture_type": "development_program",
@@ -16041,14 +16946,19 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "V1": {
           "fixture_type": "development_program_version",
           "id": "V1",
           "organization_id": "O",
           "program_id": "Program",
-          "revision": 1
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -16058,11 +16968,81 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "Stage": {
+          "fixture_type": "pipeline_stage",
+          "id": "Stage",
+          "organization_id": "O",
+          "stable_kind": "potential_leader",
+          "label": "Potential leader",
+          "position": 1,
+          "revision": 2
+        },
+        "PP": {
+          "fixture_type": "pipeline_person",
+          "id": "PP",
+          "person_id": "P",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 4
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
+        },
+        "R": {
+          "fixture_type": "account",
+          "id": "R",
+          "email": "resident@example.test"
+        },
+        "PQ": {
+          "fixture_type": "pipeline_person",
+          "id": "PQ",
+          "person_id": "Q",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 2
         }
       },
       "actor": {
@@ -16131,6 +17111,24 @@
               "display_name": "Casey L.",
               "stage": null,
               "state": "live",
+              "revision": 2,
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "StageB": {
+              "fixture_type": "pipeline_stage",
+              "id": "StageB",
+              "organization_id": "B",
+              "stable_kind": "potential_leader",
+              "label": "Potential leader",
+              "position": 0,
+              "revision": 1
+            },
+            "PQ": {
+              "fixture_type": "pipeline_person",
+              "id": "PQ",
+              "person_id": "Q",
+              "organization_id": "B",
+              "stage_id": "StageB",
               "revision": 2
             }
           },
@@ -16166,14 +17164,55 @@
               "id": "V2",
               "organization_id": "O",
               "program_id": "Program",
-              "revision": 2
+              "revision": 2,
+              "version_number": 2,
+              "rhythm": "Monthly",
+              "expected_months": 15,
+              "published_at": "2026-10-16T12:00:00Z"
             },
             "Completion": {
               "fixture_type": "enrollment_milestone",
+              "id": "Completion",
+              "organization_id": "O",
               "enrollment_id": "E",
+              "version_id": "V1",
               "milestone_id": "M",
               "completed_by": "R",
-              "confirmed_by": "A"
+              "completed_at": "2026-10-16T18:00:00Z",
+              "confirmed_by": "A",
+              "confirmed_at": "2026-10-16T19:00:00Z",
+              "revision": 2,
+              "completion_source": "resident_self"
+            },
+            "Program": {
+              "fixture_type": "development_program",
+              "id": "Program",
+              "organization_id": "O",
+              "kind": "residency",
+              "director_seat_id": "staff",
+              "revision": 3,
+              "current_version_id": "V2"
+            },
+            "GS2": {
+              "fixture_type": "development_stage",
+              "id": "GS2",
+              "organization_id": "O",
+              "version_id": "V2",
+              "label": "Assimilating",
+              "position": 0,
+              "min_months": 2,
+              "max_months": 3,
+              "revision": 1
+            },
+            "M2": {
+              "fixture_type": "development_milestone",
+              "id": "M2",
+              "organization_id": "O",
+              "version_id": "V2",
+              "stage_id": "GS2",
+              "description": "Present the vision to sending leadership",
+              "position": 1,
+              "revision": 1
             }
           },
           "actor": {
@@ -16260,7 +17299,8 @@
               "stage": null,
               "state": "retired",
               "revision": 2,
-              "removed_at": "2026-10-17T16:00:00Z"
+              "removed_at": "2026-10-17T16:00:00Z",
+              "created_at": "2026-01-01T00:00:00Z"
             }
           },
           "actor": {
@@ -16366,7 +17406,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -16377,7 +17419,11 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "Program": {
           "fixture_type": "development_program",
@@ -16385,14 +17431,19 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "V1": {
           "fixture_type": "development_program_version",
           "id": "V1",
           "organization_id": "O",
           "program_id": "Program",
-          "revision": 1
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -16402,18 +17453,87 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "M": {
           "fixture_type": "development_milestone",
           "id": "M",
           "organization_id": "O",
           "version_id": "V1",
-          "description": "Lead a small group"
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "Stage": {
+          "fixture_type": "pipeline_stage",
+          "id": "Stage",
+          "organization_id": "O",
+          "stable_kind": "potential_leader",
+          "label": "Potential leader",
+          "position": 1,
+          "revision": 2
+        },
+        "PP": {
+          "fixture_type": "pipeline_person",
+          "id": "PP",
+          "person_id": "P",
+          "organization_id": "O",
+          "stage_id": "Stage",
+          "responsible_seat_id": "staff",
+          "revision": 4
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
         }
       },
       "actor": {
@@ -16442,7 +17562,8 @@
           "completed_at": "2026-10-17T16:00:00Z",
           "confirmed_by": null,
           "confirmed_at": null,
-          "pipeline_stage_unchanged": "Potential leader"
+          "pipeline_stage_unchanged": "Potential leader",
+          "completion_source": "resident_self"
         }
       },
       "id": "ADR1-012",
@@ -16471,11 +17592,32 @@
           "given": {
             "Completion": {
               "fixture_type": "enrollment_milestone",
+              "id": "Completion",
+              "organization_id": "O",
               "enrollment_id": "E",
+              "version_id": "V1",
               "milestone_id": "M",
               "completed_by": "R",
               "completed_at": "2026-10-16T18:00:00Z",
-              "confirmed_by": null
+              "confirmed_by": null,
+              "confirmed_at": null,
+              "revision": 2,
+              "completion_source": "resident_self"
+            },
+            "E": {
+              "fixture_type": "development_enrollment",
+              "id": "E",
+              "organization_id": "O",
+              "person_id": "P",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 6,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
             }
           },
           "actor": {
@@ -16521,7 +17663,8 @@
               "organization_id": "O",
               "kind": "residency",
               "director_seat_id": "Director",
-              "revision": 3
+              "revision": 3,
+              "current_version_id": "V1"
             },
             "Director": {
               "fixture_type": "seat",
@@ -16530,6 +17673,50 @@
               "tenant": "O",
               "role": "Member",
               "active": true
+            },
+            "E": {
+              "fixture_type": "development_enrollment",
+              "id": "E",
+              "organization_id": "O",
+              "person_id": "P",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 6,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
+            },
+            "Completion": {
+              "fixture_type": "enrollment_milestone",
+              "id": "Completion",
+              "organization_id": "O",
+              "enrollment_id": "E",
+              "version_id": "V1",
+              "milestone_id": "M",
+              "completed_by": "R",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "confirmed_by": null,
+              "confirmed_at": null,
+              "revision": 2,
+              "completion_source": "resident_self"
+            },
+            "Feedback": {
+              "fixture_type": "assignment_feedback",
+              "id": "Feedback",
+              "organization_id": "O",
+              "enrollment_milestone_id": "Completion",
+              "author_id": "A",
+              "body": "Please explain the passage before discussing application",
+              "recorded_at": "2026-10-16T19:00:00Z",
+              "revision": 1
+            },
+            "D": {
+              "fixture_type": "account",
+              "id": "D",
+              "email": "director@example.test"
             }
           },
           "actor": {
@@ -16559,11 +17746,42 @@
           "given": {
             "Feedback": {
               "fixture_type": "assignment_feedback",
-              "enrollment_id": "E",
-              "milestone_id": "M",
+              "id": "Feedback",
+              "organization_id": "O",
+              "enrollment_milestone_id": "Completion",
               "author_id": "A",
               "body": "Please explain the passage before discussing application",
-              "recorded_at": "2026-10-16T18:00:00Z"
+              "recorded_at": "2026-10-16T19:00:00Z",
+              "revision": 1
+            },
+            "E": {
+              "fixture_type": "development_enrollment",
+              "id": "E",
+              "organization_id": "O",
+              "person_id": "P",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 6,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
+            },
+            "Completion": {
+              "fixture_type": "enrollment_milestone",
+              "id": "Completion",
+              "organization_id": "O",
+              "enrollment_id": "E",
+              "version_id": "V1",
+              "milestone_id": "M",
+              "completed_by": "R",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "confirmed_by": null,
+              "confirmed_at": null,
+              "revision": 2,
+              "completion_source": "resident_self"
             }
           },
           "actor": {
@@ -16588,7 +17806,7 @@
             "result": {
               "body": "Please explain the passage before discussing application",
               "author": "A",
-              "recorded_at": "2026-10-16T18:00:00Z"
+              "recorded_at": "2026-10-16T19:00:00Z"
             }
           },
           "name": "Resident reads their own feedback"
@@ -16599,6 +17817,35 @@
             "execution": {
               "fixture_type": "execution_control",
               "request_repetitions": 1
+            },
+            "E": {
+              "fixture_type": "development_enrollment",
+              "id": "E",
+              "organization_id": "O",
+              "person_id": "P",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 6,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
+            },
+            "Completion": {
+              "fixture_type": "enrollment_milestone",
+              "id": "Completion",
+              "organization_id": "O",
+              "enrollment_id": "E",
+              "version_id": "V1",
+              "milestone_id": "M",
+              "completed_by": "R",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "confirmed_by": null,
+              "confirmed_at": null,
+              "revision": 2,
+              "completion_source": "resident_self"
             }
           },
           "actor": {
@@ -16616,7 +17863,7 @@
               "enrollment": "E",
               "milestone": "M",
               "body": "Explain the passage before discussing application",
-              "expected_revision": 5
+              "expected_revision": 6
             }
           },
           "expected": {
@@ -16666,6 +17913,255 @@
             "event": [],
             "error_code": "access_denied"
           }
+        },
+        {
+          "name": "Director records and confirms for an unlinked enrollee",
+          "given": {
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Jordan Rivera",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "linked_account_id": null,
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "PQ": {
+              "fixture_type": "pipeline_person",
+              "id": "PQ",
+              "organization_id": "O",
+              "person_id": "Q",
+              "stage_id": "Stage",
+              "responsible_seat_id": "staff",
+              "revision": 1
+            },
+            "UnlinkedEnrollment": {
+              "fixture_type": "development_enrollment",
+              "id": "UnlinkedEnrollment",
+              "organization_id": "O",
+              "person_id": "Q",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 3,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
+            },
+            "UnlinkedPlan": {
+              "fixture_type": "enrollment_plan",
+              "id": "UnlinkedPlan",
+              "organization_id": "O",
+              "enrollment_id": "UnlinkedEnrollment",
+              "program_id": "Program",
+              "version_id": "V1",
+              "adopted_at": "2026-10-01T16:00:00Z",
+              "adopted_by": "A",
+              "superseded_at": null,
+              "revision": 1
+            },
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 2
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "development.recordUnlinkedCompletion",
+            "arguments": {
+              "enrollment": "UnlinkedEnrollment",
+              "milestone": "M",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "expected_revision": 3,
+              "request_key": "unlinked-completion-1"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "person": "Q",
+              "completed_by": "A",
+              "confirmed_by": "A",
+              "completion_source": "program_leader_recorded",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "confirmed_at": "2026-10-17T16:00:00Z",
+              "new_completion_records": 1,
+              "replay_new_records": 0,
+              "link_created": false
+            }
+          }
+        },
+        {
+          "name": "Director recording is refused once the resident is linked",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "development.recordUnlinkedCompletion",
+            "arguments": {
+              "enrollment": "E",
+              "milestone": "M",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "expected_revision": 5
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "resident_link_present"
+          }
+        },
+        {
+          "name": "Resident acceptance wins the race against director recording",
+          "given": {
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Jordan Rivera",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "linked_account_id": "X",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "PQ": {
+              "fixture_type": "pipeline_person",
+              "id": "PQ",
+              "organization_id": "O",
+              "person_id": "Q",
+              "stage_id": "Stage",
+              "responsible_seat_id": "staff",
+              "revision": 1
+            },
+            "UnlinkedEnrollment": {
+              "fixture_type": "development_enrollment",
+              "id": "UnlinkedEnrollment",
+              "organization_id": "O",
+              "person_id": "Q",
+              "program_id": "Program",
+              "version_id": "V1",
+              "status": "active",
+              "revision": 3,
+              "current_stage_id": "GS1",
+              "cohort_label": "Autumn 2026",
+              "started_on": "2026-10-01",
+              "expected_end_on": "2028-01-01",
+              "meeting_timezone": "America/Chicago"
+            },
+            "UnlinkedPlan": {
+              "fixture_type": "enrollment_plan",
+              "id": "UnlinkedPlan",
+              "organization_id": "O",
+              "enrollment_id": "UnlinkedEnrollment",
+              "program_id": "Program",
+              "version_id": "V1",
+              "adopted_at": "2026-10-01T16:00:00Z",
+              "adopted_by": "A",
+              "superseded_at": null,
+              "revision": 1
+            },
+            "execution": {
+              "fixture_type": "execution_control",
+              "race": "Resident acceptance commits after the director pre-read and before its completion-recording write"
+            },
+            "X": {
+              "fixture_type": "account",
+              "id": "X",
+              "email": "linked-enrollee@example.test"
+            },
+            "QAffiliation": {
+              "fixture_type": "affiliation",
+              "id": "QAffiliation",
+              "account_id": "X",
+              "organization_id": "O",
+              "accepted_at": "2026-10-17T16:00:00Z",
+              "ended_at": null,
+              "revision": 1
+            },
+            "QInvite": {
+              "fixture_type": "invitation",
+              "id": "QInvite",
+              "tenant_id": "O",
+              "purpose": "residency_link",
+              "resident_person_id": "Q",
+              "recipient_email": "linked-enrollee@example.test",
+              "state": "accepted",
+              "accepted_account_id": "X",
+              "revision": 2
+            },
+            "QLink": {
+              "fixture_type": "residency_link",
+              "id": "QLink",
+              "organization_id": "O",
+              "person_id": "Q",
+              "account_id": "X",
+              "affiliation_id": "QAffiliation",
+              "invitation_id": "QInvite",
+              "accepted_at": "2026-10-17T16:00:00Z",
+              "ended_at": null,
+              "share_foundations": false,
+              "share_milestones": false,
+              "consent_revision": 1,
+              "revision": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "development.recordUnlinkedCompletion",
+            "arguments": {
+              "enrollment": "UnlinkedEnrollment",
+              "milestone": "M",
+              "completed_at": "2026-10-16T18:00:00Z",
+              "expected_revision": 3
+            }
+          },
+          "expected": {
+            "state": {
+              "UnlinkedEnrollment": {
+                "revision": 3
+              }
+            },
+            "error_code": "resident_link_present",
+            "event": []
+          }
         }
       ]
     },
@@ -16714,7 +18210,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -16725,7 +18223,11 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "Program": {
           "fixture_type": "development_program",
@@ -16733,14 +18235,19 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "V1": {
           "fixture_type": "development_program_version",
           "id": "V1",
           "organization_id": "O",
           "program_id": "Program",
-          "revision": 1
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -16751,27 +18258,83 @@
           "version_id": "V1",
           "status": "active",
           "revision": 5,
-          "current_program_stage": "Assimilating",
-          "next_meeting_at": "2026-11-02T16:00:00Z"
+          "next_meeting_at": "2026-11-02T16:00:00Z",
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "M": {
           "fixture_type": "development_milestone",
           "id": "M",
           "organization_id": "O",
           "version_id": "V1",
-          "description": "Lead a small group"
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
         },
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
         },
-        "completion": {
-          "fixture_type": "enrollment_milestone",
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
           "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "Completion": {
+          "fixture_type": "enrollment_milestone",
+          "id": "Completion",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "version_id": "V1",
           "milestone_id": "M",
           "completed_by": "R",
           "completed_at": "2026-10-16T18:00:00Z",
-          "confirmed_by": null
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "revision": 2,
+          "completion_source": "resident_self"
         }
       },
       "actor": {
@@ -16834,10 +18397,14 @@
               "organization_id": "O",
               "person_id": "P",
               "account_id": "R",
-              "share_foundations": true,
-              "share_milestones": true,
+              "share_foundations": false,
+              "share_milestones": false,
               "consent_revision": 2,
-              "ended_at": "2026-10-17T15:59:59Z"
+              "ended_at": "2026-10-17T15:59:59Z",
+              "affiliation_id": "ResidentAffiliation",
+              "invitation_id": "AcceptedInvite",
+              "accepted_at": "2026-09-30T16:00:00Z",
+              "revision": 2
             }
           },
           "actor": {
@@ -16907,7 +18474,9 @@
           "display_name": "Casey Lee",
           "stage": null,
           "state": "live",
-          "revision": 4
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
         },
         "L": {
           "fixture_type": "residency_link",
@@ -16918,7 +18487,11 @@
           "share_foundations": true,
           "share_milestones": true,
           "consent_revision": 2,
-          "ended_at": null
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
         },
         "Program": {
           "fixture_type": "development_program",
@@ -16926,7 +18499,8 @@
           "organization_id": "O",
           "kind": "residency",
           "director_seat_id": "staff",
-          "revision": 3
+          "revision": 3,
+          "current_version_id": "V1"
         },
         "E": {
           "fixture_type": "development_enrollment",
@@ -16936,7 +18510,12 @@
           "program_id": "Program",
           "version_id": "V1",
           "status": "active",
-          "revision": 5
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
         },
         "execution": {
           "fixture_type": "execution_control",
@@ -16962,10 +18541,119 @@
             0.9
           ]
         },
-        "milestones": {
-          "fixture_type": "milestone_completion_totals",
-          "enrollment": "E",
-          "completed_count": 2
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
+        },
+        "M2": {
+          "fixture_type": "development_milestone",
+          "id": "M2",
+          "organization_id": "O",
+          "version_id": "V1",
+          "stage_id": "GS1",
+          "description": "Present the vision to sending leadership",
+          "position": 1,
+          "revision": 1
+        },
+        "Completion": {
+          "fixture_type": "enrollment_milestone",
+          "id": "Completion",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "version_id": "V1",
+          "milestone_id": "M",
+          "completed_by": "R",
+          "completed_at": "2026-10-16T18:00:00Z",
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "revision": 2,
+          "completion_source": "resident_self"
+        },
+        "Completion2": {
+          "fixture_type": "enrollment_milestone",
+          "id": "Completion2",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "version_id": "V1",
+          "milestone_id": "M2",
+          "completed_by": "R",
+          "completed_at": "2026-10-15T18:00:00Z",
+          "confirmed_by": null,
+          "confirmed_at": null,
+          "revision": 2,
+          "completion_source": "resident_self"
+        },
+        "Foundations": {
+          "fixture_type": "discovery_foundation_catalog",
+          "canonical_articles": [
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6"
+          ],
+          "eligible_reader": "R"
         }
       },
       "actor": {
@@ -17028,7 +18716,11 @@
               "share_foundations": false,
               "share_milestones": false,
               "consent_revision": 3,
-              "ended_at": null
+              "ended_at": null,
+              "affiliation_id": "ResidentAffiliation",
+              "invitation_id": "AcceptedInvite",
+              "accepted_at": "2026-09-30T16:00:00Z",
+              "revision": 3
             }
           },
           "actor": {
@@ -17062,6 +18754,11 @@
                 "F1",
                 "F2",
                 "F3"
+              ],
+              "fractions": [
+                0.9,
+                0.9,
+                0.9
               ]
             },
             "reading-X": {
@@ -17071,7 +18768,17 @@
                 "F4",
                 "F5",
                 "F6"
+              ],
+              "fractions": [
+                0.9,
+                0.9,
+                0.9
               ]
+            },
+            "X": {
+              "fixture_type": "account",
+              "id": "X",
+              "email": "other-reader@example.test"
             }
           },
           "actor": {
@@ -17116,7 +18823,8 @@
               "id": "Revision",
               "organization_id": "O",
               "published": true,
-              "title": "Clarify the vision"
+              "title": "Clarify the vision",
+              "article_id": "foundations-vision"
             },
             "entitlement": {
               "fixture_type": "resident_reading_entitlement",
@@ -17124,6 +18832,12 @@
               "link": "L",
               "article": "foundations-vision",
               "current": true
+            },
+            "Article": {
+              "fixture_type": "reference_item",
+              "id": "foundations-vision",
+              "kind": "article",
+              "title": "Clarify the vision"
             }
           },
           "actor": {
@@ -17166,7 +18880,14 @@
               "fixture_type": "article_revision",
               "id": "Revision",
               "organization_id": "O",
-              "published": false
+              "published": false,
+              "article_id": "foundations-vision"
+            },
+            "Article": {
+              "fixture_type": "reference_item",
+              "id": "foundations-vision",
+              "kind": "article",
+              "title": "Clarify the vision"
             }
           },
           "actor": {
@@ -17221,6 +18942,14 @@
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "draft-model": {
+          "fixture_type": "recorded_model_response",
+          "request_kind": "apprenticeship_plan",
+          "draft_milestones": [
+            "Lead a small group",
+            "Raise a replacement"
+          ]
         }
       },
       "actor": {
@@ -17305,6 +19034,150 @@
             "error_code": "access_denied"
           },
           "name": "Lost authority refuses draft"
+        },
+        {
+          "name": "Evry proposes a move without a note or reason",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "PP": {
+              "fixture_type": "pipeline_person",
+              "person_id": "P",
+              "organization_id": "O",
+              "stage_id": "Stage",
+              "responsible_seat_id": "staff",
+              "revision": 4
+            },
+            "Stage": {
+              "fixture_type": "pipeline_stage",
+              "id": "Stage",
+              "organization_id": "O",
+              "stable_kind": "potential_leader",
+              "label": "Potential leader",
+              "position": 1,
+              "revision": 2
+            },
+            "ResidentStage": {
+              "fixture_type": "pipeline_stage",
+              "id": "ResidentStage",
+              "organization_id": "O",
+              "stable_kind": "resident",
+              "label": "Resident",
+              "position": 3,
+              "revision": 1
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipeline.proposeStageMove",
+            "arguments": {
+              "person": "P",
+              "stage": "ResidentStage"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "display_name": "Casey Lee",
+              "current_stage_label": "Potential leader",
+              "destination_stage": "ResidentStage",
+              "draft_only": true,
+              "human_reason_required": true,
+              "durable_effects": 0
+            }
+          }
+        },
+        {
+          "name": "Free-text reason is refused before proposal dispatch",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "PP": {
+              "fixture_type": "pipeline_person",
+              "person_id": "P",
+              "organization_id": "O",
+              "stage_id": "Stage",
+              "responsible_seat_id": "staff",
+              "revision": 4
+            },
+            "Stage": {
+              "fixture_type": "pipeline_stage",
+              "id": "Stage",
+              "organization_id": "O",
+              "stable_kind": "potential_leader",
+              "label": "Potential leader",
+              "position": 1,
+              "revision": 2
+            },
+            "ResidentStage": {
+              "fixture_type": "pipeline_stage",
+              "id": "ResidentStage",
+              "organization_id": "O",
+              "stable_kind": "resident",
+              "label": "Resident",
+              "position": 3,
+              "revision": 1
+            },
+            "model_recorder": {
+              "fixture_type": "provider_recording",
+              "calls": 0
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipeline.proposeStageMove",
+            "arguments": {
+              "person": "P",
+              "stage": "ResidentStage",
+              "reason": "Private human discussion"
+            }
+          },
+          "expected": {
+            "state": {
+              "model_recorder": {
+                "calls": 0
+              }
+            },
+            "event": [],
+            "error_code": "private_field_refused"
+          }
         }
       ]
     },
@@ -17365,6 +19238,29 @@
           "sending_church_id": "B",
           "organization_id": "N",
           "ended_at": null,
+          "revision": 1
+        },
+        "OtherNetwork": {
+          "fixture_type": "organization",
+          "id": "OtherNetwork",
+          "kind": "sending_network",
+          "revision": 1
+        },
+        "OtherRel": {
+          "fixture_type": "affiliation",
+          "id": "OtherRel",
+          "sending_church_id": "O",
+          "organization_id": "OtherNetwork",
+          "ended_at": null,
+          "revision": 1
+        },
+        "OtherConsent": {
+          "fixture_type": "pipeline_sharing",
+          "id": "OtherConsent",
+          "organization_id": "O",
+          "relationship_id": "OtherRel",
+          "network_id": "OtherNetwork",
+          "share_pipeline_totals": true,
           "revision": 1
         }
       },
@@ -17431,7 +19327,10 @@
               "fixture_type": "pipeline_sharing",
               "relationship_id": "Rel",
               "share_pipeline_totals": true,
-              "revision": 3
+              "revision": 3,
+              "id": "Consent",
+              "organization_id": "O",
+              "network_id": "N"
             }
           },
           "actor": {
@@ -17468,8 +19367,12 @@
           "given": {
             "OtherConsent": {
               "fixture_type": "pipeline_sharing",
+              "id": "OtherConsent",
+              "organization_id": "O",
               "relationship_id": "OtherRel",
-              "share_pipeline_totals": true
+              "network_id": "OtherNetwork",
+              "share_pipeline_totals": true,
+              "revision": 1
             }
           },
           "actor": {
@@ -17508,18 +19411,22 @@
               "active": true
             },
             "ContributionO": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "O",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionO",
+              "organization_id": "O",
+              "relationship_id": "Rel",
+              "network_id": "N",
+              "share_pipeline_totals": true,
+              "revision": 2
             },
             "ContributionB": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "B",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionB",
+              "organization_id": "B",
+              "relationship_id": "RelB",
+              "network_id": "N",
+              "share_pipeline_totals": true,
+              "revision": 2
             }
           },
           "actor": {
@@ -17560,18 +19467,22 @@
               "active": true
             },
             "ContributionO": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "O",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionO",
+              "organization_id": "O",
+              "relationship_id": "Rel",
+              "network_id": "N",
+              "share_pipeline_totals": true,
+              "revision": 2
             },
             "ContributionB": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "B",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": false
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionB",
+              "organization_id": "B",
+              "relationship_id": "RelB",
+              "network_id": "N",
+              "share_pipeline_totals": false,
+              "revision": 2
             }
           },
           "actor": {
@@ -17612,18 +19523,22 @@
               "active": true
             },
             "ContributionO": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "O",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionO",
+              "organization_id": "O",
+              "relationship_id": "Rel",
+              "network_id": "N",
+              "share_pipeline_totals": true,
+              "revision": 2
             },
             "ContributionB": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "B",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": false
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionB",
+              "organization_id": "B",
+              "relationship_id": "RelB",
+              "network_id": "N",
+              "share_pipeline_totals": false,
+              "revision": 2
             },
             "cached": {
               "fixture_type": "saved_aggregate_eligibility",
@@ -17670,25 +19585,36 @@
               "active": true
             },
             "ContributionO": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "O",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionO",
+              "organization_id": "O",
+              "relationship_id": "Rel",
+              "network_id": "N",
+              "share_pipeline_totals": true,
+              "revision": 2
             },
             "DuplicateO": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "O",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": true
+              "fixture_type": "pipeline_contribution_projection",
+              "source_consent": "ContributionO",
+              "organization_id": "O",
+              "network_id": "N",
+              "stage_kind": "resident"
             },
             "ContributionB": {
-              "fixture_type": "pipeline_totals_consent",
-              "organization": "B",
-              "network": "N",
-              "current_relationship": true,
-              "opted_in": false
+              "fixture_type": "pipeline_sharing",
+              "id": "ContributionB",
+              "organization_id": "B",
+              "relationship_id": "RelB",
+              "network_id": "N",
+              "share_pipeline_totals": false,
+              "revision": 2
+            },
+            "FirstO": {
+              "fixture_type": "pipeline_contribution_projection",
+              "source_consent": "ContributionO",
+              "organization_id": "O",
+              "network_id": "N",
+              "stage_kind": "potential_leader"
             }
           },
           "actor": {
@@ -17716,6 +19642,569 @@
               "individual_candidates": null
             },
             "event": null
+          }
+        }
+      ]
+    },
+    {
+      "given": {
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church",
+          "timezone": "America/Chicago",
+          "revision": 7
+        },
+        "B": {
+          "fixture_type": "organization",
+          "id": "B",
+          "kind": "sending_church",
+          "revision": 2
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "staff@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "staff": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "O",
+          "role": "Admin",
+          "active": true
+        },
+        "P": {
+          "fixture_type": "person",
+          "id": "P",
+          "tenant_id": "O",
+          "organization_id": "O",
+          "plant_id": null,
+          "display_name": "Casey Lee",
+          "stage": null,
+          "state": "live",
+          "revision": 4,
+          "linked_account_id": "R",
+          "created_at": "2026-01-01T00:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "person",
+          "id": "Q",
+          "tenant_id": "O",
+          "organization_id": "O",
+          "plant_id": null,
+          "display_name": "Casey L.",
+          "stage": null,
+          "state": "live",
+          "revision": 2,
+          "created_at": "2026-01-01T00:00:00Z"
+        },
+        "L": {
+          "fixture_type": "residency_link",
+          "id": "L",
+          "organization_id": "O",
+          "person_id": "P",
+          "account_id": "R",
+          "share_foundations": true,
+          "share_milestones": true,
+          "consent_revision": 2,
+          "ended_at": null,
+          "affiliation_id": "ResidentAffiliation",
+          "invitation_id": "AcceptedInvite",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "revision": 2
+        },
+        "E": {
+          "fixture_type": "development_enrollment",
+          "id": "E",
+          "organization_id": "O",
+          "person_id": "P",
+          "program_id": "Program",
+          "version_id": "V1",
+          "status": "active",
+          "revision": 5,
+          "current_stage_id": "GS1",
+          "cohort_label": "Autumn 2026",
+          "started_on": "2026-10-01",
+          "expected_end_on": "2028-01-01",
+          "meeting_timezone": "America/Chicago"
+        },
+        "execution": {
+          "fixture_type": "execution_control",
+          "request_repetitions": 2
+        },
+        "R": {
+          "fixture_type": "account",
+          "id": "R",
+          "email": "resident@example.test"
+        },
+        "ResidentAffiliation": {
+          "fixture_type": "affiliation",
+          "id": "ResidentAffiliation",
+          "account_id": "R",
+          "organization_id": "O",
+          "accepted_at": "2026-09-30T16:00:00Z",
+          "ended_at": null,
+          "revision": 2
+        },
+        "AcceptedInvite": {
+          "fixture_type": "invitation",
+          "id": "AcceptedInvite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "resident_person_id": "P",
+          "recipient_email": "resident@example.test",
+          "state": "accepted",
+          "accepted_account_id": "R",
+          "revision": 2
+        },
+        "Program": {
+          "fixture_type": "development_program",
+          "id": "Program",
+          "organization_id": "O",
+          "kind": "residency",
+          "director_seat_id": "staff",
+          "revision": 3,
+          "current_version_id": "V1"
+        },
+        "V1": {
+          "fixture_type": "development_program_version",
+          "id": "V1",
+          "organization_id": "O",
+          "program_id": "Program",
+          "revision": 1,
+          "version_number": 1,
+          "rhythm": "Monthly",
+          "expected_months": 15,
+          "published_at": "2026-09-15T16:00:00Z"
+        },
+        "GS1": {
+          "fixture_type": "development_stage",
+          "id": "GS1",
+          "organization_id": "O",
+          "version_id": "V1",
+          "label": "Assimilating",
+          "position": 0,
+          "min_months": 2,
+          "max_months": 3,
+          "revision": 1
+        },
+        "Plan": {
+          "fixture_type": "enrollment_plan",
+          "id": "Plan",
+          "organization_id": "O",
+          "enrollment_id": "E",
+          "program_id": "Program",
+          "version_id": "V1",
+          "adopted_at": "2026-10-01T16:00:00Z",
+          "adopted_by": "A",
+          "superseded_at": null,
+          "revision": 1
+        },
+        "M": {
+          "fixture_type": "development_milestone",
+          "id": "M",
+          "organization_id": "O",
+          "version_id": "V1",
+          "description": "Lead a small group",
+          "stage_id": "GS1",
+          "position": 0,
+          "revision": 1
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "S",
+        "context": "O"
+      },
+      "clock": {
+        "now": "2026-10-17T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "orgPeople.merge",
+        "arguments": {
+          "source": "Q",
+          "survivor": "P",
+          "expected_revisions": {
+            "P": 4,
+            "Q": 2
+          },
+          "field_choices": {
+            "display_name": "P"
+          },
+          "request_key": "merge-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "event": null,
+        "result": {
+          "survivor": "P",
+          "retired_source": "Q",
+          "historical_endpoints": [
+            "P",
+            "Q"
+          ],
+          "account_consent_transferred": false
+        }
+      },
+      "id": "ADR1-017",
+      "requirement": "Organization duplicates, merge and guarded Unmerge",
+      "requirement_ids": [
+        "REQ-MUL-017"
+      ],
+      "feature_ids": [
+        "MUL-017"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-017--MUL-017"
+      ],
+      "work_packages": [
+        "WP-015",
+        "WP-102"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "domain/contract",
+        "PostgreSQL integration",
+        "browser/tool"
+      ],
+      "subcases": [
+        {
+          "given": {
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "B",
+              "organization_id": "B",
+              "plant_id": null,
+              "display_name": "Casey L.",
+              "stage": null,
+              "state": "live",
+              "revision": 2,
+              "created_at": "2026-01-01T00:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.merge",
+            "arguments": {
+              "source": "P",
+              "survivor": "Q",
+              "expected_revisions": {
+                "P": 4,
+                "Q": 2
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "foreign_context_refused"
+          },
+          "name": "Foreign-owner merge changes nothing"
+        },
+        {
+          "given": {
+            "Merge": {
+              "fixture_type": "person_merge",
+              "id": "Merge",
+              "tenant_id": "O",
+              "source_id": "Q",
+              "survivor_id": "P",
+              "survivor_after_revision": 6,
+              "reversed_operation_id": null,
+              "source_revision": 2,
+              "survivor_before_revision": 4,
+              "before_values": {
+                "source": {
+                  "display_name": "Casey L.",
+                  "state": "live",
+                  "revision": 2
+                },
+                "survivor": {
+                  "display_name": "Casey Lee",
+                  "state": "live",
+                  "revision": 4
+                }
+              },
+              "field_choices": {
+                "display_name": "survivor"
+              }
+            },
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 6,
+              "linked_account_id": "R",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey L.",
+              "stage": null,
+              "state": "merged",
+              "revision": 3,
+              "merged_into_person_id": "P",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "disclosure": {
+              "fixture_type": "feedback_disclosure",
+              "person": "P",
+              "after_merge": true,
+              "occurred_at": "2026-10-17T15:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.unmerge",
+            "arguments": {
+              "merge": "Merge",
+              "expected_revision": 6
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "inverse_conflict"
+          },
+          "name": "Unmerge refuses intervening feedback disclosure"
+        },
+        {
+          "name": "Duplicates require human selection",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "email": "shared@example.test",
+              "created_at": "2026-01-01T00:00:00Z",
+              "linked_account_id": "R"
+            },
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey L.",
+              "stage": null,
+              "state": "live",
+              "revision": 2,
+              "email": "shared@example.test",
+              "created_at": "2026-01-01T00:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.findDuplicates",
+            "arguments": {
+              "person": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "candidates": [
+                {
+                  "person": "Q",
+                  "display_name": "Casey L.",
+                  "reason": "shared contact email"
+                }
+              ],
+              "automatic_merge": false
+            }
+          }
+        },
+        {
+          "name": "Guarded Unmerge restores the exact eligible split",
+          "given": {
+            "Merge": {
+              "fixture_type": "person_merge",
+              "id": "Merge",
+              "tenant_id": "O",
+              "source_id": "Q",
+              "survivor_id": "P",
+              "survivor_after_revision": 6,
+              "reversed_operation_id": null,
+              "source_revision": 2,
+              "survivor_before_revision": 4,
+              "before_values": {
+                "source": {
+                  "display_name": "Casey L.",
+                  "state": "live",
+                  "revision": 2
+                },
+                "survivor": {
+                  "display_name": "Casey Lee",
+                  "state": "live",
+                  "revision": 4
+                }
+              },
+              "field_choices": {
+                "display_name": "survivor"
+              }
+            },
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 6,
+              "linked_account_id": "R",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey L.",
+              "stage": null,
+              "state": "merged",
+              "revision": 3,
+              "merged_into_person_id": "P",
+              "created_at": "2026-01-01T00:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.unmerge",
+            "arguments": {
+              "merge": "Merge",
+              "expected_revision": 6
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": null,
+            "result": {
+              "source": "Q",
+              "survivor": "P",
+              "source_state": "live",
+              "reversed_once": true,
+              "seat_changes": 0
+            }
+          }
+        },
+        {
+          "name": "Merge refuses incompatible account links",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "live",
+              "revision": 4,
+              "linked_account_id": "R",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "Q": {
+              "fixture_type": "person",
+              "id": "Q",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey L.",
+              "stage": null,
+              "state": "live",
+              "revision": 2,
+              "linked_account_id": "X",
+              "created_at": "2026-01-01T00:00:00Z"
+            },
+            "X": {
+              "fixture_type": "account",
+              "id": "X",
+              "email": "x@example.test"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "orgPeople.merge",
+            "arguments": {
+              "source": "Q",
+              "survivor": "P",
+              "expected_revisions": {
+                "P": 4,
+                "Q": 2
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "linked_account_collision"
           }
         }
       ]

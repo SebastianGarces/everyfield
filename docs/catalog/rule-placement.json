@@ -4263,19 +4263,19 @@
       "reason": "ADR-001 behavior operation introduced with this requirement."
     },
     {
-      "requirement": "REQ-MUL-001",
+      "requirement": "REQ-MUL-017",
       "operation": "orgPeople.findDuplicates",
-      "reason": "ADR-001 behavior operation introduced with this requirement."
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
     },
     {
-      "requirement": "REQ-MUL-001",
+      "requirement": "REQ-MUL-017",
       "operation": "orgPeople.merge",
-      "reason": "ADR-001 behavior operation introduced with this requirement."
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
     },
     {
-      "requirement": "REQ-MUL-001",
+      "requirement": "REQ-MUL-017",
       "operation": "orgPeople.unmerge",
-      "reason": "ADR-001 behavior operation introduced with this requirement."
+      "reason": "Coordinator 17:41 ruling: organization duplicate/merge/Unmerge belongs to S1 WP-015."
     },
     {
       "requirement": "REQ-MUL-002",
@@ -4446,6 +4446,36 @@
       "requirement": "REQ-MUL-016",
       "operation": "pipelineSharing.checkAggregateAccess",
       "reason": "Explicit contributor-minimum and current-opt-in denial examples without exposing totals."
+    },
+    {
+      "requirement": "REQ-MUL-008",
+      "operation": "pipeline.proposeStageMove",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-002",
+      "operation": "orgPeople.readNotes",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.addNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.updateNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-009",
+      "operation": "orgPeople.removeNote",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-MUL-012",
+      "operation": "development.recordUnlinkedCompletion",
+      "reason": "Explicit behavior added by the coordinator P2 review ruling."
     }
   ],
   "operation_additions": [
@@ -4487,17 +4517,17 @@
     {
       "id": "orgPeople.findDuplicates",
       "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
-      "requirement": "REQ-MUL-001"
+      "requirement": "REQ-MUL-017"
     },
     {
       "id": "orgPeople.merge",
       "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
-      "requirement": "REQ-MUL-001"
+      "requirement": "REQ-MUL-017"
     },
     {
       "id": "orgPeople.unmerge",
       "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
-      "requirement": "REQ-MUL-001"
+      "requirement": "REQ-MUL-017"
     },
     {
       "id": "pipelineAccess.readPerson",
@@ -4668,6 +4698,36 @@
       "id": "pipelineSharing.checkAggregateAccess",
       "requirement": "REQ-MUL-016",
       "reason": "ADR-001 S0 policy eligibility only, preserving stage-4 aggregate delivery deferral."
+    },
+    {
+      "id": "pipeline.proposeStageMove",
+      "requirement": "REQ-MUL-008",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.readNotes",
+      "requirement": "REQ-MUL-002",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.addNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.updateNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "orgPeople.removeNote",
+      "requirement": "REQ-MUL-009",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "development.recordUnlinkedCompletion",
+      "requirement": "REQ-MUL-012",
+      "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
     }
   ]
 }

@@ -10,6 +10,6 @@ Explicitly deferred source feature IDs IDN-018, IDN-025 and TEAM-014 are not act
 
 ## Accepted multiplication scope
 
-ADR-001 stages 1 and 2, including organization-owned pipeline people, goals, conversations, apprenticeship/residency programs and the consented seatless My residency experience, ship after planter S2 and before alpha. Both sending churches and sending networks own their own pipeline. See REQ-MUL-001 through REQ-MUL-016 in [People](people.md#multiplication-pathway-contract).
+ADR-001 stages 1 and 2, including organization-owned pipeline people, goals, conversations, apprenticeship/residency programs and the consented seatless My residency experience, ship after planter S2 and before alpha. Both sending churches and sending networks own their own pipeline. See REQ-MUL-001 through REQ-MUL-017 in [People](people.md#multiplication-pathway-contract).
 
 Stages 3 and 4 are deferred: commissioning, planter-confirmed prefill, lineage, partnership agreements and bilateral review tasks, network totals delivery, church sending stages and revised NI inputs. Agreement tasks require an existing plant. Future network totals require per-relationship Owner/Admin opt-in, immediate withdrawal and at least two contributing organizations; no individual candidates are shared. Coaching, post-send care and cross-church candidate sharing remain outside alpha.

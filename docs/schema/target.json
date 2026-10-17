@@ -3868,6 +3868,7 @@
         "MUL-002",
         "MUL-005",
         "MUL-006",
+        "MUL-017",
         "PPL-001",
         "PPL-002",
         "PPL-003",
@@ -3885,6 +3886,11 @@
       "acceptance_ids": [
         "AC-IDN-013--IDN-013",
         "AC-IDN-019--IDN-019",
+        "AC-MUL-001--MUL-001",
+        "AC-MUL-002--MUL-002",
+        "AC-MUL-005--MUL-005",
+        "AC-MUL-006--MUL-006",
+        "AC-MUL-017--MUL-017",
         "AC-PPL-001--PPL-001",
         "AC-PPL-002--PPL-002",
         "AC-PPL-003--PPL-003",
@@ -3897,13 +3903,14 @@
         "AC-PPL-015--PPL-015",
         "AC-PPL-019--PPL-019",
         "AC-PPL-020--PPL-020",
-        "AC-TEAM-015--TEAM-015",
-        "AC-MUL-001--MUL-001",
-        "AC-MUL-002--MUL-002",
-        "AC-MUL-005--MUL-005",
-        "AC-MUL-006--MUL-006"
+        "AC-TEAM-015--TEAM-015"
       ],
       "future_case_ids": [
+        "ADR1-001",
+        "ADR1-002",
+        "ADR1-005",
+        "ADR1-006",
+        "ADR1-017",
         "AUDIT-006",
         "AUTH-001",
         "AUTH-002",
@@ -3996,11 +4003,7 @@
         "TARGET-TEAM-015",
         "TEN-002",
         "TEN-004",
-        "TEN-005",
-        "ADR1-001",
-        "ADR1-002",
-        "ADR1-005",
-        "ADR1-006"
+        "TEN-005"
       ],
       "scope": "people",
       "invariants": [
@@ -4402,15 +4405,17 @@
       "capabilities": [
         "CAP-A-021",
         "CAP-B-010",
-        "CAP-A-054"
+        "CAP-A-054",
+        "CAP-A-056"
       ],
       "replaces": [
         "person_activity"
       ],
       "producer_work_packages": [
         "WP-004",
-        "WP-011",
-        "WP-014"
+        "WP-006",
+        "WP-014",
+        "WP-098"
       ],
       "producer_derivation": {
         "old_target_tables": [
@@ -4418,7 +4423,8 @@
         ],
         "rule": "Union of producer packages of replaced tables.",
         "additional_producers": [
-          "WP-011"
+          "WP-006",
+          "WP-098"
         ]
       },
       "feature_ids": [
@@ -4427,28 +4433,36 @@
         "MUL-002",
         "MUL-005",
         "MUL-006",
+        "MUL-007",
+        "MUL-008",
+        "MUL-009",
+        "MUL-017",
         "PPL-008"
       ],
       "acceptance_ids": [
         "AC-MTG-017--MTG-017",
-        "AC-PPL-008--PPL-008",
         "AC-MUL-001--MUL-001",
         "AC-MUL-002--MUL-002",
         "AC-MUL-005--MUL-005",
-        "AC-MUL-006--MUL-006"
+        "AC-MUL-006--MUL-006",
+        "AC-MUL-009--MUL-009",
+        "AC-MUL-017--MUL-017",
+        "AC-PPL-008--PPL-008"
       ],
       "future_case_ids": [
+        "ADR1-001",
+        "ADR1-002",
+        "ADR1-005",
+        "ADR1-006",
+        "ADR1-009",
+        "ADR1-017",
         "GAP-MTG-017",
         "INH-COMMITMENTS-03",
         "INH-EDGES-06",
         "INH-NOTES-05",
         "TARGET-MTG-017",
         "TARGET-PPL-008",
-        "TARGET-PPL-024",
-        "ADR1-001",
-        "ADR1-002",
-        "ADR1-005",
-        "ADR1-006"
+        "TARGET-PPL-024"
       ],
       "scope": "people",
       "invariants": [
@@ -4463,7 +4477,7 @@
       ],
       "revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
       "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
-      "deletion": "Deleted current note body is removed while attributable correction/tombstone history follows shared-record ownership and deletion policy. No permanent retention exemption or fixed extra TTL is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Organization facts follow REQ-MUL-005, including removal of unnecessary note bodies and minimal scope-local attribution.",
+      "deletion": "Deleted current note body is removed while attributable correction/tombstone history follows shared-record ownership and deletion policy. No permanent retention exemption or fixed extra TTL is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Organization facts follow REQ-MUL-005, including removal of unnecessary note bodies and minimal scope-local attribution. Organization Person removal purges authored note bodies and unnecessary attribution; retained tombstones are body-free under REQ-MUL-005. For organization note-body removal, delete the body row and retain only a body-free record/event identity when needed; do not retain a protected body as a generic audit tombstone.",
       "physical_verified": false
     },
     {
@@ -5922,7 +5936,6 @@
       ],
       "producer_work_packages": [
         "WP-004",
-        "WP-011",
         "WP-015"
       ],
       "producer_derivation": {
@@ -5930,25 +5943,30 @@
           "person_merge"
         ],
         "rule": "Union of producer packages of replaced tables.",
-        "additional_producers": [
-          "WP-011"
-        ]
+        "additional_producers": []
       },
       "feature_ids": [
         "MUL-001",
         "MUL-002",
         "MUL-005",
         "MUL-006",
+        "MUL-017",
         "PPL-017"
       ],
       "acceptance_ids": [
-        "AC-PPL-017--PPL-017",
         "AC-MUL-001--MUL-001",
         "AC-MUL-002--MUL-002",
         "AC-MUL-005--MUL-005",
-        "AC-MUL-006--MUL-006"
+        "AC-MUL-006--MUL-006",
+        "AC-MUL-017--MUL-017",
+        "AC-PPL-017--PPL-017"
       ],
       "future_case_ids": [
+        "ADR1-001",
+        "ADR1-002",
+        "ADR1-005",
+        "ADR1-006",
+        "ADR1-017",
         "CA020",
         "CA022",
         "EVRY-PERSON-UNMERGE",
@@ -6029,11 +6047,7 @@
         "TARGET-PPL-017",
         "TARGET-PPL-024",
         "TARGET-PPL-025",
-        "TARGET-PPL-026",
-        "ADR1-001",
-        "ADR1-002",
-        "ADR1-005",
-        "ADR1-006"
+        "TARGET-PPL-026"
       ],
       "scope": "people",
       "invariants": [
@@ -24898,7 +24912,7 @@
         "reserved_output between 0 and 16000",
         "num_nonnulls(actor_id,actor_tombstone) <= 1",
         "stop_reason in ('budget_limit', 'cancelled', 'completed', 'deadline', 'expired_approval', 'input_token_limit', 'output_token_limit', 'permission_denied', 'provider_error', 'read_timeout', 'revision_conflict', 'tool_limit', 'unavailable', 'validation_failed')",
-        "name in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.getHistory', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.classifyPublicPreview', 'auth.getSession', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'calendar.getContext', 'calendar.resolve', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.getDeletionStatus', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.deliveryTotals', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.searchRecipients', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.forMeeting', 'communication.templates.fork', 'communication.templates.get', 'communication.templates.list', 'communication.templates.update', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.inspectPreviewProvenance', 'dev.switchFixtureIdentity', 'development.applyVersion', 'development.completeMilestone', 'development.confirmMilestone', 'development.draftPlan', 'development.enroll', 'development.publishVersion', 'development.readFeedback', 'development.readProgram', 'development.recordFeedback', 'development.saveProgram', 'development.updateEnrollment', 'discovery.convertToPlant', 'discovery.create', 'discovery.getProfile', 'documents.archive', 'documents.designateCoreValues', 'documents.download', 'documents.generate', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.importTextOrWord', 'documents.listOwned', 'documents.preview', 'documents.purgeOwnedForDeletion', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.reconcileOrphans', 'documents.resolveContext', 'documents.saveNative', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.auditProofCoverage', 'engineering.installChosenHooks', 'engineering.inventoryTools', 'engineering.trackWork', 'engineering.validateRequirements', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.askClarification', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.classifyRequest', 'evry.cleanupAttachments', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.recordEffectResult', 'evry.resolveReferences', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.admin.list', 'feedback.createConfiguredIssue', 'feedback.getOwnStatus', 'feedback.listOwn', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.listContactHistory', 'followups.readObligations', 'followups.recordOutcome', 'geography.listReportingRegionCandidates', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.buildFactSnapshot', 'intelligence.callProvider', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.formatCitedFact', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.selectAssessmentCandidates', 'intelligence.settleRun', 'intelligence.submitFeedback', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.renderTransactional', 'mail.sendTransactional', 'mail.suppression.listForSelf', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.requestInvitation', 'marketing.sitemap', 'marketing.terms', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.addAttendeeNote', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.captureAttendanceBatch', 'meetings.cardBreakdown', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.finalizeAttendance', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.inviteGuest', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.summaryStats', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.describeEmailOptOut', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.feed', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.inspectAssociationReceipt', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.meetingAudience', 'notifications.oversightDigestCadence.set', 'notifications.preferences.get', 'notifications.preferences.set', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'notifications.unreadCount', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'onboarding.getResume', 'ops.applyVersionedMigration', 'ops.errorCorrelation', 'ops.flushTelemetry', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.reportError', 'ops.schemaValidate', 'ops.traceModelAttempt', 'ops.traceOperation', 'orgPeople.create', 'orgPeople.export', 'orgPeople.findDuplicates', 'orgPeople.merge', 'orgPeople.read', 'orgPeople.remove', 'orgPeople.restore', 'orgPeople.retire', 'orgPeople.unmerge', 'orgPeople.update', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizationLaunchSummary.readPublished', 'organizations.correctReportingLocation', 'organizations.getProfile', 'organizations.updateProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.checkForDuplicates', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergePeople', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.propagateAddress', 'people.reactivateCommitment', 'people.readPipelineMetrics', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.classifyChange', 'phases.declare', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'phases.transition', 'pipeline.listPeople', 'pipeline.logConversation', 'pipeline.moveStage', 'pipeline.readConversationCounts', 'pipeline.readConversationNote', 'pipeline.readGoals', 'pipeline.recordAssessmentOccurrence', 'pipeline.saveGoal', 'pipeline.saveStages', 'pipelineAccess.readPerson', 'pipelineSharing.checkAggregateAccess', 'pipelineSharing.readConsent', 'pipelineSharing.setConsent', 'plant.previewTimezoneChange', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'platformAdmin.authorize', 'privacy.getSharing', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.auditLanguage', 'reference.bootstrapApprovedBundle', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'reference.validateBundle', 'residency.invite', 'residency.leave', 'residency.readMine', 'residency.readProgress', 'residency.readSharing', 'residency.resolveReading', 'residency.respondInvitation', 'residency.setSharing', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.getHistory', 'signals.listDefinitions', 'signals.reaffirm', 'storage.createAuthorizedDownload', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'storage.readAuthorizedObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.count', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.eligibleAssignees', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.importTemplate', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.statusHistory', 'tasks.waive', 'teams.addResponsibility', 'teams.aggregateHealth', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.importRoles', 'teams.initialize', 'teams.leaderCandidates', 'teams.leadershipEffects', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.offerResponsibilities', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.reactivateMembership', 'teams.readRequiredTrainingParticipants', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.searchMembers', 'teams.setRequiredTrainingParticipants', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.get', 'venues.history', 'venues.list', 'venues.restore', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.bookmarks.set', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.feedback.setMine', 'wiki.navigation', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.getDraft', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.recordView', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.reading.updateProgress', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.setSourceOrder', 'wiki.tableOfContents')"
+        "name in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.getHistory', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.classifyPublicPreview', 'auth.getSession', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'calendar.getContext', 'calendar.resolve', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.getDeletionStatus', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.deliveryTotals', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.searchRecipients', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.forMeeting', 'communication.templates.fork', 'communication.templates.get', 'communication.templates.list', 'communication.templates.update', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.inspectPreviewProvenance', 'dev.switchFixtureIdentity', 'development.applyVersion', 'development.completeMilestone', 'development.confirmMilestone', 'development.draftPlan', 'development.enroll', 'development.publishVersion', 'development.readFeedback', 'development.readProgram', 'development.recordFeedback', 'development.recordUnlinkedCompletion', 'development.saveProgram', 'development.updateEnrollment', 'discovery.convertToPlant', 'discovery.create', 'discovery.getProfile', 'documents.archive', 'documents.designateCoreValues', 'documents.download', 'documents.generate', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.importTextOrWord', 'documents.listOwned', 'documents.preview', 'documents.purgeOwnedForDeletion', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.reconcileOrphans', 'documents.resolveContext', 'documents.saveNative', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.auditProofCoverage', 'engineering.installChosenHooks', 'engineering.inventoryTools', 'engineering.trackWork', 'engineering.validateRequirements', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.askClarification', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.classifyRequest', 'evry.cleanupAttachments', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.recordEffectResult', 'evry.resolveReferences', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.admin.list', 'feedback.createConfiguredIssue', 'feedback.getOwnStatus', 'feedback.listOwn', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.listContactHistory', 'followups.readObligations', 'followups.recordOutcome', 'geography.listReportingRegionCandidates', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.buildFactSnapshot', 'intelligence.callProvider', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.formatCitedFact', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.selectAssessmentCandidates', 'intelligence.settleRun', 'intelligence.submitFeedback', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.renderTransactional', 'mail.sendTransactional', 'mail.suppression.listForSelf', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.requestInvitation', 'marketing.sitemap', 'marketing.terms', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.addAttendeeNote', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.captureAttendanceBatch', 'meetings.cardBreakdown', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.finalizeAttendance', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.inviteGuest', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.summaryStats', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.describeEmailOptOut', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.feed', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.inspectAssociationReceipt', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.meetingAudience', 'notifications.oversightDigestCadence.set', 'notifications.preferences.get', 'notifications.preferences.set', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'notifications.unreadCount', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'onboarding.getResume', 'ops.applyVersionedMigration', 'ops.errorCorrelation', 'ops.flushTelemetry', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.reportError', 'ops.schemaValidate', 'ops.traceModelAttempt', 'ops.traceOperation', 'orgPeople.addNote', 'orgPeople.create', 'orgPeople.export', 'orgPeople.findDuplicates', 'orgPeople.merge', 'orgPeople.read', 'orgPeople.readNotes', 'orgPeople.remove', 'orgPeople.removeNote', 'orgPeople.restore', 'orgPeople.retire', 'orgPeople.unmerge', 'orgPeople.update', 'orgPeople.updateNote', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizationLaunchSummary.readPublished', 'organizations.correctReportingLocation', 'organizations.getProfile', 'organizations.updateProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.checkForDuplicates', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergePeople', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.propagateAddress', 'people.reactivateCommitment', 'people.readPipelineMetrics', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.classifyChange', 'phases.declare', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'phases.transition', 'pipeline.listPeople', 'pipeline.logConversation', 'pipeline.moveStage', 'pipeline.proposeStageMove', 'pipeline.readConversationCounts', 'pipeline.readConversationNote', 'pipeline.readGoals', 'pipeline.recordAssessmentOccurrence', 'pipeline.saveGoal', 'pipeline.saveStages', 'pipelineAccess.readPerson', 'pipelineSharing.checkAggregateAccess', 'pipelineSharing.readConsent', 'pipelineSharing.setConsent', 'plant.previewTimezoneChange', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'platformAdmin.authorize', 'privacy.getSharing', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.auditLanguage', 'reference.bootstrapApprovedBundle', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'reference.validateBundle', 'residency.invite', 'residency.leave', 'residency.readMine', 'residency.readProgress', 'residency.readSharing', 'residency.resolveReading', 'residency.respondInvitation', 'residency.setSharing', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.getHistory', 'signals.listDefinitions', 'signals.reaffirm', 'storage.createAuthorizedDownload', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'storage.readAuthorizedObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.count', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.eligibleAssignees', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.importTemplate', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.statusHistory', 'tasks.waive', 'teams.addResponsibility', 'teams.aggregateHealth', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.importRoles', 'teams.initialize', 'teams.leaderCandidates', 'teams.leadershipEffects', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.offerResponsibilities', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.reactivateMembership', 'teams.readRequiredTrainingParticipants', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.searchMembers', 'teams.setRequiredTrainingParticipants', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.get', 'venues.history', 'venues.list', 'venues.restore', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.bookmarks.set', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.feedback.setMine', 'wiki.navigation', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.getDraft', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.recordView', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.reading.updateProgress', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.setSourceOrder', 'wiki.tableOfContents')"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -25530,7 +25544,7 @@
         "revision >= 1",
         "num_nonnulls(operation_id,review_id) >= 1",
         "state in ('unstarted', 'claimed', 'completed', 'skipped', 'failed', 'unknown', 'cancelled')",
-        "kind in ('account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.fork', 'communication.templates.update', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.switchFixtureIdentity', 'development.applyVersion', 'development.completeMilestone', 'development.confirmMilestone', 'development.enroll', 'development.publishVersion', 'development.recordFeedback', 'development.saveProgram', 'development.updateEnrollment', 'discovery.convertToPlant', 'discovery.create', 'documents.archive', 'documents.designateCoreValues', 'documents.generate', 'documents.importTextOrWord', 'documents.purgeOwnedForDeletion', 'documents.reconcileOrphans', 'documents.saveNative', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.installChosenHooks', 'engineering.trackWork', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.cleanupAttachments', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.recordEffectResult', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.createConfiguredIssue', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.recordOutcome', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.callProvider', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.settleRun', 'intelligence.submitFeedback', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.sendTransactional', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.requestInvitation', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meetings.addAttendeeNote', 'meetings.captureAttendanceBatch', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.finalizeAttendance', 'meetings.inviteGuest', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.oversightDigestCadence.set', 'notifications.preferences.set', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'ops.applyVersionedMigration', 'ops.flushTelemetry', 'ops.reportError', 'ops.traceModelAttempt', 'ops.traceOperation', 'orgPeople.create', 'orgPeople.merge', 'orgPeople.remove', 'orgPeople.restore', 'orgPeople.retire', 'orgPeople.unmerge', 'orgPeople.update', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizations.correctReportingLocation', 'organizations.updateProfile', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.mergePeople', 'people.propagateAddress', 'people.reactivateCommitment', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.declare', 'phases.transition', 'pipeline.logConversation', 'pipeline.moveStage', 'pipeline.recordAssessmentOccurrence', 'pipeline.saveGoal', 'pipeline.saveStages', 'pipelineSharing.setConsent', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.bootstrapApprovedBundle', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'residency.invite', 'residency.leave', 'residency.respondInvitation', 'residency.setSharing', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.reaffirm', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.importTemplate', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.waive', 'teams.addResponsibility', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.importRoles', 'teams.initialize', 'teams.leadershipEffects', 'teams.offerResponsibilities', 'teams.reactivateMembership', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.setRequiredTrainingParticipants', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.restore', 'wiki.bookmarks.set', 'wiki.feedback.setMine', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.reading.recordView', 'wiki.reading.updateProgress', 'wiki.setSourceOrder')"
+        "kind in ('account.cancelDeletion', 'account.changePassword', 'account.confirmEmailChange', 'account.finalizeAvatar', 'account.removeAvatar', 'account.requestAvatarUpload', 'account.requestDeletion', 'account.requestEmailChange', 'account.setPersonalTimezone', 'accounts.register', 'accounts.resumeRegistration', 'associations.acceptInvitation', 'associations.declineInvitation', 'associations.end', 'associations.invite', 'associations.resendInvitation', 'associations.respondInvitation', 'associations.revokeInvitation', 'auth.recoverInvalidSession', 'auth.recoverPassword', 'auth.requestPasswordRecovery', 'auth.revokeOtherSessions', 'auth.signIn', 'auth.signOut', 'church.digestSchedule.set', 'churches.cancelWorkspaceDeletion', 'churches.requestWorkspaceDeletion', 'communication.cancelScheduledReviewed', 'communication.correctContactLog', 'communication.deleteDraft', 'communication.dispatchAttempt', 'communication.executeResend', 'communication.reconcileProviderOutcome', 'communication.recordContactFromTask', 'communication.replaceScheduledReviewed', 'communication.rescheduleReviewed', 'communication.retryProvenFailed', 'communication.saveDraft', 'communication.scheduleReviewed', 'communication.sendReviewed', 'communication.templates.archiveOrDelete', 'communication.templates.create', 'communication.templates.fork', 'communication.templates.update', 'dev.cleanupPreview', 'dev.createIsolatedPreview', 'dev.switchFixtureIdentity', 'development.applyVersion', 'development.completeMilestone', 'development.confirmMilestone', 'development.enroll', 'development.publishVersion', 'development.recordFeedback', 'development.recordUnlinkedCompletion', 'development.saveProgram', 'development.updateEnrollment', 'discovery.convertToPlant', 'discovery.create', 'documents.archive', 'documents.designateCoreValues', 'documents.generate', 'documents.importTextOrWord', 'documents.purgeOwnedForDeletion', 'documents.reconcileOrphans', 'documents.saveNative', 'documents.useForChurch', 'domain.executeAtomicConsequences', 'emailSuppression.requestRestore', 'engineering.installChosenHooks', 'engineering.trackWork', 'events.appendRequiredOutbox', 'events.deliverIdempotentConsumer', 'evry.appendAudit', 'evry.approveProposal', 'evry.bindAttachment', 'evry.cancelProposal', 'evry.cancelTurn', 'evry.claimEffect', 'evry.cleanupAttachments', 'evry.createConversation', 'evry.executeProposal', 'evry.expireProposal', 'evry.openConversation', 'evry.prepareMeetingInvitation', 'evry.prepareProposal', 'evry.recordEffectResult', 'evry.resumeRun', 'evry.retryTurn', 'evry.retryUnresolvedEffects', 'evry.reuseRecipe', 'evry.reviseProposal', 'evry.runEvaluation', 'evry.stageAttachment', 'evry.submitTurn', 'evry.updateDraft', 'feedback.admin.changeStatus', 'feedback.createConfiguredIssue', 'feedback.notifyOperator', 'feedback.reconcileIssueLink', 'feedback.submit', 'feedback.triageIssue', 'fixtures.resetOwnedEnvironment', 'fixtures.seedOwnedEnvironment', 'followups.correctOutcome', 'followups.recordOutcome', 'identity.answerLeadOnboarding', 'identity.ensureOwnerPerson', 'intelligence.appendAssessmentConsequences', 'intelligence.callProvider', 'intelligence.evaluateAssessment', 'intelligence.executeDemand', 'intelligence.markAssessmentSeen', 'intelligence.publishAssessment', 'intelligence.recordAttemptTelemetry', 'intelligence.releaseAssessmentToOversight', 'intelligence.requestOperatorRefresh', 'intelligence.requestRefresh', 'intelligence.runAssessmentBatch', 'intelligence.runEvaluation', 'intelligence.scheduleAssessment', 'intelligence.settleRun', 'intelligence.submitFeedback', 'jobs.manualRun', 'jobs.tickAssessments', 'jobs.tickNotifications', 'launch.addGuestAttendance', 'launch.completeMilestone', 'launch.correctDebrief', 'launch.correctGuestAttendance', 'launch.correctOutcome', 'launch.ensureReadiness', 'launch.move', 'launch.postpone', 'launch.publishDebriefSummary', 'launch.recordActualOccurrence', 'launch.recordOutcome', 'launch.reopenMilestone', 'launch.saveDebriefDraft', 'launch.saveDebriefSummaryDraft', 'launch.schedule', 'launch.submitDebrief', 'mail.acceptWebhook', 'mail.processDeliveryEvent', 'mail.reconcileDeliveryState', 'mail.sendTransactional', 'mail.suppression.recordProviderFact', 'mail.suppression.restoreReviewed', 'maintenance.purgeEligibleSubject', 'maintenance.restoreWithCurrentManifest', 'marketing.expireAccessRequests', 'marketing.requestInvitation', 'meeting.answerRsvpToken', 'meeting.createRsvpToken', 'meetings.addAttendeeNote', 'meetings.captureAttendanceBatch', 'meetings.changeStatus', 'meetings.checkIn', 'meetings.clearAttendance', 'meetings.clearCard', 'meetings.completePractice', 'meetings.copyTeamRoster', 'meetings.correctEvaluation', 'meetings.correctOccurrence', 'meetings.correctPracticeOccurrence', 'meetings.correctRsvp', 'meetings.createGuestContact', 'meetings.createWalkInContact', 'meetings.delete', 'meetings.edit', 'meetings.finalizeAttendance', 'meetings.inviteGuest', 'meetings.planNotifications', 'meetings.populateKit', 'meetings.reconcileAttendance', 'meetings.reconcileInvitationResponse', 'meetings.recordCard', 'meetings.recordEvaluation', 'meetings.removeGuest', 'meetings.replaceAgenda', 'meetings.resolveTokenRsvp', 'meetings.saveOwnRsvp', 'meetings.schedule', 'meetings.setAttendance', 'meetings.setInviter', 'meetings.syncNotifications', 'meetings.updateKitItem', 'notifications.applyEmailOptOut', 'notifications.cancelForEntity', 'notifications.cancelTaskReminders', 'notifications.claimDue', 'notifications.digestCadence.set', 'notifications.dispatchBatch', 'notifications.emitLaunchMilestone', 'notifications.emitPhaseMilestone', 'notifications.emitRelationshipMilestone', 'notifications.emitSharingMilestone', 'notifications.emitWikiUpstreamReview', 'notifications.enqueue', 'notifications.generateOwedOversightDigests', 'notifications.generateOwedPlanterDigests', 'notifications.markAllVisibleRead', 'notifications.markRead', 'notifications.markSelectedRead', 'notifications.oversightDigestCadence.set', 'notifications.preferences.set', 'notifications.reconcileUnknownOutcome', 'notifications.recoverLease', 'notifications.retryAssociationReceipt', 'notifications.sendDiscoveryAssociationReceipt', 'notifications.setPreferences', 'notifications.syncMeetingReminders', 'notifications.syncTaskReminders', 'notifications.undoEmailOptOut', 'onboarding.complete', 'onboarding.createPlant', 'onboarding.declareJourney', 'ops.applyVersionedMigration', 'ops.flushTelemetry', 'ops.reportError', 'ops.traceModelAttempt', 'ops.traceOperation', 'orgPeople.addNote', 'orgPeople.create', 'orgPeople.merge', 'orgPeople.remove', 'orgPeople.removeNote', 'orgPeople.restore', 'orgPeople.retire', 'orgPeople.unmerge', 'orgPeople.update', 'orgPeople.updateNote', 'organizationIntelligence.requestRefresh', 'organizationIntelligence.submitFeedback', 'organizations.correctReportingLocation', 'organizations.updateProfile', 'people.addNote', 'people.addSkill', 'people.addToHousehold', 'people.applyRecordedRecruitmentEvent', 'people.assignTag', 'people.changeStatus', 'people.correctAdultClassification', 'people.correctCommitmentLifecycle', 'people.correctPersonRecord', 'people.createAssessment', 'people.createCommitment', 'people.createHouseholdWithHead', 'people.createInterview', 'people.createPerson', 'people.createTag', 'people.deleteHousehold', 'people.deleteNote', 'people.deletePerson', 'people.deleteTag', 'people.editNote', 'people.ensureAccountPerson', 'people.executeBulkImport', 'people.mergePeople', 'people.propagateAddress', 'people.reactivateCommitment', 'people.recordAdultClassification', 'people.removeFromHousehold', 'people.removePersonPhoto', 'people.removeSkill', 'people.removeTag', 'people.reorderPipeline', 'people.restorePerson', 'people.setHouseholdRole', 'people.setPersonPhoto', 'people.unmergePeople', 'people.updateHousehold', 'people.updatePerson', 'people.updateSkill', 'people.updateTag', 'people.withdrawCommitment', 'phases.appendConsequences', 'phases.declare', 'phases.transition', 'pipeline.logConversation', 'pipeline.moveStage', 'pipeline.recordAssessmentOccurrence', 'pipeline.saveGoal', 'pipeline.saveStages', 'pipelineSharing.setConsent', 'plant.setDigestSchedule', 'plant.setTimezone', 'plant.updateProfile', 'privacy.setSharing', 'qa.hermeticBuild', 'qa.verifyContracts', 'qa.verifyNativeTransactions', 'qa.verifyVerticalSlices', 'reference.activateGeneration', 'reference.bootstrapApprovedBundle', 'reference.installApprovedWiki', 'reference.installMessageTemplates', 'reference.invalidateWikiCache', 'reference.rebuildEmbeddings', 'reference.rollbackActivation', 'residency.invite', 'residency.leave', 'residency.respondInvitation', 'residency.setSharing', 'seats.acceptInvitation', 'seats.appointAdmin', 'seats.changeOrdinaryRole', 'seats.demote', 'seats.invite', 'seats.remove', 'seats.resendInvitation', 'seats.revokeInvitation', 'settings.saveSection', 'signals.attest', 'signals.correct', 'signals.reaffirm', 'storage.deleteUnreferencedObject', 'storage.putPrivateObject', 'tasks.acceptPhaseOffer', 'tasks.answerPhaseOffer', 'tasks.applyManagedStatus', 'tasks.assignFollowUp', 'tasks.bulkComplete', 'tasks.bulkReschedule', 'tasks.changeStatus', 'tasks.complete', 'tasks.completeOccurrence', 'tasks.configureRecurrence', 'tasks.create', 'tasks.createFollowUp', 'tasks.createSubtask', 'tasks.declinePhaseOffer', 'tasks.delete', 'tasks.edit', 'tasks.ensureManagedTask', 'tasks.ensureMeetingObligations', 'tasks.ensureObligation', 'tasks.executeHandoff', 'tasks.importTemplate', 'tasks.removeSubtask', 'tasks.reopen', 'tasks.reopenObligation', 'tasks.replacePrerequisites', 'tasks.setSubtaskCompletion', 'tasks.settleManagedEvaluation', 'tasks.waive', 'teams.addResponsibility', 'teams.appointLeader', 'teams.archive', 'teams.assignMember', 'teams.assignRole', 'teams.assignmentEffects', 'teams.attestCompletion', 'teams.completeResponsibility', 'teams.correct', 'teams.correctProgram', 'teams.create', 'teams.createProgram', 'teams.createRole', 'teams.deleteResponsibility', 'teams.edit', 'teams.editResponsibility', 'teams.editRole', 'teams.endMembership', 'teams.importRoles', 'teams.initialize', 'teams.leadershipEffects', 'teams.offerResponsibilities', 'teams.reactivateMembership', 'teams.recompleteTraining', 'teams.removeRole', 'teams.restore', 'teams.retireRole', 'teams.revokeCompletion', 'teams.scheduleMeeting', 'teams.setRequiredTrainingParticipants', 'venues.archive', 'venues.correct', 'venues.create', 'venues.edit', 'venues.restore', 'wiki.bookmarks.set', 'wiki.feedback.setMine', 'wiki.organizationArticles.add', 'wiki.organizationArticles.edit', 'wiki.organizationArticles.hide', 'wiki.organizationArticles.publish', 'wiki.reading.recordView', 'wiki.reading.updateProgress', 'wiki.setSourceOrder')"
       ],
       "jsonb_keys": {
         "arguments": [
@@ -29484,7 +29498,7 @@
         "expected_revision is null or expected_revision >= 1",
         "resulting_revision is null or resulting_revision >= expected_revision",
         "position is null or position >= 0",
-        "source_purpose in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'associations.getHistory', 'auth.classifyPublicPreview', 'auth.getSession', 'calendar.getContext', 'calendar.resolve', 'churches.getDeletionStatus', 'communication.deliveryTotals', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.searchRecipients', 'communication.templates.forMeeting', 'communication.templates.get', 'communication.templates.list', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.inspectPreviewProvenance', 'development.draftPlan', 'development.readFeedback', 'development.readProgram', 'discovery.getProfile', 'documents.download', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.listOwned', 'documents.preview', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.resolveContext', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'engineering.auditProofCoverage', 'engineering.inventoryTools', 'engineering.validateRequirements', 'evry.askClarification', 'evry.classifyRequest', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.resolveReferences', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'feedback.admin.list', 'feedback.getOwnStatus', 'feedback.listOwn', 'followups.listContactHistory', 'followups.readObligations', 'geography.listReportingRegionCandidates', 'intelligence.buildFactSnapshot', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.formatCitedFact', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.selectAssessmentCandidates', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'mail.renderTransactional', 'mail.suppression.listForSelf', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.sitemap', 'marketing.terms', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.cardBreakdown', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.summaryStats', 'notifications.describeEmailOptOut', 'notifications.feed', 'notifications.inspectAssociationReceipt', 'notifications.meetingAudience', 'notifications.preferences.get', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.unreadCount', 'onboarding.getResume', 'ops.errorCorrelation', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.schemaValidate', 'orgPeople.export', 'orgPeople.findDuplicates', 'orgPeople.read', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationLaunchSummary.readPublished', 'organizations.getProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.checkForDuplicates', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.readPipelineMetrics', 'phases.classifyChange', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'pipeline.listPeople', 'pipeline.readConversationCounts', 'pipeline.readConversationNote', 'pipeline.readGoals', 'pipelineAccess.readPerson', 'pipelineSharing.checkAggregateAccess', 'pipelineSharing.readConsent', 'plant.previewTimezoneChange', 'platformAdmin.authorize', 'privacy.getSharing', 'reference.auditLanguage', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.validateBundle', 'residency.readMine', 'residency.readProgress', 'residency.readSharing', 'residency.resolveReading', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'signals.getHistory', 'signals.listDefinitions', 'storage.createAuthorizedDownload', 'storage.readAuthorizedObject', 'tasks.count', 'tasks.eligibleAssignees', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.statusHistory', 'teams.aggregateHealth', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.leaderCandidates', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.readRequiredTrainingParticipants', 'teams.searchMembers', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.get', 'venues.history', 'venues.list', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.navigation', 'wiki.organizationArticles.getDraft', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.tableOfContents')"
+        "source_purpose in ('access.checkOperation', 'access.currentActor', 'access.projectRead', 'account.getAvatar', 'account.getDeletionStatus', 'account.previewPersonalTimezoneChange', 'accounts.getRegistrationOptions', 'accounts.getRegistrationStatus', 'associations.getHistory', 'auth.classifyPublicPreview', 'auth.getSession', 'calendar.getContext', 'calendar.resolve', 'churches.getDeletionStatus', 'communication.deliveryTotals', 'communication.forMeeting', 'communication.forPerson', 'communication.get', 'communication.getDraft', 'communication.getExecutionResult', 'communication.list', 'communication.listAudienceTeams', 'communication.listDrafts', 'communication.listRecipients', 'communication.meetingRecipientTracking', 'communication.preview', 'communication.resendCandidates', 'communication.resolveAudience', 'communication.resolveMergeFields', 'communication.searchRecipients', 'communication.templates.forMeeting', 'communication.templates.get', 'communication.templates.list', 'dashboard.activity', 'dashboard.availableActions', 'dashboard.metrics', 'dashboard.promptState', 'dashboard.readSetupGaps', 'dashboard.resolveHome', 'dev.inspectPreviewProvenance', 'development.draftPlan', 'development.readFeedback', 'development.readProgram', 'discovery.getProfile', 'documents.download', 'documents.getAuthorized', 'documents.history.get', 'documents.history.list', 'documents.listOwned', 'documents.preview', 'documents.read', 'documents.readCoreValuesEvidence', 'documents.resolveContext', 'documents.templates.contextual', 'documents.templates.get', 'documents.templates.list', 'engineering.auditProofCoverage', 'engineering.inventoryTools', 'engineering.validateRequirements', 'evry.askClarification', 'evry.classifyRequest', 'evry.collectHistory', 'evry.compileContext', 'evry.composeReads', 'evry.invokeRead', 'evry.listConversations', 'evry.observeRun', 'evry.projectArtifact', 'evry.projectError', 'evry.readCatalog', 'evry.readConversation', 'evry.readDraft', 'evry.readReview', 'evry.readUsage', 'evry.readWorkflowHint', 'evry.resolveReferences', 'evry.selectQualifiedModel', 'evry.selectReturnedRows', 'feedback.admin.list', 'feedback.getOwnStatus', 'feedback.listOwn', 'followups.listContactHistory', 'followups.readObligations', 'geography.listReportingRegionCandidates', 'intelligence.buildFactSnapshot', 'intelligence.computeSnapshotDelta', 'intelligence.deriveLensEvidence', 'intelligence.describeRunFailure', 'intelligence.formatCitedFact', 'intelligence.readAssessment', 'intelligence.readAssessmentDelta', 'intelligence.readAssessmentHistory', 'intelligence.readAssessmentRun', 'intelligence.readColdStartGuidance', 'intelligence.readCommittedAdultCohort', 'intelligence.readCriterionEvidence', 'intelligence.readExitCriteria', 'intelligence.readFacts', 'intelligence.readFocus', 'intelligence.readJourney', 'intelligence.readOwnFeedback', 'intelligence.readRubric', 'intelligence.readScorecard', 'intelligence.resolveCitation', 'intelligence.retrieveMethodology', 'intelligence.selectAssessmentCandidates', 'intelligence.validateConcernPairing', 'intelligence.validateDraft', 'invitations.describeRegistrationContext', 'jobs.inspectLag', 'launch.readCountdown', 'launch.readDebrief', 'launch.readJournal', 'launch.readMilestoneHistory', 'launch.readWorkspace', 'mail.renderTransactional', 'mail.suppression.listForSelf', 'marketing.exportAccessRequests', 'marketing.privacyPolicy', 'marketing.readProductExamples', 'marketing.sitemap', 'marketing.terms', 'meeting.describeRsvpToken', 'meeting.rsvpStatus', 'meetings.attendanceSummary', 'meetings.attendanceTrend', 'meetings.cardBreakdown', 'meetings.communicationContext', 'meetings.compareEvaluation', 'meetings.evaluationHistory', 'meetings.evaluationTrend', 'meetings.get', 'meetings.getEvaluation', 'meetings.getOwnRsvp', 'meetings.hasHistory', 'meetings.invitationAttribution', 'meetings.linkedTaskProgress', 'meetings.list', 'meetings.listAttendance', 'meetings.listCards', 'meetings.listCompletedPreLaunchPractices', 'meetings.listGuests', 'meetings.listKit', 'meetings.previewRosterImport', 'meetings.readAgenda', 'meetings.readAnalytics', 'meetings.readTokenRsvp', 'meetings.summaryStats', 'notifications.describeEmailOptOut', 'notifications.feed', 'notifications.inspectAssociationReceipt', 'notifications.meetingAudience', 'notifications.preferences.get', 'notifications.previewOversightDigest', 'notifications.previewPlanterDigest', 'notifications.unreadCount', 'onboarding.getResume', 'ops.errorCorrelation', 'ops.inspectLegacyEvidence', 'ops.inspectMigrationProvenance', 'ops.liveness', 'ops.readiness', 'ops.schemaValidate', 'orgPeople.export', 'orgPeople.findDuplicates', 'orgPeople.read', 'orgPeople.readNotes', 'organizationIntelligence.read', 'organizationIntelligence.readHistory', 'organizationIntelligence.readLocationHistory', 'organizationIntelligence.readLocations', 'organizationLaunchSummary.readPublished', 'organizations.getProfile', 'oversight.getHealth', 'oversight.getPlant', 'oversight.getSendingChurch', 'oversight.listPlants', 'oversight.listSendingChurches', 'oversight.readLaunchReadiness', 'people.checkForDuplicates', 'people.exportPeople', 'people.generateCsvTemplate', 'people.getAccountLink', 'people.getActivities', 'people.getAssessments', 'people.getCommitmentDownload', 'people.getCommitments', 'people.getHousehold', 'people.getHouseholdMembers', 'people.getImportReceipt', 'people.getInterviews', 'people.getMergeReview', 'people.getOwnAccountPerson', 'people.getPerson', 'people.getPersonCommunications', 'people.getPersonPhoto', 'people.getPersonSkills', 'people.getPersonTags', 'people.getPersonTeams', 'people.getPersonTraining', 'people.getPipelineData', 'people.getStatusWarnings', 'people.listDuplicatePairs', 'people.listHouseholds', 'people.listPeople', 'people.listRecordCorrections', 'people.listTags', 'people.mergedPersonDestination', 'people.previewImport', 'people.previewUnmerge', 'people.readPipelineMetrics', 'phases.classifyChange', 'phases.readCatalog', 'phases.readHistory', 'phases.readReadiness', 'pipeline.listPeople', 'pipeline.proposeStageMove', 'pipeline.readConversationCounts', 'pipeline.readConversationNote', 'pipeline.readGoals', 'pipelineAccess.readPerson', 'pipelineSharing.checkAggregateAccess', 'pipelineSharing.readConsent', 'plant.previewTimezoneChange', 'platformAdmin.authorize', 'privacy.getSharing', 'reference.auditLanguage', 'reference.embedQuery', 'reference.exportApprovedWiki', 'reference.packageDocumentTemplates', 'reference.packagePlaybook', 'reference.packageTaskTemplates', 'reference.packageTeamTemplates', 'reference.readRubricManifest', 'reference.validateBundle', 'residency.readMine', 'residency.readProgress', 'residency.readSharing', 'residency.resolveReading', 'seats.list', 'seats.listInvitations', 'seats.readCurrentMembership', 'security.checkRequestOrigin', 'security.safeReturn', 'settings.getSection', 'signals.getHistory', 'signals.listDefinitions', 'storage.createAuthorizedDownload', 'storage.readAuthorizedObject', 'tasks.count', 'tasks.eligibleAssignees', 'tasks.findOpenOccurrence', 'tasks.followUpCoverage', 'tasks.get', 'tasks.importReceipt', 'tasks.list', 'tasks.listFollowUpOwners', 'tasks.listPrerequisites', 'tasks.listSubtasks', 'tasks.listTemplates', 'tasks.normalizeDescription', 'tasks.planHandoff', 'tasks.prerequisiteCandidates', 'tasks.previewDescription', 'tasks.previewTemplate', 'tasks.readPhaseOffer', 'tasks.relationOptions', 'tasks.statusHistory', 'teams.aggregateHealth', 'teams.exportOrgChart', 'teams.get', 'teams.health', 'teams.history', 'teams.leaderCandidates', 'teams.list', 'teams.listImportTemplates', 'teams.listMeetings', 'teams.listResponsibilities', 'teams.listRoles', 'teams.listTraining', 'teams.membershipHistory', 'teams.orgChart', 'teams.personAssignments', 'teams.personTeamCounts', 'teams.personTraining', 'teams.previewRequiredTrainingParticipants', 'teams.previewResponsibilities', 'teams.previewTemplateImport', 'teams.readRequiredTrainingParticipants', 'teams.searchMembers', 'teams.staffingFacts', 'teams.staffingSummary', 'teams.trainingHistory', 'teams.trainingMatrix', 'venues.get', 'venues.history', 'venues.list', 'wiki.article.exportPdf', 'wiki.article.print', 'wiki.articleNeighbors', 'wiki.articles.get', 'wiki.articles.list', 'wiki.bookmarks.list', 'wiki.contextGuide', 'wiki.feedback.getMine', 'wiki.navigation', 'wiki.organizationArticles.getDraft', 'wiki.publicPreviewMetadata', 'wiki.reading.recent', 'wiki.reading.resume', 'wiki.reading.stats', 'wiki.recommendForPhase', 'wiki.referenceExcerpt', 'wiki.renderGlobalPreview', 'wiki.search', 'wiki.tableOfContents')"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -31699,7 +31713,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Leave organization goal definitions unchanged; they contain no Person membership or private account content. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -31843,7 +31857,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Leave organization stage definitions unchanged. Person removal never deletes or renames the shared vocabulary. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -32050,7 +32064,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Purge the current Person pipeline projection and assessment occurrence metadata; remove the person from all current selectors and counts. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -32288,7 +32302,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Purge reasons and identifiable actor/contact snapshots. Retain only needed dated movement facts with scope-local minimal attribution; invalidate saved projections and unsafe inverse snapshots. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -32464,7 +32478,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Purge note bodies and identifiable Person/staff snapshots; retain only independently needed period-count facts with minimal attribution, never private-note history. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -32646,7 +32660,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Leave shared program definitions in place. Remove unnecessary former-person attribution; current director eligibility is a separate current-seat rule. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -32829,7 +32843,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain shared immutable program definitions; they are not the removed Person private content. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -33007,7 +33021,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain shared program-stage definitions, independently of the removed Person enrollment. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -33197,7 +33211,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain shared milestone definitions; purge personal responses through the enrollment and feedback rows. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -33401,7 +33415,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain shared reading-list pointers, but recheck current source rights; purge no account-private reading merely because it is linked here. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -33681,7 +33695,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "End current participation and purge next-meeting, cohort and other unnecessary identifying details. Retain only independently needed status/date/program facts with minimal scope-local attribution. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -33749,6 +33763,12 @@
           "type": "bigint",
           "nullable": false,
           "note": ""
+        },
+        {
+          "name": "completion_source",
+          "type": "text",
+          "nullable": true,
+          "note": "Distinguishes linked resident self-completion from a director recording and confirming an unlinked enrollee; actor removal preserves source with minimal attribution."
         }
       ],
       "primary_key": [
@@ -33882,7 +33902,10 @@
         "revision >= 1",
         "completed_by is null or completed_at is not null",
         "confirmed_by is null or confirmed_at is not null",
-        "confirmed_at is null or completed_at is not null"
+        "confirmed_at is null or completed_at is not null",
+        "completion_source in ('resident_self', 'program_leader_recorded')",
+        "(completed_at is null) = (completion_source is null)",
+        "completion_source <> 'program_leader_recorded' or (completed_at is not null and confirmed_at is not null)"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -33930,11 +33953,12 @@
       "invariants": [
         "Immutable exact organization owner; all current child relations and duties use that owner.",
         "Current grants, source rights, resident consent and person lifecycle rechecked at every operation; body-free audit only.",
-        "Completion/confirmation remains bound to its adopted enrollment plan even after the current plan changes. New writes validate current applicable plan, duty and current linked self; retained prior evidence is not silently rewritten."
+        "Completion/confirmation remains bound to its adopted enrollment plan even after the current plan changes. New writes validate current applicable plan, duty and current linked self; retained prior evidence is not silently rewritten.",
+        "The unlinked path locks current resident-link eligibility and commits completion/confirmation together with director attribution and source. Linked resident completion remains separate from confirmation; later linking never rewrites historical sources."
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain only genuinely needed completion/confirmation/source facts with minimal attribution; remove account links and all private reading/document bodies. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -34145,7 +34169,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Purge feedback bodies including superseded versions and unnecessary actor links. Any retained correction witness is body-free; no permanent feedback-history exemption. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -34413,7 +34437,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "End the link, set both sharing flags false, remove the live account pointer and revoke current/saved/source access. Retain only necessary body-free consent/revocation witnesses. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -34612,7 +34636,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Leave the relationship opt-in unchanged by an individual removal, but invalidate/recompute any eligible totals affected by that Person; no removed individual remains in current counts. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -34839,7 +34863,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "An exact-organization Owner or Admin exports current authorized pipeline contact, stage history, program and attributable completion facts in a safe downloadable format. Export omits account-private content and any note, reason, feedback or progress category unavailable to the current reader; recheck authority and consent when producing and downloading bytes. On a person removal request, remove identifiable pipeline/contact bodies and unnecessary note, reason and feedback bodies, revoke links and source access, and retain only independently needed organization facts with minimal scope-local attribution. Report retained categories and why. Retirement is not removal. No permanent history exception, fixed new retention period or account 30-day cancellation period applies to organization pipeline records. Account removal severs account links and purges account-private originals without erasing independently needed organization facts. Recovery must reapply removal and revocation witnesses before service reopens.",
+      "deletion": "Retain only needed version-adoption provenance to interpret retained completion facts; minimize actor/account attribution and invalidate private snapshots. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     },
     {
@@ -35005,19 +35029,22 @@
         "MUL-001",
         "MUL-002",
         "MUL-005",
-        "MUL-006"
+        "MUL-006",
+        "MUL-017"
       ],
       "acceptance_ids": [
         "AC-MUL-001--MUL-001",
         "AC-MUL-002--MUL-002",
         "AC-MUL-005--MUL-005",
-        "AC-MUL-006--MUL-006"
+        "AC-MUL-006--MUL-006",
+        "AC-MUL-017--MUL-017"
       ],
       "future_case_ids": [
         "ADR1-001",
         "ADR1-002",
         "ADR1-005",
-        "ADR1-006"
+        "ADR1-006",
+        "ADR1-017"
       ],
       "scope": "people",
       "invariants": [
@@ -35027,7 +35054,7 @@
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
-      "deletion": "Retain only the body-free record identity, organization scope, removal instant and witness checkpoint needed to prevent restored data from reopening. No name, contact, reason, note, feedback or fixed new TTL; remove requester account link on account removal.",
+      "deletion": "Retain the minimal body-free removal witness and checkpoint needed to prevent restored data or inverse operations from reopening removed content; no contact, reason, note or feedback body. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
     }
   ],
@@ -35036,7 +35063,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 120,
-  "column_count": 1409,
+  "column_count": 1410,
   "foreign_key_count": 488,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -35883,6 +35910,7 @@
       "development.readFeedback",
       "development.readProgram",
       "development.recordFeedback",
+      "development.recordUnlinkedCompletion",
       "development.saveProgram",
       "development.updateEnrollment",
       "discovery.convertToPlant",
@@ -36170,16 +36198,20 @@
       "ops.schemaValidate",
       "ops.traceModelAttempt",
       "ops.traceOperation",
+      "orgPeople.addNote",
       "orgPeople.create",
       "orgPeople.export",
       "orgPeople.findDuplicates",
       "orgPeople.merge",
       "orgPeople.read",
+      "orgPeople.readNotes",
       "orgPeople.remove",
+      "orgPeople.removeNote",
       "orgPeople.restore",
       "orgPeople.retire",
       "orgPeople.unmerge",
       "orgPeople.update",
+      "orgPeople.updateNote",
       "organizationIntelligence.read",
       "organizationIntelligence.readHistory",
       "organizationIntelligence.readLocationHistory",
@@ -36278,6 +36310,7 @@
       "pipeline.listPeople",
       "pipeline.logConversation",
       "pipeline.moveStage",
+      "pipeline.proposeStageMove",
       "pipeline.readConversationCounts",
       "pipeline.readConversationNote",
       "pipeline.readGoals",
@@ -36573,6 +36606,7 @@
       "development.enroll",
       "development.publishVersion",
       "development.recordFeedback",
+      "development.recordUnlinkedCompletion",
       "development.saveProgram",
       "development.updateEnrollment",
       "discovery.convertToPlant",
@@ -36740,13 +36774,16 @@
       "ops.reportError",
       "ops.traceModelAttempt",
       "ops.traceOperation",
+      "orgPeople.addNote",
       "orgPeople.create",
       "orgPeople.merge",
       "orgPeople.remove",
+      "orgPeople.removeNote",
       "orgPeople.restore",
       "orgPeople.retire",
       "orgPeople.unmerge",
       "orgPeople.update",
+      "orgPeople.updateNote",
       "organizationIntelligence.requestRefresh",
       "organizationIntelligence.submitFeedback",
       "organizations.correctReportingLocation",
@@ -37456,6 +37493,7 @@
       "orgPeople.export",
       "orgPeople.findDuplicates",
       "orgPeople.read",
+      "orgPeople.readNotes",
       "organizationIntelligence.read",
       "organizationIntelligence.readHistory",
       "organizationIntelligence.readLocationHistory",
@@ -37505,6 +37543,7 @@
       "phases.readHistory",
       "phases.readReadiness",
       "pipeline.listPeople",
+      "pipeline.proposeStageMove",
       "pipeline.readConversationCounts",
       "pipeline.readConversationNote",
       "pipeline.readGoals",
@@ -37869,6 +37908,10 @@
       "active",
       "completed",
       "withdrawn"
+    ],
+    "enrollment_milestone.completion_source": [
+      "resident_self",
+      "program_leader_recorded"
     ]
   },
   "auth_adapter_configuration": {
@@ -38470,7 +38513,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -38498,7 +38542,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -38513,8 +38558,9 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
-        "WP-014"
+        "WP-006",
+        "WP-014",
+        "WP-098"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
       "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
@@ -38525,7 +38571,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -38696,7 +38743,6 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
         "WP-015"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
@@ -38707,8 +38753,7 @@
       "privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
-        "ADR1-001",
-        "ADR1-005"
+        "ADR1-017"
       ]
     },
     {
@@ -38723,7 +38768,6 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
         "WP-015"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
@@ -38734,8 +38778,7 @@
       "privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
-        "ADR1-001",
-        "ADR1-005"
+        "ADR1-017"
       ]
     },
     {
@@ -39103,7 +39146,8 @@
       "immutable_evidence_policy": "Preserve earned credit and reviewed recipient/delivery/attendance provenance; no silent rewrite.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -39129,7 +39173,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -39155,7 +39200,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -39181,7 +39227,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -39207,7 +39254,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -39233,7 +39281,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     }
   ],

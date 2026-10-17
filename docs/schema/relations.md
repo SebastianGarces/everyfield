@@ -501,15 +501,15 @@ Every declared Person FK has one registration in `target.json.person_references`
 |---|---|---|
 | `invitation` | `resident_person_id, tenant_id` | WP-004, WP-006, WP-008, WP-009 |
 | `person` | `merged_into_person_id, tenant_id` | WP-004, WP-006, WP-011, WP-012 |
-| `person_note` | `person_id, tenant_id` | WP-004, WP-011, WP-014 |
+| `person_note` | `person_id, tenant_id` | WP-004, WP-006, WP-014, WP-098 |
 | `person_tag` | `person_id, plant_id` | WP-004, WP-013 |
 | `person_skill` | `person_id, plant_id` | WP-004, WP-013 |
 | `four_cs` | `person_id, plant_id` | WP-004, WP-014 |
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
-| `person_merge` | `source_id, tenant_id` | WP-004, WP-011, WP-015 |
-| `person_merge` | `survivor_id, tenant_id` | WP-004, WP-011, WP-015 |
+| `person_merge` | `source_id, tenant_id` | WP-004, WP-015 |
+| `person_merge` | `survivor_id, tenant_id` | WP-004, WP-015 |
 | `team` | `leader_person_id, plant_id` | WP-004, WP-016 |
 | `team_tenure` | `person_id, plant_id` | WP-004, WP-017 |
 | `training_assignment` | `person_id, plant_id` | WP-004, WP-019 |

@@ -30,7 +30,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -58,7 +59,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -73,8 +75,9 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
-        "WP-014"
+        "WP-006",
+        "WP-014",
+        "WP-098"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
       "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
@@ -85,7 +88,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -256,7 +260,6 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
         "WP-015"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
@@ -267,8 +270,7 @@
       "privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
-        "ADR1-001",
-        "ADR1-005"
+        "ADR1-017"
       ]
     },
     {
@@ -283,7 +285,6 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-011",
         "WP-015"
       ],
       "meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
@@ -294,8 +295,7 @@
       "privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
-        "ADR1-001",
-        "ADR1-005"
+        "ADR1-017"
       ]
     },
     {
@@ -663,7 +663,8 @@
       "immutable_evidence_policy": "Preserve earned credit and reviewed recipient/delivery/attendance provenance; no silent rewrite.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -689,7 +690,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -715,7 +717,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -741,7 +744,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -767,7 +771,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     },
     {
@@ -793,7 +798,8 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-001",
-        "ADR1-005"
+        "ADR1-005",
+        "ADR1-017"
       ]
     }
   ],

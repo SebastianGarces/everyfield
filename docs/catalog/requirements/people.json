@@ -1182,17 +1182,14 @@
       "feature_ids": [
         "MUL-001"
       ],
-      "text": "Organizations of either kind own pipeline Person records under the full Person lifecycle: create, edit, retire, restore, export, remove on request, duplicate selection, merge and guarded Unmerge. Identity is scoped to one organization. Email is editable contact information, not identity proof. Retirement stops new current references; restore never restores seats, consent or a merged source. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. Every new Person consumer registers retirement, merge and inverse behavior before closure. Plant recruitment, household, commitment and ministry facts remain plant-only; organization stage kinds never enter plant progression.",
+      "text": "Organizations of either kind own Person identity and lifecycle: create, edit, retire, restore and read under exact organization authority. Email is editable contact information, not identity proof. Retirement stops new current references; restore never restores seats, consent or a merged source. Export/removal follow REQ-MUL-005. Duplicate selection, merge and guarded Unmerge follow REQ-MUL-017 in S1 WP-015, consuming the S0 reference/inverse interface. Every new Person consumer registers retirement, merge and inverse behavior before closure. Plant recruitment, household, commitment and ministry facts remain plant-only; organization stage kinds never enter plant progression.",
       "spec": "docs/product/people.md#req-mul-001",
       "operations": [
         "orgPeople.create",
         "orgPeople.update",
         "orgPeople.retire",
         "orgPeople.restore",
-        "orgPeople.read",
-        "orgPeople.findDuplicates",
-        "orgPeople.merge",
-        "orgPeople.unmerge"
+        "orgPeople.read"
       ],
       "acceptance_ids": [
         "AC-MUL-001--MUL-001"
@@ -1216,16 +1213,18 @@
       "feature_ids": [
         "MUL-002"
       ],
-      "text": "A current exact-organization Owner or Admin can administer its pipeline. Assigned responsible staff and program directors must hold a current eligible seat in that organization and receive only their named duties. A linked resident has only their own residency projection, without an organization seat or directory access. Internal stage labels, reasons, staff conversation notes, assessment metadata and inactivity flags are hidden from residents. No director or organization role gains plant editing, account-private documents, reflections, private-care bodies or existence signals. Central audit contains IDs, actor, change kind and revisions, never protected note, reason or feedback bodies.",
+      "text": "A current exact-organization Owner or Admin can administer its pipeline. Assigned responsible staff and program directors must hold a current eligible seat in that organization and receive only their named duties. A linked resident has only their own residency projection, without an organization seat or directory access. Internal stage labels, reasons, staff conversation notes, assessment metadata and inactivity flags are hidden from residents. No director or organization role gains plant editing, account-private documents, reflections, private-care bodies or existence signals. Central audit contains IDs, actor, change kind and revisions, never protected note, reason or feedback bodies. The S0 portion proves exact duty decisions and restricted note projections against supplied records. Rendering pipeline stage labels is a later WP-098 projection; program directors do not gain responsible-staff note access merely by directing a program.",
       "spec": "docs/product/people.md#req-mul-002",
       "operations": [
-        "pipelineAccess.readPerson"
+        "pipelineAccess.readPerson",
+        "orgPeople.readNotes"
       ],
       "acceptance_ids": [
         "AC-MUL-002--MUL-002"
       ],
       "case_ids": [
-        "ADR1-002"
+        "ADR1-002",
+        "ADR1-009"
       ],
       "shared_contract_ids": [
         "REQ-IDN-029",
@@ -1353,7 +1352,7 @@
       "feature_ids": [
         "MUL-007"
       ],
-      "text": "Both sending churches and sending networks can record multiple sending goals with nonnegative leader and plant targets, target year and rationale. Show observed counts at a stated as-of date and organization-local calendar, never forecasts, readiness rates or fitness verdicts. A goal does not move people, commission residents or create a plant. Current own-pipeline counts use distinct live people and dated genuine moves; a later correction retains history rather than counting a person twice.",
+      "text": "Both sending churches and sending networks may record multiple goals with nonnegative leader and plant targets, target year and rationale. At a stated as-of instant in the organization timezone, show own-pipeline counts by each fixed stage kind: count distinct live same-organization people whose current pipeline stage has that kind. A person appears once; retired or merged people and foreign organizations do not count. Also show active residents: distinct live same-organization people with at least one active enrollment in a residency-kind program; apprenticeship enrollment and the editable pipeline label alone do not qualify. Multiple active residency programs still count the person once. These are current observations, not forecasts, readiness scores or an undefined total of leaders. Plant targets may be stored, but observed plants sent is unavailable with reason deferred_stage_3 until commissioning/lineage arrives in stage 3; do not substitute zero or count Commissioned-kind people as plants. Aggregate church/network sharing remains stage 4. A goal never moves a person, commissions an enrollment or creates a plant.",
       "spec": "docs/product/people.md#req-mul-007",
       "operations": [
         "pipeline.saveGoal",
@@ -1381,13 +1380,14 @@
       "feature_ids": [
         "MUL-008"
       ],
-      "text": "Start with Potential leader, Apprentice, Resident, Commissioned and Not continuing. Owners and Admins may rename, reorder and add stages mapped to the fixed kinds potential_leader, apprentice, resident, commissioned, not_continuing or other. Show exact changes for review before saving. Refuse deletion of occupied stages and retain old labels in dated history. A human records each move and its reason; no automatic recruitment event or program completion moves an organization person. Not continuing is an ordinary outcome. Record only whether an outside assessment occurred, when and by whom, never its outcome. Staff may query people with no move for six months using the stated calendar and as-of date. Counts use kinds, not editable labels.",
+      "text": "Start with Potential leader, Apprentice, Resident, Commissioned and Not continuing. Owners and Admins may rename, reorder and add stages mapped to the fixed kinds potential_leader, apprentice, resident, commissioned, not_continuing or other. Show exact changes for review before saving. Refuse deletion of occupied stages and retain old labels in dated history. A human records each move and its reason; no automatic recruitment event or program completion moves an organization person. Not continuing is an ordinary outcome. Record only whether an outside assessment occurred, when and by whom, never its outcome. Staff may query people with no move for six months using the stated calendar and as-of date. Counts use kinds, not editable labels. Evry may propose only the selected Person and destination stage identities. The proposal does not move anyone and accepts no note, reason or other free text. A human completes an exact native review and supplies the required reason outside model/conversation input; the native move rechecks current authority and revisions.",
       "spec": "docs/product/people.md#req-mul-008",
       "operations": [
         "pipeline.saveStages",
         "pipeline.moveStage",
         "pipeline.listPeople",
-        "pipeline.recordAssessmentOccurrence"
+        "pipeline.recordAssessmentOccurrence",
+        "pipeline.proposeStageMove"
       ],
       "acceptance_ids": [
         "AC-MUL-008--MUL-008"
@@ -1411,12 +1411,15 @@
       "feature_ids": [
         "MUL-009"
       ],
-      "text": "Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person.",
+      "text": "Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person. Logging leadership conversations is human-only. Organization ordinary Person notes use the same Owner/Admin or responsible-staff audience and never enter models. Only the original author with current exact-organization duty may update or remove such a note; removal clears the body and retains only necessary attributable body-free history.",
       "spec": "docs/product/people.md#req-mul-009",
       "operations": [
         "pipeline.logConversation",
         "pipeline.readConversationCounts",
-        "pipeline.readConversationNote"
+        "pipeline.readConversationNote",
+        "orgPeople.addNote",
+        "orgPeople.updateNote",
+        "orgPeople.removeNote"
       ],
       "acceptance_ids": [
         "AC-MUL-009--MUL-009"
@@ -1498,13 +1501,14 @@
       "feature_ids": [
         "MUL-012"
       ],
-      "text": "A currently linked resident marks their own milestone complete; the current director confirms separately. Record who and when for each fact and retain correction history. Completing a milestone never supplies director confirmation. Hands-on assignments are described milestones; dated human feedback is visible only to the linked resident, current director and organization Owner/Admin, including both organization kinds. Other staff and foreign residents cannot read feedback. Feedback does not create a calling judgment. Recheck link, duty, version and consent on reads and writes, including races. No completion or feedback automatically commissions or creates a plant.",
+      "text": "A currently linked resident marks their own milestone complete; the current program director confirms separately. Resident completion never supplies director confirmation. For an enrollee without a current accepted resident link in this organization, the current program director may instead record the enrollee completion and confirm it in one dated, attributable native action. That action records the director as recorder and confirmer, the actual completion instant and confirmation instant, and a program-leader-recorded source; the enrolled Person remains the subject. It creates no account link or seat and cannot be used while a current resident link exists. Recheck link status at commit, so a concurrent acceptance refuses this path and requires the linked-resident flow. A subsequent link does not rewrite prior director-recorded facts. Retain correction history for each fact. Hands-on assignments are described milestones; dated feedback is visible only to the linked resident, current director and organization Owner/Admin of either kind. Other staff and foreign residents cannot read feedback. Feedback does not judge calling. Recheck duty, version, link and consent at use. Neither completion path automatically commissions or creates a plant.",
       "spec": "docs/product/people.md#req-mul-012",
       "operations": [
         "development.completeMilestone",
         "development.confirmMilestone",
         "development.recordFeedback",
-        "development.readFeedback"
+        "development.readFeedback",
+        "development.recordUnlinkedCompletion"
       ],
       "acceptance_ids": [
         "AC-MUL-012--MUL-012"
@@ -1583,7 +1587,7 @@
       "feature_ids": [
         "MUL-015"
       ],
-      "text": "Evry may read authorized pipeline facts and draft program plans and milestone lists. Every durable write uses exact human review of all effects and fresh authority, reference, revision and consent checks at execution. Native and assistant calls have the same results and denials. Staff may ask who has not moved in six months. Evry never ranks people, assesses calling or reads leadership conversation notes into a model; it also excludes private care, internal reasons, assessment metadata and assignment feedback unless a separately reviewed model-safe allowlist explicitly authorizes a category. Program drafting never publishes or enrolls without reviewed effects. Agreement and commissioning drafts remain deferred with delivery stage 3.",
+      "text": "Evry may read authorized pipeline facts and draft program plans and milestone lists. Every durable write uses exact human review of all effects and fresh authority, reference, revision and consent checks at execution. Native and assistant calls have the same results and denials. Staff may ask who has not moved in six months. Evry never ranks people, assesses calling or reads leadership conversation notes into a model; it also excludes private care, internal reasons, assessment metadata and assignment feedback unless a separately reviewed model-safe allowlist explicitly authorizes a category. Program drafting never publishes or enrolls without reviewed effects. Agreement and commissioning drafts remain deferred with delivery stage 3. Conversation logging and reason-bearing stage moves are native-only. A bounded stage-move proposal accepts only Person and destination stage identities and refuses any note/reason/free-text field. It returns a draft with no durable effect; human review collects the reason outside the conversation/model and commits the native operation. Model context and receipts omit that human-only body.",
       "spec": "docs/product/people.md#req-mul-015",
       "operations": [
         "development.draftPlan"
@@ -1630,6 +1634,34 @@
       ],
       "work_packages": [
         "WP-007",
+        "WP-102"
+      ]
+    },
+    {
+      "id": "REQ-MUL-017",
+      "title": "Organization duplicates, merge and guarded Unmerge",
+      "feature_ids": [
+        "MUL-017"
+      ],
+      "text": "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close.",
+      "spec": "docs/product/people.md#req-mul-017",
+      "operations": [
+        "orgPeople.findDuplicates",
+        "orgPeople.merge",
+        "orgPeople.unmerge"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-017--MUL-017"
+      ],
+      "case_ids": [
+        "ADR1-017"
+      ],
+      "shared_contract_ids": [
+        "REQ-PPL-024",
+        "REQ-PPL-025"
+      ],
+      "work_packages": [
+        "WP-015",
         "WP-102"
       ]
     }

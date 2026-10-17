@@ -17396,10 +17396,7 @@
       "orgPeople.update",
       "orgPeople.retire",
       "orgPeople.restore",
-      "orgPeople.read",
-      "orgPeople.findDuplicates",
-      "orgPeople.merge",
-      "orgPeople.unmerge"
+      "orgPeople.read"
     ],
     "work_packages": [
       "WP-011",
@@ -17414,10 +17411,12 @@
       "REQ-MUL-002"
     ],
     "case_ids": [
-      "ADR1-002"
+      "ADR1-002",
+      "ADR1-009"
     ],
     "operations": [
-      "pipelineAccess.readPerson"
+      "pipelineAccess.readPerson",
+      "orgPeople.readNotes"
     ],
     "work_packages": [
       "WP-006",
@@ -17531,7 +17530,8 @@
       "pipeline.saveStages",
       "pipeline.moveStage",
       "pipeline.listPeople",
-      "pipeline.recordAssessmentOccurrence"
+      "pipeline.recordAssessmentOccurrence",
+      "pipeline.proposeStageMove"
     ],
     "work_packages": [
       "WP-098",
@@ -17551,7 +17551,10 @@
     "operations": [
       "pipeline.logConversation",
       "pipeline.readConversationCounts",
-      "pipeline.readConversationNote"
+      "pipeline.readConversationNote",
+      "orgPeople.addNote",
+      "orgPeople.updateNote",
+      "orgPeople.removeNote"
     ],
     "work_packages": [
       "WP-098",
@@ -17612,7 +17615,8 @@
       "development.completeMilestone",
       "development.confirmMilestone",
       "development.recordFeedback",
-      "development.readFeedback"
+      "development.readFeedback",
+      "development.recordUnlinkedCompletion"
     ],
     "work_packages": [
       "WP-099",
@@ -17691,6 +17695,26 @@
     ],
     "work_packages": [
       "WP-007",
+      "WP-102"
+    ]
+  },
+  {
+    "id": "AC-MUL-017--MUL-017",
+    "shared_gate_id": "AC-MUL-017",
+    "feature_id": "MUL-017",
+    "requirement_ids": [
+      "REQ-MUL-017"
+    ],
+    "case_ids": [
+      "ADR1-017"
+    ],
+    "operations": [
+      "orgPeople.findDuplicates",
+      "orgPeople.merge",
+      "orgPeople.unmerge"
+    ],
+    "work_packages": [
+      "WP-015",
       "WP-102"
     ]
   }
