@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import "../styles/marketing.css";
+import { PageScroll } from "../components/frame/PageScroll";
+import { READER_INPUT_SCRIPT } from "../components/frame/reader-input";
 import { PAGES, SITE_NAME, fullTitle } from "../marketing/meta";
 import { SITE_URL } from "../site";
 
@@ -22,7 +24,11 @@ export const viewport: Viewport = { themeColor: "#FCFBF8", colorScheme: "light" 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body>{children}</body>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: READER_INPUT_SCRIPT }} />
+        {children}
+        <PageScroll />
+      </body>
     </html>
   );
 }
