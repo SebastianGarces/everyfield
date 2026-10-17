@@ -762,6 +762,13 @@
       "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "contentSHA256": "07864515443f43ac3e65fd32c77d27bf7363ea0b939c070543f3624eec25c3b8",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
     }
   ],
   "derivedFrom": {
@@ -4632,6 +4639,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
       "slug": "administrative/technology/setting-up-the-church-office"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:50:50.451Z",
+      "id": "3400b6c6-9f11-448d-8bb9-28b3aaaeba58",
+      "pr": 30,
+      "previousRecordSHA256": null,
+      "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
+      "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4764,7 +4780,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "9385ea3b23406baaad424ae301081dee86368e752b5f85c474dd9267b73bf78f",
+  "seedPayloadSHA256": "133b7a291df695feda13f5475152efd018d7595806edf051087604b968a16a75",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
