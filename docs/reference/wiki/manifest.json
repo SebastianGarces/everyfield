@@ -755,6 +755,13 @@
       "recordSHA256": "4bf4845fad26aedd7f238ddc8d10c6ab01783a216f94eb9e53e6d7ecf208369b",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/comparing-and-scoring-venues"
+    },
+    {
+      "contentSHA256": "8ffbec53a6bb493a2b273c28ea0519a055e003ad1a1b82183469da819732a16a",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
+      "slug": "administrative/technology/setting-up-the-church-office"
     }
   ],
   "derivedFrom": {
@@ -4616,6 +4623,15 @@
       "previousRecordSHA256": "8419526d9f7dd52e2307f598337ff6ab6c656aa11986a5d1eea916da218db5cc",
       "recordSHA256": "d465000cb8b419eb9973befabb9f944d9cda600b41ddbba5f3cee50d5af3427c",
       "slug": "pre-launch/launch-team-spiritual-preparation"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:47:59.263Z",
+      "id": "88077779-8bd2-48cc-9a0a-8d8c95446cb5",
+      "pr": 29,
+      "previousRecordSHA256": null,
+      "recordSHA256": "fd3b73470d61480c0cdfc297045856b467668d34b386c36a5a83094410478ac1",
+      "slug": "administrative/technology/setting-up-the-church-office"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4748,7 +4764,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "dce825a8bf6fab82ef7a371f2f8a8fe99369a8f8df0e03261cc1da8f11984618",
+  "seedPayloadSHA256": "9385ea3b23406baaad424ae301081dee86368e752b5f85c474dd9267b73bf78f",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
