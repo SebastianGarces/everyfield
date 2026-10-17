@@ -9,7 +9,7 @@ export function fixture() {
  cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
  const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
  const progressPath=join(root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
- progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,progress.packages[p.id]??{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
+ progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
  writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
