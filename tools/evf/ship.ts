@@ -133,9 +133,16 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
   if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
   const pr = prFor(wt, task);
   if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
-  const policy=(cfg as Config & {mergePolicy:{ordinary:string;feedback:string;humanActorIds:number[]}}).mergePolicy;
-  if(task.kind!=='fb'&&policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
-  if(task.kind==='fb'&&(policy.feedback!=='human-reviewed'||!policy.humanActorIds.length)) fail('Configure explicitly verified human reviewer IDs before merging feedback PRs.');
+  const policy=cfg.mergePolicy;
+  if(policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
+  // Owner rulings 2026-10-15/16: P0/P1 feedback fixes merge through the verifier like ordinary builds.
+  // P2/P3 get the same full verification, then wait for Sebastian's chat approval and `evf approve`.
+  let holdForOwner=false;
+  if(task.kind==='fb') {
+    const cls=cachedTriage(root,task.issue!)?.class;
+    holdForOwner=!!cls&&(policy.feedbackOwnerAfterVerifier as string[]).includes(cls);
+    if(!cls||!holdForOwner&&!(policy.feedbackVerifierMerge as string[]).includes(cls))fail(`${task.id} is ${cls??'untriaged'}; evf ship handles feedback classes ${[...policy.feedbackVerifierMerge,...policy.feedbackOwnerAfterVerifier].join(', ')}. Sebastian approves the rest in chat; then: bin/evf approve <PR>`);
+  }
 
 
   for (let attempt = 0; attempt <= opts.maxUpdates; attempt++) {
@@ -146,30 +153,28 @@ export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }):
     const authorProof = currentProof(root,task,"author");
     const repo=nameWithOwner(wt);
     const protection=JSON.parse(gh(wt,["api",`repos/${repo}/branches/${cfg.baseBranch}/protection`]));
-    if(protection.required_status_checks?.strict!==true || !Array.isArray(protection.required_status_checks?.contexts) || !protection.required_status_checks.contexts.includes(cfg.statusContext) || protection.enforce_admins?.enabled!==true)fail('Verified strict branch protection and enforced final-head checks are required before automatic merge. Protection configuration is a separate owner action.');
-    if(task.kind==='fb') {
-      if(!Number.isSafeInteger(protection.required_pull_request_reviews?.required_approving_review_count)||protection.required_pull_request_reviews.required_approving_review_count<1||protection.required_pull_request_reviews?.dismiss_stale_reviews!==true)fail('Verified strict branch protection, current-head reviews and enforced checks are required before automatic feedback merge. Configuration is a separate owner action.');
-      const reviews=JSON.parse(gh(wt,["api","--paginate","--slurp",`repos/${repo}/pulls/${pr.number}/reviews`])).flat() as Array<{user:{id:number};state:string;commit_id:string}>;
-      const latest=new Map<number,{state:string;commit_id:string}>();
-      for(const review of reviews) if(policy.humanActorIds.includes(review.user.id)&&["APPROVED","CHANGES_REQUESTED","DISMISSED"].includes(review.state))latest.set(review.user.id,review);
-      if([...latest.values()].some(r=>r.state==='CHANGES_REQUESTED')||![...latest.values()].some(r=>r.state==='APPROVED'&&r.commit_id===sha))fail('Feedback PR needs a configured human approval at the exact final head, without outstanding requested changes.');
-    }
+    if(protection.required_status_checks?.strict!==true || !Array.isArray(protection.required_status_checks?.contexts) || !protection.required_status_checks.contexts.includes(cfg.statusContext) || protection.enforce_admins?.enabled!==true)fail('Verified strict branch protection and enforced final-head checks are required before automatic merge. Restore it with: evf github setup');
 
 
 
     pushBranch(wt, cfg, task);
     postStatus(wt, cfg, sha, "success", `Verified ${proof.mode} by ${proof.role} at ${sha.slice(0, 10)}`);
+    if(holdForOwner) {
+      gh(wt,["pr","comment",String(pr.number),"--body",`Verified at \`${sha.slice(0,10)}\` by the cross-model verifier. This feedback fix waits for Sebastian's approval; after he approves in chat, merge with \`bin/evf approve ${pr.number} --owner-approval "<his words>"\`.`]);
+      console.log(`ship: PR #${pr.number} is verified at ${sha.slice(0,10)} and waits for Sebastian's approval. Report it to the coordinator; do not merge.`);
+      return 0;
+    }
     const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
     if (merge.code === 0) return afterMerge(root, cfg, task, wt, pr.number, proof,authorProof);
 
     const why = (merge.stderr || merge.stdout).trim();
     if (!BEHIND.test(why)) fail(`Merge refused: ${why}`);
     if (attempt === opts.maxUpdates) fail(`Branch still behind after ${opts.maxUpdates} updates. Try again later.`);
-    console.log(`ship: branch is behind ${cfg.baseBranch}. Updating and requiring full independent author/verifier proof${task.kind==='fb'?' and renewed human approval':''}.`);
+    console.log(`ship: branch is behind ${cfg.baseBranch}. Updating and requiring full independent author/verifier proof.`);
     gh(wt, ["pr", "update-branch", String(pr.number)]);
     git(wt, "fetch", "--quiet", cfg.remote, task.branch);
     git(wt, "merge", "--quiet", "--ff-only", `${cfg.remote}/${task.branch}`);
-    fail(`Branch updated. Stop for full author and verifier proofs${task.kind==='fb'?' plus human approval':''} at the new final head; prior evidence is stale.`);
+    fail(`Branch updated. Stop for full author and verifier proofs at the new final head; prior evidence is stale.`);
   }
   return 1;
 }
@@ -237,8 +242,30 @@ export function listShipped(root: string, clear: string[]): number {
 }
 
 export function githubSetup(root: string, dryRun: boolean): number {
-  // Branch protections are a separate owner-controlled action; never weaken them to zero reviews.
-  console.log(JSON.stringify({status:"external-protection-setup-not-authorized", feedback:"human review at final head required",ordinary:"automatic after final-head tests and independent approved review",configurationWrites:false},null,2));
-  if(!dryRun) fail("GitHub protection configuration is not authorized by local tooling reconciliation. Review the concrete repository policy separately.");
+  // Owner-approved 2026-10-15: squash-only merges and strict protection that binds admin tokens,
+  // because agents act through the owner's account. Zero approvals; evf/verify is the merge bar.
+  const cfg = loadConfig(root);
+  requireRemote(root, cfg);
+  const repo = nameWithOwner(root);
+  const settings = ["api", "-X", "PATCH", `repos/${repo}`, "-F", "allow_squash_merge=true", "-F", "allow_merge_commit=false", "-F", "allow_rebase_merge=false", "-F", "delete_branch_on_merge=true", "-F", "allow_update_branch=true", "-f", "squash_merge_commit_title=PR_TITLE", "-f", "squash_merge_commit_message=PR_BODY"];
+  const protection = {
+    required_status_checks: { strict: true, contexts: [cfg.statusContext] },
+    enforce_admins: true,
+    required_pull_request_reviews: { required_approving_review_count: 0, dismiss_stale_reviews: true, require_code_owner_reviews: false },
+    restrictions: null,
+    required_linear_history: true,
+    allow_force_pushes: false,
+    allow_deletions: false,
+  };
+  const file = join(tmpdir(), "evf-protection.json");
+  writeFileSync(file, JSON.stringify(protection));
+  const protect = ["api", "-X", "PUT", `repos/${repo}/branches/${cfg.baseBranch}/protection`, "--input", file];
+  if (dryRun) {
+    console.log(`gh ${settings.join(" ")}\ngh ${protect.join(" ")}\n${JSON.stringify(protection, null, 2)}`);
+    return 0;
+  }
+  gh(root, settings);
+  gh(root, protect);
+  console.log(`github: ${repo} merges by squash only. ${cfg.baseBranch} needs a PR, an up-to-date branch and a passing ${cfg.statusContext} status, for admins too. No approvals required.`);
   return 0;
 }
