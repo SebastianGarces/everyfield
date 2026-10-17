@@ -769,6 +769,13 @@
       "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
       "sectionId": "3cac54b0-badf-4116-9c42-05b26fd53f70",
       "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "contentSHA256": "55d94f2e92baef2b90369e93a8cdd09bd4cb7c7e3faa3ce322671d65dc6dda94",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "sectionId": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
     }
   ],
   "derivedFrom": {
@@ -4648,6 +4655,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "dbe6850d81109ee12fdbea0906c20b4d07586a859419682cc181b25afe83d4bc",
       "slug": "administrative/technology/church-calendar-and-kids-pre-registration-tools"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T03:51:37.534Z",
+      "id": "cc0759d4-0c16-4607-a531-f9aa12f5b79d",
+      "pr": 31,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e66f65c0b19f2845e7bad31a6088cb4f6ee80726ac1bdde5b4030a7d015188dd",
+      "slug": "administrative/financial/choosing-a-bookkeeper-and-accounting-software"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4780,7 +4796,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "133b7a291df695feda13f5475152efd018d7595806edf051087604b968a16a75",
+  "seedPayloadSHA256": "8e65bc85268399cc4c57c576d11629e25309e2a84c775f833b704f6a69f4f3b0",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
