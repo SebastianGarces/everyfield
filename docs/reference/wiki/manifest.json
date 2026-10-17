@@ -853,6 +853,13 @@
       "recordSHA256": "d7198060daaa034477c8dddca870aa33681ca585385844b587bde0153af68451",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/planning-services-around-room-capacity"
+    },
+    {
+      "contentSHA256": "12f1dabe021d6f0f5afc44d3489c157d7047b0aec407e93c087ee46bc78da942",
+      "id": "54755550-faf2-47ff-9990-1dcdd442fda7",
+      "recordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
+      "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
+      "slug": "launch-team/volunteer-background-check-process"
     }
   ],
   "derivedFrom": {
@@ -4840,6 +4847,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "d7198060daaa034477c8dddca870aa33681ca585385844b587bde0153af68451",
       "slug": "launch-team/planning-services-around-room-capacity"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:02:51.345Z",
+      "id": "54755550-faf2-47ff-9990-1dcdd442fda7",
+      "pr": 44,
+      "previousRecordSHA256": null,
+      "recordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
+      "slug": "launch-team/volunteer-background-check-process"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4972,7 +4988,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "8e928640e58ff5773fef3f3e36dad39e2a460193d8a2882e48a61d5898fa3312",
+  "seedPayloadSHA256": "07f400320f3c6d7e338949d6b51f81a7f77827bdd332a72b9d5ec4c80699b922",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
