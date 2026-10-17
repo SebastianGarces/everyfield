@@ -98,7 +98,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
         paths: pathsForPart(pkg, part),
         specialist: ui ? "ui-designer" : "implementor",
         model: ui ? "Opus 5.5 (claude-code), effort from UI tier" : "Sol 6.1 (codex, gpt-6.1-sol)",
-        ...(pkg.ui_specialist && !ui ? {uiHandoff:`Reuse approved E3 pages; any remaining public page work belongs to ${pkg.ui_specialist} on ${pkg.ui_model}. The implementor owns backend and scaffold work only.`} : {}),
+        ...(pkg.ui_specialist ? {uiHandoff:`UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.${pkg.ui_composition_rule ? `\nUI guidance: ${pkg.ui_composition_rule}` : ""}`} : {}),
         effortHours: Math.max(1, Math.round(pkg.estimate_engineer_days * 8 * (part ? SHARE[part] : 1))),
         dependsOn,
         conflictsWith: [],

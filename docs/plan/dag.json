@@ -26,7 +26,7 @@
       "outputs": [
         "E3/E6: Real apps/web scaffold and shared packages; home, /oversight, /access, /privacy and /terms, responsive and accessible, with live-page navigation, sitemap and robots. The shipped React rebuild uses Server Components for static marketing and client leaves for interaction/animation, typed design/marketing-copy.json, Tailwind 4 importing design/handoff/tokens.css, next/font, Hugeicons and Motion; marketing stays light only.",
         "E4: Shared packages/db and packages/domain package.json and tsconfig files; the DB client, early_access_request and early_access_attempt schemas with their migration ledger and early-access migration; packages/domain/src/early-access/ request logic; two validated access forms, one stored request and one email to EARLY_ACCESS_EMAIL_TO per admitted submission, rate-limit-first sent-only duplicate suppression and bounded pending retry with the same mail idempotency key, abuse limits, truthful failure/contact fallback, operator CSV export and scheduled request/IP retention.",
-        "E7 and later marketing maintenance: home/oversight Open Graph and Twitter PNGs with metadata and alt text, deterministic share-image and mesh-image renderers with freshness locks, public/mesh SVG assets, and the component color-literal lint. These outputs live in apps/web/src/app/, src/marketing/, src/components/, src/styles/, scripts/ and public/mesh/.",
+        "E7 and later marketing maintenance: home/oversight Open Graph and Twitter PNGs with metadata and alt text, deterministic share-image and mesh-image renderers with freshness locks, public/mesh SVG assets, and the component color-literal lint. R5 page-level scrolling uses apps/web/src/components/frame/PageScroll.tsx for the cancellable in-page glide and apps/web/src/components/frame/reader-input.ts for the site's single inline-script exception; reuse this scroll owner and input script. These outputs live in apps/web/src/app/, src/marketing/, src/components/, src/styles/, scripts/ and public/mesh/.",
         "E5: Preview on the owner Vercel project everyfield with the new everyfield-v3 Neon database and Resend; approved production on everyfield.app and www.everyfield.app, leaving v2 data separate."
       ],
       "owning_paths": [
@@ -3302,7 +3302,7 @@
         "correction/history",
         "no auto phase",
         "undeveloped postlaunch features explicit",
-        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045→WP046 dependency.",
+        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045\u2192WP046 dependency.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -6772,7 +6772,8 @@
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
-      "estimate_basis": "Extend shipped marketing foundations for the product and build the first three Layout inventory rows; component rows are split into WP-089 and WP-090."
+      "estimate_basis": "Extend shipped marketing foundations for the product and build the first three Layout inventory rows; component rows are split into WP-089 and WP-090.",
+      "ui_composition_rule": "Extend the shipped tokens, next/font, Hugeicons, Motion and color-literal lint for shared product foundations and AppShell. Add dark mode only for the product; marketing remains light only. Reuse the existing marketing page-level scroll owner and its single reader-input inline script instead of adding a second handler or script."
     },
     {
       "id": "WP-089",
