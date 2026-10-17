@@ -17352,6 +17352,20 @@
         "execution": {
           "fixture_type": "execution_control",
           "request_repetitions": 2
+        },
+        "B": {
+          "fixture_type": "organization",
+          "id": "B",
+          "kind": "sending_church",
+          "revision": 2
+        },
+        "RelB": {
+          "fixture_type": "affiliation",
+          "id": "RelB",
+          "sending_church_id": "B",
+          "organization_id": "N",
+          "ended_at": null,
+          "revision": 1
         }
       },
       "actor": {
@@ -17616,6 +17630,65 @@
               "network": "N",
               "previously_allowed": true,
               "before_withdrawal": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "N"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "pipelineSharing.checkAggregateAccess",
+            "arguments": {
+              "network": "N",
+              "as_of": "2026-10-17T16:00:00Z"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "allowed": false,
+              "minimum_contributors": 2,
+              "totals": null,
+              "individual_candidates": null
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "Duplicate facts from one organization do not meet the minimum",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "N",
+              "role": "Admin",
+              "active": true
+            },
+            "ContributionO": {
+              "fixture_type": "pipeline_totals_consent",
+              "organization": "O",
+              "network": "N",
+              "current_relationship": true,
+              "opted_in": true
+            },
+            "DuplicateO": {
+              "fixture_type": "pipeline_totals_consent",
+              "organization": "O",
+              "network": "N",
+              "current_relationship": true,
+              "opted_in": true
+            },
+            "ContributionB": {
+              "fixture_type": "pipeline_totals_consent",
+              "organization": "B",
+              "network": "N",
+              "current_relationship": true,
+              "opted_in": false
             }
           },
           "actor": {

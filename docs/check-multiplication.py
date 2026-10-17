@@ -79,6 +79,7 @@ def check():
                    for c in t['columns'])
     assert {'share_foundations', 'share_milestones', 'consent_revision', 'ended_at'} <= {
         c['name'] for c in tables['residency_link']['columns']}
+    assert {'columns': ['relationship_id']} in tables['pipeline_sharing']['unique_keys']
     assert {'relationship_id', 'network_id', 'share_pipeline_totals'} <= {
         c['name'] for c in tables['pipeline_sharing']['columns']}
     print('PASS: ADR-001 requirements, concrete operation cases, S0 ownership, Person keys, '

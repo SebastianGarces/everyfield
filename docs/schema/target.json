@@ -34475,6 +34475,11 @@
             "id",
             "organization_id"
           ]
+        },
+        {
+          "columns": [
+            "relationship_id"
+          ]
         }
       ],
       "foreign_keys": [
@@ -34564,7 +34569,8 @@
         }
       ],
       "checks": [
-        "revision >= 1"
+        "revision >= 1",
+        "network_id <> organization_id"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -34601,7 +34607,8 @@
       "scope": "people",
       "invariants": [
         "Immutable exact organization owner; all current child relations and duties use that owner.",
-        "Current grants, source rights, resident consent and person lifecycle rechecked at every operation; body-free audit only."
+        "Current grants, source rights, resident consent and person lifecycle rechecked at every operation; body-free audit only.",
+        "One current consent row per exact church/network affiliation. The source is a sending church and the recipient a sending network; a network own-pipeline row is never a second church contributor. Count distinct currently eligible contributing organizations, not consent rows."
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
