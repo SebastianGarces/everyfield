@@ -71,7 +71,10 @@
 
 @layer base {
   /* Light only: the root declares it, so browsers never draw a dark canvas, scrollbars or form controls. */
-  html { color-scheme: light; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+  /* No scroll-behavior: smooth. Every browser and Next scroll is instant; in-page anchor links glide in PageScroll,
+     a script animation that stops at once on reader input or a route change. WebKit cannot stop a native smooth
+     scroll, so a glide that a route interrupted ran on into the next page. */
   body {
     background: var(--color-mk-canvas); color: var(--color-ink);
     font-family: var(--font-sans); font-size: 16px; line-height: 1.55;
@@ -83,7 +86,7 @@
   [id] { scroll-margin-top: 88px; }
   @media (max-width: 640px) { [id] { scroll-margin-top: 76px; } }
   /* Reduced motion: no transitions and no CSS animations anywhere (each scene also shows its still frame). */
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 }
 
 /* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */

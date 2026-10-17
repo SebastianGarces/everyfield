@@ -14,13 +14,20 @@ const pillLogo = <Logo variant="pill" />;
 const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
 const menuIcon = <Icon icon={Menu01Icon} />;
 
-/** The page frame: skip link, logo sprite, header (in-flow and floating pill), main and footer. */
+/**
+ * The page frame: skip link, logo sprite, header (in-flow and floating pill), main and footer.
+ *
+ * One plain block holds them all. When a link opens a page, Next finds the page top from the page's outermost
+ * elements: with the fixed skip link and the hidden pill among them (both sit above the viewport), it took the top
+ * as out of view even at scroll 0, and scrolled every element into view in turn, footer first. With one block that
+ * starts at the document top, Next scrolls to 0 once, or not at all.
+ */
 export function Site({ path, children }: { path: string; children: ReactNode }) {
   const S = COPY.shared;
   const links = S.nav.map((n) => ({ href: n.href, label: n.label, current: n.href === path }));
   const cta = { href: ACCESS_PATH, label: S.nav_cta, current: path === ACCESS_PATH };
   return (
-    <>
+    <div>
       <SkipLink />
       <LogoSymbols />
       <SiteNav links={links} cta={cta} logo={navLogo} pillLogo={pillLogo} arrow={arrow} menuIcon={menuIcon} />
@@ -28,6 +35,6 @@ export function Site({ path, children }: { path: string; children: ReactNode }) 
         {children}
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }
