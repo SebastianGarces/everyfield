@@ -839,6 +839,13 @@
       "recordSHA256": "869907efbdcceb7f230d17301c40909b2557d8341caa5d083eaa46c15f0ca329",
       "sectionId": "efe72f25-e1e2-45ac-8097-fa5063fd31f1",
       "slug": "discovery/mapping-your-target-area"
+    },
+    {
+      "contentSHA256": "d3937f2bbf8b31a9fd2725bb18617b2edd76aa89194824691491a19b109c1555",
+      "id": "aa16f0da-9d22-47ef-85af-1cfb47dae4b5",
+      "recordSHA256": "e82410c5cea48123a9f843ad76852a03912d60af1973492e791a42fc7588499b",
+      "sectionId": "ad384ca4-56a8-46ba-a4ae-df5f6bb20842",
+      "slug": "pre-launch/responding-to-online-reviews-and-comments"
     }
   ],
   "derivedFrom": {
@@ -4808,6 +4815,15 @@
       "previousRecordSHA256": null,
       "recordSHA256": "869907efbdcceb7f230d17301c40909b2557d8341caa5d083eaa46c15f0ca329",
       "slug": "discovery/mapping-your-target-area"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-17T04:01:20.313Z",
+      "id": "aa16f0da-9d22-47ef-85af-1cfb47dae4b5",
+      "pr": 41,
+      "previousRecordSHA256": null,
+      "recordSHA256": "e82410c5cea48123a9f843ad76852a03912d60af1973492e791a42fc7588499b",
+      "slug": "pre-launch/responding-to-online-reviews-and-comments"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -4940,7 +4956,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "3a6ebf481719d9fb3869a04e250f760ebc0449f61e18a456b756f030c25e8327",
+  "seedPayloadSHA256": "08675450492d8b24d4fd75d825253d36d136da4c49fd5b9c00bbeea486655f25",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {
