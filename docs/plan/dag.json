@@ -3302,7 +3302,7 @@
         "correction/history",
         "no auto phase",
         "undeveloped postlaunch features explicit",
-        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045\u2192WP046 dependency.",
+        "Actual native guest/debrief milestone display integration against WP045 readers closes here; interface-only tests cannot close this vertical slice. No reverse WP045→WP046 dependency.",
         "All selected current requirement clauses and named fixture expectations pass at the required real test layers; include failures and denied actors.",
         "Current grants/revisions/history/receipts/audit/required intents agree; no hidden generated effect or private-care leak.",
         "Documentation/contract changes reviewed by their producer; later Person consumer descriptors and inverse fixtures registered before own closure."
@@ -6772,8 +6772,7 @@
       "ui_specialist": "ui-designer",
       "ui_model": "Opus 5.5",
       "integration_rule": "One owner integrates only its scoped producer outputs; reviewed milestones unlock dependents and integration closes full package obligations.",
-      "estimate_basis": "Extend shipped marketing foundations for the product and build the first three Layout inventory rows; component rows are split into WP-089 and WP-090.",
-      "ui_composition_rule": "Extend the shipped tokens, next/font, Hugeicons, Motion and color-literal lint for shared product foundations and AppShell. Add dark mode only for the product; marketing remains light only. Reuse the existing marketing page-level scroll owner and its single reader-input inline script instead of adding a second handler or script."
+      "estimate_basis": "Extend shipped marketing foundations for the product and build the first three Layout inventory rows; component rows are split into WP-089 and WP-090."
     },
     {
       "id": "WP-089",

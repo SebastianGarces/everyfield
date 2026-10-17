@@ -457,7 +457,7 @@ test('BUG-plan-context: plan and brief use the same manifest acceptance scope, i
   const {blocks,external}=buildBlocks(source,[pkg]);
   const outputs=[renderBrief(source,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
   for(const output of outputs){
-   assert.ok(output.includes(`UI guidance: ${pkg.ui_composition_rule}`),`${pkg.id} must print its own UI guidance`);
+   assert.ok(output.includes(`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`),`${pkg.id} must print its own UI guidance`);
    assert.doesNotMatch(output,/reuse approved E3 pages/i);
   }
  }

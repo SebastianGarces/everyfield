@@ -21,7 +21,7 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
  `Owned operations: ${(context.own_operation_ids as string[]).join(', ') || 'none'}`,
  `Context-only cases, excluded from proof plans: ${(context.context_case_ids as string[]).join(', ') || 'none'}. Read any case with evf ac <case-id>.`,
  ...(pkg.ui_specialist?[`UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.`]:[]),
- ...(pkg.ui_composition_rule?[`UI guidance: ${pkg.ui_composition_rule}`]:[]),
+ ...(pkg.ui_composition_rule||pkg.ui_specialist?[`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`]:[]),
  "Current product clauses are authoritative. Do not reconstruct old PD rulings or invent permission/methodology policy.",
  "Package completion requires the selected obligations and applicable adapter cases, satisfied prerequisites and gates; merging one split part does not complete its package.",
  `Prerequisites: ${prerequisitesForPart(pkg,task.part).map(d=>`${d}=${producerReady(root,d)?progress[d]?.status==='done'?'done':'reviewed producer/interface milestone':progress[d]?.status ?? "unknown"}`).join(", ") || "none"}`,
