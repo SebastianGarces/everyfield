@@ -43,13 +43,10 @@ const actor = randomUUID(),
 const password = randomBytes(32).toString("hex");
 before(async () => {
 	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-	assert.deepEqual(await applyVersionedMigration(admin, schema), [
-		"0001_early_access.sql",
-		"0002_baseline.sql",
-		"0003_access_privileges.sql",
-		"0004_people.sql",
-		"0005_organization_relationships.sql",
-	]);
+	assert.deepEqual(
+		await applyVersionedMigration(admin, schema),
+		(await migrationArtifact()).map((migration) => migration.name),
+	);
 	await admin.execute(
 		querySql.raw(
 			`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
