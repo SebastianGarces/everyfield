@@ -51,13 +51,14 @@ export function EvrySection({
 
 /**
  * The sending glimpse: one headline, one sentence and the link to /oversight, with a still card of the plants Grace
- * Church sends. The four-step oversight chapter stays on /oversight.
+ * Church sends. The four-step oversight chapter stays on /oversight. The section is the teal surface, full width;
+ * only the content rises in, so the surface never moves or changes size.
  */
 export function SendingGlimpse({ title, body, link }: { title: string; body: string; link: string }) {
 	return (
-		<section id="sending" aria-labelledby="sending-title" className="relative py-section">
+		<section id="sending" aria-labelledby="sending-title" className="mk-gsurf g-sea relative py-section">
 			<div className="mx-auto max-w-mk px-page">
-				<Reveal className="mk-gsurf g-sea grid grid-cols-12 items-center gap-x-4 gap-y-8 rounded-card px-[clamp(20px,4vw,64px)] py-[clamp(36px,5vw,72px)] text-ink shadow-mk-cta">
+				<Reveal className="grid grid-cols-12 items-center gap-x-4 gap-y-8 px-[clamp(20px,4vw,64px)] py-[clamp(36px,5vw,72px)] text-ink">
 					<div className="col-span-6 min-w-0 max-mk-cx:col-span-12">
 						<Display as="h2" size="h2" id="sending-title">
 							{title}
