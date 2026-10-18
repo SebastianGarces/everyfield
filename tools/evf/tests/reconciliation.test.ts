@@ -1,4 +1,5 @@
 import { checkPrBody } from '../pr-body.ts';
+import { prImages } from '../../wiki/pr-images.ts';
 import { createHash } from 'node:crypto';
 import { packageContext, loadProgress, partsOf } from '../lib.ts';
 import { feedbackPromote, feedbackIdeas } from '../feedback.ts';
@@ -479,6 +480,33 @@ test('BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
   assert.deepEqual(created.args.slice(-3),['--draft','--label','prototype']);
   assert.throws(()=>ship(f.root,task),/is a prototype/);
  }finally{f.close();}
+});
+
+test('BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on first upload and replacement',async()=>{
+ const f=fixture(),oldGlobal=process.env.GIT_CONFIG_GLOBAL;try {
+  const gist=join(f.root,'fake-bin/screenshots.git');
+  execFileSync('git',['init','--bare',gist],{stdio:'ignore'});
+  const config=join(f.root,'fake-bin/gist.gitconfig');
+  writeFileSync(config,`[url "file://${gist}"]\n\tinsteadOf = https://gist.github.com/a1b2c3.git\n`);
+  process.env.GIT_CONFIG_GLOBAL=config;
+  const body=readFileSync(join(f.root,'tools/evf/templates/wiki-pr.md'),'utf8')
+   .replace(/<!--[^]*?-->/g,comment=>/^<!-- \/?wiki-screenshots -->$/.test(comment)?comment:'')
+   .replace(/^## .+$/gm,heading=>heading+'\nVerified fixture article evidence.')
+   .replace('EVF-Author: <family>','EVF-Author: openai')+'\n🤖 Generated with [Codex](https://openai.com/codex/)';
+  const state=f.getState();state.pr={body};f.setState(state);
+  for(const name of ['article.png','article-mobile.png']) {
+   const png=join(f.root,'fake-bin',name);
+   writeFileSync(png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64'));
+   await prImages(77,[png],true,f.root);
+   const published=f.getState().pr.body;
+   assert.equal(checkPrBody(f.root,published,'wiki').authorFamily,'openai');
+   const image=`![${name.replace(/\.png$/,'')}](https://gist.githubusercontent.com/fixture-owner/a1b2c3/raw/${name})`;
+   assert.ok(published.indexOf(image)>published.indexOf('## Verification'));
+   assert.ok(published.indexOf(image)<published.indexOf('## Review and approval'));
+   assert.equal(execFileSync('git',['--git-dir',gist,'ls-tree','--name-only','HEAD'],{encoding:'utf8'}).trim(),name);
+  }
+  assert.equal(f.getState().calls.filter(c=>c.args[0]==='gist'&&c.args[1]==='create').length,1);
+ }finally{if(oldGlobal===undefined)delete process.env.GIT_CONFIG_GLOBAL;else process.env.GIT_CONFIG_GLOBAL=oldGlobal;f.close();}
 });
 
 test('INV-phase7-ship: red or missing CI, same-family approval and older-head approval refuse before merging',()=>{

@@ -29,9 +29,11 @@ These unsigned statements rely on the coordinator assigning the actual models co
 They do not authenticate a model provider. GitHub comments allow agents sharing the owner's
 account to record independent review without GitHub's self-review restriction.
 
-Ordinary PR sections come only from `.agents/skills/everyfield-pr/template.md`. Wiki article
-sections come from `tools/evf/templates/wiki-pr.md`; feedback prototypes use
-`tools/evf/templates/prototype-pr.md`. All formats require EVF-Author and host attribution.
+The required section list for ordinary PRs is `.agents/skills/everyfield-pr/template.md`.
+Wiki article and prototype PRs already use separate owner routes in
+`.agents/skills/ship/SKILL.md`; they use the class templates in `tools/evf/templates/`.
+All formats require EVF-Author and host attribution. Keep the Wiki template's screenshot
+markers inside Verification so `bin/wiki pr-images --update-body` updates images in place.
 `bin/evf pr body --body-file <file>` checks a local ordinary body; add `--class wiki` or
 `--class prototype` to preview another format. `bin/evf pr body <PR>` reads the body and PR
 metadata from GitHub. A `wiki/<slug>` branch qualifies only when every changed file is under

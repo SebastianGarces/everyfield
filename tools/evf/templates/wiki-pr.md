@@ -8,6 +8,10 @@
 
 <!-- Give the tested SHA, lint/render results and desktop/mobile screenshot links. -->
 
+<!-- Keep both screenshot markers here. bin/wiki pr-images --update-body replaces this block in place. -->
+<!-- wiki-screenshots -->
+<!-- /wiki-screenshots -->
+
 ## Review and approval
 
 <!-- State independent Opus review status, open rulings and Sebastian's approval status. -->
