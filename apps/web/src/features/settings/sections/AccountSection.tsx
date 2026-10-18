@@ -9,7 +9,7 @@ import { EmailChange } from "../flows/EmailChange";
 import { PasswordDialog } from "../flows/PasswordDialog";
 import { PersonalTimezone } from "../flows/PersonalTimezone";
 import type { DeletionStatus, SectionResult } from "../port";
-import { useWrite } from "../save";
+import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
 
@@ -50,9 +50,8 @@ function AccountForm({
 	reload: () => void;
 	onDeletionRequested: (status: DeletionStatus) => void;
 }) {
-	const { draft, setDraft, dirty, begin, settle } = useDraft("account", { name: account.name });
+	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft("account", { name: account.name });
 	const [showError, setShowError] = useState(false);
-	const write = useWrite("account-name");
 	const { port } = useSettings();
 	const nameError = !draft.name.trim()
 		? "Enter your name."
@@ -60,18 +59,19 @@ function AccountForm({
 			? "Use 200 characters or fewer."
 			: undefined;
 
-	const save = async () => {
+	const save = () => {
 		setShowError(true);
 		if (nameError) return;
-		const sent = begin();
-		const input = { section: "account" as const, name: sent.name.trim() };
-		const result = await write.run({ revision: account.revision, input }, (requestKey) =>
-			port.saveSection({ requestKey, expectedRevision: account.revision, input }),
-		);
-		const now = result.ok && result.value.current.section === "account" ? result.value.current : account;
-		if (result.ok) replace(result.value.current);
-		settle({ sent, savedNow: { name: now.name }, ok: result.ok });
-		if (result.ok) setShowError(false);
+		void runSave(async (sent) => {
+			const input = { section: "account" as const, name: sent.name.trim() };
+			const result = await attempt("account-name", (requestKey) =>
+				port.saveSection({ requestKey, expectedRevision: account.revision, input }),
+			);
+			if (!result.ok) return { ok: false, refusal: result.refusal };
+			replace(result.value.current);
+			const now = result.value.current.section === "account" ? result.value.current.name : account.name;
+			return { ok: true, server: { name: now } };
+		});
 	};
 
 	return (
@@ -112,15 +112,15 @@ function AccountForm({
 			<SaveFooter
 				section="account"
 				dirty={dirty}
-				saving={write.pending}
+				saving={saving}
 				onSave={save}
 				error={
-					write.refusal ? (
+					refusal ? (
 						<SaveError
-							message={write.refusal.message}
-							reference={write.refusal.reference}
+							message={refusal.message}
+							reference={refusal.reference}
 							action={
-								write.refusal.code === "conflict" || write.refusal.code === "unknown" ? (
+								refusal.code === "conflict" || refusal.code === "unknown" ? (
 									<Button size="sm" variant="secondary" onClick={reload}>
 										Load latest
 									</Button>

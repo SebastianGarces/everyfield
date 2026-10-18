@@ -5,7 +5,7 @@ import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { canDeleteWorkspace } from "../model";
 import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, SectionResult } from "../port";
-import { useWrite } from "../save";
+import { attempt, type Refusal } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../time";
@@ -113,9 +113,8 @@ function ChurchForm({
 }) {
 	const { port, viewer } = useSettings();
 	const saved = formOf(section.values);
-	const { draft, setDraft, dirty, begin, settle } = useDraft<Form>("church", saved);
+	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft<Form>("church", saved);
 	const [showErrors, setShowErrors] = useState(false);
-	const write = useWrite("plant-settings");
 	const [zoneOpen, setZoneOpen] = useState(false);
 	const [zoneSession, setZoneSession] = useState(0);
 	const errors = validate(draft);
@@ -124,47 +123,51 @@ function ChurchForm({
 
 	// One section save can hold up to three contract changes. Each one is sent with the revision the previous one
 	// returned. A refusal stops the rest, keeps every unsaved value in the draft and says why.
-	const save = async () => {
+	const save = () => {
 		setShowErrors(true);
 		if (Object.keys(errors).length > 0) return;
-		const sent = begin();
-		let current = section;
-		const patch = Object.fromEntries(
-			(["name", "street", "city", "stateProvince", "country", "description"] as const)
-				.filter((k) => draft[k].trim() !== saved[k])
-				.map((k) => [k, k === "name" ? draft.name.trim() : nullable(draft[k])]),
-		);
-		const changes = [
-			Object.keys(patch).length > 0 ? { kind: "profile" as const, patch } : null,
-			draft.warningDays !== saved.warningDays || draft.alertDays !== saved.alertDays
-				? {
-						kind: "inactivity" as const,
-						value: { warningDays: Number(draft.warningDays), alertDays: Number(draft.alertDays) },
-					}
-				: null,
-			JSON.stringify(draft.digest) !== JSON.stringify(saved.digest)
-				? { kind: "digest" as const, value: draft.digest }
-				: null,
-		].filter((c) => c !== null);
-		let ok = true;
-		for (const change of changes) {
-			const input = { section: "plant" as const, plant: current.plant, change };
-			const result = await write.run({ revision: current.revision, input }, (requestKey) =>
-				port.saveSection({ requestKey, expectedRevision: current.revision, input }),
+		void runSave(async (sent) => {
+			let current = section;
+			const patch = Object.fromEntries(
+				(["name", "street", "city", "stateProvince", "country", "description"] as const)
+					.filter((k) => sent[k].trim() !== saved[k])
+					.map((k) => [k, k === "name" ? sent.name.trim() : nullable(sent[k])]),
 			);
-			if (!result.ok || result.value.current.section !== "plant") {
-				ok = false;
-				break;
+			const changes = [
+				Object.keys(patch).length > 0 ? { kind: "profile" as const, patch } : null,
+				sent.warningDays !== saved.warningDays || sent.alertDays !== saved.alertDays
+					? {
+							kind: "inactivity" as const,
+							value: { warningDays: Number(sent.warningDays), alertDays: Number(sent.alertDays) },
+						}
+					: null,
+				JSON.stringify(sent.digest) !== JSON.stringify(saved.digest)
+					? { kind: "digest" as const, value: sent.digest }
+					: null,
+			].filter((c) => c !== null);
+			let refused: Refusal | null = null;
+			for (const change of changes) {
+				const input = { section: "plant" as const, plant: current.plant, change };
+				const result = await attempt("plant-settings", (requestKey) =>
+					port.saveSection({ requestKey, expectedRevision: current.revision, input }),
+				);
+				if (!result.ok) {
+					refused = result.refusal;
+					break;
+				}
+				if (result.value.current.section !== "plant") break;
+				current = result.value.current;
+				replace(current);
 			}
-			current = result.value.current;
-			replace(current);
-		}
-		settle({ sent, savedNow: formOf(current.values), ok });
-		if (ok) setShowErrors(false);
+			// After a refusal, report a server value only when an earlier step of this save committed one.
+			const server = formOf(current.values);
+			if (!refused) return { ok: true, server };
+			return current === section ? { ok: false, refusal: refused } : { ok: false, refusal: refused, server };
+		});
 	};
 
 	const loadLatest =
-		write.refusal && (write.refusal.code === "conflict" || write.refusal.code === "unknown") ? (
+		refusal && (refusal.code === "conflict" || refusal.code === "unknown") ? (
 			<Button size="sm" variant="secondary" onClick={reload}>
 				Load latest
 			</Button>
@@ -278,11 +281,11 @@ function ChurchForm({
 			<SaveFooter
 				section="church"
 				dirty={dirty}
-				saving={write.pending}
+				saving={saving}
 				onSave={save}
 				error={
-					write.refusal ? (
-						<SaveError message={write.refusal.message} reference={write.refusal.reference} action={loadLatest} />
+					refusal ? (
+						<SaveError message={refusal.message} reference={refusal.reference} action={loadLatest} />
 					) : showErrors && Object.keys(errors).length > 0 ? (
 						<SaveError message="Some values need a change before you can save. They are marked in red." />
 					) : undefined

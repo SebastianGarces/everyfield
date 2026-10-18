@@ -1,30 +1,38 @@
 "use client";
 
 import type { Loadable } from "@everyfield/ui/display";
-import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { errorReference, errorText, sameValue } from "./model";
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, same, visible, type Book } from "./drafts";
+import { errorReference, errorText } from "./model";
+import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
 
 // The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
 // back/forward (WP-010/ui R2). It is keyed by account and context by its owner (SettingsProvider), so switching
 // account remounts it and no draft or cached section crosses accounts.
 
-type Draft = { value: unknown; dirty: boolean };
-
 type StoreValue = {
 	port: SettingsPort;
 	viewer: SettingsViewer;
-	drafts: Partial<Record<SectionKey, Draft>>;
-	setDraft: (key: SectionKey, value: unknown, dirty: boolean) => void;
-	saving: Set<SectionKey>;
-	beginSave: (key: SectionKey) => void;
-	settleDraft: (key: SectionKey, outcome: { sent: unknown; savedNow: unknown; ok: boolean }) => void;
+	book: Book<SectionKey, Refusal>;
+	/** The server value per section as a draft form, for the nav mark and the close guard. */
+	servers: Partial<Record<SectionKey, unknown>>;
+	observe: (key: SectionKey, server: unknown) => void;
+	editDraft: (key: SectionKey, value: unknown, server: unknown) => void;
+	runSave: (key: SectionKey, server: unknown, work: (sent: unknown) => Promise<SaveOutcome<unknown>>) => Promise<void>;
+	clearDrafts: () => void;
 	flows: Record<string, unknown>;
 	setFlow: (key: string, update: (prev: unknown) => unknown) => void;
-	clearDrafts: () => void;
 	sections: Map<string, SectionResult>;
 	remember: (cacheKey: string, value: SectionResult) => void;
 };
+
+/**
+ * What a section's save work reports. A success gives the server value (as the section's form) from its last reply.
+ * A refusal gives it only when an earlier step of the same save committed; otherwise the store uses the latest
+ * server value it holds. No value captured when Save was pressed is ever used.
+ */
+export type SaveOutcome<T> = { ok: true; server: T } | { ok: false; refusal: Refusal; server?: T };
 
 const Store = createContext<StoreValue | null>(null);
 
@@ -43,46 +51,60 @@ export function SettingsProvider({
 	viewer: SettingsViewer;
 	children: ReactNode;
 }) {
-	const [drafts, setDrafts] = useState<Partial<Record<SectionKey, Draft>>>({});
+	// The draft book (drafts.ts). React state drives rendering; the ref is the same value for async save code,
+	// which must decide on the latest book, not the one its render saw. Only commit() writes either.
+	const [book, setBook] = useState(() => emptyBook<SectionKey, Refusal>());
+	const bookRef = useRef(book);
+	const commit = useCallback((next: Book<SectionKey, Refusal>) => {
+		bookRef.current = next;
+		setBook(next);
+	}, []);
+	const [servers, setServers] = useState<Partial<Record<SectionKey, unknown>>>({});
+	const serversRef = useRef(servers);
+	const observe = useCallback((key: SectionKey, server: unknown) => {
+		if (key in serversRef.current && same(serversRef.current[key], server)) return;
+		serversRef.current = { ...serversRef.current, [key]: server };
+		setServers(serversRef.current);
+	}, []);
 	const [sections, setSections] = useState(() => new Map<string, SectionResult>());
-	const setDraft = useCallback(
-		(key: SectionKey, value: unknown, dirty: boolean) =>
-			setDrafts((all) => {
-				if (!dirty) {
-					if (!(key in all)) return all;
-					const next = { ...all };
-					delete next[key];
-					return next;
-				}
-				return { ...all, [key]: { value, dirty } };
-			}),
-		[],
+	const editDraft = useCallback(
+		(key: SectionKey, value: unknown, server: unknown) => commit(edit(bookRef.current, key, value, server)),
+		[commit],
 	);
-	const clearDrafts = useCallback(() => setDrafts({}), []);
+	// The store owns every save: at most one per section, whichever screen started it, and its reply lands here even
+	// after the section unmounted. The reply is reconciled against the server value it reports, never a snapshot.
+	const runSave = useCallback(
+		async (key: SectionKey, server: unknown, work: (sent: unknown) => Promise<SaveOutcome<unknown>>) => {
+			const started = begin(bookRef.current, key, server);
+			if (!started) return;
+			commit(started.book);
+			let outcome: SaveOutcome<unknown>;
+			try {
+				outcome = await work(started.sent);
+			} catch {
+				outcome = {
+					ok: false,
+					refusal: {
+						message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
+						reference: "EF-OFFLINE",
+						code: "unknown",
+					},
+				};
+			}
+			if (outcome.server !== undefined) observe(key, outcome.server);
+			commit(finish(bookRef.current, key, outcome, serversRef.current[key]));
+		},
+		[commit, observe],
+	);
+	const clearDrafts = useCallback(() => {
+		let next = bookRef.current;
+		for (const key of Object.keys(next.edits) as SectionKey[]) next = discard(next, key);
+		commit(next);
+	}, [commit]);
 	const [flows, setFlows] = useState<Record<string, unknown>>({});
 	const setFlow = useCallback(
 		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
 		[],
-	);
-	// Sections with a save in flight. While a save runs, every edit is kept as a draft, even one that types the old
-	// saved value back: the saved value is about to change, so only the reply can say whether the edit is clean.
-	const [saving] = useState(() => new Set<SectionKey>());
-	const beginSave = useCallback((key: SectionKey) => saving.add(key), [saving]);
-	// When the save ends, drop the draft if it is what a successful save sent, or if it equals what the server now
-	// holds. Anything else is an edit the person made meanwhile, and it stays.
-	const settleDraft = useCallback(
-		(key: SectionKey, { sent, savedNow, ok }: { sent: unknown; savedNow: unknown; ok: boolean }) => {
-			saving.delete(key);
-			setDrafts((all) => {
-				const entry = all[key];
-				if (!entry) return all;
-				if (!(ok && sameValue(entry.value, sent)) && !sameValue(entry.value, savedNow)) return all;
-				const next = { ...all };
-				delete next[key];
-				return next;
-			});
-		},
-		[saving],
 	);
 	const remember = useCallback(
 		(cacheKey: string, value: SectionResult) => setSections((all) => new Map(all).set(cacheKey, value)),
@@ -92,22 +114,22 @@ export function SettingsProvider({
 		() => ({
 			port,
 			viewer,
-			drafts,
-			setDraft,
-			saving,
-			beginSave,
-			settleDraft,
+			book,
+			servers,
+			observe,
+			editDraft,
+			runSave,
 			clearDrafts,
 			sections,
 			remember,
 			flows,
 			setFlow,
 		}),
-		[port, viewer, drafts, setDraft, saving, beginSave, settleDraft, clearDrafts, sections, remember, flows, setFlow],
+		[port, viewer, book, servers, observe, editDraft, runSave, clearDrafts, sections, remember, flows, setFlow],
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
-	const anyDirty = Object.keys(drafts).length > 0;
+	const anyDirty = dirtyKeys(book, servers).length > 0;
 	useEffect(() => {
 		if (!anyDirty) return;
 		const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -118,24 +140,25 @@ export function SettingsProvider({
 	return <Store value={value}>{children}</Store>;
 }
 
+function dirtyKeys(book: Book<SectionKey, Refusal>, servers: Partial<Record<SectionKey, unknown>>): SectionKey[] {
+	return (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
+}
+
 export function useSettings() {
 	const { port, viewer } = useStore();
 	return { port, viewer };
 }
 
-/** The sections that hold unsaved drafts. */
+/** The sections whose visible value differs from the server value. */
 export function useDirtySections(): { keys: SectionKey[]; clear: () => void } {
-	const { drafts, clearDrafts } = useStore();
-	return { keys: Object.keys(drafts) as SectionKey[], clear: clearDrafts };
+	const { book, servers, clearDrafts } = useStore();
+	return { keys: dirtyKeys(book, servers), clear: clearDrafts };
 }
 
 /**
- * A section's draft. It starts from the saved value and stays in the store until it matches the saved value again
- * or a save of it succeeds, so leaving the section and coming back keeps what was typed. A section is dirty exactly
- * when the store holds its draft: the footer, the nav mark and the close guard read the same fact.
- * A save calls `begin()` (it returns what is sent) and then `settle(...)` with the outcome and the value the
- * server now holds. A successful save drops the draft if it is still what was sent (so "Name " saved as "Name" is
- * clean); an edit made while the save ran stays, even when it types the old value back.
+ * A section's draft, from the store's book (drafts.ts). `saved` is the server value as this form, from the section
+ * cache. The draft survives leaving the section; so do its save in flight and its refusal. `save(work)` starts the
+ * section's one save: `work` gets exactly what is sent and reports the outcome with the server value after it.
  */
 export function useDraft<T>(
 	key: SectionKey,
@@ -144,23 +167,22 @@ export function useDraft<T>(
 	draft: T;
 	setDraft: (next: T) => void;
 	dirty: boolean;
-	reset: () => void;
-	begin: () => T;
-	settle: (outcome: { sent: T; savedNow: T; ok: boolean }) => void;
+	saving: boolean;
+	refusal: Refusal | null;
+	save: (work: (sent: T) => Promise<SaveOutcome<T>>) => Promise<void>;
 } {
-	const { drafts, setDraft, saving, beginSave, settleDraft } = useStore();
-	const stored = drafts[key];
-	const draft = stored ? (stored.value as T) : saved;
+	const { book, observe, editDraft, runSave } = useStore();
+	const savedJson = JSON.stringify(saved);
+	useEffect(() => {
+		observe(key, JSON.parse(savedJson));
+	}, [observe, key, savedJson]);
 	return {
-		draft,
-		dirty: stored !== undefined,
-		setDraft: (next: T) => setDraft(key, next, saving.has(key) || !sameValue(next, saved)),
-		begin: () => {
-			beginSave(key);
-			return draft;
-		},
-		settle: (outcome) => settleDraft(key, outcome),
-		reset: () => setDraft(key, saved, false),
+		draft: visible(book, key, saved) as T,
+		dirty: isDirty(book, key, saved),
+		saving: isSaving(book, key),
+		refusal: book.refusals[key] ?? null,
+		setDraft: (next: T) => editDraft(key, next, saved),
+		save: (work) => runSave(key, saved, work as (sent: unknown) => Promise<SaveOutcome<unknown>>),
 	};
 }
 

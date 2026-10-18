@@ -5,7 +5,7 @@ import { Button, Field, Input, Skeleton, StatePanel, Textarea } from "@everyfiel
 import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import type { OrganizationOwner, SectionResult } from "../port";
-import { useWrite } from "../save";
+import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
 import { zoneLabel } from "../time";
@@ -95,34 +95,34 @@ function OrganizationForm({
 }) {
 	const { port } = useSettings();
 	const saved = formOf(values);
-	const { draft, setDraft, dirty, begin, settle } = useDraft<Form>("organization", saved);
+	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft<Form>("organization", saved);
 	const [checked, setChecked] = useState(false);
-	const write = useWrite("organization-profile");
 	const errors = validateOrganization(draft);
 	const visible = checked ? errors : {};
 	const set = (k: keyof Form) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
 
-	const save = async () => {
+	const save = () => {
 		setChecked(true);
 		if (Object.keys(errors).length > 0) return;
-		const patch = Object.fromEntries(
-			FIELDS.filter((k) => draft[k].trim() !== saved[k]).map((k) => [
-				k,
-				k === "name" ? draft.name.trim() : draft[k].trim() === "" ? null : draft[k].trim(),
-			]),
-		);
-		const sent = begin();
-		if (Object.keys(patch).length === 0) return settle({ sent, savedNow: saved, ok: true });
-		const input = { section: "organization" as const, organization: values.organization, patch };
-		const result = await write.run({ revision: values.revision, input }, (requestKey) =>
-			port.saveSection({ requestKey, expectedRevision: values.revision, input }),
-		);
-		const current = result.ok ? result.value.current : null;
-		const now =
-			current?.section === "organization" && current.values.status === "available" ? formOf(current.values) : saved;
-		if (current) replace(current);
-		settle({ sent, savedNow: now, ok: result.ok });
-		if (result.ok) setChecked(false);
+		void runSave(async (sent) => {
+			const patch = Object.fromEntries(
+				FIELDS.filter((k) => sent[k].trim() !== saved[k]).map((k) => [
+					k,
+					k === "name" ? sent.name.trim() : sent[k].trim() === "" ? null : sent[k].trim(),
+				]),
+			);
+			if (Object.keys(patch).length === 0) return { ok: true, server: formOf(values) };
+			const input = { section: "organization" as const, organization: values.organization, patch };
+			const result = await attempt("organization-profile", (requestKey) =>
+				port.saveSection({ requestKey, expectedRevision: values.revision, input }),
+			);
+			if (!result.ok) return { ok: false, refusal: result.refusal };
+			const current = result.value.current;
+			replace(current);
+			const now =
+				current.section === "organization" && current.values.status === "available" ? formOf(current.values) : saved;
+			return { ok: true, server: now };
+		});
 	};
 
 	return (
@@ -184,15 +184,15 @@ function OrganizationForm({
 			<SaveFooter
 				section="organization"
 				dirty={dirty}
-				saving={write.pending}
+				saving={saving}
 				onSave={save}
 				error={
-					write.refusal ? (
+					refusal ? (
 						<SaveError
-							message={write.refusal.message}
-							reference={write.refusal.reference}
+							message={refusal.message}
+							reference={refusal.reference}
 							action={
-								write.refusal.code === "conflict" || write.refusal.code === "unknown" ? (
+								refusal.code === "conflict" || refusal.code === "unknown" ? (
 									<Button size="sm" variant="secondary" onClick={reload}>
 										Load latest
 									</Button>

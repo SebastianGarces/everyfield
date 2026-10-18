@@ -5,9 +5,11 @@
 //   INV-focus-back: Back between sections leaves focus inside the dialog, never on the page body.
 //   INV-save-refused: a refused explicit save keeps the draft, says why and offers Load latest (ChurchSection).
 //   INV-save-clean: a successful save (also one the server trims) leaves no draft, so closing does not ask; an edit
-//     typed while the save is pending stays unsaved, also one that types the old value back (useDraft begin/settle).
+//     typed while the save is pending stays unsaved, also one that types the old value back, also after leaving the
+//     section and trying a second Save (store-owned saves, drafts.ts).
 //   INV-autosave-rollback: a refused switch returns to the saved value and says why (NotificationsSection).
 //   INV-section-scope: a Member is not offered the church profile and its deep link shows no access, not data.
+//   INV-draft-model (drafts-model.test.mjs): the same rules over random interleavings, without a browser.
 //   INV-account-switch: switching account drops drafts (SettingsProvider key).
 //   INV-email-once: a second Enter while the email link is sending sends nothing (EmailChange).
 //   INV-avatar-check: wrong type and size never upload; a failed save keeps the old photo (AvatarControl).
@@ -163,6 +165,35 @@ for (const [name, engine] of ENGINES) {
 				assert.ok(await dialog(page).getByText("Unsaved changes", { exact: true }).isVisible());
 				await page.keyboard.press("Escape");
 				await discard(page).waitFor();
+			});
+			// The save outlives its section: leave while it runs, come back, try a second Save and type the old value
+			// back. The store allows one save per section, so no second request goes out, and the reply keeps the
+			// typed-back value as an unsaved draft against the newly saved value.
+			await open(`${SETTINGS}/notifications?as=owner&delay=4000`, async (page) => {
+				await page.getByRole("table").waitFor();
+				await dialog(page).getByRole("link", { name: "Church profile" }).click();
+				await churchName(page).fill("Harvest Point Church first");
+				await dialog(page).getByRole("button", { name: "Save" }).click();
+				await dialog(page).getByRole("link", { name: "Notifications" }).click();
+				await page.getByRole("table").waitFor();
+				await dialog(page)
+					.getByRole("link", { name: /^Church profile/ })
+					.click();
+				const saveButton = dialog(page).getByRole("button", { name: "Save" });
+				assert.equal(
+					await saveButton.getAttribute("aria-busy"),
+					"true",
+					"back in the section, the first save still runs",
+				);
+				await churchName(page).fill("Harvest Point Church second");
+				await saveButton.click();
+				await churchName(page).fill("Harvest Point Church");
+				await page.waitForFunction(() => !document.querySelector("[aria-busy=true]"), null, { timeout: 15_000 });
+				await page.waitForTimeout(300);
+				const calls = await page.evaluate(() => window.__settingsFixture.calls);
+				assert.equal(calls.saveSection, 1, "a second Save during the first sends nothing");
+				assert.equal(await churchName(page).inputValue(), "Harvest Point Church", "the typed-back value is kept");
+				assert.ok(await dialog(page).getByText("Unsaved changes", { exact: true }).isVisible());
 			});
 		});
 

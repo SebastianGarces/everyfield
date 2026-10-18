@@ -12,6 +12,12 @@ export function refusalOf(error: SettingsError): Refusal {
 	return { message: errorText(error), reference: errorReference(error), code: error.code };
 }
 
+/** One write for a section save the store runs: a fresh request key, and a refusal in words. */
+export async function attempt<T>(prefix: string, call: (requestKey: string) => Promise<Reply<T>>): Promise<Outcome<T>> {
+	const reply = await call(newRequestKey(prefix));
+	return reply.status === "ok" ? { ok: true, value: reply.value } : { ok: false, refusal: refusalOf(reply.error) };
+}
+
 /**
  * Runs one write at a time and keeps its refusal. A retry of the same payload reuses its request key, so the server
  * returns the recorded result instead of applying it twice; a changed payload gets a new key.
