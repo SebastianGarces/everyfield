@@ -55,8 +55,10 @@ import { readFileSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 
 test('INV-authorization: unready override and unopened application gate cannot mutate worktrees',()=>{
  const f=fixture();try{
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  gates.gates.find((g:{id:string})=>g.id==='G-AUTH').status='not-authorized';writeFileSync(path,JSON.stringify(gates));
   assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:true,noStack:true}),/allow-unready is removed/);
-  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH|Missing reviewed task risk classification/);
+  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH is not closed for application implementation/);
   assert.equal(f.git('branch','--list','task/*'),'');
  }finally{f.close();}
 });
@@ -166,14 +168,16 @@ test('INV-feedback-reservations: old reservation charges current budget, recover
  }finally{f.close();}
 });
 test('INV-workflow-routing: Next server paths stay with implementor and presentation/browser paths route to UI',()=>{
- const pkg=loadDag(source).packages.find(p=>p.id==='WP-003')!;
+ const f=fixture();try{
+ const pkg=loadDag(f.root).packages.find(p=>p.id==='WP-003')!;
  assert.deepEqual(partsOf(pkg),[null]);
- const {blocks}=buildBlocks(source,[pkg]);assert.equal(blocks[0].specialist,'implementor');
- const ui=loadDag(source).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
- assert.ok(buildBlocks(source,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
- const design=loadDag(source).packages.find(p=>p.id==='WP-088')!;
- const planned=buildBlocks(source,[design]).blocks;
+ const {blocks}=buildBlocks(f.root,[pkg]);assert.equal(blocks[0].specialist,'implementor');
+ const ui=loadDag(f.root).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
+ assert.ok(buildBlocks(f.root,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
+ const design=loadDag(f.root).packages.find(p=>p.id==='WP-088')!;
+ const planned=buildBlocks(f.root,[design]).blocks;
  assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/src/foundations/','packages/ui/src/shell/','tests/ui/foundations/','tests/ui/shell/']}]);
+ }finally{f.close();}
 });
 
 import { ship, listShipped, prOpen, checkPr } from '../ship.ts';
@@ -310,34 +314,36 @@ test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded
 });
 
 test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
- const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
- const context=packageContext(source,pkg.id),block=buildBlocks(source,[pkg]).blocks[0];
+ const f=fixture();try{
+ const pkg=loadDag(f.root).packages.find(p=>p.id==='WP-001')!;
+ const context=packageContext(f.root,pkg.id),block=buildBlocks(f.root,[pkg]).blocks[0];
  assert.equal(block.acceptanceCount,context.acceptance_ids.length);
- assert.match(renderBrief(source,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
+ assert.match(renderBrief(f.root,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
  assert.equal(block.acceptanceCount,8);
- const brief=renderBrief(source,parseTask('WP-002'),{});
+ const brief=renderBrief(f.root,parseTask('WP-002'),{});
  assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
  assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
  assert.match(brief,/Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
  assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
- const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
- const parts=buildBlocks(source,selected).blocks;
+ const selected=loadDag(f.root).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
+ const parts=buildBlocks(f.root,selected).blocks;
  assert.deepEqual(parts.filter(b=>b.wp==='WP-005').map(b=>[b.part,b.dependsOn]),[
   ['contract',[]],['api',['wp-005-contract']],['ui',['wp-088','wp-089','wp-090','wp-005-contract']]]);
- const ui=renderBrief(source,parseTask('WP-005/ui'),{});
+ const ui=renderBrief(f.root,parseTask('WP-005/ui'),{});
  assert.match(ui,/Design prototype: design\/everyfield-ui\.html/);
  assert.match(ui,/Screen map: design\/handoff\/screens\.md/);
  assert.match(ui,/screens\.md#L\d+: Sign in, with an invitation notice/);
- assert.match(renderBrief(source,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
- for(const pkg of loadDag(source).packages.filter(p=>['WP-088','WP-049','WP-097'].includes(p.id))){
-  const {blocks,external}=buildBlocks(source,[pkg]);
-  const outputs=[renderBrief(source,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
+ assert.match(renderBrief(f.root,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
+ for(const pkg of loadDag(f.root).packages.filter(p=>['WP-088','WP-049','WP-097'].includes(p.id))){
+  const {blocks,external}=buildBlocks(f.root,[pkg]);
+  const outputs=[renderBrief(f.root,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
   for(const output of outputs){
    assert.ok(output.includes(`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`),`${pkg.id} must print its own UI guidance`);
    assert.doesNotMatch(output,/reuse approved E3 pages/i);
   }
  }
 
+ }finally{f.close();}
 });
 
 
@@ -357,15 +363,17 @@ test('INV-case-coverage: one passing test covers several cases by exact name or 
 
 import { bootstrapReadiness } from '../doctor.ts';
 test('BUG-bootstrap-reader: case and full brief preserve structured fixtures, actors, clock, actions, expected and groups',()=>{
- const c=renderAc(source,'REF-CASE-001');
+ const f=fixture();try{
+ const c=renderAc(f.root,'REF-CASE-001');
  assert.match(c,/"timezone": "America\/Chicago"/);assert.match(c,/"accepted_original_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"/);
  for(const field of ['given','actor','clock','action','expected'])assert.ok(c.includes(field+':\n```json\n'));
  assert.doesNotMatch(c,/undefined|\[object Object\]/);
- assert.match(renderAc(source,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
- const subcases=renderAc(source,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
- const full=renderBrief(source,parseTask('WP-001'),{full:true});
+ assert.match(renderAc(f.root,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
+ const subcases=renderAc(f.root,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
+ const full=renderBrief(f.root,parseTask('WP-001'),{full:true});
  assert.ok(full.includes(c));assert.doesNotMatch(full,/fixture undefined|\[object Object\]/);
- const catalog=loadRegistry(source);assert.ok(renderAc(source,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+ const catalog=loadRegistry(f.root);assert.ok(renderAc(f.root,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+ }finally{f.close();}
 });
 
 function validPrBody() {
