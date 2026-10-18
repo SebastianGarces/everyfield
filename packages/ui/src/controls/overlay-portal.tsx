@@ -5,14 +5,17 @@ import { useRef, useSyncExternalStore } from "react";
 const subscribe = () => () => {};
 
 /**
- * The element every overlay portals into: the product root, not <body>. Product rules (font, focus ring, the dark
- * variant and the light-token island) are scoped to [data-product-root], so an overlay outside it would lose them.
- * Overlays open only after hydration, so the server value (no container) never renders an open overlay.
+ * The element every overlay portals into: the page's <main> inside the product root, or the product root itself on
+ * pages without one. Never <body>: product rules (font, focus ring, the dark variant and the light-token island) are
+ * scoped to [data-product-root], so an overlay outside it would lose them. Inside <main>, an open menu or pop-over
+ * also stays within a landmark (axe region). <main> creates no containing block or stacking context, so fixed
+ * positioning and z-index work as they would at the root. Overlays open only after hydration, so the server value
+ * (no container) never renders an open overlay.
  */
 export function usePortalContainer(): HTMLElement | null {
   return useSyncExternalStore(
     subscribe,
-    () => document.querySelector<HTMLElement>("[data-product-root]"),
+    () => document.querySelector<HTMLElement>("[data-product-root] main") ?? document.querySelector<HTMLElement>("[data-product-root]"),
     () => null,
   );
 }
