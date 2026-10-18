@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { safeReturn } from "./navigation.ts";
 import { requestKey } from "../common/values.ts";
 
 export const normalizedEmail = z.string().trim().toLowerCase().pipe(z.email());
@@ -18,7 +19,7 @@ export const registrationRequest = z.discriminatedUnion("kind", [
   z.strictObject({ ...identity, kind: z.literal("invitation"), invitationProof: proof }),
 ]);
 export const resumeRegistrationRequest = z.strictObject({ requestKey, invitationProof: proof.optional() });
-export const signInRequest = z.strictObject({ email: normalizedEmail, password: z.string().min(1).max(1024), returnTo: z.string().optional() });
+export const signInRequest = z.strictObject({ email: normalizedEmail, password: z.string().min(1).max(1024), returnTo: z.string().transform(value => safeReturn(value)).optional() });
 export const passwordRecoveryRequest = z.strictObject({ email: normalizedEmail });
 export const recoverPasswordRequest = z.strictObject({ proof, newPassword: nativePassword, confirmPassword: nativePassword })
   .refine(v => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords must match" });

@@ -1,6 +1,6 @@
 // Pure boundary helpers. Neither a local URL nor a crawler creates authority.
 export function safeReturn(input: string | null | undefined): string | null {
-  if (!input || !input.startsWith("/") || input.startsWith("//")) return null;
+  if (!input || input.length > 8192 || !input.startsWith("/") || input.startsWith("//")) return null;
   let decoded = input;
   try {
     for (;;) {

@@ -47,6 +47,8 @@ test("INV-identity: native secret confirmation cannot choose the reset subject o
   for (const length of [7, 1025]) assert.throws(() => recoverPasswordRequest.parse({ ...reset, newPassword: "x".repeat(length), confirmPassword: "x".repeat(length) }), z.ZodError);
   assert.deepEqual(wire(passwordRecoveryRequest, { email: input.email }), { email: "alex@example.test" });
   assert.deepEqual(wire(signInRequest, { email: input.email, password: " x " }), { email: "alex@example.test", password: " x " });
+  assert.deepEqual(wire(signInRequest, { email: input.email, password: " x ", returnTo: "//evil.test" }), { email: "alex@example.test", password: " x ", returnTo: null });
+  assert.deepEqual(wire(signInRequest, { email: input.email, password: " x ", returnTo: "/people?sort=name" }), { email: "alex@example.test", password: " x ", returnTo: "/people?sort=name" });
   assert.deepEqual(wire(passwordRecoveryResult, { status: "accepted" }), { status: "accepted" });
   assert.throws(() => wire(passwordRecoveryResult, { status: "accepted", accountExists: true }), z.ZodError);
   assert.deepEqual(wire(recoveryCompletedResult, { status: "password_reset", next: "sign_in" }), { status: "password_reset", next: "sign_in" });
